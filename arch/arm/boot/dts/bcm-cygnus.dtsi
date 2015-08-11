@@ -156,6 +156,8 @@
 				     <GIC_SPI 99 IRQ_TYPE_NONE>,
 				     <GIC_SPI 100 IRQ_TYPE_NONE>,
 				     <GIC_SPI 101 IRQ_TYPE_NONE>;
+			brcm,num-eq-region = <1>;
+			brcm,num-msi-msg-region = <1>;
 		};
 	};
 
@@ -189,6 +191,8 @@
 				     <GIC_SPI 105 IRQ_TYPE_NONE>,
 				     <GIC_SPI 106 IRQ_TYPE_NONE>,
 				     <GIC_SPI 107 IRQ_TYPE_NONE>;
+			brcm,num-eq-region = <1>;
+			brcm,num-msi-msg-region = <1>;
 		};
 	};
 
