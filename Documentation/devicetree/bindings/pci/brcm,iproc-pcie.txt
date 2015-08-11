@@ -44,6 +44,10 @@ following properties in the MSI child node:
 - msi-controller: claims itself as an MSI controller
 - interrupt-parent: Link to its parent interrupt device
 - interrupts: List of interrupt IDs from its parent interrupt device
+- brcm,num-eq-region: Required number of 4K aligned memory region for MSI event
+queue
+- brcm,num-msi-msg-region: Required number of 4K aligned memory region for MSI
+posted writes
 Optional:
 - brcm,pcie-msi-inten: Needs to be present for some older iProc platforms that
 requires the interrupt enable registers to be set explicitly to enable MSI
@@ -87,6 +91,8 @@ Example:
 				     <GIC_SPI 99 IRQ_TYPE_NONE>,
 				     <GIC_SPI 100 IRQ_TYPE_NONE>,
 				     <GIC_SPI 101 IRQ_TYPE_NONE>;
+			brcm,num-eq-region = <1>;
+			brcm,num-msi-msg-region = <1>;
 		};
 	};
 
