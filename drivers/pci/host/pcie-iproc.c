@@ -37,11 +37,14 @@
 #define EP_MODE_SURVIVE_PERST        BIT(EP_MODE_SURVIVE_PERST_SHIFT)
 #define RC_PCIE_RST_OUTPUT_SHIFT     0
 #define RC_PCIE_RST_OUTPUT           BIT(RC_PCIE_RST_OUTPUT_SHIFT)
+#define PAXC_RESET_MASK              0x7f
 
-#define CFG_IND_ADDR_OFFSET          0x120
+#define PAXB_CFG_IND_ADDR_OFFSET     0x120
+#define PAXC_CFG_IND_ADDR_OFFSET     0x1f0
 #define CFG_IND_ADDR_MASK            0x00001ffc
 
-#define CFG_IND_DATA_OFFSET          0x124
+#define PAXB_CFG_IND_DATA_OFFSET     0x124
+#define PAXC_CFG_IND_DATA_OFFSET     0x1f4
 
 #define CFG_ADDR_OFFSET              0x1f8
 #define CFG_ADDR_BUS_NUM_SHIFT       20
@@ -78,12 +81,46 @@
 
 #define MAX_NUM_OB_WINDOWS           2
 
+#define MAX_NUM_PAXC_PF              4
+
+/**
+ * PAXB and PAXC have a couple registers at different offset
+ */
+struct iproc_pcie_reg {
+	u32 ind_addr_offset;
+	u32 ind_data_offset;
+};
+
+static const struct iproc_pcie_reg iproc_pcie_reg[] = {
+	[IPROC_PCIE_PAXB] = {
+		.ind_addr_offset = PAXB_CFG_IND_ADDR_OFFSET,
+		.ind_data_offset = PAXB_CFG_IND_DATA_OFFSET,
+	},
+	[IPROC_PCIE_PAXC] = {
+		.ind_addr_offset = PAXC_CFG_IND_ADDR_OFFSET,
+		.ind_data_offset = PAXC_CFG_IND_DATA_OFFSET,
+	},
+};
+
 #ifdef CONFIG_ARM
 static inline struct iproc_pcie *sys_to_pcie(struct pci_sys_data *sys)
 {
 	return sys->private_data;
 }
 #endif
+
+static bool iproc_pcie_valid_device(struct iproc_pcie *pcie,
+				    unsigned int slot, unsigned int fn)
+{
+	if (slot > 0)
+		return false;
+
+	/* PAXC can only support limited number of functions */
+	if (pcie->type == IPROC_PCIE_PAXC && fn >= MAX_NUM_PAXC_PF)
+		return false;
+
+	return true;
+}
 
 /**
  * Note access to the configuration registers are protected at the higher layer
@@ -103,18 +140,17 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct pci_bus *bus,
 	unsigned fn = PCI_FUNC(devfn);
 	unsigned busno = bus->number;
 	u32 val;
+	const struct iproc_pcie_reg *reg = &iproc_pcie_reg[pcie->type];
+
+	if (!iproc_pcie_valid_device(pcie, slot, fn))
+		return NULL;
 
 	/* root complex access */
 	if (busno == 0) {
-		if (slot >= 1)
-			return NULL;
 		writel(where & CFG_IND_ADDR_MASK,
-		       pcie->base + CFG_IND_ADDR_OFFSET);
-		return (pcie->base + CFG_IND_DATA_OFFSET);
+		       pcie->base + reg->ind_addr_offset);
+		return (pcie->base + reg->ind_data_offset);
 	}
-
-	if (fn > 1)
-		return NULL;
 
 	/* EP device access */
 	val = (busno << CFG_ADDR_BUS_NUM_SHIFT) |
@@ -136,6 +172,17 @@ static struct pci_ops iproc_pcie_ops = {
 static void iproc_pcie_reset(struct iproc_pcie *pcie)
 {
 	u32 val;
+
+	if (pcie->type == IPROC_PCIE_PAXC) {
+		val = readl(pcie->base + CLK_CONTROL_OFFSET);
+		val &= ~PAXC_RESET_MASK;
+		writel(val, pcie->base + CLK_CONTROL_OFFSET);
+		udelay(100);
+		val |= PAXC_RESET_MASK;
+		writel(val, pcie->base + CLK_CONTROL_OFFSET);
+		udelay(100);
+		return;
+	}
 
 	/*
 	 * Select perst_b signal as reset source, and put the device in
@@ -162,6 +209,13 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie, struct pci_bus *bus)
 	u32 link_ctrl, class, val;
 	u16 pos, link_status;
 	bool link_is_active = false;
+
+	/*
+	 * PAXC connects to emulated endpoint devices directly and does not
+	 * have a Serdes. Therefore skip the link detection logic here
+	 */
+	if (pcie->type == IPROC_PCIE_PAXC)
+		return 0;
 
 	val = readl(pcie->base + PCIE_LINK_STATUS_OFFSET);
 	if (!(val & PCIE_PHYLINKUP) || !(val & PCIE_DL_ACTIVE)) {
@@ -227,7 +281,8 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie, struct pci_bus *bus)
 
 static void iproc_pcie_enable(struct iproc_pcie *pcie)
 {
-	writel(SYS_RC_INTX_MASK, pcie->base + SYS_RC_INTX_EN);
+	if (pcie->type == IPROC_PCIE_PAXB)
+		writel(SYS_RC_INTX_MASK, pcie->base + SYS_RC_INTX_EN);
 }
 
 /**
