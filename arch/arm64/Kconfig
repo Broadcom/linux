@@ -171,6 +171,13 @@ config ARCH_BCM_NS2
 	  This enables support for Broadcom NS2 (BCM5871X). NS2 is in
 	  the iProc family of SoCs based on the ARMv8 architecture
 
+config ARCH_BCM_STINGRAY
+	bool "Broadcom Stingray (BCM5873X)"
+	select ARCH_BCM_IPROC
+	help
+	  This enables support for Broadcom Stingray (BCM5873X). Stingray
+	  is in the iProc family of SoCs based on the ARMv8 architecture
+
 config ARCH_EXYNOS
 	bool
 	help
