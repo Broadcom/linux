@@ -1,4 +1,5 @@
 dtb-$(CONFIG_ARCH_BCM_NS2) += ns2-svk.dtb
+dtb-$(CONFIG_ARCH_BCM_IPROC) += stingray-palladium.dtb
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)

@@ -1,0 +1,9 @@
+Broadcom Stingray device tree bindings
+------------------------------------------------
+
+Boards with Stingray SOC shall have the following properties:
+
+Required root node property:
+
+Stingray SOC
+compatible = "brcm,stingray";
