@@ -51,6 +51,10 @@
 		status = "ok";
 	};
 
+	pcie8: pcie@60c00000 {
+		status = "ok";
+	};
+
 	soc: soc {
 		uart3: serial@66130000 {
 			status = "ok";
