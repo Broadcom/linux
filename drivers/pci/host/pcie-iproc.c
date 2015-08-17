@@ -39,6 +39,16 @@
 #define RC_PCIE_RST_OUTPUT           BIT(RC_PCIE_RST_OUTPUT_SHIFT)
 #define PAXC_RESET_MASK              0x7f
 
+#define PAXC_CFG_ECM_ADDR_OFFSET     0x1e0
+#define PAXC_CFG_ECM_DBG_EN_SHIFT    31
+#define PAXC_CFG_ECM_DBG_EN          BIT(PAXC_CFG_ECM_DBG_EN_SHIFT)
+#define PAXC_CFG_FUNC_SHIFT          12
+#define PAXC_CFG_FUNC_MASK           0x7000
+#define PAXC_CFG_FUNC(pf)            (((pf) << PAXC_CFG_FUNC_SHIFT) & \
+				      PAXC_CFG_FUNC_MASK)
+
+#define PAXC_CFG_ECM_DATA_OFFSET     0x1e4
+
 #define PAXB_CFG_IND_ADDR_OFFSET     0x120
 #define PAXC_CFG_IND_ADDR_OFFSET     0x1f0
 #define CFG_IND_ADDR_MASK            0x00001ffc
@@ -498,6 +508,57 @@ int iproc_pcie_remove(struct iproc_pcie *pcie)
 	return 0;
 }
 EXPORT_SYMBOL(iproc_pcie_remove);
+
+/**
+ * FIXME
+ * Hacky code to work around the ASIC issue with PAXC and Nitro
+ *
+ * 1. The bridge header fix should eventually be moved to pci/quirks.c
+ * 2. The Nitro fix should be moved to either Chimp firmware or the Nitro
+ * kernel driver, which we have no control at this point. Or, hopefully this
+ * may be fixed in NS2 B0
+ */
+static void quirk_paxc_bridge(struct pci_dev *pdev)
+{
+#ifdef CONFIG_ARM
+	struct pci_sys_data *sys = pdev->sysdata;
+	struct iproc_pcie *pcie = sys_to_pcie(sys);
+#else
+	struct iproc_pcie *pcie = pdev->sysdata;
+#endif
+	int pf;
+
+	if (pdev->hdr_type == PCI_HEADER_TYPE_BRIDGE) {
+		pdev->class = PCI_CLASS_BRIDGE_PCI << 8;
+		return;
+	}
+
+#define NITRO_MSI_CFG_OFFSET 0x4c4
+#define NITRO_QSIZE_OFFSET   0x4c0
+	for (pf = 0; pf < MAX_NUM_PAXC_PF; pf++) {
+		u32 val;
+
+		/*
+		 * TODO:
+		 * Need to figure out what these hardcoded values mean.
+		 * It's unbelievable that after weeks of poking around and
+		 * digging, there's still no one who can point me to a proper
+		 * Nitro documentation
+		 */
+		val = PAXC_CFG_ECM_DBG_EN | PAXC_CFG_FUNC(pf) |
+			NITRO_MSI_CFG_OFFSET;
+		writel(val, pcie->base + PAXC_CFG_ECM_ADDR_OFFSET);
+		writel(0x4, pcie->base + PAXC_CFG_ECM_DATA_OFFSET);
+
+		val = PAXC_CFG_ECM_DBG_EN | PAXC_CFG_FUNC(pf) |
+			NITRO_QSIZE_OFFSET;
+		writel(val, pcie->base + PAXC_CFG_ECM_ADDR_OFFSET);
+		writel(0xba80b, pcie->base + PAXC_CFG_ECM_DATA_OFFSET);
+	}
+	writel(0, pcie->base + PAXC_CFG_ECM_ADDR_OFFSET);
+}
+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57810,
+			quirk_paxc_bridge);
 
 MODULE_AUTHOR("Ray Jui <rjui@broadcom.com>");
 MODULE_DESCRIPTION("Broadcom iPROC PCIe common driver");
