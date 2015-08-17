@@ -75,7 +75,7 @@ main() {
 	fi
 
 	# iproc_defconfig, for both NS2 and Stingray
-	do_update iproc base-arm64 dbg
+	do_update iproc base-arm64 i2c dbg
 
 	# add support for other defconfigs here
 
