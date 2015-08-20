@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Broadcom Corporation
+ * Copyright (C) 2014-2015 Broadcom Corporation
  * Copyright 2014 Linaro Limited
  *
  * This program is free software; you can redistribute it and/or
@@ -12,15 +12,22 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/init.h>
+#include <linux/cpumask.h>
+#include <linux/delay.h>
 #include <linux/errno.h>
+#include <linux/init.h>
 #include <linux/io.h>
+#include <linux/jiffies.h>
 #include <linux/of.h>
 #include <linux/sched.h>
+#include <linux/smp.h>
 
+#include <asm/cacheflush.h>
 #include <asm/smp.h>
 #include <asm/smp_plat.h>
 #include <asm/smp_scu.h>
+
+#include "bcm_nsp.h"
 
 /* Size of mapped Cortex A9 SCU address space */
 #define CORTEX_A9_SCU_SIZE	0x58
@@ -33,6 +40,24 @@
 
 /* I/O address of register used to coordinate secondary core startup */
 static u32	secondary_boot;
+
+static DEFINE_SPINLOCK(boot_lock);
+
+/*
+ * Write pen_release in a way that is guaranteed to be visible to all
+ * observers, irrespective of whether they're taking part in coherency
+ * or not.  This is necessary for the hotplug code to work reliably.
+ */
+static void write_pen_release(int val)
+{
+	pen_release = val;
+	/*
+	 * Ensure write to pen_release is visible to the other cores,
+	 * here - primary core
+	 */
+	smp_wmb();
+	sync_cache_w(&pen_release);
+}
 
 /*
  * Enable the Cortex A9 Snoop Control Unit
@@ -75,6 +100,50 @@ static int __init scu_a9_enable(void)
 	return 0;
 }
 
+static int nsp_write_lut(void (*secondary_startup) (void))
+{
+	void __iomem *sku_rom_lut;
+	phys_addr_t secondary_startup_phy;
+
+	if (!secondary_boot) {
+		pr_warn("required secondary boot register not specified\n");
+		return -EINVAL;
+	}
+
+	sku_rom_lut = ioremap_nocache((phys_addr_t)secondary_boot,
+						sizeof(secondary_boot));
+	if (!sku_rom_lut) {
+		pr_warn("unable to ioremap SKU-ROM LUT register\n");
+		return -ENOMEM;
+	}
+
+	secondary_startup_phy = virt_to_phys(secondary_startup);
+
+	writel_relaxed(secondary_startup_phy, sku_rom_lut);
+	/*
+	 * Ensure the write is visible to the secondary core.
+	 */
+	smp_wmb();
+
+	iounmap(sku_rom_lut);
+
+	return 0;
+}
+
+static void nsp_secondary_init(unsigned int cpu)
+{
+	/*
+	 * Let the primary cpu know we are out of holding pen.
+	 */
+	write_pen_release(-1);
+
+	/*
+	 * Synchronise with the boot thread.
+	 */
+	spin_lock(&boot_lock);
+	spin_unlock(&boot_lock);
+}
+
 static void __init bcm_smp_prepare_cpus(unsigned int max_cpus)
 {
 	static cpumask_t only_cpu_0 = { CPU_BITS_CPU0 };
@@ -95,11 +164,11 @@ static void __init bcm_smp_prepare_cpus(unsigned int max_cpus)
 	/*
 	 * Our secondary enable method requires a "secondary-boot-reg"
 	 * property to specify a register address used to request the
-	 * ROM code boot a secondary code.  If we have any trouble
+	 * ROM code boot a secondary core.  If we have any trouble
 	 * getting this we fall back to uniprocessor mode.
 	 */
 	if (of_property_read_u32(node, OF_SECONDARY_BOOT, &secondary_boot)) {
-		pr_err("%s: missing/invalid " OF_SECONDARY_BOOT " property\n",
+		pr_warn("%s: missing/invalid " OF_SECONDARY_BOOT " property\n",
 			node->name);
 		ret = -ENOENT;		/* Arrange to disable SMP */
 		goto out;
@@ -115,7 +184,6 @@ out:
 	of_node_put(node);
 	if (ret) {
 		/* Update the CPU present map to reflect uniprocessor mode */
-		BUG_ON(ret != -ENOENT);
 		pr_warn("disabling SMP\n");
 		init_cpu_present(&only_cpu_0);
 	}
@@ -139,7 +207,7 @@ out:
  * - Wait for the secondary boot register to be re-written, which
  *   indicates the secondary core has started.
  */
-static int bcm_boot_secondary(unsigned int cpu, struct task_struct *idle)
+static int kona_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	void __iomem *boot_reg;
 	phys_addr_t boot_func;
@@ -162,7 +230,7 @@ static int bcm_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	boot_reg = ioremap_nocache((phys_addr_t)secondary_boot, sizeof(u32));
 	if (!boot_reg) {
 		pr_err("unable to map boot register for cpu %u\n", cpu_id);
-		return -ENOSYS;
+		return -ENOMEM;
 	}
 
 	/*
@@ -191,12 +259,67 @@ static int bcm_boot_secondary(unsigned int cpu, struct task_struct *idle)
 
 	pr_err("timeout waiting for cpu %u to start\n", cpu_id);
 
-	return -ENOSYS;
+	return -ENXIO;
+}
+
+static int nsp_boot_secondary(unsigned int cpu, struct task_struct *idle)
+{
+	unsigned long timeout;
+	int ret;
+
+	/*
+	 * After wake up, secondary core branches to the startup
+	 * address programmed at SKU ROM LUT location.
+	 */
+	ret = nsp_write_lut(nsp_secondary_startup);
+	if (ret) {
+		pr_err("unable to write startup addr to SKU ROM LUT\n");
+		goto out;
+	}
+
+	/*
+	 * The secondary processor is waiting to be released from
+	 * the holding pen - release it, then wait for it to flag
+	 * that it has been released by resetting pen_release.
+	 */
+	spin_lock(&boot_lock);
+
+	write_pen_release(cpu_logical_map(cpu));
+	/*
+	 * Send an Event to wake up the secondary core which is in
+	 * WFE state. Updated pen_release should also be visible to
+	 * the secondary core.
+	 */
+	dsb_sev();
+
+	timeout = jiffies + (1 * HZ);
+	while (time_before(jiffies, timeout)) {
+		/* Make sure loads on other CPU is visible */
+		smp_rmb();
+		if (pen_release == -1)
+			break;
+
+		udelay(10);
+	}
+
+	spin_unlock(&boot_lock);
+
+	ret = pen_release != -1 ? -ENXIO : 0;
+
+out:
+	return ret;
 }
 
 static struct smp_operations bcm_smp_ops __initdata = {
 	.smp_prepare_cpus	= bcm_smp_prepare_cpus,
-	.smp_boot_secondary	= bcm_boot_secondary,
+	.smp_boot_secondary	= kona_boot_secondary,
 };
 CPU_METHOD_OF_DECLARE(bcm_smp_bcm281xx, "brcm,bcm11351-cpu-method",
 			&bcm_smp_ops);
+
+struct smp_operations nsp_smp_ops __initdata = {
+	.smp_prepare_cpus	= bcm_smp_prepare_cpus,
+	.smp_secondary_init	= nsp_secondary_init,
+	.smp_boot_secondary	= nsp_boot_secondary,
+};
+CPU_METHOD_OF_DECLARE(bcm_smp_nsp, "brcm,bcm-nsp-smp", &nsp_smp_ops);
