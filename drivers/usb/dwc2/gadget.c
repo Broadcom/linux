@@ -1949,8 +1949,7 @@ static void s3c_hsotg_epint(struct dwc2_hsotg *hsotg, unsigned int idx,
 		ints &= ~DXEPINT_XFERCOMPL;
 
 	if (ints & DXEPINT_XFERCOMPL) {
-		if (hs_ep->isochronous && !hs_ep->parity_set)
-			hs_ep->parity_set = 1;
+		hs_ep->has_correct_parity = 1;
 		if (hs_ep->isochronous && hs_ep->interval == 1) {
 			if (ctrl & DXEPCTL_EOFRNUM)
 				ctrl |= DXEPCTL_SETEVENFR;
@@ -2567,43 +2566,47 @@ irq_retry:
 	}
 
 	if (gintsts & GINTSTS_INCOMPL_SOIN) {
-		u32 idx;
+		u32 idx, epctl_reg, ctrl;
 		struct s3c_hsotg_ep *hs_ep;
 
 		dev_dbg(hsotg->dev, "%s: GINTSTS_INCOMPL_SOIN\n", __func__);
 		for (idx = 1; idx < MAX_EPS_CHANNELS; idx++) {
 			hs_ep = hsotg->eps_in[idx];
-			if (hs_ep->isochronous && !hs_ep->parity_set) {
-				u32 epctl_reg = DIEPCTL(idx);
-				u32 ctrl = readl(hsotg->regs + epctl_reg);
 
-				if (ctrl & DXEPCTL_EOFRNUM)
-					ctrl |= DXEPCTL_SETEVENFR;
-				else
-					ctrl |= DXEPCTL_SETODDFR;
-				writel(ctrl, hsotg->regs + epctl_reg);
-			}
+			if (!hs_ep->isochronous || hs_ep->has_correct_parity)
+				continue;
+
+			epctl_reg = DIEPCTL(idx);
+			ctrl = readl(hsotg->regs + epctl_reg);
+
+			if (ctrl & DXEPCTL_EOFRNUM)
+				ctrl |= DXEPCTL_SETEVENFR;
+			else
+				ctrl |= DXEPCTL_SETODDFR;
+			writel(ctrl, hsotg->regs + epctl_reg);
 		}
 		writel(GINTSTS_INCOMPL_SOIN, hsotg->regs + GINTSTS);
 	}
 
 	if (gintsts & GINTSTS_INCOMPL_SOOUT) {
-		u32 idx;
+		u32 idx, epctl_reg, ctrl;
 		struct s3c_hsotg_ep *hs_ep;
 
 		dev_dbg(hsotg->dev, "%s: GINTSTS_INCOMPL_SOOUT\n", __func__);
 		for (idx = 1; idx < MAX_EPS_CHANNELS; idx++) {
 			hs_ep = hsotg->eps_out[idx];
-			if (hs_ep->isochronous && !hs_ep->parity_set) {
-				u32 epctl_reg = DOEPCTL(idx);
-				u32 ctrl = readl(hsotg->regs + epctl_reg);
 
-				if (ctrl & DXEPCTL_EOFRNUM)
-					ctrl |= DXEPCTL_SETEVENFR;
-				else
-					ctrl |= DXEPCTL_SETODDFR;
-				writel(ctrl, hsotg->regs + epctl_reg);
-			}
+			if (!hs_ep->isochronous || hs_ep->has_correct_parity)
+				continue;
+
+			epctl_reg = DOEPCTL(idx);
+			ctrl = readl(hsotg->regs + epctl_reg);
+
+			if (ctrl & DXEPCTL_EOFRNUM)
+				ctrl |= DXEPCTL_SETEVENFR;
+			else
+				ctrl |= DXEPCTL_SETODDFR;
+			writel(ctrl, hsotg->regs + epctl_reg);
 		}
 		writel(GINTSTS_INCOMPL_SOOUT, hsotg->regs + GINTSTS);
 	}
@@ -2694,7 +2697,7 @@ static int s3c_hsotg_ep_enable(struct usb_ep *ep,
 	hs_ep->periodic = 0;
 	hs_ep->halted = 0;
 	hs_ep->interval = desc->bInterval;
-	hs_ep->parity_set = 0;
+	hs_ep->has_correct_parity = 0;
 
 	if (hs_ep->interval > 1 && hs_ep->mc > 1)
 		dev_err(hsotg->dev, "MC > 1 when interval is not 1\n");
