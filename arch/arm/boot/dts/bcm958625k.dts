@@ -54,4 +54,16 @@
 	uart1: serial@18000400 {
 		status = "okay";
 	};
+
+	pcie0: pcie@18012000 {
+		status = "okay";
+	};
+
+	pcie1: pcie@18013000 {
+		status = "okay";
+	};
+
+	pcie2: pcie@18014000 {
+		status = "okay";
+	};
 };
