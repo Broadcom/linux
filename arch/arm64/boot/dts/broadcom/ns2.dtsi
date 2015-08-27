@@ -50,6 +50,11 @@
 			reg = <0 0>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0 0x84b00000>;
+			next-level-cache = <&CLUSTER0_L2>;
+		};
+
+		CLUSTER0_L2: l2-cache@000 {
+			compatible = "cache";
 		};
 	};
 
