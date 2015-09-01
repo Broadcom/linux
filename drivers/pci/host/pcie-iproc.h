@@ -49,7 +49,6 @@ struct iproc_pcie_ob {
  * @dev: pointer to device data structure
  * @type: iProc PCIe interface type
  * @base: PCIe host controller I/O register base
- * @resources: linked list of all PCI resources
  * @sysdata: Per PCI controller data
  * @root_bus: pointer to root bus
  * @phy: optional PHY device that controls the Serdes
@@ -60,7 +59,6 @@ struct iproc_pcie {
 	struct device *dev;
 	enum iproc_pcie_type type;
 	void __iomem *base;
-	struct list_head *resources;
 #ifdef CONFIG_ARM
 	struct pci_sys_data sysdata;
 #endif
@@ -68,9 +66,11 @@ struct iproc_pcie {
 	struct phy *phy;
 	bool need_ob_cfg;
 	struct iproc_pcie_ob ob;
+	int irqs[IPROC_PCIE_MAX_NUM_IRQS];
+	int (*map_irq)(const struct pci_dev *, u8, u8);
 };
 
-int iproc_pcie_setup(struct iproc_pcie *pcie);
+int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res);
 int iproc_pcie_remove(struct iproc_pcie *pcie);
 struct msi_controller *iproc_pcie_msi_init(struct iproc_pcie *pcie,
 					   struct device_node *node);

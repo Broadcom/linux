@@ -112,12 +112,18 @@ static const struct iproc_pcie_reg iproc_pcie_reg[] = {
 	},
 };
 
-#ifdef CONFIG_ARM
-static inline struct iproc_pcie *sys_to_pcie(struct pci_sys_data *sys)
+static inline struct iproc_pcie *iproc_data(struct pci_bus *bus)
 {
-	return sys->private_data;
-}
+	struct iproc_pcie *pcie;
+#ifdef CONFIG_ARM
+	struct pci_sys_data *sys = bus->sysdata;
+
+	pcie = sys->private_data;
+#else
+	pcie = bus->sysdata;
 #endif
+	return pcie;
+}
 
 static bool iproc_pcie_valid_device(struct iproc_pcie *pcie,
 				    unsigned int slot, unsigned int fn)
@@ -140,12 +146,7 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct pci_bus *bus,
 					    unsigned int devfn,
 					    int where)
 {
-#ifdef CONFIG_ARM
-	struct pci_sys_data *sys = bus->sysdata;
-	struct iproc_pcie *pcie = sys_to_pcie(sys);
-#else
-	struct iproc_pcie *pcie = bus->sysdata;
-#endif
+	struct iproc_pcie *pcie = iproc_data(bus);
 	unsigned slot = PCI_SLOT(devfn);
 	unsigned fn = PCI_FUNC(devfn);
 	unsigned busno = bus->number;
@@ -358,9 +359,9 @@ static int iproc_pcie_setup_ob(struct iproc_pcie *pcie, u64 axi_addr,
 	return 0;
 }
 
-static int iproc_pcie_map_ranges(struct iproc_pcie *pcie)
+static int iproc_pcie_map_ranges(struct iproc_pcie *pcie,
+				 struct list_head *resources)
 {
-	struct list_head *resources = pcie->resources;
 	struct resource_entry *window;
 	int ret;
 
@@ -411,9 +412,10 @@ static int iproc_pcie_msi_enable(struct iproc_pcie *pcie)
 	return 0;
 }
 
-int iproc_pcie_setup(struct iproc_pcie *pcie)
+int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 {
 	int ret;
+	void *sysdata;
 	struct pci_bus *bus;
 
 	if (!pcie || !pcie->dev || !pcie->base)
@@ -437,7 +439,7 @@ int iproc_pcie_setup(struct iproc_pcie *pcie)
 	iproc_pcie_reset(pcie);
 
 	if (pcie->need_ob_cfg) {
-		ret = iproc_pcie_map_ranges(pcie);
+		ret = iproc_pcie_map_ranges(pcie, res);
 		if (ret) {
 			dev_err(pcie->dev, "map failed\n");
 			goto err_power_off_phy;
@@ -446,12 +448,12 @@ int iproc_pcie_setup(struct iproc_pcie *pcie)
 
 #ifdef CONFIG_ARM
 	pcie->sysdata.private_data = pcie;
-	bus = pci_create_root_bus(pcie->dev, 0, &iproc_pcie_ops,
-				  &pcie->sysdata, pcie->resources);
+	sysdata = &pcie->sysdata;
 #else
-	bus = pci_create_root_bus(pcie->dev, 0, &iproc_pcie_ops, pcie,
-				  pcie->resources);
+	sysdata = pcie;
 #endif
+
+	bus = pci_create_root_bus(pcie->dev, 0, &iproc_pcie_ops, sysdata, res);
 	if (!bus) {
 		dev_err(pcie->dev, "unable to create PCI root bus\n");
 		ret = -ENOMEM;
@@ -474,7 +476,7 @@ int iproc_pcie_setup(struct iproc_pcie *pcie)
 	pci_scan_child_bus(bus);
 	pci_assign_unassigned_bus_resources(bus);
 #ifdef CONFIG_ARM
-	pci_fixup_irqs(pci_common_swizzle, of_irq_parse_and_map_pci);
+	pci_fixup_irqs(pci_common_swizzle, pcie->map_irq);
 #endif
 	pci_bus_add_devices(bus);
 
@@ -520,12 +522,7 @@ EXPORT_SYMBOL(iproc_pcie_remove);
  */
 static void quirk_paxc_bridge(struct pci_dev *pdev)
 {
-#ifdef CONFIG_ARM
-	struct pci_sys_data *sys = pdev->sysdata;
-	struct iproc_pcie *pcie = sys_to_pcie(sys);
-#else
-	struct iproc_pcie *pcie = pdev->sysdata;
-#endif
+	struct iproc_pcie *pcie = iproc_data(pdev->bus);
 	int pf;
 
 	if (pdev->hdr_type == PCI_HEADER_TYPE_BRIDGE) {
