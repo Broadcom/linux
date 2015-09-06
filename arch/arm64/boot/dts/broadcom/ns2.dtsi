@@ -71,6 +71,8 @@
 		clock-frequency = <25000000>;
 	};
 
+	/include/ "ns2-clock.dtsi"
+
 	pcie4: pcie@50020000 {
 		compatible = "brcm,iproc-pcie";
 		reg = <0 0x50020000 0 0x1000>;
