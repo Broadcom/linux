@@ -238,5 +238,23 @@
 			clock-frequency = <100000>;
 			status = "disabled";
 		};
+
+		sdio0: sdhci@0x66420000 {
+			compatible = "brcm,sdhci-iproc-cygnus";
+			reg = <0x66420000 0x100>;
+			interrupts = <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>;
+			bus-width = <8>;
+			clocks = <&sdio_clk>;
+			status = "disabled";
+		};
+
+		sdio1: sdhci@0x66430000 {
+			compatible = "brcm,sdhci-iproc-cygnus";
+			reg = <0x66430000 0x100>;
+			interrupts = <GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>;
+			bus-width = <8>;
+			clocks = <&sdio_clk>;
+			status = "disabled";
+		};
 	};
 };
