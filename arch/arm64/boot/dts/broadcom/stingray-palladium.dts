@@ -35,7 +35,7 @@
 /* HACK: Reserve arm64 tiny boot location */
 /memreserve/ 0x80000000 0x00020000;
 /* HACK: Reserve initrd location */
-/memreserve/ 0x80800000 0x00800000;
+/memreserve/ 0x81000000 0x00800000;
 
 #include "stingray.dtsi"
 
@@ -47,11 +47,11 @@
 	};
 
 	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/ram rw \
+		bootargs = "root=/dev/ram rw maxcpus=2 console=ttyS0,4800n8 \
 			    earlycon=uart8250,mmio32,0x68a00000";
-		stdout-path = "serial0:4800n8";
-		linux,initrd-start = <0x0 0x80800000>;
-		linux,initrd-end = <0x0 0x81000000>;
+		linux,stdout-path = "/soc/uart@68a00000:4800n8";
+		linux,initrd-start = <0x0 0x81000000>;
+		linux,initrd-end = <0x0 0x81800000>;
 	};
 
 	cpus { /* HACK: arm64 tiny boot implements spin-table */
