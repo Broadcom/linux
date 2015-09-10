@@ -46,4 +46,25 @@ clocks {
 		#clock-cells = <0>;
 		clock-frequency = <216000000>;
 	};
+
+	scr_clk: fixed_532mhz {
+		compatile = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <532000000>;
+		clock-output-names = "scr";
+	};
+
+	scr_div2_clk: fixed_266mhz {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <266000000>;
+		clock-output-names = "scr_div2";
+	};
+
+	scr_div4_clk: fixed_133mhz {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <133000000>;
+		clock-output-names = "scr_div4";
+	};
 };
