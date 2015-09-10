@@ -248,16 +248,6 @@
 			      <0x65260000 0x1000>;
 		};
 
-		uart3: serial@66130000 {
-			compatible = "snps,dw-apb-uart";
-			reg = <0x66130000 0x100>;
-			interrupts = <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
-			reg-shift = <2>;
-			reg-io-width = <4>;
-			clock-frequency = <23961600>;
-			status = "disabled";
-		};
-
 		i2c0: i2c@66080000 {
 			compatible = "brcm,iproc-i2c";
 			reg = <0x66080000 0x100>;
@@ -275,6 +265,16 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 395 IRQ_TYPE_NONE>;
 			clock-frequency = <100000>;
+			status = "disabled";
+		};
+
+		uart3: serial@66130000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x66130000 0x100>;
+			interrupts = <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			clock-frequency = <23961600>;
 			status = "disabled";
 		};
 
