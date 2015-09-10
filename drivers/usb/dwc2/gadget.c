@@ -1916,6 +1916,19 @@ static void s3c_hsotg_complete_in(struct dwc2_hsotg *hsotg,
 	s3c_hsotg_complete_request(hsotg, hs_ep, hs_req, 0);
 }
 
+static void s3c_hsotg_change_ep_iso_parity(struct dwc2_hsotg *hsotg,
+			u32 epctl_reg)
+{
+	u32 ctrl;
+
+	ctrl = readl(hsotg->regs + epctl_reg);
+	if (ctrl & DXEPCTL_EOFRNUM)
+		ctrl |= DXEPCTL_SETEVENFR;
+	else
+		ctrl |= DXEPCTL_SETODDFR;
+	writel(ctrl, hsotg->regs + epctl_reg);
+}
+
 /**
  * s3c_hsotg_epint - handle an in/out endpoint interrupt
  * @hsotg: The driver state
@@ -1956,11 +1969,7 @@ static void s3c_hsotg_epint(struct dwc2_hsotg *hsotg, unsigned int idx,
 	if (ints & DXEPINT_XFERCOMPL) {
 		hs_ep->has_correct_parity = 1;
 		if (hs_ep->isochronous && hs_ep->interval == 1) {
-			if (ctrl & DXEPCTL_EOFRNUM)
-				ctrl |= DXEPCTL_SETEVENFR;
-			else
-				ctrl |= DXEPCTL_SETODDFR;
-			writel(ctrl, hsotg->regs + epctl_reg);
+			s3c_hsotg_change_ep_iso_parity(hsotg, epctl_reg);
 		}
 
 		dev_dbg(hsotg->dev,
@@ -2584,47 +2593,35 @@ irq_retry:
 	}
 
 	if (gintsts & GINTSTS_INCOMPL_SOIN) {
-		u32 idx, epctl_reg, ctrl;
+		u32 idx, epctl_reg;
 		struct s3c_hsotg_ep *hs_ep;
 
 		dev_dbg(hsotg->dev, "%s: GINTSTS_INCOMPL_SOIN\n", __func__);
-		for (idx = 1; idx < MAX_EPS_CHANNELS; idx++) {
+		for (idx = 1; idx < hsotg->num_of_eps; idx++) {
 			hs_ep = hsotg->eps_in[idx];
 
 			if (!hs_ep->isochronous || hs_ep->has_correct_parity)
 				continue;
 
 			epctl_reg = DIEPCTL(idx);
-			ctrl = readl(hsotg->regs + epctl_reg);
-
-			if (ctrl & DXEPCTL_EOFRNUM)
-				ctrl |= DXEPCTL_SETEVENFR;
-			else
-				ctrl |= DXEPCTL_SETODDFR;
-			writel(ctrl, hsotg->regs + epctl_reg);
+			s3c_hsotg_change_ep_iso_parity(hsotg, epctl_reg);
 		}
 		writel(GINTSTS_INCOMPL_SOIN, hsotg->regs + GINTSTS);
 	}
 
 	if (gintsts & GINTSTS_INCOMPL_SOOUT) {
-		u32 idx, epctl_reg, ctrl;
+		u32 idx, epctl_reg;
 		struct s3c_hsotg_ep *hs_ep;
 
 		dev_dbg(hsotg->dev, "%s: GINTSTS_INCOMPL_SOOUT\n", __func__);
-		for (idx = 1; idx < MAX_EPS_CHANNELS; idx++) {
+		for (idx = 1; idx < hsotg->num_of_eps; idx++) {
 			hs_ep = hsotg->eps_out[idx];
 
 			if (!hs_ep->isochronous || hs_ep->has_correct_parity)
 				continue;
 
 			epctl_reg = DOEPCTL(idx);
-			ctrl = readl(hsotg->regs + epctl_reg);
-
-			if (ctrl & DXEPCTL_EOFRNUM)
-				ctrl |= DXEPCTL_SETEVENFR;
-			else
-				ctrl |= DXEPCTL_SETODDFR;
-			writel(ctrl, hsotg->regs + epctl_reg);
+			s3c_hsotg_change_ep_iso_parity(hsotg, epctl_reg);
 		}
 		writel(GINTSTS_INCOMPL_SOOUT, hsotg->regs + GINTSTS);
 	}
