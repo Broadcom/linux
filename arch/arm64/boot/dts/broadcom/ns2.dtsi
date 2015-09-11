@@ -318,6 +318,11 @@
 			status = "disabled";
 		};
 
+		hwrng: hwrng@66220000 {
+			compatible = "brcm,iproc-rng200";
+			reg = <0x66220000 0x28>;
+		};
+
 		sdio0: sdhci@0x66420000 {
 			compatible = "brcm,sdhci-iproc-cygnus";
 			reg = <0x66420000 0x100>;
