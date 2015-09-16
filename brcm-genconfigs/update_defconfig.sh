@@ -69,13 +69,18 @@ declare -a SEARCH_PATH=(
 #
 #*****************************************************************************
 main() {
+	local iproc_base
+	local iproc_extra
+
 	# Show all commands (for debugging).
 	if [ $V -ne 0 ]; then
 		set -x
 	fi
 
 	# iproc_defconfig, for both NS2 and Stingray
-	do_update iproc base-arm64 clocksource dbg i2c mmc mtd rng watchdog
+	iproc_base="base-arm64 clocksource dbg"
+	iproc_extra="dma i2c mmc mtd rng watchdog"
+	do_update iproc $iproc_base $iproc_extra
 
 	# add support for other defconfigs here
 
