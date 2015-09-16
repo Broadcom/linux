@@ -34,9 +34,11 @@
 		{ .offset = o, .en_shift = es, .high_shift = hs, \
 		.high_width = hw, .low_shift = ls, .low_width = lw }
 
-#define reset_val(o, rs, prs, kis, kiw, kps, kpw, kas, kaw) { .offset = o, \
-	.reset_shift = rs, .p_reset_shift = prs, .ki_shift = kis, \
-	.ki_width = kiw, .kp_shift = kps, .kp_width = kpw, .ka_shift = kas, \
+#define reset_val(o, rs, prs) { .offset = o, .reset_shift = rs, \
+	.p_reset_shift = prs }
+
+#define df_val(o, kis, kiw, kps, kpw, kas, kaw) { .offset = o, .ki_shift = kis,\
+	.ki_width = kiw, .kp_shift = kps, .kp_width = kpw, .ka_shift = kas,    \
 	.ka_width = kaw }
 
 #define vco_ctrl_val(uo, lo) { .u_offset = uo, .l_offset = lo }
@@ -56,7 +58,8 @@ static const struct iproc_pll_ctrl genpll = {
 	.flags = IPROC_CLK_AON | IPROC_CLK_PLL_HAS_NDIV_FRAC |
 		IPROC_CLK_PLL_NEEDS_SW_CFG,
 	.aon = aon_val(0x0, 2, 1, 0),
-	.reset = reset_val(0x0, 11, 10, 4, 3, 0, 4, 7, 3),
+	.reset = reset_val(0x0, 11, 10),
+	.dig_filter = df_val(0x0, 4, 3, 0, 4, 7, 3),
 	.sw_ctrl = sw_ctrl_val(0x10, 31),
 	.ndiv_int = reg_val(0x10, 20, 10),
 	.ndiv_frac = reg_val(0x10, 0, 20),
@@ -114,7 +117,8 @@ CLK_OF_DECLARE(cygnus_genpll, "brcm,cygnus-genpll", cygnus_genpll_clk_init);
 static const struct iproc_pll_ctrl lcpll0 = {
 	.flags = IPROC_CLK_AON | IPROC_CLK_PLL_NEEDS_SW_CFG,
 	.aon = aon_val(0x0, 2, 5, 4),
-	.reset = reset_val(0x0, 31, 30, 27, 3, 23, 4, 19, 4),
+	.reset = reset_val(0x0, 31, 30),
+	.dig_filter = df_val(0x0, 27, 3, 23, 4, 19, 4),
 	.sw_ctrl = sw_ctrl_val(0x4, 31),
 	.ndiv_int = reg_val(0x4, 16, 10),
 	.pdiv = reg_val(0x4, 26, 4),
@@ -191,7 +195,8 @@ static const struct iproc_pll_ctrl mipipll = {
 		 IPROC_CLK_NEEDS_READ_BACK,
 	.aon = aon_val(0x0, 4, 17, 16),
 	.asiu = asiu_gate_val(0x0, 3),
-	.reset = reset_val(0x0, 11, 10, 4, 3, 0, 4, 7, 4),
+	.reset = reset_val(0x0, 11, 10),
+	.dig_filter = df_val(0x0, 4, 3, 0, 4, 7, 4),
 	.ndiv_int = reg_val(0x10, 20, 10),
 	.ndiv_frac = reg_val(0x10, 0, 20),
 	.pdiv = reg_val(0x14, 0, 4),
