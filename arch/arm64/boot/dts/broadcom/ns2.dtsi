@@ -31,6 +31,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/bcm-ns2.h>
 
 /memreserve/ 0x84b00000 0x00000008;
 
@@ -200,7 +201,7 @@
 			#dma-cells = <1>;
 			#dma-channels = <8>;
 			#dma-requests = <32>;
-			clocks = <&scr_div4_clk>;
+			clocks = <&iprocslow>;
 			clock-names = "apb_pclk";
 		};
 
@@ -271,9 +272,9 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x66030000 0x1000>;
 			interrupts = <GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&scr_div4_clk>,
-				 <&scr_div4_clk>,
-				 <&scr_div4_clk>;
+			clocks = <&iprocslow>,
+				 <&iprocslow>,
+				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 		};
 
@@ -281,9 +282,9 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x66040000 0x1000>;
 			interrupts = <GIC_SPI 397 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&scr_div4_clk>,
-				 <&scr_div4_clk>,
-				 <&scr_div4_clk>;
+			clocks = <&iprocslow>,
+				 <&iprocslow>,
+				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 		};
 
@@ -291,9 +292,9 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x66050000 0x1000>;
 			interrupts = <GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&scr_div4_clk>,
-				 <&scr_div4_clk>,
-				 <&scr_div4_clk>;
+			clocks = <&iprocslow>,
+				 <&iprocslow>,
+				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 		};
 
@@ -301,9 +302,9 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x66060000 0x1000>;
 			interrupts = <GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&scr_div4_clk>,
-				 <&scr_div4_clk>,
-				 <&scr_div4_clk>;
+			clocks = <&iprocslow>,
+				 <&iprocslow>,
+				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 		};
 
@@ -321,7 +322,7 @@
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x66090000 0x1000>;
 			interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&scr_div4_clk>, <&scr_div4_clk>;
+			clocks = <&iprocslow>, <&iprocslow>;
 			clock-names = "wdogclk", "apb_pclk";
 		};
 
@@ -355,7 +356,7 @@
 			reg = <0x66420000 0x100>;
 			interrupts = <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
-			clocks = <&sdio_clk>;
+			clocks = <&genpll_sw BCM_NS2_GENPLL_SW_SDIO_CLK>;
 			status = "disabled";
 		};
 
@@ -364,7 +365,7 @@
 			reg = <0x66430000 0x100>;
 			interrupts = <GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
-			clocks = <&sdio_clk>;
+			clocks = <&genpll_sw BCM_NS2_GENPLL_SW_SDIO_CLK>;
 			status = "disabled";
 		};
 

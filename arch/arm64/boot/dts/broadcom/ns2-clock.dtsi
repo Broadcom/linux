@@ -27,44 +27,82 @@
  *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
  *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 clocks {
 	#address-cells = <1>;
 	#size-cells = <1>;
-	ranges = <0 0 0 0xffffffff>;
+	ranges = <0 0 0x6501c000 0x00002000>;
 
 	osc: oscillator {
-		compatible = "fixed-clock";
 		#clock-cells = <0>;
+		compatible = "fixed-clock";
 		clock-frequency = <25000000>;
 	};
 
-	sdio_clk: fixed_216mhz {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <216000000>;
+	lcpll_ddr: lcpll_ddr@1058 {
+		#clock-cells = <1>;
+		compatible = "brcm,ns2-lcpll-ddr";
+		reg = <0x1058 0x20>,
+		      <0x0020 0x4>,
+		      <0x104c 0x4>;
+		clocks = <&osc>;
+		clock-output-names = "lcpll_ddr", "pcie_sata_usb", "ddr",
+				     "ddr_ch2_unused", "ddr_ch3_unused",
+				     "ddr_ch4_unused", "ddr_ch5_unused";
 	};
 
-	scr_clk: fixed_532mhz {
-		compatile = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <532000000>;
-		clock-output-names = "scr";
+	lcpll_ports: lcpll_ports@1078 {
+		#clock-cells = <1>;
+		compatible = "brcm,ns2-lcpll-ports";
+		reg = <0x1078 0x20>,
+		      <0x0020 0x4>,
+		      <0x1054 0x4>;
+		clocks = <&osc>;
+		clock-output-names = "lcpll_ports", "wan", "rgmii",
+				     "ports_ch2_unused", "ports_ch3_unused",
+				     "ports_ch4_unused", "ports_ch5_unused";
 	};
 
-	scr_div2_clk: fixed_266mhz {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <266000000>;
-		clock-output-names = "scr_div2";
+	genpll_scr: genpll_scr@1098 {
+		#clock-cells = <1>;
+		compatible = "brcm,ns2-genpll-scr";
+		reg = <0x1098 0x32>,
+		      <0x0020 0x4>,
+		      <0x1044 0x4>;
+		clocks = <&osc>;
+		clock-output-names = "genpll_scr", "scr", "fs", "audio_ref",
+				     "scr_ch3_unused", "scr_ch4_unused",
+				     "scr_ch5_unused";
 	};
 
-	scr_div4_clk: fixed_133mhz {
-		compatible = "fixed-clock";
+	genpll_sw: genpll_sw@10c4 {
+		#clock-cells = <1>;
+		compatible = "brcm,ns2-genpll-sw";
+		reg = <0x10c4 0x32>,
+		      <0x0020 0x4>,
+		      <0x1044 0x4>;
+		clocks = <&osc>;
+		clock-output-names = "genpll_sw", "rpe", "250", "nic", "chimp",
+				     "port", "sdio";
+	};
+
+	iprocmed: iprocmed {
 		#clock-cells = <0>;
-		clock-frequency = <133000000>;
-		clock-output-names = "scr_div4";
+		compatible = "fixed-factor-clock";
+		clocks = <&genpll_scr 1>;
+		clock-div = <2>;
+		clock-mult = <1>;
+		clock-output-names = "iprocmed";
+	};
+
+	iprocslow: iprocslow {
+		#clock-cells = <0>;
+		compatible = "fixed-factor-clock";
+		clocks = <&genpll_scr 1>;
+		clock-div = <4>;
+		clock-mult = <1>;
+		clock-output-names = "iprocslow";
 	};
 };
