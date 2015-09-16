@@ -35,10 +35,8 @@
  * bcm958300k/bcm958305k boards
  */
 
-/ {
-	touchscreen: tsc@180a6000 {
-		touchscreen-inverted-x;
-		touchscreen-inverted-y;
-		status = "okay";
-	};
+&touchscreen {
+	touchscreen-inverted-x;
+	touchscreen-inverted-y;
+	status = "okay";
 };
