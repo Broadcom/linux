@@ -164,6 +164,7 @@ menu "Platform selection"
 
 config ARCH_BCM_IPROC
 	bool "Broadcom iProc SoC Family"
+	select COMMON_CLK_IPROC
 	help
 	  This enables support for Broadcom iProc based SoCs
 
