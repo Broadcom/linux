@@ -68,6 +68,7 @@ config BROADCOM_PHY
 config BCM_CYGNUS_PHY
 	tristate "Drivers for Broadcom Cygnus SoCs internal PHY"
 	depends on ARCH_BCM_CYGNUS || COMPILE_TEST
+	select MDIO_BCM_IPROC
 	default y
 	---help---
 	  This PHY driver is for the 1G internal PHYs of the Broadcom
