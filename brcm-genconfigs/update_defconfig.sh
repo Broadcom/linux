@@ -79,7 +79,7 @@ main() {
 
 	# iproc_defconfig, for both NS2 and Stingray
 	iproc_base="base-arm64 clocksource dbg"
-	iproc_extra="dma i2c mmc mtd rng watchdog"
+	iproc_extra="dma i2c mmc mtd rng spi watchdog"
 	do_update iproc $iproc_base $iproc_extra
 
 	# add support for other defconfigs here
