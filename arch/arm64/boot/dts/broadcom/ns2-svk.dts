@@ -68,6 +68,20 @@
 			status = "ok";
 		};
 
+		sata_phy: sata_phy@663f0000 {
+			sata_phy0: sata-phy@0 {
+				status = "ok";
+			};
+
+			sata_phy1: sata-phy@1 {
+				status = "ok";
+			};
+		};
+
+		sata: ahci@663f2000 {
+			status = "ok";
+		};
+
 		sdio0: sdhci@0x66420000 {
 			status = "ok";
 		};
