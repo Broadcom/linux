@@ -1,0 +1,34 @@
+Broadcom SATA3 PHY for Northstar2
+
+Required properties:
+- compatible: must be "brcm,ns2-sata-phy"
+- address-cells: should be 1
+- size-cells: should be 0
+- reg: base address and length of the NS2 SATA PHY block
+- reg-names: should be "phy"
+
+Sub-nodes:
+  Each port's PHY should be represented as a sub-node.
+
+Sub-nodes required properties:
+- reg: the PHY number
+- phy-cells: generic PHY binding; must be 0
+
+Example:
+	sata_phy: sata_phy@663f0000 {
+		compatible = "brcm,ns2-sata-phy";
+		reg = <0x663f0000 0x2000>;
+		reg-names = "phy";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sata-phy@0 {
+			reg = <0>;
+			#phy-cells = <0>;
+		};
+
+		sata-phy@1 {
+			reg = <1>;
+			#phy-cells = <0>;
+		};
+	};
