@@ -12,6 +12,17 @@ Required properties:
     Define the base and range of the I/O address space that contains the Cygnus
 IOMUX registers
 
+Optional properties:
+
+- #gpio-range-cells:
+    Must define this when gpio-controller uses "gpio-ranges" property and
+its value must be 3. cells are defined as below-
+   1. GPIO controller base pin offset. This should be local to GPIO controller.
+   2. Pinmux controller base pin offset to which GPIO pin is connected to. This
+should be local to pinmux controller.
+   3. number of pins lineraly connected starting from base pins.
+
+
 Properties in subnodes:
 
 - function:
@@ -28,6 +39,7 @@ For example:
 	pinmux: pinmux@0x0301d0c8 {
 		compatible = "brcm,cygnus-pinmux";
 		reg = <0x0301d0c8 0x1b0>;
+		#gpio-range-cells = <3>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s0_default>;
