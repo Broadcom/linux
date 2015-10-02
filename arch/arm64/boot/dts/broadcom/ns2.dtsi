@@ -144,9 +144,7 @@
 			interrupts = <GIC_SPI 277 IRQ_TYPE_NONE>,
 				     <GIC_SPI 278 IRQ_TYPE_NONE>,
 				     <GIC_SPI 279 IRQ_TYPE_NONE>,
-				     <GIC_SPI 280 IRQ_TYPE_NONE>,
-				     <GIC_SPI 281 IRQ_TYPE_NONE>,
-				     <GIC_SPI 282 IRQ_TYPE_NONE>;
+				     <GIC_SPI 280 IRQ_TYPE_NONE>;
 			brcm,num-eq-region = <1>;
 			brcm,num-msi-msg-region = <1>;
 		};
@@ -183,9 +181,7 @@
 			interrupts = <GIC_SPI 301 IRQ_TYPE_NONE>,
 				     <GIC_SPI 302 IRQ_TYPE_NONE>,
 				     <GIC_SPI 303 IRQ_TYPE_NONE>,
-				     <GIC_SPI 304 IRQ_TYPE_NONE>,
-				     <GIC_SPI 305 IRQ_TYPE_NONE>,
-				     <GIC_SPI 306 IRQ_TYPE_NONE>;
+				     <GIC_SPI 304 IRQ_TYPE_NONE>;
 			brcm,num-eq-region = <1>;
 			brcm,num-msi-msg-region = <1>;
 
