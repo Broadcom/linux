@@ -112,6 +112,7 @@
 			compatible = "brcm,cygnus-crmu-gpio";
 			reg = <0x03024800 0x50>,
 			      <0x03024008 0x18>;
+			ngpios = <6>;
 			#gpio-cells = <2>;
 			gpio-controller;
 		};
@@ -138,6 +139,7 @@
 			compatible = "brcm,cygnus-ccm-gpio";
 			reg = <0x1800a000 0x50>,
 			      <0x0301d164 0x20>;
+			ngpios = <24>;
 			#gpio-cells = <2>;
 			gpio-controller;
 			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
@@ -289,6 +291,7 @@
 		gpio_asiu: gpio@180a5000 {
 			compatible = "brcm,cygnus-asiu-gpio";
 			reg = <0x180a5000 0x668>;
+			ngpios = <146>;
 			#gpio-cells = <2>;
 			gpio-controller;
 
