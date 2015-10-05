@@ -105,7 +105,6 @@
 			compatible = "brcm,cygnus-pinmux";
 			reg = <0x0301d0c8 0x30>,
 			      <0x0301d24c 0x2c>;
-			#gpio-range-cells = <3>;
 		};
 
 		gpio_crmu: gpio@03024800 {
