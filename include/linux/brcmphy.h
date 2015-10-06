@@ -218,4 +218,9 @@
 #define LPI_FEATURE_EN			0x8000
 #define LPI_FEATURE_EN_DIG1000X		0x4000
 
+/* Core register definitions*/
+#define MII_BRCM_CORE_BASE1E	0x1E
+#define MII_BRCM_CORE_EXPB0	0xB0
+#define MII_BRCM_CORE_EXPB1	0xB1
+
 #endif /* _LINUX_BRCMPHY_H */
