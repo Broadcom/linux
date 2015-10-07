@@ -67,3 +67,12 @@
 &pcie2 {
 	status = "okay";
 };
+
+&pinctrl {
+	pinctrl-names = "default";
+	pinctrl-0 = <&nand>;
+	nand: nand {
+		function = "nand";
+		groups = "nand_grp";
+	};
+};
