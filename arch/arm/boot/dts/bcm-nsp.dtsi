@@ -283,6 +283,20 @@
 			};
 		};
 
+		nand: nand@18026000 {
+			compatible = "brcm,nand-iproc", "brcm,brcmnand-v6.1";
+			reg = <0x18026000 0x600>,
+			      <0x1811b408 0x600>,
+			      <0x18026f00 0x20>;
+			reg-names = "nand", "iproc-idm", "iproc-ext";
+			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			brcm,nand-has-wp;
+		};
+
 		pinctrl: pinctrl@1803f1c0 {
 			compatible = "brcm,nsp-pinmux";
 			reg = <0x1803f1c0 0x04>,
