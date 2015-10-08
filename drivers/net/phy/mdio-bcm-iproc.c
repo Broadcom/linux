@@ -22,42 +22,24 @@
 #include <linux/platform_device.h>
 #include <linux/sched.h>
 
-#define IPROC_GPHY_MDCDIV             0x1a
+#define IPROC_GPHY_MDCDIV    0x1a
 
-#define MDIO_TIMEOUT_MSEC             10
-#define MDIO_MIN_LOOP                 2
+#define MII_CTRL_OFFSET      0x000
 
-#define MII_CTRL_OFFSET               0x000
+#define MII_CTRL_DIV_SHIFT   0
+#define MII_CTRL_PRE_SHIFT   7
+#define MII_CTRL_BUSY_SHIFT  8
 
-#define MII_CTRL_DIV_SHIFT            0
-#define MII_CTRL_DIV_WIDTH            7
-#define MII_MAX_DIV                   (BIT(MII_CTRL_DIV_WIDTH) - 1)
-#define MII_CTRL_PRE_SHIFT            7
-#define MII_CTRL_BUSY_SHIFT           8
-#define MII_CTRL_EXT_SHIFT            9
-#define MII_CTRL_BTP_SHIFT            10
-
-#define MII_DATA_OFFSET               0x004
-
-#define MII_DATA_SHIFT                0
-#define MII_DATA_MASK                 0xffff
-
-#define MII_DATA_TA_SHIFT             16
-#define MII_DATA_TA_VAL               2
-
-#define MII_DATA_RA_SHIFT             18
-#define MII_DATA_RA_WIDTH             5
-#define MII_MAX_RA                    (BIT(MII_DATA_RA_WIDTH) - 1)
-
-#define MII_DATA_PA_SHIFT             23
-#define MII_DATA_PA_WIDTH             5
-#define MII_MAX_PA                    (BIT(MII_DATA_PA_WIDTH) - 1)
-
-#define MII_DATA_OP_SHIFT             28
-#define MII_DATA_OP_WRITE             1
-#define MII_DATA_OP_READ              2
-
-#define MII_DATA_SB_SHIFT             30
+#define MII_DATA_OFFSET      0x004
+#define MII_DATA_MASK        0xffff
+#define MII_DATA_TA_SHIFT    16
+#define MII_DATA_TA_VAL      2
+#define MII_DATA_RA_SHIFT    18
+#define MII_DATA_PA_SHIFT    23
+#define MII_DATA_OP_SHIFT    28
+#define MII_DATA_OP_WRITE    1
+#define MII_DATA_OP_READ     2
+#define MII_DATA_SB_SHIFT    30
 
 struct iproc_mdio_priv {
 	struct mii_bus *mii_bus;
@@ -67,14 +49,14 @@ struct iproc_mdio_priv {
 static inline int iproc_mdio_wait_for_idle(void __iomem *base)
 {
 	u32 val;
-	unsigned int timeout = 10000; /* loop for 1s */
+	unsigned int timeout = 1000; /* loop for 1s */
 
 	do {
 		val = readl(base + MII_CTRL_OFFSET);
 		if ((val & BIT(MII_CTRL_BUSY_SHIFT)) == 0)
 			return 0;
 
-		usleep_range(100, 200);
+		usleep_range(1000, 2000);
 	} while (timeout--);
 
 	return -ETIMEDOUT;
@@ -176,7 +158,7 @@ static int iproc_mdio_probe(struct platform_device *pdev)
 	bus = priv->mii_bus;
 	bus->priv = priv;
 	bus->name = "iProc MDIO bus";
-	snprintf(bus->id, MII_BUS_ID_SIZE, "%s", pdev->name);
+	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d", pdev->name, pdev->id);
 	bus->parent = &pdev->dev;
 	bus->read = iproc_mdio_read;
 	bus->write = iproc_mdio_write;
@@ -212,6 +194,7 @@ static const struct of_device_id iproc_mdio_of_match[] = {
 	{ .compatible = "brcm,iproc-mdio", },
 	{ /* sentinel */ },
 };
+MODULE_DEVICE_TABLE(of, iproc_mdio_of_match);
 
 static struct platform_driver iproc_mdio_driver = {
 	.driver = {
@@ -221,6 +204,7 @@ static struct platform_driver iproc_mdio_driver = {
 	.probe = iproc_mdio_probe,
 	.remove = iproc_mdio_remove,
 };
+
 module_platform_driver(iproc_mdio_driver);
 
 MODULE_AUTHOR("Broadcom Corporation");
