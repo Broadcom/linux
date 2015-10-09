@@ -313,6 +313,14 @@
 			brcm,nand-has-wp;
 		};
 
+		wdt@18039000 {
+			compatible = "arm,sp805", "arm,primecell";
+			reg = <0x18039000 0x1000>;
+			interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>, <&iprocslow>;
+			clock-names = "wdogclk", "apb_pclk";
+		};
+
 		pinctrl: pinctrl@1803f1c0 {
 			compatible = "brcm,nsp-pinmux";
 			reg = <0x1803f1c0 0x04>,
