@@ -387,22 +387,19 @@ static unsigned long iproc_pll_recalc_rate(struct clk_hw *hw,
 	val = readl(pll->control_base + ctrl->ndiv_int.offset);
 	ndiv_int = (val >> ctrl->ndiv_int.shift) &
 		bit_mask(ctrl->ndiv_int.width);
-	ndiv = (u64)ndiv_int << ctrl->ndiv_int.shift;
+	ndiv = (u64)ndiv_int << 20;
 
 	if (ctrl->flags & IPROC_CLK_PLL_HAS_NDIV_FRAC) {
 		val = readl(pll->control_base + ctrl->ndiv_frac.offset);
 		ndiv_frac = (val >> ctrl->ndiv_frac.shift) &
 			bit_mask(ctrl->ndiv_frac.width);
-
-		if (ndiv_frac != 0)
-			ndiv = ((u64)ndiv_int << ctrl->ndiv_int.shift) |
-				ndiv_frac;
+		ndiv += (u64)ndiv_frac;
 	}
 
 	val = readl(pll->control_base + ctrl->pdiv.offset);
 	pdiv = (val >> ctrl->pdiv.shift) & bit_mask(ctrl->pdiv.width);
 
-	clk->rate = (ndiv * parent_rate) >> ctrl->ndiv_int.shift;
+	clk->rate = (ndiv * parent_rate) >> 20;
 
 	if (pdiv == 0)
 		clk->rate *= 2;
