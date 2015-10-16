@@ -54,6 +54,7 @@
 
 /* drive strength control for CCM/CRMU (AON) GPIO */
 #define IPROC_GPIO_DRV0_CTRL_OFFSET  0x00
+#define IPROC_GPIO_CONF_DRV_VALID       BIT(0)
 
 #define GPIO_BANK_SIZE 0x200
 #define NGPIOS_PER_BANK 32
@@ -93,6 +94,7 @@ struct iproc_gpio {
 	unsigned num_banks;
 
 	bool pinmux_is_supported;
+	u32 pinconf_valid_params;
 
 	struct pinctrl_dev *pctl;
 	struct pinctrl_desc pctldesc;
@@ -429,7 +431,8 @@ static int iproc_gpio_set_strength(struct iproc_gpio *chip, unsigned gpio,
 	unsigned long flags;
 
 	/* make sure drive strength is supported */
-	if (strength < 2 ||  strength > 16 || (strength % 2))
+	if (!(chip->pinconf_valid_params & IPROC_GPIO_CONF_DRV_VALID) ||
+			strength < 2 ||  strength > 16 || (strength % 2))
 		return -ENOTSUPP;
 
 	if (chip->io_ctrl) {
@@ -687,6 +690,10 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "missing ngpios DT property\n");
 		return -ENODEV;
 	}
+
+	chip->pinconf_valid_params = IPROC_GPIO_CONF_DRV_VALID;
+	if (of_device_is_compatible(dev->of_node, "brcm,iproc-gpio"))
+		chip->pinconf_valid_params &= ~IPROC_GPIO_CONF_DRV_VALID;
 
 	spin_lock_init(&chip->lock);
 
