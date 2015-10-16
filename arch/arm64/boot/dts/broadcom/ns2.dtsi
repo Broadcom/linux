@@ -457,7 +457,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			brcm,nand-iproc-reset;
 			brcm,nand-has-wp;
 		};
 	};
