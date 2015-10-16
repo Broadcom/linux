@@ -332,6 +332,16 @@
 			brcm,nand-has-wp;
 		};
 
+		gpiob: gpio-b@18030000 {
+			compatible = "brcm,iproc-gpio";
+			reg = <0x18030000 0x50>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			ngpios = <4>;
+			interrupt-controller;
+			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		wdt@18039000 {
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x18039000 0x1000>;
