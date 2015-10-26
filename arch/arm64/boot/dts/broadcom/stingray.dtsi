@@ -164,7 +164,7 @@
 			reg-shift = <2>;
 			clock-frequency = <87500000>;
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 139 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
 	};
