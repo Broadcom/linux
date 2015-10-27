@@ -105,6 +105,36 @@
 			compatible = "brcm,cygnus-pinmux";
 			reg = <0x0301d0c8 0x30>,
 			      <0x0301d24c 0x2c>;
+
+			i2s0_default_mux: i2s0_mux {
+				i2s0_default_mux {
+					function = "i2s0";
+					groups = "i2s0_0_grp", "i2s0_1_grp";
+				};
+			};
+
+			i2s1_default_mux: i2s1_mux {
+				i2s1_default_mux {
+					function = "i2s1";
+					groups = "i2s1_0_grp", "i2s1_1_grp";
+				};
+			};
+
+			i2s2_default_mux: i2s2_mux {
+				i2s2_default_mux {
+					function = "i2s2";
+					groups = "i2s2_0_grp", "i2s2_1_grp",
+					"i2s2_2_grp", "i2s2_3_grp",
+					"i2s2_4_grp";
+				};
+			};
+
+			spdif_default_mux: spdif_mux {
+				spdif_default_mux {
+					function = "spdif";
+					groups = "spdif_grp";
+				};
+			};
 		};
 
 		gpio_crmu: gpio@03024800 {
@@ -359,5 +389,41 @@
 			status = "disabled";
 		};
 
+		cygnus_audio: audio@180ae000 {
+			compatible = "brcm,cygnus-audio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x180ae000 0xafd>, <0x180aec00 0x1f8>;
+			reg-names = "aud", "i2s_in";
+			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+			clock-names = "ch0_audio", "ch1_audio", "ch2_audio";
+			interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
+
+			ssp0: ssp_port@0 {
+				reg = <0>;
+				channel-group = "2_0";
+				status = "disabled";
+			};
+
+			ssp1: ssp_port@1 {
+				reg = <1>;
+				channel-group = "2_0";
+				status = "disabled";
+			};
+
+			ssp2: ssp_port@2 {
+				reg = <2>;
+				channel-group = "2_0";
+				status = "disabled";
+			};
+
+			spdif: spdif_port@3 {
+				reg = <3>;
+				channel-group = "2_0";
+				status = "disabled";
+			};
+		};
 	};
 };
