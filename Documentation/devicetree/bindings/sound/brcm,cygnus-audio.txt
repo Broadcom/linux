@@ -3,7 +3,7 @@ BROADCOM Cygnus Audio I2S/TDM/SPDIF controller
 Required properties:
 	- compatible : "brcm,cygnus-audio"
 	- #address-cells: 32bit valued, 1 cell.
-	- #size-cells:  32bit valued, 1 cell.
+	- #size-cells:  32bit valued, 0 cell.
 	- reg : Should contain audio registers location and length
 	- reg-names: names of the registers listed in "reg" property
 		Valid names are "aud" and "i2s_in". "aud" contains a
@@ -28,7 +28,7 @@ Example:
 	cygnus_audio: audio@180ae000 {
 		compatible = "brcm,cygnus-audio";
 		#address-cells = <1>;
-		#size-cells = <1>;
+		#size-cells = <0>;
 		reg = <0x180ae000 0xafd>, <0x180aec00 0x1f8>;
 		reg-names = "aud", "i2s_in";
 		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
