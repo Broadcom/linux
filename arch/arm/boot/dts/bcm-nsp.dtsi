@@ -201,7 +201,7 @@
 			compatible = "ns16550a";
 			reg = <0x18000300 0x100>;
 			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
-			clock-frequency = <62499840>;
+			clocks = <&osc>;
 			status = "disabled";
 		};
 
@@ -209,7 +209,7 @@
 			compatible = "ns16550a";
 			reg = <0x18000400 0x100>;
 			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
-			clock-frequency = <62499840>;
+			clocks = <&osc>;
 			status = "disabled";
 		};
 
