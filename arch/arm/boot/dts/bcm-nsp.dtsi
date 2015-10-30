@@ -342,6 +342,15 @@
 			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		i2c0: i2c@18038000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x18038000 0x50>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 89 IRQ_TYPE_NONE>;
+			clock-frequency = <100000>;
+		};
+
 		wdt@18039000 {
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x18039000 0x1000>;
