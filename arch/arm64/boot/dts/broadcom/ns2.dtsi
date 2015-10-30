@@ -379,7 +379,7 @@
 			interrupts = <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clock-frequency = <23961600>;
+			clocks = <&osc>;
 			status = "disabled";
 		};
 
