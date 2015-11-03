@@ -342,6 +342,24 @@
 			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		ccbtimer0: timer@18034000 {
+			compatible = "arm,sp804";
+			reg = <0x18034000 0x1000>;
+			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>;
+			clock-names = "apb_pclk";
+		};
+
+		ccbtimer1: timer@18035000 {
+			compatible = "arm,sp804";
+			reg = <0x18035000 0x1000>;
+			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>;
+			clock-names = "apb_pclk";
+		};
+
 		i2c0: i2c@18038000 {
 			compatible = "brcm,iproc-i2c";
 			reg = <0x18038000 0x50>;
