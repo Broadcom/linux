@@ -49,7 +49,7 @@ struct iproc_pcie_ob {
  * @dev: pointer to device data structure
  * @type: iProc PCIe interface type
  * @base: PCIe host controller I/O register base
- * @sysdata: Per PCI controller data
+ * @sysdata: Per PCI controller data (ARM-specific)
  * @root_bus: pointer to root bus
  * @phy: optional PHY device that controls the Serdes
  * @need_ob_cfg: indicates SW needs to configure the outbound mapping window

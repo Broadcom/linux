@@ -213,7 +213,6 @@ static int iproc_msi_map(struct irq_domain *domain, unsigned int irq,
 {
 	irq_set_chip_and_handler(irq, &iproc_msi_irq_chip, handle_simple_irq);
 	irq_set_chip_data(irq, domain->host_data);
-	set_irq_flags(irq, IRQF_VALID);
 
 	return 0;
 }
@@ -276,8 +275,9 @@ static void iproc_msi_enable(struct iproc_msi *msi)
 	}
 }
 
-static void iproc_msi_handler(unsigned int irq, struct irq_desc *desc)
+static void iproc_msi_handler(struct irq_desc *desc)
 {
+	unsigned int irq = irq_desc_get_irq(desc);
 	struct irq_chip *irq_chip = irq_desc_get_chip(desc);
 	struct iproc_msi *msi;
 	struct iproc_pcie *pcie;
