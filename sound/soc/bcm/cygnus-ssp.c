@@ -184,7 +184,7 @@
 #define IOP_PLL_0_ACTIVE_NDIV_FRAC 10
 
 
-#define INIT_SSP_REGS(num) { \
+#define INIT_SSP_REGS(num) (struct cygnus_ssp_regs){ \
 		.i2s_stream_cfg = OUT_I2S_ ##num## _STREAM_CFG_OFFSET, \
 		.i2s_cap_stream_cfg = IN_I2S_ ##num## _STREAM_CFG_OFFSET, \
 		.i2s_cfg = OUT_I2S_ ##num## _CFG_OFFSET, \
@@ -201,6 +201,7 @@ static int group_id[CYGNUS_MAX_PLAYBACK_PORTS] = {0, 1, 2, 3};
 struct pll_macro_entry {
 	u32 mclk;
 	u32 pll_ch_num;
+	unsigned long vco_rate;
 };
 
 /*
@@ -208,29 +209,29 @@ struct pll_macro_entry {
  * the common MCLK frequencies used by audio driver
  */
 static const struct pll_macro_entry pll_predef_mclk[] = {
-	{ 4096000, 0},
-	{ 8192000, 1},
-	{16384000, 2},
+	{ 4096000, 0, 1769470191UL},
+	{ 8192000, 1, 1769470191UL},
+	{16384000, 2, 1769470191UL},
 
-	{ 5644800, 0},
-	{11289600, 1},
-	{22579200, 2},
+	{ 5644800, 0, 1354750204UL},
+	{11289600, 1, 1354750204UL},
+	{22579200, 2, 1354750204UL},
 
-	{ 6144000, 0},
-	{12288000, 1},
-	{24576000, 2},
+	{ 6144000, 0, 1769470191UL},
+	{12288000, 1, 1769470191UL},
+	{24576000, 2, 1769470191UL},
 
-	{12288000, 0},
-	{24576000, 1},
-	{49152000, 2},
+	{12288000, 0, 1769470191UL},
+	{24576000, 1, 1769470191UL},
+	{49152000, 2, 1769470191UL},
 
-	{22579200, 0},
-	{45158400, 1},
-	{90316800, 2},
+	{22579200, 0, 1354750204UL},
+	{45158400, 1, 1354750204UL},
+	{90316800, 2, 1354750204UL},
 
-	{24576000, 0},
-	{49152000, 1},
-	{98304000, 2},
+	{24576000, 0, 1769470191UL},
+	{49152000, 1, 1769470191UL},
+	{98304000, 2, 1769470191UL},
 };
 
 /* List of valid frame sizes for tdm mode */
@@ -256,130 +257,129 @@ struct _ssp_clk_coeff {
 	u32 sclk_rate;
 	u32 rate;
 	u32 mclk_rate;
-	unsigned long vco_rate;
 };
 
 static const struct _ssp_clk_coeff ssp_clk_coeff[] = {
-	{ 4096000,  32,  16000, 4, 1769470191UL},
-	{ 4096000,  32,  32000, 2, 1769470191UL},
-	{ 4096000,  64,   8000, 4, 1769470191UL},
-	{ 4096000,  64,  16000, 2, 1769470191UL},
-	{ 4096000,  64,  32000, 1, 1769470191UL},
-	{ 4096000, 128,   8000, 2, 1769470191UL},
-	{ 4096000, 128,  16000, 1, 1769470191UL},
-	{ 4096000, 256,   8000, 1, 1769470191UL},
+	{ 4096000,  32,  16000, 4},
+	{ 4096000,  32,  32000, 2},
+	{ 4096000,  64,   8000, 4},
+	{ 4096000,  64,  16000, 2},
+	{ 4096000,  64,  32000, 1},
+	{ 4096000, 128,   8000, 2},
+	{ 4096000, 128,  16000, 1},
+	{ 4096000, 256,   8000, 1},
 
-	{ 6144000,  32,  16000, 6, 1769470191UL},
-	{ 6144000,  32,  32000, 3, 1769470191UL},
-	{ 6144000,  32,  48000, 2, 1769470191UL},
-	{ 6144000,  32,  96000, 1, 1769470191UL},
-	{ 6144000,  64,   8000, 6, 1769470191UL},
-	{ 6144000,  64,  16000, 3, 1769470191UL},
-	{ 6144000,  64,  48000, 1, 1769470191UL},
-	{ 6144000, 128,   8000, 3, 1769470191UL},
+	{ 6144000,  32,  16000, 6},
+	{ 6144000,  32,  32000, 3},
+	{ 6144000,  32,  48000, 2},
+	{ 6144000,  32,  96000, 1},
+	{ 6144000,  64,   8000, 6},
+	{ 6144000,  64,  16000, 3},
+	{ 6144000,  64,  48000, 1},
+	{ 6144000, 128,   8000, 3},
 
-	{ 8192000,  32,  32000, 4, 1769470191UL},
-	{ 8192000,  64,  16000, 4, 1769470191UL},
-	{ 8192000,  64,  32000, 2, 1769470191UL},
-	{ 8192000, 128,   8000, 4, 1769470191UL},
-	{ 8192000, 128,  16000, 2, 1769470191UL},
-	{ 8192000, 128,  32000, 1, 1769470191UL},
-	{ 8192000, 256,   8000, 2, 1769470191UL},
-	{ 8192000, 256,  16000, 1, 1769470191UL},
-	{ 8192000, 512,   8000, 1, 1769470191UL},
+	{ 8192000,  32,  32000, 4},
+	{ 8192000,  64,  16000, 4},
+	{ 8192000,  64,  32000, 2},
+	{ 8192000, 128,   8000, 4},
+	{ 8192000, 128,  16000, 2},
+	{ 8192000, 128,  32000, 1},
+	{ 8192000, 256,   8000, 2},
+	{ 8192000, 256,  16000, 1},
+	{ 8192000, 512,   8000, 1},
 
-	{12288000,  32,  32000, 6, 1769470191UL},
-	{12288000,  32,  48000, 4, 1769470191UL},
-	{12288000,  32,  96000, 2, 1769470191UL},
-	{12288000,  32, 192000, 1, 1769470191UL},
-	{12288000,  64,  16000, 6, 1769470191UL},
-	{12288000,  64,  32000, 3, 1769470191UL},
-	{12288000,  64,  48000, 2, 1769470191UL},
-	{12288000,  64,  96000, 1, 1769470191UL},
-	{12288000, 128,   8000, 6, 1769470191UL},
-	{12288000, 128,  16000, 3, 1769470191UL},
-	{12288000, 128,  48000, 1, 1769470191UL},
-	{12288000, 256,   8000, 3, 1769470191UL},
+	{12288000,  32,  32000, 6},
+	{12288000,  32,  48000, 4},
+	{12288000,  32,  96000, 2},
+	{12288000,  32, 192000, 1},
+	{12288000,  64,  16000, 6},
+	{12288000,  64,  32000, 3},
+	{12288000,  64,  48000, 2},
+	{12288000,  64,  96000, 1},
+	{12288000, 128,   8000, 6},
+	{12288000, 128,  16000, 3},
+	{12288000, 128,  48000, 1},
+	{12288000, 256,   8000, 3},
 
-	{16384000,  64,  32000, 4, 1769470191UL},
-	{16384000, 128,  16000, 4, 1769470191UL},
-	{16384000, 128,  32000, 2, 1769470191UL},
-	{16384000, 256,   8000, 4, 1769470191UL},
-	{16384000, 256,  16000, 2, 1769470191UL},
-	{16384000, 256,  32000, 1, 1769470191UL},
-	{16384000, 512,   8000, 2, 1769470191UL},
-	{16384000, 512,  16000, 1, 1769470191UL},
+	{16384000,  64,  32000, 4},
+	{16384000, 128,  16000, 4},
+	{16384000, 128,  32000, 2},
+	{16384000, 256,   8000, 4},
+	{16384000, 256,  16000, 2},
+	{16384000, 256,  32000, 1},
+	{16384000, 512,   8000, 2},
+	{16384000, 512,  16000, 1},
 
-	{24576000,  32,  96000, 4, 1769470191UL},
-	{24576000,  32, 192000, 2, 1769470191UL},
-	{24576000,  64,  32000, 6, 1769470191UL},
-	{24576000,  64,  48000, 4, 1769470191UL},
-	{24576000,  64,  96000, 2, 1769470191UL},
-	{24576000,  64, 192000, 1, 1769470191UL},
-	{24576000, 128,  16000, 6, 1769470191UL},
-	{24576000, 128,  32000, 3, 1769470191UL},
-	{24576000, 128,  48000, 2, 1769470191UL},
-	{24576000, 256,   8000, 6, 1769470191UL},
-	{24576000, 256,  16000, 3, 1769470191UL},
-	{24576000, 256,  48000, 1, 1769470191UL},
-	{24576000, 512,   8000, 3, 1769470191UL},
+	{24576000,  32,  96000, 4},
+	{24576000,  32, 192000, 2},
+	{24576000,  64,  32000, 6},
+	{24576000,  64,  48000, 4},
+	{24576000,  64,  96000, 2},
+	{24576000,  64, 192000, 1},
+	{24576000, 128,  16000, 6},
+	{24576000, 128,  32000, 3},
+	{24576000, 128,  48000, 2},
+	{24576000, 256,   8000, 6},
+	{24576000, 256,  16000, 3},
+	{24576000, 256,  48000, 1},
+	{24576000, 512,   8000, 3},
 
-	{49152000,  32, 192000, 4, 1769470191UL},
-	{49152000,  64,  96000, 4, 1769470191UL},
-	{49152000,  64, 192000, 2, 1769470191UL},
-	{49152000, 128,  32000, 6, 1769470191UL},
-	{49152000, 128,  48000, 4, 1769470191UL},
-	{49152000, 128,  96000, 2, 1769470191UL},
-	{49152000, 128, 192000, 1, 1769470191UL},
-	{49152000, 256,  16000, 6, 1769470191UL},
-	{49152000, 256,  32000, 3, 1769470191UL},
-	{49152000, 256,  48000, 2, 1769470191UL},
-	{49152000, 256,  96000, 1, 1769470191UL},
-	{49152000, 512,   8000, 6, 1769470191UL},
-	{49152000, 512,  16000, 3, 1769470191UL},
-	{49152000, 512,  48000, 1, 1769470191UL},
+	{49152000,  32, 192000, 4},
+	{49152000,  64,  96000, 4},
+	{49152000,  64, 192000, 2},
+	{49152000, 128,  32000, 6},
+	{49152000, 128,  48000, 4},
+	{49152000, 128,  96000, 2},
+	{49152000, 128, 192000, 1},
+	{49152000, 256,  16000, 6},
+	{49152000, 256,  32000, 3},
+	{49152000, 256,  48000, 2},
+	{49152000, 256,  96000, 1},
+	{49152000, 512,   8000, 6},
+	{49152000, 512,  16000, 3},
+	{49152000, 512,  48000, 1},
 
-	{ 5644800,  32,  22050, 4, 1354750204UL},
-	{ 5644800,  32,  44100, 2, 1354750204UL},
-	{ 5644800,  32,  88200, 1, 1354750204UL},
-	{ 5644800,  64,  11025, 4, 1354750204UL},
-	{ 5644800,  64,  22050, 2, 1354750204UL},
-	{ 5644800,  64,  44100, 1, 1354750204UL},
+	{ 5644800,  32,  22050, 4},
+	{ 5644800,  32,  44100, 2},
+	{ 5644800,  32,  88200, 1},
+	{ 5644800,  64,  11025, 4},
+	{ 5644800,  64,  22050, 2},
+	{ 5644800,  64,  44100, 1},
 
-	{11289600,  32,  44100, 4, 1354750204UL},
-	{11289600,  32,  88200, 2, 1354750204UL},
-	{11289600,  32, 176400, 1, 1354750204UL},
-	{11289600,  64,  22050, 4, 1354750204UL},
-	{11289600,  64,  44100, 2, 1354750204UL},
-	{11289600,  64,  88200, 1, 1354750204UL},
-	{11289600, 128,  11025, 4, 1354750204UL},
-	{11289600, 128,  22050, 2, 1354750204UL},
-	{11289600, 128,  44100, 1, 1354750204UL},
+	{11289600,  32,  44100, 4},
+	{11289600,  32,  88200, 2},
+	{11289600,  32, 176400, 1},
+	{11289600,  64,  22050, 4},
+	{11289600,  64,  44100, 2},
+	{11289600,  64,  88200, 1},
+	{11289600, 128,  11025, 4},
+	{11289600, 128,  22050, 2},
+	{11289600, 128,  44100, 1},
 
-	{22579200,  32,  88200, 4, 1354750204UL},
-	{22579200,  32, 176400, 2, 1354750204UL},
-	{22579200,  64,  44100, 4, 1354750204UL},
-	{22579200,  64,  88200, 2, 1354750204UL},
-	{22579200,  64, 176400, 1, 1354750204UL},
-	{22579200, 128,  22050, 4, 1354750204UL},
-	{22579200, 128,  44100, 2, 1354750204UL},
-	{22579200, 128,  88200, 1, 1354750204UL},
-	{22579200, 256,  11025, 4, 1354750204UL},
-	{22579200, 256,  22050, 2, 1354750204UL},
-	{22579200, 256,  44100, 1, 1354750204UL},
+	{22579200,  32,  88200, 4},
+	{22579200,  32, 176400, 2},
+	{22579200,  64,  44100, 4},
+	{22579200,  64,  88200, 2},
+	{22579200,  64, 176400, 1},
+	{22579200, 128,  22050, 4},
+	{22579200, 128,  44100, 2},
+	{22579200, 128,  88200, 1},
+	{22579200, 256,  11025, 4},
+	{22579200, 256,  22050, 2},
+	{22579200, 256,  44100, 1},
 
-	{45158400,  32, 176400, 4, 1354750204UL},
-	{45158400,  64,  88200, 4, 1354750204UL},
-	{45158400,  64, 176400, 2, 1354750204UL},
-	{45158400, 128,  44100, 4, 1354750204UL},
-	{45158400, 128,  88200, 2, 1354750204UL},
-	{45158400, 128, 176400, 1, 1354750204UL},
-	{45158400, 256,  22050, 4, 1354750204UL},
-	{45158400, 256,  44100, 2, 1354750204UL},
-	{45158400, 256,  88200, 1, 1354750204UL},
-	{45158400, 512,  11025, 4, 1354750204UL},
-	{45158400, 512,  22050, 2, 1354750204UL},
-	{45158400, 512,  44100, 1, 1354750204UL},
+	{45158400,  32, 176400, 4},
+	{45158400,  64,  88200, 4},
+	{45158400,  64, 176400, 2},
+	{45158400, 128,  44100, 4},
+	{45158400, 128,  88200, 2},
+	{45158400, 128, 176400, 1},
+	{45158400, 256,  22050, 4},
+	{45158400, 256,  44100, 2},
+	{45158400, 256,  88200, 1},
+	{45158400, 512,  11025, 4},
+	{45158400, 512,  22050, 2},
+	{45158400, 512,  44100, 1},
 };
 
 static struct cygnus_aio_port *cygnus_dai_get_portinfo(struct snd_soc_dai *dai)
@@ -392,8 +392,10 @@ static struct cygnus_aio_port *cygnus_dai_get_portinfo(struct snd_soc_dai *dai)
 static int audio_ssp_init_portregs(struct cygnus_aio_port *aio)
 {
 	u32 value, fci_id;
+	int status = 0;
 
-	if (aio->port_type == PORT_TDM) {
+	switch (aio->port_type) {
+	case PORT_TDM:
 		value = readl(aio->cygaud->audio + aio->regs.i2s_stream_cfg);
 		value &= ~I2S_STREAM_CFG_MASK;
 
@@ -439,7 +441,8 @@ static int audio_ssp_init_portregs(struct cygnus_aio_port *aio)
 		value = readl(aio->cygaud->audio + AUD_MISC_SEROUT_OE_REG_BASE);
 		value &= ~BIT((aio->portnum * 4) + AUD_MISC_SEROUT_SDAT_OE);
 		writel(value, aio->cygaud->audio + AUD_MISC_SEROUT_OE_REG_BASE);
-	} else if (aio->port_type == PORT_SPDIF) {
+		break;
+	case PORT_SPDIF:
 		writel(group_id[3], aio->cygaud->audio + BF_SRC_GRP3_OFFSET);
 
 		value = readl(aio->cygaud->audio + SPDIF_CTRL_OFFSET);
@@ -463,12 +466,13 @@ static int audio_ssp_init_portregs(struct cygnus_aio_port *aio)
 		value = readl(aio->cygaud->audio + AUD_MISC_SEROUT_OE_REG_BASE);
 		value &= ~BIT(AUD_MISC_SEROUT_SPDIF_OE);
 		writel(value, aio->cygaud->audio + AUD_MISC_SEROUT_OE_REG_BASE);
-	} else {
+		break;
+	default:
 		dev_err(aio->cygaud->dev, "Port not supported\n");
-		return -EINVAL;
+		status = -EINVAL;
 	}
 
-	return 0;
+	return status;
 }
 
 static void audio_ssp_in_enable(struct cygnus_aio_port *aio)
@@ -521,8 +525,10 @@ static void audio_ssp_in_disable(struct cygnus_aio_port *aio)
 static int audio_ssp_out_enable(struct cygnus_aio_port *aio)
 {
 	u32 value;
+	int status = 0;
 
-	if (aio->port_type == PORT_TDM) {
+	switch (aio->port_type) {
+	case PORT_TDM:
 		value = readl(aio->cygaud->audio + aio->regs.i2s_stream_cfg);
 		value |= BIT(I2S_OUT_STREAM_ENA);
 		writel(value, aio->cygaud->audio + aio->regs.i2s_stream_cfg);
@@ -539,7 +545,8 @@ static int audio_ssp_out_enable(struct cygnus_aio_port *aio)
 		writel(value, aio->cygaud->audio + aio->regs.bf_sourcech_cfg);
 
 		aio->streams_on |= PLAYBACK_STREAM_MASK;
-	} else if (aio->port_type == PORT_SPDIF) {
+		break;
+	case PORT_SPDIF:
 		value = readl(aio->cygaud->audio + SPDIF_FORMAT_CFG_OFFSET);
 		value |= 0x3;
 		writel(value, aio->cygaud->audio + SPDIF_FORMAT_CFG_OFFSET);
@@ -549,20 +556,23 @@ static int audio_ssp_out_enable(struct cygnus_aio_port *aio)
 		value = readl(aio->cygaud->audio + aio->regs.bf_sourcech_cfg);
 		value |= BIT(BF_SRC_CFGX_SFIFO_ENA);
 		writel(value, aio->cygaud->audio + aio->regs.bf_sourcech_cfg);
-	} else {
+		break;
+	default:
 		dev_err(aio->cygaud->dev,
 			"Port not supported %d\n", aio->portnum);
-		return -EINVAL;
+		status = -EINVAL;
 	}
 
-	return 0;
+	return status;
 }
 
 static int audio_ssp_out_disable(struct cygnus_aio_port *aio)
 {
 	u32 value;
+	int status = 0;
 
-	if (aio->port_type == PORT_TDM) {
+	switch (aio->port_type) {
+	case PORT_TDM:
 		aio->streams_on &= ~PLAYBACK_STREAM_MASK;
 
 		/* If both playback and capture are off */
@@ -599,8 +609,8 @@ static int audio_ssp_out_disable(struct cygnus_aio_port *aio)
 		writel(value, aio->cygaud->i2s_in + IOP_SW_INIT_LOGIC);
 		value &= ~BIT(aio->portnum);
 		writel(value, aio->cygaud->i2s_in + IOP_SW_INIT_LOGIC);
-
-	} else if (aio->port_type == PORT_SPDIF) {
+		break;
+	case PORT_SPDIF:
 		value = readl(aio->cygaud->audio + SPDIF_FORMAT_CFG_OFFSET);
 		value &= ~0x3;
 		writel(value, aio->cygaud->audio + SPDIF_FORMAT_CFG_OFFSET);
@@ -609,22 +619,23 @@ static int audio_ssp_out_disable(struct cygnus_aio_port *aio)
 		value = readl(aio->cygaud->audio + aio->regs.bf_sourcech_cfg);
 		value &= ~BIT(BF_SRC_CFGX_SFIFO_ENA);
 		writel(value, aio->cygaud->audio + aio->regs.bf_sourcech_cfg);
-	} else {
+		break;
+	default:
 		dev_err(aio->cygaud->dev,
 			"Port not supported %d\n", aio->portnum);
-		return -EINVAL;
+		status = -EINVAL;
 	}
 
-	return 0;
+	return status;
 }
 
 static int configure_vco(struct cygnus_audio *cygaud,
-			const struct _ssp_clk_coeff *p_entry)
+			unsigned long vco_rate)
 {
 	struct clk *parent;
 	int error;
 
-	if (p_entry->vco_rate == cygaud->vco_rate)
+	if (vco_rate == cygaud->vco_rate)
 		return 0;
 
 	/* Change PLL rate only if none of the ports are active */
@@ -634,13 +645,13 @@ static int configure_vco(struct cygnus_audio *cygaud,
 			return PTR_ERR(parent);
 
 		/* Set PLL VCO Frequency (Hz) */
-		error = clk_set_rate(parent, p_entry->vco_rate);
+		error = clk_set_rate(parent, vco_rate);
 		if (error) {
 			dev_err(cygaud->dev, "%s Set PLL VCO rate failed: %d\n",
 				__func__, error);
 			return error;
 		}
-		cygaud->vco_rate = p_entry->vco_rate;
+		cygaud->vco_rate = vco_rate;
 	} else {
 		dev_err(cygaud->dev, "%s Cannot change VCO Freq\n",
 				__func__);
@@ -656,14 +667,15 @@ static int pll_configure_mclk(struct cygnus_audio *cygaud, u32 mclk,
 	int i = 0, error;
 	bool found = false;
 	const struct pll_macro_entry *p_entry;
-	const struct _ssp_clk_coeff *q_entry = NULL;
 	struct clk *ch_clk;
+	unsigned long vco_rate = 0;
 
 	for (i = 0; i < ARRAY_SIZE(pll_predef_mclk); i++) {
 		p_entry = &pll_predef_mclk[i];
 
 		if (p_entry->mclk == mclk) {
 			found = true;
+			vco_rate = p_entry->vco_rate;
 			break;
 		}
 	}
@@ -673,20 +685,7 @@ static int pll_configure_mclk(struct cygnus_audio *cygaud, u32 mclk,
 		return -EINVAL;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(ssp_clk_coeff); i++) {
-		q_entry = &ssp_clk_coeff[i];
-		if (q_entry->mclk == mclk) {
-			found = true;
-			break;
-		}
-	}
-	if (!found) {
-		dev_err(dev,
-			"%s No valid mclk freq (%u) found!\n", __func__, mclk);
-		return -EINVAL;
-	}
-
-	error = configure_vco(cygaud, q_entry);
+	error = configure_vco(cygaud, vco_rate);
 	if (error)
 		return error;
 
@@ -703,7 +702,7 @@ static int pll_configure_mclk(struct cygnus_audio *cygaud, u32 mclk,
 static int cygnus_ssp_set_clocks(struct cygnus_aio_port *aio,
 			struct cygnus_audio *cygaud)
 {
-	u32 value, error, i = 0;
+	u32 value, i = 0;
 	u32 mask = 0xf;
 	u32 sclk;
 	bool found = false;
@@ -731,9 +730,6 @@ static int cygnus_ssp_set_clocks(struct cygnus_aio_port *aio,
 		return -EINVAL;
 	}
 
-	error = configure_vco(cygaud, p_entry);
-	if (error)
-		return error;
 	sclk = aio->bit_per_frame;
 	if (sclk == 512)
 		sclk = 0;
@@ -800,7 +796,7 @@ static int cygnus_ssp_hw_params(struct snd_pcm_substream *substream,
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Configure channels as mono or stereo */
-		if (params_channels(params)) {
+		if (params_channels(params) == 1) {
 			value = readl(aio->cygaud->audio +
 				aio->regs.bf_sourcech_cfg);
 			value |= BIT(BF_SRC_CFGX_SAMPLE_CH_MODE);
@@ -1115,8 +1111,18 @@ static int cygnus_set_dai_tdm_slot(struct snd_soc_dai *cpu_dai,
 		active_slots = 0;
 
 	/* Slot Width is either 16 or 32 */
-	if (slot_width <= 16)
+	switch (slot_width) {
+	case 16:
 		bits_per_slot = 1;
+		break;
+	case 32:
+		bits_per_slot = 0;
+		break;
+	default:
+		dev_warn(aio->cygaud->dev,
+			"%s Slot Width is either 16 or 32. Defaulting /\
+			Slot Width to 32\n", __func__);
+	}
 
 	frame_bits = slots * slot_width;
 
@@ -1171,6 +1177,7 @@ static int cygnus_ssp_suspend(struct snd_soc_dai *cpu_dai)
 
 	return 0;
 }
+
 static int cygnus_ssp_resume(struct snd_soc_dai *cpu_dai)
 {
 	return 0;
@@ -1271,15 +1278,15 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 	portnum = rawval;
 	switch (rawval) {
 	case 0:
-		ssp_regs[0] = (struct cygnus_ssp_regs) INIT_SSP_REGS(0);
+		ssp_regs[0] = INIT_SSP_REGS(0);
 		port_type = PORT_TDM;
 		break;
 	case 1:
-		ssp_regs[1] = (struct cygnus_ssp_regs) INIT_SSP_REGS(1);
+		ssp_regs[1] = INIT_SSP_REGS(1);
 		port_type = PORT_TDM;
 		break;
 	case 2:
-		ssp_regs[2] = (struct cygnus_ssp_regs) INIT_SSP_REGS(2);
+		ssp_regs[2] = INIT_SSP_REGS(2);
 		port_type = PORT_TDM;
 		break;
 	case 3:

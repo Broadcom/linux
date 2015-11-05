@@ -204,29 +204,6 @@ static const struct snd_pcm_hardware cygnus_pcm_hw = {
 
 static u64 cygnus_dma_dmamask = DMA_BIT_MASK(32);
 
-/*
- * Enable diagnostics through menuconfig to debug the time intervals
- * when each playback interrupt happens.
- */
-
-#ifdef CONFIG_SND_SOC_CYGNUS_DIAG
-static struct timespec prev_time;
-static struct timespec cur_time;
-static struct timespec delta_time;
-static unsigned g_intrpt_count;
-static unsigned dtime_us;
-
-static unsigned diff_time(void)
-{
-	getnstimeofday(&cur_time);
-	delta_time = timespec_sub(cur_time, prev_time);
-
-	prev_time = cur_time;
-
-	return delta_time.tv_nsec / 1000;
-}
-#endif
-
 static struct cygnus_aio_port *cygnus_dai_get_dma_data(
 				struct snd_pcm_substream *substream)
 {
@@ -372,10 +349,6 @@ static void enable_intr(struct snd_pcm_substream *substream)
 			aio->cygaud->audio + INTH_R5F_MASK_CLEAR_OFFSET);
 	}
 
-#ifdef CONFIG_SND_SOC_CYGNUS_DIAG
-	dtime_us = diff_time();
-#endif
-
 }
 
 static void disable_intr(struct snd_pcm_substream *substream)
@@ -426,14 +399,11 @@ static void cygnus_pcm_period_elapsed(struct snd_pcm_substream *substream)
 {
 	struct cygnus_aio_port *aio;
 	struct ringbuf_regs *p_rbuf = NULL;
-	bool is_play;
 	u32 regval;
 
 	aio = cygnus_dai_get_dma_data(substream);
 
 	p_rbuf = get_ringbuf(substream);
-
-	is_play = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
 
 	/*
 	 * If free/full mark interrupt occurs, provide timestamp
@@ -441,7 +411,7 @@ static void cygnus_pcm_period_elapsed(struct snd_pcm_substream *substream)
 	 */
 	snd_pcm_period_elapsed(substream);
 
-	if (is_play) {
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Set the ring buffer to full */
 		regval = readl(aio->cygaud->audio + p_rbuf->rdaddr);
 		regval = regval ^ BIT(31);
@@ -492,11 +462,6 @@ static void handle_playback_irq(struct cygnus_audio *cygaud)
 		 * handle getting everything going again.
 		 */
 		if ((esrmask & esr_status1) || (esrmask & esr_status0)) {
-#ifdef CONFIG_SND_SOC_CYGNUS_DIAG
-			dev_dbg(cygaud->dev,
-				"Underrun %u (%u us) since prev intrpt\n",
-				g_intrpt_count, dtime_us);
-#endif
 			dev_dbg(cygaud->dev,
 				"Underrun: esr0=0x%x, esr1=0x%x esr3=0x%x\n",
 				esr_status0, esr_status1, esr_status3);
@@ -508,11 +473,6 @@ static void handle_playback_irq(struct cygnus_audio *cygaud)
 		 */
 		if (esrmask & esr_status3) {
 			struct snd_pcm_substream *playstr;
-#ifdef CONFIG_SND_SOC_CYGNUS_DIAG
-			dev_dbg(cygaud->dev,
-				"Freemark %u (%u us) since prev intrpt\n",
-				g_intrpt_count, dtime_us);
-#endif
 
 			playstr = cygaud->portinfo[port].play_stream;
 			cygnus_pcm_period_elapsed(playstr);
@@ -585,11 +545,6 @@ static irqreturn_t cygnus_dma_irq(int irq, void *data)
 	u32 r5_status;
 	struct cygnus_audio *cygaud = data;
 
-#ifdef CONFIG_SND_SOC_CYGNUS_DIAG
-	g_intrpt_count++;
-	dtime_us = diff_time();
-#endif
-
 	/*
 	 * R5 status bits	Description
 	 *  0		ESR0 (playback FIFO interrupt)
@@ -600,21 +555,22 @@ static irqreturn_t cygnus_dma_irq(int irq, void *data)
 	 */
 	r5_status = readl(cygaud->audio + INTH_R5F_STATUS_OFFSET);
 
-	if (!r5_status)
+	if (!(r5_status & (ANY_PLAYBACK_IRQ | ANY_CAPTURE_IRQ)))
 		return IRQ_NONE;
 
 	/* If playback interrupt happened */
-	if (ANY_PLAYBACK_IRQ & r5_status)
+	if (ANY_PLAYBACK_IRQ & r5_status) {
 		handle_playback_irq(cygaud);
+		writel(ANY_PLAYBACK_IRQ & r5_status,
+			cygaud->audio + INTH_R5F_CLEAR_OFFSET);
+	}
 
 	/* If  capture interrupt happened */
-	if (ANY_CAPTURE_IRQ & r5_status)
+	if (ANY_CAPTURE_IRQ & r5_status) {
 		handle_capture_irq(cygaud);
-
-	/*
-	 * clear r5 interrupts after servicing them
-	 */
-	writel(r5_status, cygaud->audio + INTH_R5F_CLEAR_OFFSET);
+		writel(ANY_CAPTURE_IRQ & r5_status,
+			cygaud->audio + INTH_R5F_CLEAR_OFFSET);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -782,7 +738,7 @@ static int cygnus_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 	buf->area = dma_alloc_coherent(pcm->card->dev, size,
 			&buf->addr, GFP_KERNEL);
 
-	dev_dbg(rtd->cpu_dai->dev, "%s: size 0x%x @ 0x%p\n",
+	dev_dbg(rtd->cpu_dai->dev, "%s: size 0x%zx @ %pK\n",
 				__func__, size, buf->area);
 
 	if (!buf->area) {

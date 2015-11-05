@@ -16,12 +16,3 @@ config SND_SOC_CYGNUS
 	  Cygnus chips (bcm958300, bcm958305, bcm911360)
 
 	  If you don't know what to do here, say N.
-
-config SND_SOC_CYGNUS_DIAG
-	bool "SoC platform audio for Broadcom Cygnus chips diagnostics"
-	depends on SND_SOC_CYGNUS
-	help
-	  Say Y if you want to add diagnostics support in ASoC audio
-	  on Broadcom Cygnus chips (bcm958300, bcm958305, bcm911360)
-
-	  If you don't know what to do here, say N.
