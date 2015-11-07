@@ -170,4 +170,18 @@ config SYSTEMPORT
 	  Broadcom BCM7xxx Set Top Box family chipset using an internal
 	  Ethernet switch.
 
+config NET_BCM_AMAC
+	tristate "Broadcom AMAC Gigabit Ethernet support"
+	depends on ARCH_BCM_IPROC || COMPILE_TEST
+	depends on OF
+	default ARCH_BCM_IPROC
+	---help---
+	  This driver supports the on-chip AMAC Ethernet device of the Broadcom IPROC SoCs.
+	  Broadcom SoC's supported:
+	   Cygnus:
+	    - BCM583XX (BCM58300, BCM58302, BCM58303, BCM58305)
+	    - BCM113XX (BCM11300, BCM11320, BCM11350, BCM11360)
+
+	  To compile this driver as a module, choose m here. If unsure, say n.
+
 endif # NET_VENDOR_BROADCOM
