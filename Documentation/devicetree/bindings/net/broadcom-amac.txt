@@ -1,0 +1,53 @@
+Broadcom AMAC Ethernet Switch Controller Device Tree Bindings
+-------------------------------------------------------------
+
+Required properties:
+	- compatible: For Cygnus, "brcm,amac-enet-cygnus"
+	- reg       : Physical base address and size of the
+                      ethernet registers (core_base, amac_idm_base,
+		      switch_blobal_base & crmu_io_pad_ctrl).
+	- reg-names : Register names. Used in the driver to get
+	              the register data
+		      This needs to be "core_base", "amac_idm_base",
+		      "switch_global_base" & "crmu_io_pad_ctrl"
+	- interrupts: AMAC Interrupt number
+	- max-speed: max speed for the internal port
+
+Optional properties:
+	- switchmode: Switch mode (0: Switch bypass mode, 1: Switch mode)
+                      Only Switch bypass mode is supported.
+	- phy-handle: phandle of the phy to be used in switch-by-pass mode
+		      This typically can only be the PHY0.
+
+Examples:
+
+Port0 is 1G LAN in Switch bypass mode for Cygnus SoC:
+
+	mdio: mdio@18002000 {
+		compatible = "brcm,iproc-mdio";
+		reg = <0x18002000 0x8>;
+		#size-cells = <1>;
+		#address-cells = <0>;
+
+		gphy0: eth-gphy@0 {
+			reg = <0>;
+			max-speed = <1000>;
+			phy-mode = "mii";
+		};
+	};
+
+	enet: enet@0x18042000 {
+		compatible = "brcm,amac-enet-cygnus";
+		reg = <0x18042000 0x1000>,
+			<0x18110400 0x1000>,
+			<0x0301d194 0x4>,
+			<0x0301d0bc 0x4>;
+		reg-names = "core_base",
+			"amac_idm_base",
+			"switch_global_base",
+			"crmu_io_pad_ctrl";
+		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+		switchmode = <0>;
+		phy-handle = <&gphy0>;
+		status="okay";
+	};
