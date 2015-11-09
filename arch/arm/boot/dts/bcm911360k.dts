@@ -47,3 +47,7 @@
 &uart3 {
 	status = "okay";
 };
+
+&enet {
+	status = "okay";
+};

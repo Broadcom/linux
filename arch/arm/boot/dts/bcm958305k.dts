@@ -65,6 +65,10 @@
 	status = "okay";
 };
 
+&enet {
+	status = "okay";
+};
+
 &nand {
 	nandcs@1 {
 		compatible = "brcm,nandcs";
