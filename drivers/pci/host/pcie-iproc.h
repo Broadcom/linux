@@ -48,6 +48,7 @@ struct iproc_pcie_ob {
  *
  * @dev: pointer to device data structure
  * @type: iProc PCIe interface type
+ * @reg_offsets: register offsets
  * @base: PCIe host controller I/O register base
  * @sysdata: Per PCI controller data (ARM-specific)
  * @root_bus: pointer to root bus
@@ -58,6 +59,7 @@ struct iproc_pcie_ob {
 struct iproc_pcie {
 	struct device *dev;
 	enum iproc_pcie_type type;
+	const u16 *reg_offsets;
 	void __iomem *base;
 #ifdef CONFIG_ARM
 	struct pci_sys_data sysdata;

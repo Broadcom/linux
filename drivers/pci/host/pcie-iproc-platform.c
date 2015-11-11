@@ -42,10 +42,12 @@ static int iproc_pcie_pltfm_probe(struct platform_device *pdev)
 	pcie->dev = &pdev->dev;
 	platform_set_drvdata(pdev, pcie);
 
-	if (of_device_is_compatible(np, "brcm,iproc-pcie-paxc"))
+	if (of_device_is_compatible(np, "brcm,iproc-pcie"))
+		pcie->type = IPROC_PCIE_PAXB;
+	else if (of_device_is_compatible(np, "brcm,iproc-pcie-paxc"))
 		pcie->type = IPROC_PCIE_PAXC;
 	else
-		pcie->type = IPROC_PCIE_PAXB;
+		return -ENODEV;
 
 	ret = of_address_to_resource(np, 0, &reg);
 	if (ret < 0) {
