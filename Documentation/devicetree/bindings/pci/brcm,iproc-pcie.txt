@@ -34,13 +34,19 @@ effective:
   increase the outbound window size
 
 MSI support (optional):
+
+For older platforms without MSI integrated in the GIC (e.g., gicv2m,
+gicv3-its), iProc PCIe core provides an event queue based MSI support. The
+iProc MSI uses host memories to store MSI posted writes and event queues
+
 - msi-parent: Link to the device node of the MSI controller. On newer iProc
-platforms, the MSI controller may be gicv2m or gicv3. On legacy iProc platforms
-without MSI support in its interrupt controller, one may use the event queue
-based MSI support integrated within the iProc PCIe core
+platforms, the MSI controller may be gicv2m or gicv3-its. On older iProc
+platforms without MSI support in its interrupt controller, one may use the
+event queue based MSI support integrated within the iProc PCIe core
 
 When the iProc event queue based MSI is used, one needs to define the
-following properties in the MSI child node:
+following properties in the MSI device node:
+- compatible: Must be "brcm,iproc-msi"
 - msi-controller: claims itself as an MSI controller
 - interrupt-parent: Link to its parent interrupt device
 - interrupts: List of interrupt IDs from its parent interrupt device
@@ -83,6 +89,7 @@ Example:
 
 		/* iProc event queue based MSI */
 		msi0: msi@18012000 {
+			compatible = "brcm,iproc-msi";
 			msi-controller;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 96 IRQ_TYPE_NONE>,
