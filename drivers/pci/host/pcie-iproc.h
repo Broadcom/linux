@@ -74,7 +74,15 @@ struct iproc_pcie {
 
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res);
 int iproc_pcie_remove(struct iproc_pcie *pcie);
-struct msi_controller *iproc_pcie_msi_init(struct iproc_pcie *pcie,
-					   struct device_node *node);
+
+#ifdef CONFIG_PCI_MSI
+int iproc_msi_init(struct iproc_pcie *pcie, struct device_node *node);
+#else
+static inline int iproc_msi_init(struct iproc_pcie *pcie,
+				 struct device_node *node)
+{
+	return -ENODEV;
+}
+#endif
 
 #endif /* _PCIE_IPROC_H */

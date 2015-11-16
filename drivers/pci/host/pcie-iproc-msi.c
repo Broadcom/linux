@@ -11,17 +11,12 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/interrupt.h>
-#include <linux/irq.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/msi.h>
 #include <linux/of_irq.h>
 #include <linux/of_pci.h>
 #include <linux/pci.h>
-#include <linux/platform_device.h>
 
 #include "pcie-iproc.h"
 
@@ -58,35 +53,35 @@ enum iproc_msi_reg {
 /**
  * iProc event queue based MSI
  *
- * Only meant to be used on legacy platforms without MSI support integrated
- * into the GIC
+ * Only meant to be used on platforms without MSI support integrated into the
+ * GIC
  *
  * @pcie: pointer to iProc PCIe data
- * @chip: MSI controller
  * @reg_offsets: MSI register offsets
  * @irqs: pointer to an array that contains the interrupt IDs
  * @nirqs: number of total interrupts
  * @has_inten_reg: indicates the MSI interrupt enable register needs to be
  * set explicitly (required for some legacy platforms)
  * @used: bitmap to track usage of MSI
- * @domain: IRQ domain
+ * @inner_domain: inner IRQ domain
+ * @msi_domain: MSI IRQ domain
  * @bitmap_lock: lock to protect access to the IRQ bitmap
  * @n_eq_region: required number of 4K aligned memory region for MSI event
- * queue
+ * queues
  * @n_msi_msg_region: required number of 4K aligned memory region for MSI
  * posted writes
- * @eq_base: pointer to allocated memory region for MSI event queue
+ * @eq_base: pointer to allocated memory region for MSI event queues
  * @msi_base: pointer to allocated memory region for MSI posted writes
  */
 struct iproc_msi {
 	struct iproc_pcie *pcie;
-	struct msi_controller chip;
 	const u16 (*reg_offsets)[IPROC_MSI_REG_SIZE];
 	int *irqs;
 	int nirqs;
 	bool has_inten_reg;
 	DECLARE_BITMAP(used, IPROC_PCIE_MAX_NUM_IRQS);
-	struct irq_domain *domain;
+	struct irq_domain *inner_domain;
+	struct irq_domain *msi_domain;
 	struct mutex bitmap_lock;
 	unsigned int n_eq_region;
 	unsigned int n_msi_msg_region;
@@ -112,11 +107,6 @@ iproc_msi_reg_paxc[IPROC_PCIE_MAX_NUM_IRQS][IPROC_MSI_REG_SIZE] = {
 	{ 0xc30, 0xc34, 0xc38, 0xc3c, 0xc4c, 0xc5c, 0xc6c },
 };
 
-static inline struct iproc_msi *to_iproc_msi(struct msi_controller *chip)
-{
-	return container_of(chip, struct iproc_msi, chip);
-}
-
 static inline u32 iproc_msi_read_reg(struct iproc_msi *msi,
 				     enum iproc_msi_reg reg,
 				     unsigned int eq)
@@ -135,101 +125,98 @@ static inline void iproc_msi_write_reg(struct iproc_msi *msi,
 	writel(val, pcie->base + msi->reg_offsets[eq][reg]);
 }
 
-static int iproc_msi_alloc(struct iproc_msi *msi)
-{
-	int irq;
-
-	mutex_lock(&msi->bitmap_lock);
-
-	irq = find_first_zero_bit(msi->used, msi->nirqs);
-	if (irq < msi->nirqs)
-		set_bit(irq, msi->used);
-	else
-		irq = -ENOSPC;
-
-	mutex_unlock(&msi->bitmap_lock);
-
-	return irq;
-}
-
-static void iproc_msi_free(struct iproc_msi *msi, unsigned long irq)
-{
-	struct device *dev = msi->chip.dev;
-
-	mutex_lock(&msi->bitmap_lock);
-
-	if (!test_bit(irq, msi->used))
-		dev_warn(dev, "trying to free unused MSI IRQ#%lu\n", irq);
-	else
-		clear_bit(irq, msi->used);
-
-	mutex_unlock(&msi->bitmap_lock);
-}
-
-static int iproc_msi_setup_irq(struct msi_controller *chip,
-			       struct pci_dev *pdev, struct msi_desc *desc)
-{
-	struct iproc_msi *msi = to_iproc_msi(chip);
-	struct msi_msg msg;
-	unsigned int irq;
-	int hwirq;
-	phys_addr_t addr;
-
-	hwirq = iproc_msi_alloc(msi);
-	if (hwirq < 0)
-		return hwirq;
-
-	irq = irq_create_mapping(msi->domain, hwirq);
-	if (!irq) {
-		iproc_msi_free(msi, hwirq);
-		return -EINVAL;
-	}
-
-	irq_set_msi_desc(irq, desc);
-
-	addr = virt_to_phys(msi->msi_base) | (hwirq * 4);
-	msg.address_lo = lower_32_bits(addr);
-	if (IS_ENABLED(CONFIG_PHYS_ADDR_T_64BIT))
-		msg.address_hi = upper_32_bits(addr);
-	else
-		msg.address_hi = 0;
-	msg.data = hwirq;
-
-	pci_write_msi_msg(irq, &msg);
-
-	return 0;
-}
-
-static void iproc_msi_teardown_irq(struct msi_controller *chip,
-				   unsigned int irq)
-{
-	struct iproc_msi *msi = to_iproc_msi(chip);
-	struct irq_data *d = irq_get_irq_data(irq);
-	irq_hw_number_t hwirq = irqd_to_hwirq(d);
-
-	irq_dispose_mapping(irq);
-	iproc_msi_free(msi, hwirq);
-}
-
-static struct irq_chip iproc_msi_irq_chip = {
-	.name = "iProc PCIe MSI",
+static struct irq_chip iproc_msi_top_irq_chip = {
+	.name = "iProc MSI",
 	.irq_enable = pci_msi_unmask_irq,
 	.irq_disable = pci_msi_mask_irq,
 	.irq_mask = pci_msi_mask_irq,
 	.irq_unmask = pci_msi_unmask_irq,
 };
 
-static int iproc_msi_map(struct irq_domain *domain, unsigned int irq,
-			 irq_hw_number_t hwirq)
-{
-	irq_set_chip_and_handler(irq, &iproc_msi_irq_chip, handle_simple_irq);
-	irq_set_chip_data(irq, domain->host_data);
+static struct msi_domain_info iproc_msi_domain_info = {
+	.flags = MSI_FLAG_USE_DEF_DOM_OPS | MSI_FLAG_USE_DEF_CHIP_OPS |
+		MSI_FLAG_PCI_MSIX,
+	.chip = &iproc_msi_top_irq_chip,
+};
 
+static int iproc_msi_irq_set_affinity(struct irq_data *data,
+				      const struct cpumask *mask, bool force)
+{
+	return -EINVAL;
+}
+
+static void iproc_msi_irq_compose_msi_msg(struct irq_data *data,
+					  struct msi_msg *msg)
+{
+	struct iproc_msi *msi = irq_data_get_irq_chip_data(data);
+	phys_addr_t addr;
+
+	addr = virt_to_phys(msi->msi_base) | (data->hwirq * 4);
+	msg->address_lo = lower_32_bits(addr);
+	msg->address_hi = upper_32_bits(addr);
+	msg->data = data->hwirq;
+}
+
+static struct irq_chip iproc_msi_bottom_irq_chip = {
+	.name = "MSI",
+	.irq_set_affinity = iproc_msi_irq_set_affinity,
+	.irq_compose_msi_msg = iproc_msi_irq_compose_msi_msg,
+};
+
+static int iproc_msi_irq_domain_alloc(struct irq_domain *domain,
+				      unsigned int virq, unsigned int nr_irqs,
+				      void *args)
+{
+	struct iproc_msi *msi = domain->host_data;
+	int i, msi_irq;
+
+	mutex_lock(&msi->bitmap_lock);
+
+	for (i = 0; i < nr_irqs; i++) {
+		msi_irq = find_first_zero_bit(msi->used, msi->nirqs);
+		if (msi_irq < msi->nirqs) {
+			set_bit(msi_irq, msi->used);
+		} else {
+			mutex_unlock(&msi->bitmap_lock);
+			return -ENOSPC;
+		}
+
+		irq_domain_set_info(domain, virq + i, msi_irq,
+				    &iproc_msi_bottom_irq_chip,
+				    domain->host_data, handle_simple_irq,
+				    NULL, NULL);
+	}
+
+	mutex_unlock(&msi->bitmap_lock);
 	return 0;
 }
 
+static void iproc_msi_irq_domain_free(struct irq_domain *domain,
+				      unsigned int virq, unsigned int nr_irqs)
+{
+	struct irq_data *data = irq_domain_get_irq_data(domain, virq);
+	struct iproc_msi *msi = irq_data_get_irq_chip_data(data);
+	unsigned int i;
+
+	mutex_lock(&msi->bitmap_lock);
+
+	for (i = 0; i < nr_irqs; i++) {
+		struct irq_data *data = irq_domain_get_irq_data(domain,
+								virq + i);
+		if (!test_bit(data->hwirq, msi->used)) {
+			dev_warn(msi->pcie->dev, "freeing unused MSI %lu\n",
+				 data->hwirq);
+		} else
+			clear_bit(data->hwirq, msi->used);
+	}
+
+	mutex_unlock(&msi->bitmap_lock);
+	irq_domain_free_irqs_parent(domain, virq, nr_irqs);
+}
+
 static const struct irq_domain_ops msi_domain_ops = {
-	.map = iproc_msi_map,
+	.alloc = iproc_msi_irq_domain_alloc,
+	.free = iproc_msi_irq_domain_free,
 };
 
 static void iproc_msi_enable(struct iproc_msi *msi)
@@ -245,12 +232,8 @@ static void iproc_msi_enable(struct iproc_msi *msi)
 
 		iproc_msi_write_reg(msi, IPROC_MSI_EQ_PAGE, i,
 				    lower_32_bits(addr));
-
-		if (IS_ENABLED(CONFIG_PHYS_ADDR_T_64BIT))
-			val = upper_32_bits(addr);
-		else
-			val = 0;
-		iproc_msi_write_reg(msi, IPROC_MSI_EQ_PAGE_UPPER, i, val);
+		iproc_msi_write_reg(msi, IPROC_MSI_EQ_PAGE_UPPER, i,
+				    upper_32_bits(addr));
 	}
 
 	/* program memory region for MSI posted writes */
@@ -261,12 +244,8 @@ static void iproc_msi_enable(struct iproc_msi *msi)
 
 		iproc_msi_write_reg(msi, IPROC_MSI_PAGE, i,
 				    lower_32_bits(addr));
-
-		if (IS_ENABLED(CONFIG_PHYS_ADDR_T_64BIT))
-			val = upper_32_bits(addr);
-		else
-			val = 0;
-		iproc_msi_write_reg(msi, IPROC_MSI_PAGE_UPPER, i, val);
+		iproc_msi_write_reg(msi, IPROC_MSI_PAGE_UPPER, i,
+				    upper_32_bits(addr));
 	}
 
 	for (eq = 0; eq < msi->nirqs; eq++) {
@@ -302,7 +281,7 @@ static void iproc_msi_handler(struct irq_desc *desc)
 	pcie = msi->pcie;
 
 	eq = irq - msi->irqs[0];
-	virq = irq_find_mapping(msi->domain, eq);
+	virq = irq_find_mapping(msi->inner_domain, eq);
 	head = iproc_msi_read_reg(msi, IPROC_MSI_EQ_HEAD, eq) &
 		IPROC_MSI_EQ_MASK;
 	do {
@@ -324,19 +303,35 @@ static void iproc_msi_handler(struct irq_desc *desc)
 	chained_irq_exit(irq_chip, desc);
 }
 
-struct msi_controller *iproc_pcie_msi_init(struct iproc_pcie *pcie,
-					   struct device_node *node)
+int iproc_msi_init(struct iproc_pcie *pcie, struct device_node *node)
 {
 	struct iproc_msi *msi;
-	struct msi_controller *chip;
+	struct device_node *parent_node;
+	struct irq_domain *parent_domain;
 	int i, ret;
 
+	if (!of_device_is_compatible(node, "brcm,iproc-msi"))
+		return -ENODEV;
+
 	if (!of_find_property(node, "msi-controller", NULL))
-		return ERR_PTR(-ENODEV);
+		return -ENODEV;
+
+	parent_node = of_parse_phandle(node, "interrupt-parent", 0);
+	if (!parent_node) {
+		dev_err(pcie->dev, "unable to parse MSI interrupt parent\n");
+		return -ENODEV;
+	}
+
+	parent_domain = irq_find_host(parent_node);
+	if (!parent_domain) {
+		dev_err(pcie->dev, "unable to get MSI parent domain\n");
+		return -ENODEV;
+	}
 
 	msi = devm_kzalloc(pcie->dev, sizeof(*msi), GFP_KERNEL);
 	if (!msi)
-		return ERR_PTR(-ENOMEM);
+		return -ENOMEM;
+
 	msi->pcie = pcie;
 	mutex_init(&msi->bitmap_lock);
 
@@ -349,7 +344,7 @@ struct msi_controller *iproc_pcie_msi_init(struct iproc_pcie *pcie,
 		break;
 	default:
 		dev_err(pcie->dev, "incompatible iProc PCIe interface\n");
-		return ERR_PTR(-EINVAL);
+		return -EINVAL;
 	}
 
 	ret = of_property_read_u32(node, "brcm,num-eq-region",
@@ -358,7 +353,7 @@ struct msi_controller *iproc_pcie_msi_init(struct iproc_pcie *pcie,
 		dev_err(pcie->dev,
 			"invalid property 'brcm,num-eq-region' %u\n",
 			msi->n_eq_region);
-		return ERR_PTR(-ENODEV);
+		return -ENODEV;
 	}
 
 	ret = of_property_read_u32(node, "brcm,num-msi-msg-region",
@@ -367,21 +362,21 @@ struct msi_controller *iproc_pcie_msi_init(struct iproc_pcie *pcie,
 		dev_err(pcie->dev,
 			"invalid property 'brcm,num-msi-msg-region' %u\n",
 			msi->n_msi_msg_region);
-		return ERR_PTR(-ENODEV);
+		return -ENODEV;
 	}
 
 	/* reserve memory for MSI event queue */
 	msi->eq_base = devm_kcalloc(pcie->dev, msi->n_eq_region + 1,
 				    EQ_MEM_REGION_SIZE, GFP_KERNEL);
 	if (!msi->eq_base)
-		return ERR_PTR(-ENOMEM);
+		return -ENOMEM;
 	msi->eq_base = PTR_ALIGN(msi->eq_base, EQ_MEM_REGION_SIZE);
 
 	/* reserve memory for MSI posted writes */
 	msi->msi_base = devm_kcalloc(pcie->dev, msi->n_msi_msg_region + 1,
 				     MSI_MSG_MEM_REGION_SIZE, GFP_KERNEL);
 	if (!msi->msi_base)
-		return ERR_PTR(-ENOMEM);
+		return -ENOMEM;
 	msi->msi_base = PTR_ALIGN(msi->msi_base, MSI_MSG_MEM_REGION_SIZE);
 
 	if (of_find_property(node, "brcm,pcie-msi-inten", NULL))
@@ -390,7 +385,7 @@ struct msi_controller *iproc_pcie_msi_init(struct iproc_pcie *pcie,
 	msi->nirqs = of_irq_count(node);
 	if (!msi->nirqs) {
 		dev_err(pcie->dev, "found no MSI interrupt in DT\n");
-		return ERR_PTR(-ENODEV);
+		return -ENODEV;
 	}
 	if (msi->nirqs > IPROC_PCIE_MAX_NUM_IRQS) {
 		dev_warn(pcie->dev, "too many MSI interrupts defined %d\n",
@@ -400,34 +395,40 @@ struct msi_controller *iproc_pcie_msi_init(struct iproc_pcie *pcie,
 	msi->irqs = devm_kcalloc(pcie->dev, msi->nirqs, sizeof(*msi->irqs),
 				 GFP_KERNEL);
 	if (!msi->irqs)
-		return ERR_PTR(-ENOMEM);
+		return -ENOMEM;
 
 	for (i = 0; i < msi->nirqs; i++) {
 		msi->irqs[i] = irq_of_parse_and_map(node, i);
 		if (!msi->irqs[i]) {
 			dev_err(pcie->dev, "unable to parse/map interrupt\n");
-			return ERR_PTR(-ENODEV);
+			return -ENODEV;
 		}
 	}
 
-	chip = &msi->chip;
-	chip->dev = pcie->dev;
-	chip->setup_irq = iproc_msi_setup_irq;
-	chip->teardown_irq = iproc_msi_teardown_irq;
-	msi->domain = irq_domain_add_linear(pcie->dev->of_node, msi->nirqs,
-					    &msi_domain_ops, chip);
-	if (!msi->domain) {
-		dev_err(pcie->dev, "failed to create IRQ domain\n");
-		return ERR_PTR(-ENXIO);
+	msi->inner_domain = irq_domain_add_hierarchy(parent_domain, 0,
+						     msi->nirqs, NULL,
+						     &msi_domain_ops,
+						     msi);
+	if (!msi->inner_domain) {
+		dev_err(pcie->dev, "failed to create inner domain\n");
+		return -ENOMEM;
 	}
 
-	for (i = 0; i < msi->nirqs; i++) {
-		irq_set_handler_data(msi->irqs[i], msi);
-		irq_set_chained_handler(msi->irqs[i], iproc_msi_handler);
+	msi->msi_domain = pci_msi_create_irq_domain(node,
+						    &iproc_msi_domain_info,
+						    msi->inner_domain);
+	if (!msi->msi_domain) {
+		dev_err(pcie->dev, "failed to create MSI domain\n");
+		irq_domain_remove(msi->inner_domain);
+		return -ENOMEM;
 	}
+
+	for (i = 0; i < msi->nirqs; i++)
+		irq_set_chained_handler_and_data(msi->irqs[i],
+						 iproc_msi_handler, msi);
 
 	iproc_msi_enable(msi);
 
-	return chip;
+	return 0;
 }
-EXPORT_SYMBOL(iproc_pcie_msi_init);
+EXPORT_SYMBOL(iproc_msi_init);
