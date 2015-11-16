@@ -234,6 +234,7 @@
 
 			msi-parent = <&msi0>;
 			msi0: msi@18012000 {
+				compatible = "brcm,iproc-msi";
 				msi-controller;
 				interrupt-parent = <&gic>;
 				interrupts = <GIC_SPI 127 IRQ_TYPE_NONE>,
@@ -269,7 +270,8 @@
 
 			msi-parent = <&msi1>;
 			msi1: msi@18013000 {
-			msi-controller;
+				compatible = "brcm,iproc-msi";
+				msi-controller;
 				interrupt-parent = <&gic>;
 				interrupts = <GIC_SPI 133 IRQ_TYPE_NONE>,
 					     <GIC_SPI 134 IRQ_TYPE_NONE>,
@@ -304,6 +306,7 @@
 
 			msi-parent = <&msi2>;
 			msi2: msi@18014000 {
+				compatible = "brcm,iproc-msi";
 				msi-controller;
 				interrupt-parent = <&gic>;
 				interrupts = <GIC_SPI 139 IRQ_TYPE_NONE>,
