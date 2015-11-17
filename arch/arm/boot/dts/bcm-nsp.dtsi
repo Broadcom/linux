@@ -71,47 +71,47 @@
 
 	mpcore {
 		compatible = "simple-bus";
-		ranges;
+		ranges = <0x00000000 0x19020000 0x00003000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		L2: l2-cache {
-			compatible = "arm,pl310-cache";
-			reg = <0x19022000 0x1000>;
-			cache-unified;
-			cache-level = <2>;
-		};
-
-		gic: interrupt-controller@19021000 {
-			compatible = "arm,cortex-a9-gic";
-			#interrupt-cells = <3>;
-			#address-cells = <0>;
-			interrupt-controller;
-			reg = <0x19021000 0x1000>,
-			      <0x19020100 0x100>;
-		};
-
-		timer@19020200 {
+		timer@0200 {
 			compatible = "arm,cortex-a9-global-timer";
-			reg = <0x19020200 0x100>;
+			reg = <0x0200 0x100>;
 			interrupts = <GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&periph_clk>;
 		};
 
-		twd-timer@19020600 {
+		twd-timer@0600 {
 			compatible = "arm,cortex-a9-twd-timer";
-			reg = <0x19020600 0x20>;
+			reg = <0x0600 0x20>;
 			interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(2) |
 						  IRQ_TYPE_LEVEL_HIGH)>;
 			clocks = <&periph_clk>;
 		};
 
-		twd-watchdog@19020620 {
+		twd-watchdog@0620 {
 			compatible = "arm,cortex-a9-twd-wdt";
-			reg = <0x19020620 0x20>;
+			reg = <0x0620 0x20>;
 			interrupts = <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(2) |
 						  IRQ_TYPE_LEVEL_HIGH)>;
 			clocks = <&periph_clk>;
+		};
+
+		gic: interrupt-controller@1000 {
+			compatible = "arm,cortex-a9-gic";
+			#interrupt-cells = <3>;
+			#address-cells = <0>;
+			interrupt-controller;
+			reg = <0x1000 0x1000>,
+			      <0x0100 0x100>;
+		};
+
+		L2: l2-cache {
+			compatible = "arm,pl310-cache";
+			reg = <0x2000 0x1000>;
+			cache-unified;
+			cache-level = <2>;
 		};
 	};
 
@@ -179,16 +179,16 @@
 		};
 	};
 
-	soc {
+	axi {
 		compatible = "simple-bus";
-		ranges;
+		ranges = <0x00000000 0x18000000 0x0011ba08>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		gpioa: gpio-a@18000020 {
+		gpioa: gpio-a@0020 {
 			compatible = "brcm,nsp-gpio-a";
-			reg = <0x18000020 0x100>,
-			      <0x1803f1c4 0x1c>;
+			reg = <0x00020 0x100>,
+			      <0x3f1c4 0x1c>;
 			#gpio-cells = <2>;
 			gpio-controller;
 			ngpios = <32>;
@@ -197,25 +197,25 @@
 			gpio-ranges = <&pinctrl 0 0 32>;
 		};
 
-		uart0: serial@18000300 {
+		uart0: serial@0300 {
 			compatible = "ns16550a";
-			reg = <0x18000300 0x100>;
+			reg = <0x0300 0x100>;
 			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&osc>;
 			status = "disabled";
 		};
 
-		uart1: serial@18000400 {
+		uart1: serial@0400 {
 			compatible = "ns16550a";
-			reg = <0x18000400 0x100>;
+			reg = <0x0400 0x100>;
 			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&osc>;
 			status = "disabled";
 		};
 
-		pcie0: pcie@18012000 {
+		pcie0: pcie@12000 {
 			compatible = "brcm,iproc-pcie";
-			reg = <0x18012000 0x1000>;
+			reg = <0x12000 0x1000>;
 
 			#interrupt-cells = <1>;
 			interrupt-map-mask = <0 0 0 0>;
@@ -228,7 +228,11 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 			device_type = "pci";
-			ranges = <0x82000000 0 0x08000000 0x08000000 0 0x08000000>;
+
+			/* Note: The HW does not support I/O resources.  So,
+			 * only the memory resource range is being specified.
+			 */
+			ranges = <0x82000000 0 0x08000000 0x08000000 0 0x8000000>;
 
 			status = "disabled";
 
@@ -249,9 +253,9 @@
 			};
 		};
 
-		pcie1: pcie@18013000 {
+		pcie1: pcie@13000 {
 			compatible = "brcm,iproc-pcie";
-			reg = <0x18013000 0x1000>;
+			reg = <0x13000 0x1000>;
 
 			#interrupt-cells = <1>;
 			interrupt-map-mask = <0 0 0 0>;
@@ -264,7 +268,11 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 			device_type = "pci";
-			ranges = <0x82000000 0 0x40000000 0x40000000 0 0x08000000>;
+
+			/* Note: The HW does not support I/O resources.  So,
+			 * only the memory resource range is being specified.
+			 */
+			ranges = <0x82000000 0 0x40000000 0x40000000 0 0x8000000>;
 
 			status = "disabled";
 
@@ -285,9 +293,9 @@
 			};
 		};
 
-		pcie2: pcie@18014000 {
+		pcie2: pcie@14000 {
 			compatible = "brcm,iproc-pcie";
-			reg = <0x18014000 0x1000>;
+			reg = <0x14000 0x1000>;
 
 			#interrupt-cells = <1>;
 			interrupt-map-mask = <0 0 0 0>;
@@ -300,7 +308,11 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 			device_type = "pci";
-			ranges = <0x82000000 0 0x48000000 0x48000000 0 0x08000000>;
+
+			/* Note: The HW does not support I/O resources.  So,
+			 * only the memory resource range is being specified.
+			 */
+			ranges = <0x82000000 0 0x48000000 0x48000000 0 0x8000000>;
 
 			status = "disabled";
 
@@ -321,11 +333,11 @@
 			};
 		};
 
-		nand: nand@18026000 {
+		nand: nand@26000 {
 			compatible = "brcm,nand-iproc", "brcm,brcmnand-v6.1";
-			reg = <0x18026000 0x600>,
-			      <0x1811b408 0x600>,
-			      <0x18026f00 0x20>;
+			reg = <0x026000 0x600>,
+			      <0x11b408 0x600>,
+			      <0x026f00 0x20>;
 			reg-names = "nand", "iproc-idm", "iproc-ext";
 			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
 
@@ -335,9 +347,9 @@
 			brcm,nand-has-wp;
 		};
 
-		gpiob: gpio-b@18030000 {
+		gpiob: gpio-b@30000 {
 			compatible = "brcm,iproc-gpio";
-			reg = <0x18030000 0x50>;
+			reg = <0x30000 0x50>;
 			#gpio-cells = <2>;
 			gpio-controller;
 			ngpios = <4>;
@@ -345,16 +357,16 @@
 			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
-		ccbtimer0: timer@18034000 {
+		ccbtimer0: timer@34000 {
 			compatible = "arm,sp804";
-			reg = <0x18034000 0x1000>;
+			reg = <0x34000 0x1000>;
 			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&iprocslow>;
 			clock-names = "apb_pclk";
 		};
 
-		ccbtimer1: timer@18035000 {
+		ccbtimer1: timer@35000 {
 			compatible = "arm,sp804";
 			reg = <0x18035000 0x1000>;
 			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>,
@@ -363,28 +375,28 @@
 			clock-names = "apb_pclk";
 		};
 
-		i2c0: i2c@18038000 {
+		i2c0: i2c@38000 {
 			compatible = "brcm,iproc-i2c";
-			reg = <0x18038000 0x50>;
+			reg = <0x38000 0x50>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 89 IRQ_TYPE_NONE>;
 			clock-frequency = <100000>;
 		};
 
-		wdt@18039000 {
+		wdt@39000 {
 			compatible = "arm,sp805", "arm,primecell";
-			reg = <0x18039000 0x1000>;
+			reg = <0x39000 0x1000>;
 			interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&iprocslow>, <&iprocslow>;
 			clock-names = "wdogclk", "apb_pclk";
 		};
 
-		pinctrl: pinctrl@1803f1c0 {
+		pinctrl: pinctrl@3f1c0 {
 			compatible = "brcm,nsp-pinmux";
-			reg = <0x1803f1c0 0x04>,
-			      <0x18030028 0x04>,
-			      <0x1803f408 0x04>;
+			reg = <0x3f1c0 0x04>,
+			      <0x30028 0x04>,
+			      <0x3f408 0x04>;
 		};
 	};
 };
