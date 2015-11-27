@@ -47,7 +47,7 @@
 	};
 
 	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/ram rw console=ttyS0,4800n8 \
+		bootargs = "root=/dev/ram rw console=ttyS3,4800n8 \
 			    earlycon=uart8250,mmio32,0x68a30000";
 		linux,stdout-path = "/soc/uart@68a30000:4800n8";
 		linux,initrd-start = <0x0 0x81000000>;
