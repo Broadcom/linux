@@ -157,14 +157,14 @@
 				      IRQ_TYPE_LEVEL_HIGH)>;
 		};
 
-		uart0: uart@68a00000 {
+		uart3: uart@68a30000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
-			reg = <0x68a00000 0x1000>;
+			reg = <0x68a30000 0x1000>;
 			reg-shift = <2>;
 			clock-frequency = <87500000>;
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
 	};
