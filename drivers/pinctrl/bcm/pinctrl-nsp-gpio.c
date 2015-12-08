@@ -315,8 +315,8 @@ static int nsp_gpio_direction_output(struct gpio_chip *gc, unsigned gpio,
 	unsigned long flags;
 
 	spin_lock_irqsave(&chip->lock, flags);
-	nsp_set_bit(chip, REG, NSP_GPIO_OUT_EN, gpio, true);
 	nsp_set_bit(chip, REG, NSP_GPIO_DATA_OUT, gpio, !!(val));
+	nsp_set_bit(chip, REG, NSP_GPIO_OUT_EN, gpio, true);
 	spin_unlock_irqrestore(&chip->lock, flags);
 
 	dev_dbg(chip->dev, "gpio:%u set output, value:%d\n", gpio, val);
