@@ -396,5 +396,17 @@
 			      <0x30028 0x04>,
 			      <0x3f408 0x04>;
 		};
+
+		cru: cru@3f184 {
+			compatible = "syscon";
+			reg = <0x3f184 0x4>;
+		};
+
+		reboot: reboot@3f184 {
+			compatible ="syscon-reboot";
+			regmap = <&cru>;
+			offset = <0>;
+			mask = <0x2f9>;
+		};
 	};
 };
