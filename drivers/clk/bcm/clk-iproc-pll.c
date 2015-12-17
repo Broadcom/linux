@@ -26,7 +26,8 @@
 #define PLL_VCO_LOW_SHIFT  30
 /* PLL MACRO_SELECT modes 0 to 5 choose pre-calculated
  * PLL output frequencies from a Look up Table. Mode 7
- * allows user to manipulate PLL clock dividers */
+ * allows user to manipulate PLL clock dividers
+ */
 #define PLL_USER_MODE 7
 /* number of delay loops waiting for PLL to lock */
 #define LOCK_DELAY 100
@@ -533,25 +534,44 @@ static unsigned long iproc_clk_recalc_rate(struct clk_hw *hw,
 	return clk->rate;
 }
 
-static long iproc_clk_round_rate(struct clk_hw *hw, unsigned long rate,
-		unsigned long *parent_rate)
+static int iproc_clk_determine_rate(struct clk_hw *hw,
+		struct clk_rate_request *req)
 {
+	struct iproc_clk *bcm_clk = to_iproc_clk(hw);
+	struct iproc_pll *pll = bcm_clk->pll;
+	const struct iproc_clk_ctrl *ctrl = bcm_clk->ctrl;
+	unsigned long best_delta;
+	unsigned long delta;
 	unsigned int div;
+	int i;
 
-	if (rate == 0 || *parent_rate == 0)
+	if (req->rate == 0)
 		return -EINVAL;
+	if (req->rate == req->best_parent_rate)
+		return 0;
 
-	if (rate == *parent_rate)
-		return *parent_rate;
+	if ((pll->vco_param) && (ctrl->flags & IPROC_CLK_SET_RATE_PARENT)) {
+		best_delta = abs(pll->vco_param[0].rate
+			% req->rate - req->rate);
+		req->best_parent_rate = pll->vco_param[0].rate;
+		for (i = 1; i < pll->num_vco_entries; i++) {
+			delta = abs(pll->vco_param[i].rate % req->rate -
+				req->rate);
+			if (delta < best_delta) {
+				best_delta = delta;
+				req->best_parent_rate = pll->vco_param[i].rate;
+			}
+		}
+	}
 
-	div = DIV_ROUND_UP(*parent_rate, rate);
+	div = DIV_ROUND_UP(req->best_parent_rate, req->rate);
 	if (div < 2)
-		return *parent_rate;
+		req->rate = req->best_parent_rate;
 
 	if (div > 256)
 		div = 256;
-
-	return *parent_rate / div;
+	req->rate = req->best_parent_rate / div;
+	return 0;
 }
 
 static int iproc_clk_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -566,10 +586,11 @@ static int iproc_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (rate == 0 || parent_rate == 0)
 		return -EINVAL;
 
+
+	div = DIV_ROUND_UP(parent_rate, rate);
 	if (ctrl->flags & IPROC_CLK_MCLK_DIV_BY_2)
-		div = DIV_ROUND_UP(parent_rate, rate * 2);
-	else
-		div = DIV_ROUND_UP(parent_rate, rate);
+		div /=  2;
+
 	if (div > 256)
 		return -EINVAL;
 
@@ -593,7 +614,7 @@ static const struct clk_ops iproc_clk_ops = {
 	.enable = iproc_clk_enable,
 	.disable = iproc_clk_disable,
 	.recalc_rate = iproc_clk_recalc_rate,
-	.round_rate = iproc_clk_round_rate,
+	.determine_rate = iproc_clk_determine_rate,
 	.set_rate = iproc_clk_set_rate,
 };
 
@@ -717,7 +738,10 @@ void __init iproc_pll_clk_setup(struct device_node *node,
 
 		init.name = clk_name;
 		init.ops = &iproc_clk_ops;
-		init.flags = 0;
+		if (iclk->ctrl->flags & IPROC_CLK_SET_RATE_PARENT)
+			init.flags = CLK_SET_RATE_PARENT;
+		else
+			init.flags = 0;
 		init.parent_names = (parent_name ? &parent_name : NULL);
 		init.num_parents = (parent_name ? 1 : 0);
 		iclk->hw.init = &init;

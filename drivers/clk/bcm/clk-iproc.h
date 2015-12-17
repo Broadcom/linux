@@ -78,6 +78,10 @@
  * Some PLLs have a reset high.
  */
 #define IPROC_CLK_PLL_RESET_ACTIVE_LOW BIT(9)
+/*
+ * Some clocks allow the rate change operation to propagate up to clk's parent.
+ */
+#define IPROC_CLK_SET_RATE_PARENT BIT(10)
 
 /*
  * Parameters for VCO frequency configuration

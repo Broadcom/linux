@@ -299,20 +299,20 @@ static const struct iproc_pll_ctrl audiopll = {
 static const struct iproc_clk_ctrl audiopll_clk[] = {
 	[BCM_CYGNUS_AUDIOPLL_CH0] = {
 		.channel = BCM_CYGNUS_AUDIOPLL_CH0,
-		.flags = IPROC_CLK_AON |
+		.flags = IPROC_CLK_AON | IPROC_CLK_SET_RATE_PARENT |
 				IPROC_CLK_MCLK_DIV_BY_2,
 		.enable = enable_val(0x14, 8, 10, 9),
 		.mdiv = reg_val(0x14, 0, 8),
 	},
 	[BCM_CYGNUS_AUDIOPLL_CH1] = {
 		.channel = BCM_CYGNUS_AUDIOPLL_CH1,
-		.flags = IPROC_CLK_AON,
+		.flags = IPROC_CLK_AON | IPROC_CLK_SET_RATE_PARENT,
 		.enable = enable_val(0x18, 8, 10, 9),
 		.mdiv = reg_val(0x18, 0, 8),
 	},
 	[BCM_CYGNUS_AUDIOPLL_CH2] = {
 		.channel = BCM_CYGNUS_AUDIOPLL_CH2,
-		.flags = IPROC_CLK_AON,
+		.flags = IPROC_CLK_AON | IPROC_CLK_SET_RATE_PARENT,
 		.enable = enable_val(0x1c, 8, 10, 9),
 		.mdiv = reg_val(0x1c, 0, 8),
 	},
