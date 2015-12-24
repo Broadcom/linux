@@ -80,6 +80,13 @@ struct cygnus_ssp_regs {
 	u32 bf_sourcech_cfg;
 };
 
+struct cygnus_track_clk {
+	bool cap_en;
+	bool play_en;
+	bool cap_clk_en;
+	bool play_clk_en;
+};
+
 struct cygnus_aio_port {
 	int portnum;
 	int mode;
@@ -101,6 +108,8 @@ struct cygnus_aio_port {
 
 	struct snd_pcm_substream *play_stream;
 	struct snd_pcm_substream *capture_stream;
+
+	struct cygnus_track_clk clk_trace;
 };
 
 

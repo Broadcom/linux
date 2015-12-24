@@ -201,7 +201,6 @@ static int group_id[CYGNUS_MAX_PLAYBACK_PORTS] = {0, 1, 2, 3};
 struct pll_macro_entry {
 	u32 mclk;
 	u32 pll_ch_num;
-	unsigned long vco_rate;
 };
 
 /*
@@ -209,29 +208,29 @@ struct pll_macro_entry {
  * the common MCLK frequencies used by audio driver
  */
 static const struct pll_macro_entry pll_predef_mclk[] = {
-	{ 4096000, 0, 1769470191UL},
-	{ 8192000, 1, 1769470191UL},
-	{16384000, 2, 1769470191UL},
+	{ 4096000, 0},
+	{ 8192000, 1},
+	{16384000, 2},
 
-	{ 5644800, 0, 1354750204UL},
-	{11289600, 1, 1354750204UL},
-	{22579200, 2, 1354750204UL},
+	{ 5644800, 0},
+	{11289600, 1},
+	{22579200, 2},
 
-	{ 6144000, 0, 1769470191UL},
-	{12288000, 1, 1769470191UL},
-	{24576000, 2, 1769470191UL},
+	{ 6144000, 0},
+	{12288000, 1},
+	{24576000, 2},
 
-	{12288000, 0, 1769470191UL},
-	{24576000, 1, 1769470191UL},
-	{49152000, 2, 1769470191UL},
+	{12288000, 0},
+	{24576000, 1},
+	{49152000, 2},
 
-	{22579200, 0, 1354750204UL},
-	{45158400, 1, 1354750204UL},
-	{90316800, 2, 1354750204UL},
+	{22579200, 0},
+	{45158400, 1},
+	{90316800, 2},
 
-	{24576000, 0, 1769470191UL},
-	{49152000, 1, 1769470191UL},
-	{98304000, 2, 1769470191UL},
+	{24576000, 0},
+	{49152000, 1},
+	{98304000, 2},
 };
 
 /* List of valid frame sizes for tdm mode */
@@ -629,73 +628,56 @@ static int audio_ssp_out_disable(struct cygnus_aio_port *aio)
 	return status;
 }
 
-static int configure_vco(struct cygnus_audio *cygaud,
-			unsigned long vco_rate)
-{
-	struct clk *parent;
-	int error;
-
-	if (vco_rate == cygaud->vco_rate)
-		return 0;
-
-	/* Change PLL rate only if none of the ports are active */
-	if (!cygaud->active_ports) {
-		parent = clk_get_parent(cygaud->audio_clk[0]);
-		if (IS_ERR(parent))
-			return PTR_ERR(parent);
-
-		/* Set PLL VCO Frequency (Hz) */
-		error = clk_set_rate(parent, vco_rate);
-		if (error) {
-			dev_err(cygaud->dev, "%s Set PLL VCO rate failed: %d\n",
-				__func__, error);
-			return error;
-		}
-		cygaud->vco_rate = vco_rate;
-	} else {
-		dev_err(cygaud->dev, "%s Cannot change VCO Freq\n",
-				__func__);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int pll_configure_mclk(struct cygnus_audio *cygaud, u32 mclk,
-	struct device *dev)
+	struct cygnus_aio_port *aio)
 {
 	int i = 0, error;
 	bool found = false;
 	const struct pll_macro_entry *p_entry;
 	struct clk *ch_clk;
-	unsigned long vco_rate = 0;
 
 	for (i = 0; i < ARRAY_SIZE(pll_predef_mclk); i++) {
 		p_entry = &pll_predef_mclk[i];
-
 		if (p_entry->mclk == mclk) {
 			found = true;
-			vco_rate = p_entry->vco_rate;
 			break;
 		}
 	}
 	if (!found) {
-		dev_err(dev,
+		dev_err(cygaud->dev,
 			"%s No valid mclk freq (%u) found!\n", __func__, mclk);
 		return -EINVAL;
 	}
 
-	error = configure_vco(cygaud, vco_rate);
-	if (error)
-		return error;
-
 	ch_clk = cygaud->audio_clk[p_entry->pll_ch_num];
+
+	if ((aio->clk_trace.cap_en) && (!aio->clk_trace.cap_clk_en)) {
+		error = clk_prepare_enable(ch_clk);
+		if (error) {
+			dev_err(cygaud->dev, "%s clk_prepare_enable failed %d\n",
+				__func__, error);
+			return error;
+		}
+		aio->clk_trace.cap_clk_en = true;
+	}
+
+	if ((aio->clk_trace.play_en) && (!aio->clk_trace.play_clk_en)) {
+		error = clk_prepare_enable(ch_clk);
+		if (error) {
+			dev_err(cygaud->dev, "%s clk_prepare_enable failed %d\n",
+				__func__, error);
+			return error;
+		}
+		aio->clk_trace.play_clk_en = true;
+	}
 
 	error = clk_set_rate(ch_clk, mclk);
 	if (error) {
-		dev_err(dev, "%s Set MCLK rate failed: %d\n", __func__, error);
+		dev_err(cygaud->dev, "%s Set MCLK rate failed: %d\n",
+			__func__, error);
 		return error;
 	}
+
 	return p_entry->pll_ch_num;
 }
 
@@ -881,7 +863,7 @@ static int cygnus_ssp_set_sysclk(struct snd_soc_dai *dai,
 
 	dev_dbg(aio->cygaud->dev,
 		"%s Enter port = %d\n", __func__, aio->portnum);
-	sel = pll_configure_mclk(cygaud, freq, aio->cygaud->dev);
+	sel = pll_configure_mclk(cygaud, freq, aio);
 	if (sel < 0) {
 		dev_err(aio->cygaud->dev,
 			"%s Setting mclk failed.\n", __func__);
@@ -905,8 +887,36 @@ static int cygnus_ssp_startup(struct snd_pcm_substream *substream,
 	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(dai);
 
 	snd_soc_dai_set_dma_data(dai, substream, aio);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		aio->clk_trace.play_en = true;
+	else
+		aio->clk_trace.cap_en = true;
 
 	return 0;
+}
+
+static void cygnus_ssp_shutdown(struct snd_pcm_substream *substream,
+			       struct snd_soc_dai *dai)
+{
+	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(dai);
+	u32 val;
+
+	val = readl(aio->cygaud->audio + aio->regs.i2s_mclk_cfg);
+	val &= 0xf;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		aio->clk_trace.play_en = false;
+		if (aio->clk_trace.play_clk_en) {
+			clk_disable_unprepare(aio->cygaud->audio_clk[val]);
+			aio->clk_trace.play_clk_en = false;
+		}
+	} else {
+		aio->clk_trace.cap_en = false;
+		if (aio->clk_trace.cap_clk_en) {
+			clk_disable_unprepare(aio->cygaud->audio_clk[val]);
+			aio->clk_trace.cap_clk_en = false;
+		}
+	}
 }
 
 /*
@@ -1070,7 +1080,6 @@ static int cygnus_ssp_trigger(struct snd_pcm_substream *substream, int cmd,
 		else
 			audio_ssp_in_disable(aio);
 		cygaud->active_ports--;
-
 		break;
 
 	default:
@@ -1120,8 +1129,7 @@ static int cygnus_set_dai_tdm_slot(struct snd_soc_dai *cpu_dai,
 		break;
 	default:
 		dev_warn(aio->cygaud->dev,
-			"%s Slot Width is either 16 or 32. Defaulting /\
-			Slot Width to 32\n", __func__);
+			"%s Defaulting Slot Width to 32\n", __func__);
 	}
 
 	frame_bits = slots * slot_width;
@@ -1189,6 +1197,7 @@ static int cygnus_ssp_resume(struct snd_soc_dai *cpu_dai)
 
 static const struct snd_soc_dai_ops cygnus_ssp_dai_ops = {
 	.startup	= cygnus_ssp_startup,
+	.shutdown	= cygnus_ssp_shutdown,
 	.trigger	= cygnus_ssp_trigger,
 	.hw_params	= cygnus_ssp_hw_params,
 	.set_fmt	= cygnus_ssp_set_fmt,
@@ -1351,6 +1360,8 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 	dev_dbg(&pdev->dev, "%s portnum = %d\n", __func__, aio->portnum);
 	aio->streams_on = 0;
 	aio->cygaud->dev = &pdev->dev;
+	aio->clk_trace.play_en = false;
+	aio->clk_trace.cap_en = false;
 
 	audio_ssp_init_portregs(aio);
 	return 0;
@@ -1359,8 +1370,7 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 static int audio_clk_init(struct platform_device *pdev,
 						struct cygnus_audio *cygaud)
 {
-	struct clk *parent;
-	int error, i, j;
+	int i;
 	char clk_name[PROP_LEN_MAX];
 
 	for (i = 0; i < ARRAY_SIZE(cygaud->audio_clk); i++) {
@@ -1369,46 +1379,7 @@ static int audio_clk_init(struct platform_device *pdev,
 		cygaud->audio_clk[i] = devm_clk_get(&pdev->dev, clk_name);
 		if (IS_ERR(cygaud->audio_clk[i]))
 			return PTR_ERR(cygaud->audio_clk[i]);
-
-		error = clk_prepare_enable(cygaud->audio_clk[i]);
-		if (error) {
-			dev_err(&pdev->dev, "%s clk_prepare_enable failed %d\n",
-				__func__, error);
-			for (j = i; j > 0; j--)
-				clk_disable_unprepare(cygaud->audio_clk[j-1]);
-			return error;
-		}
 	}
-
-	parent = clk_get_parent(cygaud->audio_clk[0]);
-	if (IS_ERR(parent)) {
-		error = PTR_ERR(parent);
-		goto err_get_parent;
-	}
-
-	/* Set PLL VCO Frequency (Hz) to default */
-	error = clk_set_rate(parent, DEFAULT_VCO);
-	if (error) {
-		dev_err(&pdev->dev,
-			"%s Set PLL VCO rate failed: %d\n", __func__, error);
-		goto err_get_parent;
-	}
-
-	cygaud->vco_rate = DEFAULT_VCO;
-	return 0;
-
-err_get_parent:
-	for (i = 0; i < ARRAY_SIZE(cygaud->audio_clk); i++)
-		clk_disable_unprepare(cygaud->audio_clk[i]);
-	return error;
-}
-
-static int audio_clk_exit(struct cygnus_audio *cygaud)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(cygaud->audio_clk); i++)
-		clk_disable_unprepare(cygaud->audio_clk[i]);
 
 	return 0;
 }
@@ -1451,6 +1422,7 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	}
 
 	active_port_count = 0;
+
 	for_each_available_child_of_node(pdev->dev.of_node, child_node) {
 		err = parse_ssp_child_node(pdev, child_node, cygaud,
 					&cygnus_ssp_dai[active_port_count]);
@@ -1492,13 +1464,11 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	err = cygnus_soc_platform_register(dev, cygaud);
 	if (err) {
 		dev_err(dev, "platform reg error %d\n", err);
-		goto err_platform_reg;
+		goto err_irq;
 	}
 
 	return 0;
 
-err_platform_reg:
-	audio_clk_exit(cygaud);
 err_irq:
 	snd_soc_unregister_component(dev);
 	return err;
@@ -1506,10 +1476,6 @@ err_irq:
 
 static int cygnus_ssp_remove(struct platform_device *pdev)
 {
-	struct cygnus_audio *cygaud = dev_get_drvdata(&pdev->dev);
-
-	audio_clk_exit(cygaud);
-
 	cygnus_soc_platform_unregister(&pdev->dev);
 	snd_soc_unregister_component(&pdev->dev);
 
