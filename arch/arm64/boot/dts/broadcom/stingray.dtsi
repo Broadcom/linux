@@ -147,6 +147,7 @@
 		#size-cells = <1>;
 		ranges = <0 0 0 0xffffffff>;
 
+		#include "stingray-clock.dtsi"
 		#include "stingray-pinctrl.dtsi"
 
 		gic: interrupt-controller@63c00000 {
