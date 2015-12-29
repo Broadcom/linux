@@ -1,0 +1,9 @@
+Broadcom Pegasus device tree bindings
+------------------------------------------------
+
+Boards with Pegasus SOC shall have the following properties:
+
+Required root node property:
+
+Pegasus SOC
+compatible = "brcm,pegasus";
