@@ -141,13 +141,33 @@ static void sdhci_iproc_writeb(struct sdhci_host *host, u8 val, int reg)
 	sdhci_iproc_writel(host, newval, reg & ~3);
 }
 
-static const struct sdhci_ops sdhci_iproc_ops = {
+static const struct sdhci_ops sdhci_iproc_cygnus_ops = {
 	.read_l = sdhci_iproc_readl,
 	.read_w = sdhci_iproc_readw,
 	.read_b = sdhci_iproc_readb,
 	.write_l = sdhci_iproc_writel,
 	.write_w = sdhci_iproc_writew,
 	.write_b = sdhci_iproc_writeb,
+	.set_clock = sdhci_set_clock,
+	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
+	.set_bus_width = sdhci_set_bus_width,
+	.reset = sdhci_reset,
+	.set_uhs_signaling = sdhci_set_uhs_signaling,
+};
+
+static const struct sdhci_pltfm_data sdhci_iproc_cygnus_pltfm_data = {
+	.quirks = SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK,
+	.quirks2 = SDHCI_QUIRK2_ACMD23_BROKEN,
+	.ops = &sdhci_iproc_cygnus_ops,
+};
+
+static const struct sdhci_iproc_data iproc_cygnus_data = {
+	.pdata = &sdhci_iproc_cygnus_pltfm_data,
+	.caps = 0x05E90000,
+	.caps1 = 0x00000064,
+};
+
+static const struct sdhci_ops sdhci_iproc_ops = {
 	.set_clock = sdhci_set_clock,
 	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
 	.set_bus_width = sdhci_set_bus_width,
@@ -168,7 +188,8 @@ static const struct sdhci_iproc_data iproc_data = {
 };
 
 static const struct of_device_id sdhci_iproc_of_match[] = {
-	{ .compatible = "brcm,sdhci-iproc-cygnus", .data = &iproc_data },
+	{ .compatible = "brcm,sdhci-iproc-cygnus", .data = &iproc_cygnus_data },
+	{ .compatible = "brcm,sdhci-iproc", .data = &iproc_data },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, sdhci_iproc_of_match);
