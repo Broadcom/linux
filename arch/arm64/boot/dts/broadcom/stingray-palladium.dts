@@ -105,3 +105,9 @@
 	clock-frequency = <76800>;
 	status = "ok";
 };
+
+&sdio0 {
+	/* For palladium eMMC is always present. */
+	non-removable;
+	status = "ok";
+};

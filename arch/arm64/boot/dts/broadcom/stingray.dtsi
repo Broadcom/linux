@@ -190,5 +190,23 @@
 			clocks = <&hsls_div2_clk>;
 			clock-names = "apb_pclk";
 		};
+
+		sdio0: sdhci@68cf1000 {
+			compatible = "brcm,sdhci-iproc";
+			reg = <0x68cf1000 0x100>;
+			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
+			bus-width = <8>;
+			clocks = <&sdio0_clk>;
+			status = "disabled";
+		};
+
+		sdio1: sdhci@68cf2000 {
+			compatible = "brcm,sdhci-iproc";
+			reg = <0x68cf2000 0x100>;
+			interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
+			bus-width = <8>;
+			clocks = <&sdio1_clk>;
+			status = "disabled";
+		};
 	};
 };
