@@ -110,6 +110,34 @@
 		#size-cells = <1>;
 		ranges = <0 0 0 0xffffffff>;
 
+		i2c0: i2c@0x00280000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x280000 0x100>;
+			clock-frequency = <100000>;
+			interrupts = <GIC_SPI 300 IRQ_TYPE_NONE>;
+		};
+
+		i2c1: i2c@0x002b0000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x2b0000 0x100>;
+			clock-frequency = <100000>;
+			interrupts = <GIC_SPI 301 IRQ_TYPE_NONE>;
+		};
+
+		i2c2: i2c@0x002c0000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x2c0000 0x100>;
+			clock-frequency = <100000>;
+			interrupts = <GIC_SPI 302 IRQ_TYPE_NONE>;
+		};
+
+		i2c3: i2c@0x002d0000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x2d0000 0x100>;
+			clock-frequency = <100000>;
+			interrupts = <GIC_SPI 303 IRQ_TYPE_NONE>;
+		};
+
 		uart0: uart@0x00300000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
