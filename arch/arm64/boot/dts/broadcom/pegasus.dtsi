@@ -151,6 +151,22 @@
 			status = "disabled";
 		};
 
+		ssp0: ssp@0x00380000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x380000 0x1000>;
+			interrupts = <GIC_SPI 307 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&ssp0_clk>;
+			clock-names = "apb_pclk";
+		};
+
+		ssp1: ssp@0x00390000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x390000 0x1000>;
+			interrupts = <GIC_SPI 308 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&ssp1_clk>;
+			clock-names = "apb_pclk";
+		};
+
 		gic: interrupt-controller@2a000000 {
 			compatible = "arm,gic-400";
 			#interrupt-cells = <3>;
