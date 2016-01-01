@@ -110,6 +110,8 @@
 		#size-cells = <1>;
 		ranges = <0 0 0 0xffffffff>;
 
+		#include "pegasus-clock.dtsi"
+
 		i2c0: i2c@0x00280000 {
 			compatible = "brcm,iproc-i2c";
 			reg = <0x280000 0x100>;
