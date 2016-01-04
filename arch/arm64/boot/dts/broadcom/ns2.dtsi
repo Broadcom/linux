@@ -144,8 +144,6 @@
 				     <GIC_SPI 278 IRQ_TYPE_NONE>,
 				     <GIC_SPI 279 IRQ_TYPE_NONE>,
 				     <GIC_SPI 280 IRQ_TYPE_NONE>;
-			brcm,num-eq-region = <1>;
-			brcm,num-msi-msg-region = <1>;
 		};
 	};
 
@@ -182,9 +180,6 @@
 				     <GIC_SPI 302 IRQ_TYPE_NONE>,
 				     <GIC_SPI 303 IRQ_TYPE_NONE>,
 				     <GIC_SPI 304 IRQ_TYPE_NONE>;
-			brcm,num-eq-region = <1>;
-			brcm,num-msi-msg-region = <1>;
-
 		};
 	};
 
@@ -211,8 +206,6 @@
 				     <GIC_SPI 440 IRQ_TYPE_NONE>,
 				     <GIC_SPI 441 IRQ_TYPE_NONE>,
 				     <GIC_SPI 442 IRQ_TYPE_NONE>;
-			brcm,num-eq-region = <4>;
-			brcm,num-msi-msg-region = <4>;
 		};
 	};
 
