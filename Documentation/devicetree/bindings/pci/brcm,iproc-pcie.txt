@@ -1,9 +1,10 @@
 * Broadcom iProc PCIe controller with the platform bus interface
 
 Required properties:
-- compatible: Must be "brcm,iproc-pcie" for PAXB, or "brcm,iproc-pcie-paxc" for
-  PAXC. PAXC based root complex is connected to emulated endpoint devices
-  internally in the chip
+- compatible: Must be "brcm,iproc-pcie" for PAXB, or "brcm,iproc-pcie-paxc"
+  for PAXC.  PAXB-based root complex is used for external endpoint devices.
+  PAXC-based root complex is connected to emulated endpoint devices
+  internal to the ASIC
 - reg: base address and length of the PCIe controller I/O register space
 - #interrupt-cells: set to <1>
 - interrupt-map-mask and interrupt-map, standard PCI properties to define the
@@ -18,8 +19,9 @@ Required properties:
 Optional properties:
 - phys: phandle of the PCIe PHY device
 - phy-names: must be "pcie-phy"
+
 - brcm,pcie-ob: Some iProc SoCs do not have the outbound address mapping done
-by the HW after power on reset. In this case, SW needs to configure it
+by the ASIC after power on reset. In this case, SW needs to configure it
 
 If the brcm,pcie-ob property is present, the following properties become
 effective:
@@ -35,14 +37,14 @@ effective:
 
 MSI support (optional):
 
-For older platforms without MSI integrated in the GIC (e.g., gicv2m,
-gicv3-its), iProc PCIe core provides an event queue based MSI support. The
-iProc MSI uses host memories to store MSI posted writes and event queues
+For older platforms without MSI integrated in the GIC, iProc PCIe core provides
+an event queue based MSI support.  The iProc MSI uses host memories to store
+MSI posted writes in the event queues
 
 - msi-parent: Link to the device node of the MSI controller. On newer iProc
 platforms, the MSI controller may be gicv2m or gicv3-its. On older iProc
 platforms without MSI support in its interrupt controller, one may use the
-event queue based MSI support integrated within the iProc PCIe core
+event queue based MSI support integrated within the iProc PCIe core.
 
 When the iProc event queue based MSI is used, one needs to define the
 following properties in the MSI device node:
@@ -50,13 +52,10 @@ following properties in the MSI device node:
 - msi-controller: claims itself as an MSI controller
 - interrupt-parent: Link to its parent interrupt device
 - interrupts: List of interrupt IDs from its parent interrupt device
-- brcm,num-eq-region: Required number of 4K aligned memory region for MSI event
-queue
-- brcm,num-msi-msg-region: Required number of 4K aligned memory region for MSI
-posted writes
-Optional:
+
+Optional properties:
 - brcm,pcie-msi-inten: Needs to be present for some older iProc platforms that
-requires the interrupt enable registers to be set explicitly to enable MSI
+require the interrupt enable registers to be set explicitly to enable MSI
 
 Example:
 	pcie0: pcie@18012000 {
@@ -77,7 +76,7 @@ Example:
 		ranges = <0x81000000 0 0	  0x28000000 0 0x00010000
 			  0x82000000 0 0x20000000 0x20000000 0 0x04000000>;
 
-		phys = <&phy 0 5>;
+		phys = <&pcie0_phy>;
 		phy-names = "pcie-phy";
 
 		brcm,pcie-ob;
@@ -96,10 +95,6 @@ Example:
 				     <GIC_SPI 97 IRQ_TYPE_NONE>,
 				     <GIC_SPI 98 IRQ_TYPE_NONE>,
 				     <GIC_SPI 99 IRQ_TYPE_NONE>,
-				     <GIC_SPI 100 IRQ_TYPE_NONE>,
-				     <GIC_SPI 101 IRQ_TYPE_NONE>;
-			brcm,num-eq-region = <1>;
-			brcm,num-msi-msg-region = <1>;
 		};
 	};
 
@@ -121,6 +116,6 @@ Example:
 		ranges = <0x81000000 0 0	  0x48000000 0 0x00010000
 			  0x82000000 0 0x40000000 0x40000000 0 0x04000000>;
 
-		phys = <&phy 1 6>;
+		phys = <&pcie1_phy>;
 		phy-names = "pcie-phy";
 	};
