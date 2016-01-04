@@ -226,8 +226,6 @@
 					     <GIC_SPI 130 IRQ_TYPE_NONE>,
 					     <GIC_SPI 131 IRQ_TYPE_NONE>,
 					     <GIC_SPI 132 IRQ_TYPE_NONE>;
-				brcm,num-eq-region = <1>;
-				brcm,num-msi-msg-region = <1>;
 				brcm,pcie-msi-inten;
 			};
 		};
@@ -266,8 +264,6 @@
 					     <GIC_SPI 136 IRQ_TYPE_NONE>,
 					     <GIC_SPI 137 IRQ_TYPE_NONE>,
 					     <GIC_SPI 138 IRQ_TYPE_NONE>;
-				brcm,num-eq-region = <1>;
-				brcm,num-msi-msg-region = <1>;
 				brcm,pcie-msi-inten;
 			};
 		};
