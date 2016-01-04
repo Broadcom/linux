@@ -75,7 +75,7 @@ static int cygnus_pcie_power_config(struct cygnus_pcie_phy *phy, bool enable)
 
 	default:
 		mutex_unlock(&core->lock);
-		dev_err(core->dev, "PCIe PHY id%d invalid\n", phy->id);
+		dev_err(core->dev, "PCIe PHY %d invalid\n", phy->id);
 		return -EINVAL;
 	}
 
@@ -83,6 +83,10 @@ static int cygnus_pcie_power_config(struct cygnus_pcie_phy *phy, bool enable)
 		val = readl(core->base + PCIE_CFG_OFFSET);
 		val &= ~BIT(shift);
 		writel(val, core->base + PCIE_CFG_OFFSET);
+		/*
+		 * Wait 50 ms for the PCIe Serdes to stabilize after the analog
+		 * front end is brought up
+		 */
 		msleep(50);
 	} else {
 		val = readl(core->base + PCIE_CFG_OFFSET);
@@ -91,7 +95,8 @@ static int cygnus_pcie_power_config(struct cygnus_pcie_phy *phy, bool enable)
 	}
 
 	mutex_unlock(&core->lock);
-	dev_info(core->dev, "PCIe PHY %s\n", enable ? "enabled" : "disabled");
+	dev_dbg(core->dev, "PCIe PHY %d %s\n", phy->id,
+		enable ? "enabled" : "disabled");
 	return 0;
 }
 
@@ -112,33 +117,23 @@ static int cygnus_pcie_phy_power_off(struct phy *p)
 static struct phy_ops cygnus_pcie_phy_ops = {
 	.power_on = cygnus_pcie_phy_power_on,
 	.power_off = cygnus_pcie_phy_power_off,
+	.owner = THIS_MODULE,
 };
-
-static struct phy *cygnus_pcie_phy_xlate(struct device *dev,
-					 struct of_phandle_args *args)
-{
-	struct cygnus_pcie_phy_core *core;
-	int id;
-
-	core = dev_get_drvdata(dev);
-	if (!core)
-		return ERR_PTR(-EINVAL);
-
-	id = args->args[0];
-
-	if (WARN_ON(id >= MAX_NUM_PHYS))
-		return ERR_PTR(-ENODEV);
-
-	return core->phys[id].phy;
-}
 
 static int cygnus_pcie_phy_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node, *child;
 	struct cygnus_pcie_phy_core *core;
 	struct phy_provider *provider;
 	struct resource *res;
-	int i = 0;
+	unsigned cnt = 0;
+	int ret;
+
+	if (of_get_child_count(node) == 0) {
+		dev_err(dev, "PHY no child node\n");
+		return -ENODEV;
+	}
 
 	core = devm_kzalloc(dev, sizeof(*core), GFP_KERNEL);
 	if (!core)
@@ -153,29 +148,57 @@ static int cygnus_pcie_phy_probe(struct platform_device *pdev)
 
 	mutex_init(&core->lock);
 
-	for (i = 0; i < MAX_NUM_PHYS; i++) {
-		struct cygnus_pcie_phy *p = &core->phys[i];
+	for_each_available_child_of_node(node, child) {
+		unsigned int id;
+		struct cygnus_pcie_phy *p;
 
-		p->phy = devm_phy_create(dev, NULL, &cygnus_pcie_phy_ops);
+		if (of_property_read_u32(child, "reg", &id)) {
+			dev_err(dev, "missing reg property for %s\n",
+				child->name);
+			ret = -EINVAL;
+			goto put_child;
+		}
+
+		if (id >= MAX_NUM_PHYS) {
+			dev_err(dev, "invalid PHY id: %u\n", id);
+			ret = -EINVAL;
+			goto put_child;
+		}
+
+		if (core->phys[id].phy) {
+			dev_err(dev, "duplicated PHY id: %u\n", id);
+			ret = -EINVAL;
+			goto put_child;
+		}
+
+		p = &core->phys[id];
+		p->phy = devm_phy_create(dev, child, &cygnus_pcie_phy_ops);
 		if (IS_ERR(p->phy)) {
 			dev_err(dev, "failed to create PHY\n");
-			return PTR_ERR(p->phy);
+			ret = PTR_ERR(p->phy);
+			goto put_child;
 		}
 
 		p->core = core;
-		p->id = i;
+		p->id = id;
 		phy_set_drvdata(p->phy, p);
+		cnt++;
 	}
 
 	dev_set_drvdata(dev, core);
 
-	provider = devm_of_phy_provider_register(dev, cygnus_pcie_phy_xlate);
+	provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
 	if (IS_ERR(provider)) {
 		dev_err(dev, "failed to register PHY provider\n");
 		return PTR_ERR(provider);
 	}
 
+	dev_dbg(dev, "registered %u PCIe PHY(s)\n", cnt);
+
 	return 0;
+put_child:
+	of_node_put(child);
+	return ret;
 }
 
 static const struct of_device_id cygnus_pcie_phy_match_table[] = {
