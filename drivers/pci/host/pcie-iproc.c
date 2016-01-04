@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 Hauke Mehrtens <hauke@hauke-m.de>
- * Copyright (C) 2015 Broadcom Corporatcommon ion
+ * Copyright (C) 2015 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -139,35 +139,35 @@ static inline u16 iproc_pcie_reg_offset(struct iproc_pcie *pcie,
 static inline u32 iproc_pcie_read_reg(struct iproc_pcie *pcie,
 				      enum iproc_pcie_reg reg)
 {
-	u16 off = iproc_pcie_reg_offset(pcie, reg);
+	u16 offset = iproc_pcie_reg_offset(pcie, reg);
 
-	if (iproc_pcie_reg_is_invalid(off))
+	if (iproc_pcie_reg_is_invalid(offset))
 		return 0;
 
-	return readl(pcie->base + off);
+	return readl(pcie->base + offset);
 }
 
 static inline void iproc_pcie_write_reg(struct iproc_pcie *pcie,
 					enum iproc_pcie_reg reg, u32 val)
 {
-	u16 off = iproc_pcie_reg_offset(pcie, reg);
+	u16 offset = iproc_pcie_reg_offset(pcie, reg);
 
-	if (iproc_pcie_reg_is_invalid(off))
+	if (iproc_pcie_reg_is_invalid(offset))
 		return;
 
-	writel(val, pcie->base + off);
+	writel(val, pcie->base + offset);
 }
 
 static inline void iproc_pcie_ob_write(struct iproc_pcie *pcie,
 				       enum iproc_pcie_reg reg,
 				       unsigned window, u32 val)
 {
-	u16 off = iproc_pcie_reg_offset(pcie, reg);
+	u16 offset = iproc_pcie_reg_offset(pcie, reg);
 
-	if (iproc_pcie_reg_is_invalid(off))
+	if (iproc_pcie_reg_is_invalid(offset))
 		return;
 
-	writel(val, pcie->base + off + (window * 8));
+	writel(val, pcie->base + offset + (window * 8));
 }
 
 static inline bool iproc_pcie_device_is_valid(struct iproc_pcie *pcie,
@@ -197,7 +197,7 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct pci_bus *bus,
 	unsigned fn = PCI_FUNC(devfn);
 	unsigned busno = bus->number;
 	u32 val;
-	u16 off;
+	u16 offset;
 
 	if (!iproc_pcie_device_is_valid(pcie, slot, fn))
 		return NULL;
@@ -206,11 +206,11 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct pci_bus *bus,
 	if (busno == 0) {
 		iproc_pcie_write_reg(pcie, IPROC_PCIE_CFG_IND_ADDR,
 				     where & CFG_IND_ADDR_MASK);
-		off = iproc_pcie_reg_offset(pcie, IPROC_PCIE_CFG_IND_DATA);
-		if (iproc_pcie_reg_is_invalid(off))
+		offset = iproc_pcie_reg_offset(pcie, IPROC_PCIE_CFG_IND_DATA);
+		if (iproc_pcie_reg_is_invalid(offset))
 			return NULL;
 		else
-			return (pcie->base + off);
+			return (pcie->base + offset);
 	}
 
 	/* EP device access */
@@ -220,11 +220,11 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct pci_bus *bus,
 		(where & CFG_ADDR_REG_NUM_MASK) |
 		(1 & CFG_ADDR_CFG_TYPE_MASK);
 	iproc_pcie_write_reg(pcie, IPROC_PCIE_CFG_ADDR, val);
-	off = iproc_pcie_reg_offset(pcie, IPROC_PCIE_CFG_DATA);
-	if (iproc_pcie_reg_is_invalid(off))
+	offset = iproc_pcie_reg_offset(pcie, IPROC_PCIE_CFG_DATA);
+	if (iproc_pcie_reg_is_invalid(offset))
 		return NULL;
 	else
-		return (pcie->base + off);
+		return (pcie->base + offset);
 }
 
 static struct pci_ops iproc_pcie_ops = {
@@ -249,8 +249,8 @@ static void iproc_pcie_reset(struct iproc_pcie *pcie)
 	}
 
 	/*
-	 * Select perst_b signal as reset source, and put the device in
-	 * reset
+	 * Select perst_b signal as reset source. Put the device into reset,
+	 * and then bring it out of reset
 	 */
 	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_CLK_CTRL);
 	val &= ~EP_PERST_SOURCE_SELECT & ~EP_MODE_SURVIVE_PERST &
@@ -258,10 +258,6 @@ static void iproc_pcie_reset(struct iproc_pcie *pcie)
 	iproc_pcie_write_reg(pcie, IPROC_PCIE_CLK_CTRL, val);
 	udelay(250);
 
-	/*
-	 * Now bring it out of reset and wait 100 ms per iProc PCIe design
-	 * spec
-	 */
 	val |= RC_PCIE_RST_OUTPUT;
 	iproc_pcie_write_reg(pcie, IPROC_PCIE_CLK_CTRL, val);
 	msleep(100);
@@ -276,7 +272,7 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie, struct pci_bus *bus)
 
 	/*
 	 * PAXC connects to emulated endpoint devices directly and does not
-	 * have a Serdes. Therefore skip the link detection logic here
+	 * have a Serdes.  Therefore skip the link detection logic here.
 	 */
 	if (pcie->type == IPROC_PCIE_PAXC)
 		return 0;
@@ -294,10 +290,7 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie, struct pci_bus *bus)
 		return -EFAULT;
 	}
 
-	/*
-	 * Force class to PCI_CLASS_BRIDGE_PCI (0x0604) through the register
-	 * from host configuration space at offset 0x43c
-	 */
+	/* force class to PCI_CLASS_BRIDGE_PCI (0x0604) */
 #define PCI_BRIDGE_CTRL_REG_OFFSET 0x43c
 #define PCI_CLASS_BRIDGE_MASK      0xffff00
 #define PCI_CLASS_BRIDGE_SHIFT     8
@@ -365,6 +358,7 @@ static int iproc_pcie_setup_ob(struct iproc_pcie *pcie, u64 axi_addr,
 	struct iproc_pcie_ob *ob = &pcie->ob;
 	unsigned i;
 	u64 max_size = (u64)ob->window_size * MAX_NUM_OB_WINDOWS;
+	u64 remainder;
 
 	if (size > max_size) {
 		dev_err(pcie->dev,
@@ -373,7 +367,8 @@ static int iproc_pcie_setup_ob(struct iproc_pcie *pcie, u64 axi_addr,
 		return -EINVAL;
 	}
 
-	if (size % ob->window_size) {
+	div64_u64_rem(size, ob->window_size, &remainder);
+	if (remainder) {
 		dev_err(pcie->dev,
 			"res size %pap needs to be multiple of window size %pap\n",
 			&size, &ob->window_size);
@@ -460,6 +455,11 @@ static int iproc_pcie_msi_enable(struct iproc_pcie *pcie)
 	return iproc_msi_init(pcie, msi_node);
 }
 
+static void iproc_pcie_msi_disable(struct iproc_pcie *pcie)
+{
+	iproc_msi_exit(pcie);
+}
+
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 {
 	int ret;
@@ -533,9 +533,7 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 
 	pci_scan_child_bus(bus);
 	pci_assign_unassigned_bus_resources(bus);
-#ifdef CONFIG_ARM
 	pci_fixup_irqs(pci_common_swizzle, pcie->map_irq);
-#endif
 	pci_bus_add_devices(bus);
 
 	return 0;
@@ -556,6 +554,8 @@ int iproc_pcie_remove(struct iproc_pcie *pcie)
 {
 	pci_stop_root_bus(pcie->root_bus);
 	pci_remove_root_bus(pcie->root_bus);
+
+	iproc_pcie_msi_disable(pcie);
 
 	phy_power_off(pcie->phy);
 	phy_exit(pcie->phy);
