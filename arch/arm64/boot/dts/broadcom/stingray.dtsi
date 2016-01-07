@@ -141,14 +141,11 @@
 			      IRQ_TYPE_EDGE_RISING)>;
 	};
 
-	soc {
+	scr {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0 0 0 0xffffffff>;
-
-		#include "stingray-clock.dtsi"
-		#include "stingray-pinctrl.dtsi"
 
 		gic: interrupt-controller@63c00000 {
 			compatible = "arm,gic-v3";
@@ -235,6 +232,16 @@
 				      <&sdio1 0x6003>;
 			#iommu-cells = <0>;
 		};
+	};
+
+	hsls {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		#include "stingray-clock.dtsi"
+		#include "stingray-pinctrl.dtsi"
 
 		uart3: uart@68a30000 {
 			device_type = "serial";
