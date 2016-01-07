@@ -230,7 +230,8 @@
 				     <GIC_SPI 772 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 773 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 774 IRQ_TYPE_LEVEL_HIGH>;
-			mmu-masters;
+			mmu-masters = <&dma0 0x6000>;
+			#iommu-cells = <0>;
 		};
 
 		uart3: uart@68a30000 {
@@ -261,6 +262,7 @@
 			#dma-requests = <32>;
 			clocks = <&hsls_div2_clk>;
 			clock-names = "apb_pclk";
+			#stream-id-cells = <1>;
 		};
 
 		sdio0: sdhci@68cf1000 {
