@@ -106,6 +106,26 @@
 	status = "ok";
 };
 
+&ssp0 {
+	status = "ok";
+
+	spidev@0 {
+		compatible = "spidev-test";
+		spi-max-frequency = <8000000>;
+		reg = <0>;
+	};
+};
+
+&ssp1 {
+	status = "ok";
+
+	spidev@0 {
+		compatible = "spidev-test";
+		spi-max-frequency = <8000000>;
+		reg = <0>;
+	};
+};
+
 &sdio0 {
 	/* For palladium eMMC is always present. */
 	non-removable;

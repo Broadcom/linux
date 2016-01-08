@@ -48,6 +48,12 @@
 		clock-frequency = <175000000>;
 	};
 
+	hsls_div4_clk: hsls_div4_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <87500000>;
+	};
+
 	sdio0_clk: sdio0_clk {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
