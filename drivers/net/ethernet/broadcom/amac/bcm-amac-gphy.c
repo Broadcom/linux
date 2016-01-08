@@ -90,6 +90,92 @@ static int amac_gphy_lswap(struct phy_device *phy_dev)
 	return 0;
 }
 
+void amac_gphy_rgmii_init(struct bcm_amac_priv *privp, bool enable)
+{
+	u32 val;
+	struct net_device *ndev;
+	void __iomem *rgmii_regs;
+
+	if (!privp)
+		return;
+
+	rgmii_regs = privp->hw.reg.rgmii_regs;
+	ndev = privp->ndev;
+
+	if (enable) {
+		/* SET RGMII IO CONFIG */
+		/* Get register base address */
+		val = readl(rgmii_regs + NICPM_PADRING_CFG);
+		dev_dbg(&ndev->dev, "NICPM_PADRING_CFG:%u, default 0x%x\n",
+			(NICPM_ROOT + NICPM_PADRING_CFG), val);
+		writel(NICPM_PADRING_CFG_INIT_VAL,
+		       rgmii_regs + NICPM_PADRING_CFG);
+		dev_dbg(&ndev->dev, "NICPM_PADRING_CFG:%u, value 0x%x\n",
+			(NICPM_ROOT + NICPM_PADRING_CFG),
+			readl(rgmii_regs + NICPM_PADRING_CFG));
+		/* Give some time so that values take effect */
+		usleep_range(10, 100);
+
+		/* SET IO MUX CONTROL */
+		/* Get register base address */
+		val = readl(rgmii_regs + NICPM_IOMUX_CTRL);
+		dev_dbg(&ndev->dev, "NICPM_IOMUX_CTRL:%u, default 0x%x\n",
+			(NICPM_ROOT + NICPM_IOMUX_CTRL), val);
+		writel(NICPM_IOMUX_CTRL_INIT_VAL,
+		       (rgmii_regs + NICPM_IOMUX_CTRL));
+		dev_dbg(&ndev->dev, "NICPM_IOMUX_CTRL:%u, value 0x%x\n",
+			(NICPM_ROOT + NICPM_IOMUX_CTRL),
+			readl(rgmii_regs + NICPM_IOMUX_CTRL));
+		usleep_range(10, 100);
+	}
+}
+
+static int amac_phy54810_rgmii_sync(struct phy_device *phy_dev)
+{
+	int rc = 0;
+
+	rc = phy_write(phy_dev, GPHY_EXP_SELECT_REG,
+		       GPHY_EXP_SELECT_REG_VAL_BROADREACH_OFF);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_EXP_DATA_REG, 0);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_EXP_SELECT_REG,
+		       GPHY_EXP_SELECT_REG_VAL_LANE_SWAP);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_EXP_DATA_REG,
+		       GPHY_EXP_DATA_REG_VAL);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_MISC_CTRL_REG,
+		       GPHY_MISC_CTRL_REG_SKEW_DISABLE_VAL);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_CLK_ALIGNCTRL_REG,
+		       GPHY_CLK_GTX_DELAY_DISALE_WR_VAL);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_MISC_CTRL_REG,
+		       GPHY_MISC_CTRL_REG_DELAY_DISABLE_VAL);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_CLK_ALIGNCTRL_REG,
+		       GPHY_CLK_GTX_DELAY_DISALE_RD_VAL);
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
 int bcm_amac_gphy_init(struct bcm_amac_priv *privp)
 {
 	struct port_info *port = &privp->port.ext_port;
@@ -99,11 +185,23 @@ int bcm_amac_gphy_init(struct bcm_amac_priv *privp)
 	if (privp->switch_mode)
 		return 0;
 
+	if (privp->hw.reg.rgmii_regs)
+		amac_gphy_rgmii_init(privp, true);
+
 	/* Register PHY Fix-ups */
 	if (privp->port.ext_port.lswap) {
 		rc = phy_register_fixup_for_uid(PHY_ID_BCM_CYGNUS,
 						PHY_BCM_OUI_MASK,
 						amac_gphy_lswap);
+		if (rc)
+			return rc;
+	}
+
+	/* Register PHY BCM54810 Fix-ups */
+	if (privp->port.ext_port.phy54810_rgmii_sync) {
+		rc = phy_register_fixup_for_uid(PHY_ID_BCM54810,
+						0xfffffff0,
+						amac_phy54810_rgmii_sync);
 		if (rc)
 			return rc;
 	}

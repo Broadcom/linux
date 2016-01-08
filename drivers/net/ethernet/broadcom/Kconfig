@@ -184,6 +184,7 @@ config NET_BCM_AMAC
 	   Cygnus:
 	    - BCM583XX (BCM58300, BCM58302, BCM58303, BCM58305)
 	    - BCM113XX (BCM11300, BCM11320, BCM11350, BCM11360)
+	   Northstar2(NS2)
 
 	  To compile this driver as a module, choose m here. If unsure, say n.
 

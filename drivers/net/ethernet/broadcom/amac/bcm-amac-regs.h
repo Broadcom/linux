@@ -16,6 +16,13 @@
 
 #include <linux/types.h>
 
+#define NICPM_ROOT			0x61030000
+#define NICPM_PADRING_CFG		0x00000004
+#define NICPM_IOMUX_CTRL		0x00000008
+
+#define NICPM_PADRING_CFG_INIT_VAL	0x74000000
+#define NICPM_IOMUX_CTRL_INIT_VAL	0x21880000
+
 /* Offsets from GMAC_DEVCONTROL */
 #define GMAC_INT_STATUS_REG      0x020
 #define GMAC_INT_MASK_REG        0x024
@@ -48,6 +55,17 @@
 
 #define GPHY_EXP_DATA_REG           0x15
 #define GPHY_EXP_SELECT_REG         0x17
+#define GPHY_MISC_CTRL_REG          0x18  /* shadow 7 */
+#define GPHY_CLK_ALIGNCTRL_REG      0x1C  /* Shadow 3 */
+
+/* Initialization values of above PHY registers */
+#define GPHY_EXP_DATA_REG_VAL                  0x11B
+#define GPHY_EXP_SELECT_REG_VAL_LANE_SWAP      0x0F09
+#define GPHY_EXP_SELECT_REG_VAL_BROADREACH_OFF 0x0F90
+#define GPHY_MISC_CTRL_REG_SKEW_DISABLE_VAL    0xF0E7
+#define GPHY_CLK_GTX_DELAY_DISALE_WR_VAL       0x8c00
+#define GPHY_MISC_CTRL_REG_DELAY_DISABLE_VAL   0x7007
+#define GPHY_CLK_GTX_DELAY_DISALE_RD_VAL       0x0c00
 
 /* AMAC IDM Registers */
 #define AMAC_IDM0_IO_CTRL_REG 0x8

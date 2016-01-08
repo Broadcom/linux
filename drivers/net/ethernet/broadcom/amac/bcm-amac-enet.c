@@ -407,8 +407,6 @@ static int bcm_amac_enet_close(struct net_device *ndev)
 
 	bcm_amac_core_enable(privp, false);
 
-	netif_carrier_off(ndev);
-
 	kfifo_free(&privp->dma.txfifo);
 	return 0;
 }
@@ -577,6 +575,20 @@ static int bcm_amac_get_dt_data(struct bcm_amac_priv *privp)
 		return PTR_ERR(privp->hw.reg.amac_core);
 	}
 
+	/* optional RGMII base register */
+	iomem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					     "rgmii_base");
+	if (iomem) {
+		privp->hw.reg.rgmii_regs =
+				devm_ioremap_resource(&pdev->dev, iomem);
+		if (IS_ERR(privp->hw.reg.rgmii_regs)) {
+			dev_err(&privp->pdev->dev,
+				"%s: ioremap of rgmii failed\n",
+				__func__);
+			return PTR_ERR(privp->hw.reg.rgmii_regs);
+		}
+	}
+
 	/* AMAC IDM Base register */
 	iomem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					     "amac_idm_base");
@@ -677,6 +689,9 @@ static int bcm_amac_get_dt_data(struct bcm_amac_priv *privp)
 
 	privp->port.ext_port.pause_disable =
 		of_property_read_bool(np, "brcm,enet-pause-disable");
+
+	privp->port.ext_port.phy54810_rgmii_sync =
+		of_property_read_bool(np, "brcm,enet-phy54810-rgmii-sync");
 
 	return 0;
 }

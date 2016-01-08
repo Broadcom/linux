@@ -95,6 +95,7 @@ struct port_info {
 	struct phy_device *phydev; /* Connected PHY dev */
 	int phy_mode; /* phy mode */
 	bool lswap; /* lane swapping */
+	bool phy54810_rgmii_sync; /* PHY54810 fix up */
 	bool pause_disable;
 };
 
@@ -109,6 +110,7 @@ struct port_data {
 struct bcm_amac_reg_base {
 	void __iomem *amac_core;
 	void __iomem *amac_idm_base;
+	void __iomem *rgmii_regs;
 	void __iomem *switch_global_cfg;
 	void __iomem *crmu_io_pad_ctrl;
 };
