@@ -218,6 +218,23 @@
 
 		#include "ns2-clock.dtsi"
 
+		enet: enet@61000000 {
+			compatible = "brcm,amac-enet";
+			reg = <0x61000000 0x1000>,
+			      <0x61090400 0x1000>,
+			      <0x61030000 0x10>;
+			reg-names = "core_base",
+				    "amac_idm_base",
+				    "rgmii_base";
+			dma-coherent;
+			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
+			max-speed = <1000>;
+			phy-handle = <&gphy0>;
+			brcm,enet-phy54810-rgmii-sync;
+			brcm,enet-pause-disable;
+			status= "disabled";
+		};
+
 		dma0: dma@61350000 {
 			compatible = "arm,pl330", "arm,primecell";
 			reg = <0x61350000 0x1000>;
