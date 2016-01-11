@@ -142,8 +142,8 @@ static int pll_wait_for_lock(struct iproc_pll *pll)
 	return -EIO;
 }
 
-static void iproc_pll_write(struct iproc_pll *pll, void __iomem *base,
-			    u32 offset, u32 val)
+static void iproc_pll_write(const struct iproc_pll *pll, void __iomem *base,
+			    const u32 offset, u32 val)
 {
 	const struct iproc_pll_ctrl *ctrl = pll->ctrl;
 
@@ -167,14 +167,14 @@ static void __pll_disable(struct iproc_pll *pll)
 
 	if (ctrl->flags & IPROC_CLK_EMBED_PWRCTRL) {
 		val = readl(pll->control_base + ctrl->aon.offset);
-		val |= (bit_mask(ctrl->aon.pwr_width) << ctrl->aon.pwr_shift);
+		val |= bit_mask(ctrl->aon.pwr_width) << ctrl->aon.pwr_shift;
 		iproc_pll_write(pll, pll->control_base, ctrl->aon.offset, val);
 	}
 
 	if (pll->pwr_base) {
 		/* latch input value so core power can be shut down */
 		val = readl(pll->pwr_base + ctrl->aon.offset);
-		val |= (1 << ctrl->aon.iso_shift);
+		val |= 1 << ctrl->aon.iso_shift;
 		iproc_pll_write(pll, pll->pwr_base, ctrl->aon.offset, val);
 
 		/* power down the core */
@@ -311,7 +311,6 @@ static int pll_set_rate(struct iproc_clk *clk, unsigned int rate_index,
 		iproc_pll_write(pll, pll->control_base,
 			ctrl->macro_mode.offset, val);
 	}
-
 
 	iproc_pll_write(pll, pll->control_base, ctrl->vco_ctrl.u_offset, 0);
 

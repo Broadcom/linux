@@ -386,13 +386,6 @@
 					     "sata2";
 		};
 
-		pinctrl: pinctrl@3f1c0 {
-			compatible = "brcm,nsp-pinmux";
-			reg = <0x3f1c0 0x04>,
-			      <0x30028 0x04>,
-			      <0x3f408 0x04>;
-		};
-
 		cru: cru@3f184 {
 			compatible = "syscon";
 			reg = <0x3f184 0x4>;
@@ -403,6 +396,13 @@
 			regmap = <&cru>;
 			offset = <0>;
 			mask = <0x2f9>;
+		};
+
+		pinctrl: pinctrl@3f1c0 {
+			compatible = "brcm,nsp-pinmux";
+			reg = <0x3f1c0 0x04>,
+			      <0x30028 0x04>,
+			      <0x3f408 0x04>;
 		};
 	};
 };

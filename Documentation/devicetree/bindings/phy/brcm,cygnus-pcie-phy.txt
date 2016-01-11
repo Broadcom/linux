@@ -29,7 +29,7 @@ Example:
 		pcie1_phy: phy@1 {
 			reg = <1>;
 			#phy-cells = <0>;
-	};
+		};
 	};
 
 	/* users of the PCIe phy */

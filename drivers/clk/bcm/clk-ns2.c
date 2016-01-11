@@ -16,82 +16,80 @@
 #include <linux/clk-provider.h>
 #include <linux/io.h>
 #include <linux/of.h>
-#include <linux/clkdev.h>
 #include <linux/of_address.h>
-#include <linux/delay.h>
 
 #include <dt-bindings/clock/bcm-ns2.h>
 #include "clk-iproc.h"
 
-#define reg_val(o, s, w) { .offset = o, .shift = s, .width = w, }
+#define REG_VAL(o, s, w) { .offset = o, .shift = s, .width = w, }
 
-#define aon_val(o, pw, ps, is) { .offset = o, .pwr_width = pw, \
+#define AON_VAL(o, pw, ps, is) { .offset = o, .pwr_width = pw, \
 	.pwr_shift = ps, .iso_shift = is }
 
-#define reset_val(o, rs, prs) { .offset = o, .reset_shift = rs, \
+#define RESET_VAL(o, rs, prs) { .offset = o, .reset_shift = rs, \
 	.p_reset_shift = prs }
 
-#define df_val(o, kis, kiw, kps, kpw, kas, kaw) { .offset = o, .ki_shift = kis,\
+#define DF_VAL(o, kis, kiw, kps, kpw, kas, kaw) { .offset = o, .ki_shift = kis,\
 	.ki_width = kiw, .kp_shift = kps, .kp_width = kpw, .ka_shift = kas,    \
 	.ka_width = kaw }
 
-#define vco_ctrl_val(uo, lo) { .u_offset = uo, .l_offset = lo }
+#define VCO_CTRL_VAL(uo, lo) { .u_offset = uo, .l_offset = lo }
 
-#define enable_val(o, es, hs, bs) { .offset = o, .enable_shift = es, \
+#define ENABLE_VAL(o, es, hs, bs) { .offset = o, .enable_shift = es, \
 	.hold_shift = hs, .bypass_shift = bs }
 
 static const struct iproc_pll_ctrl genpll_scr = {
 	.flags = IPROC_CLK_AON | IPROC_CLK_PLL_SPLIT_STAT_CTRL,
-	.aon = aon_val(0x0, 1, 15, 12),
-	.reset = reset_val(0x4, 2, 1),
-	.dig_filter = df_val(0x0, 9, 3, 5, 4, 2, 3),
-	.ndiv_int = reg_val(0x8, 4, 10),
-	.pdiv = reg_val(0x8, 0, 4),
-	.vco_ctrl = vco_ctrl_val(0x10, 0xc),
-	.status = reg_val(0x0, 27, 1),
+	.aon = AON_VAL(0x0, 1, 15, 12),
+	.reset = RESET_VAL(0x4, 2, 1),
+	.dig_filter = DF_VAL(0x0, 9, 3, 5, 4, 2, 3),
+	.ndiv_int = REG_VAL(0x8, 4, 10),
+	.pdiv = REG_VAL(0x8, 0, 4),
+	.vco_ctrl = VCO_CTRL_VAL(0x10, 0xc),
+	.status = REG_VAL(0x0, 27, 1),
 };
 
 
 static const struct iproc_clk_ctrl genpll_scr_clk[] = {
-	/* bypass_shift, the last value passed into enable_val(), is not defined
+	/* bypass_shift, the last value passed into ENABLE_VAL(), is not defined
 	 * in NS2.  However, it doesn't appear to be used anywhere, so setting
 	 * it to 0.
 	 */
 	[BCM_NS2_GENPLL_SCR_SCR_CLK] = {
 		.channel = BCM_NS2_GENPLL_SCR_SCR_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 18, 12, 0),
-		.mdiv = reg_val(0x18, 0, 8),
+		.enable = ENABLE_VAL(0x0, 18, 12, 0),
+		.mdiv = REG_VAL(0x18, 0, 8),
 	},
 	[BCM_NS2_GENPLL_SCR_FS_CLK] = {
 		.channel = BCM_NS2_GENPLL_SCR_FS_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 19, 13, 0),
-		.mdiv = reg_val(0x18, 8, 8),
+		.enable = ENABLE_VAL(0x0, 19, 13, 0),
+		.mdiv = REG_VAL(0x18, 8, 8),
 	},
 	[BCM_NS2_GENPLL_SCR_AUDIO_CLK] = {
 		.channel = BCM_NS2_GENPLL_SCR_AUDIO_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 20, 14, 0),
-		.mdiv = reg_val(0x14, 0, 8),
+		.enable = ENABLE_VAL(0x0, 20, 14, 0),
+		.mdiv = REG_VAL(0x14, 0, 8),
 	},
 	[BCM_NS2_GENPLL_SCR_CH3_UNUSED] = {
 		.channel = BCM_NS2_GENPLL_SCR_CH3_UNUSED,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 21, 15, 0),
-		.mdiv = reg_val(0x14, 8, 8),
+		.enable = ENABLE_VAL(0x0, 21, 15, 0),
+		.mdiv = REG_VAL(0x14, 8, 8),
 	},
 	[BCM_NS2_GENPLL_SCR_CH4_UNUSED] = {
 		.channel = BCM_NS2_GENPLL_SCR_CH4_UNUSED,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 22, 16, 0),
-		.mdiv = reg_val(0x14, 16, 8),
+		.enable = ENABLE_VAL(0x0, 22, 16, 0),
+		.mdiv = REG_VAL(0x14, 16, 8),
 	},
 	[BCM_NS2_GENPLL_SCR_CH5_UNUSED] = {
 		.channel = BCM_NS2_GENPLL_SCR_CH5_UNUSED,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 23, 17, 0),
-		.mdiv = reg_val(0x14, 24, 8),
+		.enable = ENABLE_VAL(0x0, 23, 17, 0),
+		.mdiv = REG_VAL(0x14, 24, 8),
 	},
 };
 
@@ -105,55 +103,55 @@ CLK_OF_DECLARE(ns2_genpll_src_clk, "brcm,ns2-genpll-scr",
 
 static const struct iproc_pll_ctrl genpll_sw = {
 	.flags = IPROC_CLK_AON | IPROC_CLK_PLL_SPLIT_STAT_CTRL,
-	.aon = aon_val(0x0, 2, 9, 8),
-	.reset = reset_val(0x4, 2, 1),
-	.dig_filter = df_val(0x0, 9, 3, 5, 4, 2, 3),
-	.ndiv_int = reg_val(0x8, 4, 10),
-	.pdiv = reg_val(0x8, 0, 4),
-	.vco_ctrl = vco_ctrl_val(0x10, 0xc),
-	.status = reg_val(0x0, 13, 1),
+	.aon = AON_VAL(0x0, 2, 9, 8),
+	.reset = RESET_VAL(0x4, 2, 1),
+	.dig_filter = DF_VAL(0x0, 9, 3, 5, 4, 2, 3),
+	.ndiv_int = REG_VAL(0x8, 4, 10),
+	.pdiv = REG_VAL(0x8, 0, 4),
+	.vco_ctrl = VCO_CTRL_VAL(0x10, 0xc),
+	.status = REG_VAL(0x0, 13, 1),
 };
 
 static const struct iproc_clk_ctrl genpll_sw_clk[] = {
-	/* bypass_shift, the last value passed into enable_val(), is not defined
+	/* bypass_shift, the last value passed into ENABLE_VAL(), is not defined
 	 * in NS2.  However, it doesn't appear to be used anywhere, so setting
 	 * it to 0.
 	 */
 	[BCM_NS2_GENPLL_SW_RPE_CLK] = {
 		.channel = BCM_NS2_GENPLL_SW_RPE_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 18, 12, 0),
-		.mdiv = reg_val(0x18, 0, 8),
+		.enable = ENABLE_VAL(0x0, 18, 12, 0),
+		.mdiv = REG_VAL(0x18, 0, 8),
 	},
 	[BCM_NS2_GENPLL_SW_250_CLK] = {
 		.channel = BCM_NS2_GENPLL_SW_250_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 19, 13, 0),
-		.mdiv = reg_val(0x18, 8, 8),
+		.enable = ENABLE_VAL(0x0, 19, 13, 0),
+		.mdiv = REG_VAL(0x18, 8, 8),
 	},
 	[BCM_NS2_GENPLL_SW_NIC_CLK] = {
 		.channel = BCM_NS2_GENPLL_SW_NIC_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 20, 14, 0),
-		.mdiv = reg_val(0x14, 0, 8),
+		.enable = ENABLE_VAL(0x0, 20, 14, 0),
+		.mdiv = REG_VAL(0x14, 0, 8),
 	},
 	[BCM_NS2_GENPLL_SW_CHIMP_CLK] = {
 		.channel = BCM_NS2_GENPLL_SW_CHIMP_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 21, 15, 0),
-		.mdiv = reg_val(0x14, 8, 8),
+		.enable = ENABLE_VAL(0x0, 21, 15, 0),
+		.mdiv = REG_VAL(0x14, 8, 8),
 	},
 	[BCM_NS2_GENPLL_SW_PORT_CLK] = {
 		.channel = BCM_NS2_GENPLL_SW_PORT_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 22, 16, 0),
-		.mdiv = reg_val(0x14, 16, 8),
+		.enable = ENABLE_VAL(0x0, 22, 16, 0),
+		.mdiv = REG_VAL(0x14, 16, 8),
 	},
 	[BCM_NS2_GENPLL_SW_SDIO_CLK] = {
 		.channel = BCM_NS2_GENPLL_SW_SDIO_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 23, 17, 0),
-		.mdiv = reg_val(0x14, 24, 8),
+		.enable = ENABLE_VAL(0x0, 23, 17, 0),
+		.mdiv = REG_VAL(0x14, 24, 8),
 	},
 };
 
@@ -167,55 +165,55 @@ CLK_OF_DECLARE(ns2_genpll_sw_clk, "brcm,ns2-genpll-sw",
 
 static const struct iproc_pll_ctrl lcpll_ddr = {
 	.flags = IPROC_CLK_AON | IPROC_CLK_PLL_SPLIT_STAT_CTRL,
-	.aon = aon_val(0x0, 2, 1, 0),
-	.reset = reset_val(0x4, 2, 1),
-	.dig_filter = df_val(0x0, 9, 3, 5, 4, 1, 4),
-	.ndiv_int = reg_val(0x8, 4, 10),
-	.pdiv = reg_val(0x8, 0, 4),
-	.vco_ctrl = vco_ctrl_val(0x10, 0xc),
-	.status = reg_val(0x0, 0, 1),
+	.aon = AON_VAL(0x0, 2, 1, 0),
+	.reset = RESET_VAL(0x4, 2, 1),
+	.dig_filter = DF_VAL(0x0, 9, 3, 5, 4, 1, 4),
+	.ndiv_int = REG_VAL(0x8, 4, 10),
+	.pdiv = REG_VAL(0x8, 0, 4),
+	.vco_ctrl = VCO_CTRL_VAL(0x10, 0xc),
+	.status = REG_VAL(0x0, 0, 1),
 };
 
 static const struct iproc_clk_ctrl lcpll_ddr_clk[] = {
-	/* bypass_shift, the last value passed into enable_val(), is not defined
+	/* bypass_shift, the last value passed into ENABLE_VAL(), is not defined
 	 * in NS2.  However, it doesn't appear to be used anywhere, so setting
 	 * it to 0.
 	 */
 	[BCM_NS2_LCPLL_DDR_PCIE_SATA_USB_CLK] = {
 		.channel = BCM_NS2_LCPLL_DDR_PCIE_SATA_USB_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 18, 12, 0),
-		.mdiv = reg_val(0x14, 0, 8),
+		.enable = ENABLE_VAL(0x0, 18, 12, 0),
+		.mdiv = REG_VAL(0x14, 0, 8),
 	},
 	[BCM_NS2_LCPLL_DDR_DDR_CLK] = {
 		.channel = BCM_NS2_LCPLL_DDR_DDR_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 19, 13, 0),
-		.mdiv = reg_val(0x14, 8, 8),
+		.enable = ENABLE_VAL(0x0, 19, 13, 0),
+		.mdiv = REG_VAL(0x14, 8, 8),
 	},
 	[BCM_NS2_LCPLL_DDR_CH2_UNUSED] = {
 		.channel = BCM_NS2_LCPLL_DDR_CH2_UNUSED,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 20, 14, 0),
-		.mdiv = reg_val(0x10, 0, 8),
+		.enable = ENABLE_VAL(0x0, 20, 14, 0),
+		.mdiv = REG_VAL(0x10, 0, 8),
 	},
 	[BCM_NS2_LCPLL_DDR_CH3_UNUSED] = {
 		.channel = BCM_NS2_LCPLL_DDR_CH3_UNUSED,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 21, 15, 0),
-		.mdiv = reg_val(0x10, 8, 8),
+		.enable = ENABLE_VAL(0x0, 21, 15, 0),
+		.mdiv = REG_VAL(0x10, 8, 8),
 	},
 	[BCM_NS2_LCPLL_DDR_CH4_UNUSED] = {
 		.channel = BCM_NS2_LCPLL_DDR_CH4_UNUSED,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 22, 16, 0),
-		.mdiv = reg_val(0x10, 16, 8),
+		.enable = ENABLE_VAL(0x0, 22, 16, 0),
+		.mdiv = REG_VAL(0x10, 16, 8),
 	},
 	[BCM_NS2_LCPLL_DDR_CH5_UNUSED] = {
 		.channel = BCM_NS2_LCPLL_DDR_CH5_UNUSED,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 23, 17, 0),
-		.mdiv = reg_val(0x10, 24, 8),
+		.enable = ENABLE_VAL(0x0, 23, 17, 0),
+		.mdiv = REG_VAL(0x10, 24, 8),
 	},
 };
 
@@ -229,55 +227,55 @@ CLK_OF_DECLARE(ns2_lcpll_ddr_clk, "brcm,ns2-lcpll-ddr",
 
 static const struct iproc_pll_ctrl lcpll_ports = {
 	.flags = IPROC_CLK_AON | IPROC_CLK_PLL_SPLIT_STAT_CTRL,
-	.aon = aon_val(0x0, 2, 5, 4),
-	.reset = reset_val(0x4, 2, 1),
-	.dig_filter = df_val(0x0, 9, 3, 5, 4, 1, 4),
-	.ndiv_int = reg_val(0x8, 4, 10),
-	.pdiv = reg_val(0x8, 0, 4),
-	.vco_ctrl = vco_ctrl_val(0x10, 0xc),
-	.status = reg_val(0x0, 0, 1),
+	.aon = AON_VAL(0x0, 2, 5, 4),
+	.reset = RESET_VAL(0x4, 2, 1),
+	.dig_filter = DF_VAL(0x0, 9, 3, 5, 4, 1, 4),
+	.ndiv_int = REG_VAL(0x8, 4, 10),
+	.pdiv = REG_VAL(0x8, 0, 4),
+	.vco_ctrl = VCO_CTRL_VAL(0x10, 0xc),
+	.status = REG_VAL(0x0, 0, 1),
 };
 
 static const struct iproc_clk_ctrl lcpll_ports_clk[] = {
-	/* bypass_shift, the last value passed into enable_val(), is not defined
+	/* bypass_shift, the last value passed into ENABLE_VAL(), is not defined
 	 * in NS2.  However, it doesn't appear to be used anywhere, so setting
 	 * it to 0.
 	 */
 	[BCM_NS2_LCPLL_PORTS_WAN_CLK] = {
 		.channel = BCM_NS2_LCPLL_PORTS_WAN_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 18, 12, 0),
-		.mdiv = reg_val(0x14, 0, 8),
+		.enable = ENABLE_VAL(0x0, 18, 12, 0),
+		.mdiv = REG_VAL(0x14, 0, 8),
 	},
 	[BCM_NS2_LCPLL_PORTS_RGMII_CLK] = {
 		.channel = BCM_NS2_LCPLL_PORTS_RGMII_CLK,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 19, 13, 0),
-		.mdiv = reg_val(0x14, 8, 8),
+		.enable = ENABLE_VAL(0x0, 19, 13, 0),
+		.mdiv = REG_VAL(0x14, 8, 8),
 	},
 	[BCM_NS2_LCPLL_PORTS_CH2_UNUSED] = {
 		.channel = BCM_NS2_LCPLL_PORTS_CH2_UNUSED,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 20, 14, 0),
-		.mdiv = reg_val(0x10, 0, 8),
+		.enable = ENABLE_VAL(0x0, 20, 14, 0),
+		.mdiv = REG_VAL(0x10, 0, 8),
 	},
 	[BCM_NS2_LCPLL_PORTS_CH3_UNUSED] = {
 		.channel = BCM_NS2_LCPLL_PORTS_CH3_UNUSED,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 21, 15, 0),
-		.mdiv = reg_val(0x10, 8, 8),
+		.enable = ENABLE_VAL(0x0, 21, 15, 0),
+		.mdiv = REG_VAL(0x10, 8, 8),
 	},
 	[BCM_NS2_LCPLL_PORTS_CH4_UNUSED] = {
 		.channel = BCM_NS2_LCPLL_PORTS_CH4_UNUSED,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 22, 16, 0),
-		.mdiv = reg_val(0x10, 16, 8),
+		.enable = ENABLE_VAL(0x0, 22, 16, 0),
+		.mdiv = REG_VAL(0x10, 16, 8),
 	},
 	[BCM_NS2_LCPLL_PORTS_CH5_UNUSED] = {
 		.channel = BCM_NS2_LCPLL_PORTS_CH5_UNUSED,
 		.flags = IPROC_CLK_AON,
-		.enable = enable_val(0x0, 23, 17, 0),
-		.mdiv = reg_val(0x10, 24, 8),
+		.enable = ENABLE_VAL(0x0, 23, 17, 0),
+		.mdiv = REG_VAL(0x10, 24, 8),
 	},
 };
 
