@@ -294,6 +294,7 @@
 			clocks = <&hsls_div2_clk>;
 			clock-names = "apb_pclk";
 			#stream-id-cells = <1>;
+			iommus = <&smmu>;
 		};
 
 		sdio0: sdhci@68cf1000 {
