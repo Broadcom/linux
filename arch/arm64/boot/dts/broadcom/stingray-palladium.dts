@@ -32,8 +32,6 @@
 
 /dts-v1/;
 
-/* HACK: Reserve arm64 tiny boot location */
-/memreserve/ 0x80000000 0x00020000;
 /* HACK: Reserve initrd location */
 /memreserve/ 0x81000000 0x00800000;
 
@@ -54,47 +52,6 @@
 		linux,initrd-end = <0x0 0x81800000>;
 	};
 
-	cpus { /* HACK: arm64 tiny boot implements spin-table */
-		cpu@000 {
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x8000fff8>;
-		};
-
-		cpu@001 {
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x8000fff8>;
-		};
-
-		cpu@100 {
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x8000fff8>;
-		};
-
-		cpu@101 {
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x8000fff8>;
-		};
-
-		cpu@200 {
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x8000fff8>;
-		};
-
-		cpu@201 {
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x8000fff8>;
-		};
-
-		cpu@300 {
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x8000fff8>;
-		};
-
-		cpu@301 {
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x8000fff8>;
-		};
-	};
 };
 
 &uart3 {
