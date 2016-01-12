@@ -304,6 +304,7 @@
 			bus-width = <8>;
 			clocks = <&sdio0_clk>;
 			#stream-id-cells = <1>;
+			iommus = <&smmu>;
 			status = "disabled";
 		};
 
@@ -314,6 +315,7 @@
 			bus-width = <8>;
 			clocks = <&sdio1_clk>;
 			#stream-id-cells = <1>;
+			iommus = <&smmu>;
 			status = "disabled";
 		};
 	};
