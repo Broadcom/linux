@@ -249,6 +249,94 @@
 		#include "stingray-clock.dtsi"
 		#include "stingray-pinctrl.dtsi"
 
+		timer0: timer@68930000 {
+			compatible = "arm,sp804", "arm,primecell";
+			reg = <0x68930000 0x1000>;
+			interrupts = <GIC_SPI 179 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hsls_div4_clk>,
+				 <&hsls_div4_clk>,
+				 <&hsls_div4_clk>;
+			clock-names = "timer1", "timer2", "apb_pclk";
+			arm,sp804-no-sched-clock;
+		};
+
+		timer1: timer@68940000 {
+			compatible = "arm,sp804", "arm,primecell";
+			reg = <0x68940000 0x1000>;
+			interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hsls_div4_clk>,
+				 <&hsls_div4_clk>,
+				 <&hsls_div4_clk>;
+			clock-names = "timer1", "timer2", "apb_pclk";
+			arm,sp804-no-sched-clock;
+		};
+
+		timer2: timer@68950000 {
+			compatible = "arm,sp804", "arm,primecell";
+			reg = <0x68950000 0x1000>;
+			interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hsls_div4_clk>,
+				 <&hsls_div4_clk>,
+				 <&hsls_div4_clk>;
+			clock-names = "timer1", "timer2", "apb_pclk";
+			arm,sp804-no-sched-clock;
+		};
+
+		timer3: timer@68960000 {
+			compatible = "arm,sp804", "arm,primecell";
+			reg = <0x68960000 0x1000>;
+			interrupts = <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hsls_div4_clk>,
+				 <&hsls_div4_clk>,
+				 <&hsls_div4_clk>;
+			clock-names = "timer1", "timer2", "apb_pclk";
+			arm,sp804-no-sched-clock;
+		};
+
+		timer4: timer@68970000 {
+			compatible = "arm,sp804", "arm,primecell";
+			reg = <0x68970000 0x1000>;
+			interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hsls_div4_clk>,
+				 <&hsls_div4_clk>,
+				 <&hsls_div4_clk>;
+			clock-names = "timer1", "timer2", "apb_pclk";
+			arm,sp804-no-sched-clock;
+		};
+
+		timer5: timer@68980000 {
+			compatible = "arm,sp804", "arm,primecell";
+			reg = <0x68980000 0x1000>;
+			interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hsls_div4_clk>,
+				 <&hsls_div4_clk>,
+				 <&hsls_div4_clk>;
+			clock-names = "timer1", "timer2", "apb_pclk";
+			arm,sp804-no-sched-clock;
+		};
+
+		timer6: timer@68990000 {
+			compatible = "arm,sp804", "arm,primecell";
+			reg = <0x68990000 0x1000>;
+			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hsls_div4_clk>,
+				 <&hsls_div4_clk>,
+				 <&hsls_div4_clk>;
+			clock-names = "timer1", "timer2", "apb_pclk";
+			arm,sp804-no-sched-clock;
+		};
+
+		timer7: timer@689a0000 {
+			compatible = "arm,sp804", "arm,primecell";
+			reg = <0x689a0000 0x1000>;
+			interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hsls_div4_clk>,
+				 <&hsls_div4_clk>,
+				 <&hsls_div4_clk>;
+			clock-names = "timer1", "timer2", "apb_pclk";
+			arm,sp804-no-sched-clock;
+		};
+
 		uart3: uart@68a30000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
