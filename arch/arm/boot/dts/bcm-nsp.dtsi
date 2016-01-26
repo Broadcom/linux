@@ -343,7 +343,7 @@
 
 		ccbtimer1: timer@35000 {
 			compatible = "arm,sp804";
-			reg = <0x18035000 0x1000>;
+			reg = <0x35000 0x1000>;
 			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&iprocslow>;
