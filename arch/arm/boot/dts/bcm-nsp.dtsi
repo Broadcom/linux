@@ -321,9 +321,7 @@
 			interrupts = <GIC_SPI 127 IRQ_TYPE_NONE>,
 				     <GIC_SPI 128 IRQ_TYPE_NONE>,
 				     <GIC_SPI 129 IRQ_TYPE_NONE>,
-				     <GIC_SPI 130 IRQ_TYPE_NONE>,
-				     <GIC_SPI 131 IRQ_TYPE_NONE>,
-				     <GIC_SPI 132 IRQ_TYPE_NONE>;
+				     <GIC_SPI 130 IRQ_TYPE_NONE>;
 			brcm,pcie-msi-inten;
 		};
 	};
@@ -359,9 +357,7 @@
 			interrupts = <GIC_SPI 133 IRQ_TYPE_NONE>,
 				     <GIC_SPI 134 IRQ_TYPE_NONE>,
 				     <GIC_SPI 135 IRQ_TYPE_NONE>,
-				     <GIC_SPI 136 IRQ_TYPE_NONE>,
-				     <GIC_SPI 137 IRQ_TYPE_NONE>,
-				     <GIC_SPI 138 IRQ_TYPE_NONE>;
+				     <GIC_SPI 136 IRQ_TYPE_NONE>;
 			brcm,pcie-msi-inten;
 		};
 	};
@@ -397,9 +393,7 @@
 			interrupts = <GIC_SPI 139 IRQ_TYPE_NONE>,
 				     <GIC_SPI 140 IRQ_TYPE_NONE>,
 				     <GIC_SPI 141 IRQ_TYPE_NONE>,
-				     <GIC_SPI 142 IRQ_TYPE_NONE>,
-				     <GIC_SPI 143 IRQ_TYPE_NONE>,
-				     <GIC_SPI 144 IRQ_TYPE_NONE>;
+				     <GIC_SPI 142 IRQ_TYPE_NONE>;
 			brcm,num-eq-region = <1>;
 			brcm,num-msi-msg-region = <1>;
 			brcm,pcie-msi-inten;
