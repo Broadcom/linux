@@ -160,12 +160,21 @@
 		gic: interrupt-controller@63c00000 {
 			compatible = "arm,gic-v3";
 			#interrupt-cells = <3>;
-			#address-cells = <0>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
 			interrupt-controller;
 			reg = <0x63c00000 0x010000>, /* GICD */
 			      <0x63e00000 0x600000>; /* GICR */
 			interrupts = <GIC_PPI 9 (GIC_CPU_MASK_RAW(0xf) |
 				      IRQ_TYPE_LEVEL_HIGH)>;
+
+			gic_its: gic-its@63c20000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x63c20000 0x10000>;
+			};
 		};
 
 		smmu: mmu@64000000 {
