@@ -539,15 +539,18 @@ static int iproc_clk_determine_rate(struct clk_hw *hw,
 	struct iproc_clk *bcm_clk = to_iproc_clk(hw);
 	struct iproc_pll *pll = bcm_clk->pll;
 	const struct iproc_clk_ctrl *ctrl = bcm_clk->ctrl;
-	unsigned long best_delta;
+	unsigned long best_delta, pll_rate;
 	unsigned long delta;
 	unsigned int div;
-	int i;
+	int i, enable_count, num_clks;
+	struct clk *clk;
 
 	if (req->rate == 0)
 		return -EINVAL;
 	if (req->rate == req->best_parent_rate)
 		return 0;
+
+	pll_rate = req->best_parent_rate;
 
 	if ((pll->vco_param) && (ctrl->flags & IPROC_CLK_SET_RATE_PARENT)) {
 		best_delta = abs(pll->vco_param[0].rate
@@ -559,6 +562,18 @@ static int iproc_clk_determine_rate(struct clk_hw *hw,
 			if (delta < best_delta) {
 				best_delta = delta;
 				req->best_parent_rate = pll->vco_param[i].rate;
+			}
+		}
+
+		num_clks = pll->clk_data.clk_num;
+		for (i = 0; i < num_clks; i++) {
+			clk = pll->clk_data.clks[i];
+			enable_count = __clk_get_enable_count(clk);
+			if ((pll_rate != req->best_parent_rate) &&
+				(enable_count > 1)) {
+				pr_err("%s: disable all leaf clocks before changing PLL\n",
+					__func__);
+				return -EINVAL;
 			}
 		}
 	}
