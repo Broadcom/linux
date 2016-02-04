@@ -85,6 +85,14 @@
 	};
 };
 
+&ehci0 {
+	status = "okay";
+};
+
+&ohci0 {
+	status = "okay";
+};
+
 &uart0 {
 	status = "okay";
 };
