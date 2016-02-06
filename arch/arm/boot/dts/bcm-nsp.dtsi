@@ -408,8 +408,6 @@
 				     <GIC_SPI 140 IRQ_TYPE_NONE>,
 				     <GIC_SPI 141 IRQ_TYPE_NONE>,
 				     <GIC_SPI 142 IRQ_TYPE_NONE>;
-			brcm,num-eq-region = <1>;
-			brcm,num-msi-msg-region = <1>;
 			brcm,pcie-msi-inten;
 		};
 	};
