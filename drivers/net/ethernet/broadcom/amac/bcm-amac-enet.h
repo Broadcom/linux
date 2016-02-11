@@ -166,6 +166,7 @@ struct bcm_amac_priv {
 	struct sockaddr cur_etheraddr; /* local ethernet address */
 
 	bool switch_mode;
+	bool lswap; /* lane swapping */
 
 	spinlock_t lock; /* used by netdev api's */
 	u32 msg_enable; /* message filter bit mask */

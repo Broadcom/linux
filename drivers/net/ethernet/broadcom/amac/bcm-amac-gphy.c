@@ -186,17 +186,52 @@ int bcm_amac_gphy_init(struct bcm_amac_priv *privp)
 	return 0;
 }
 
+static int amac_gphy_lswap(struct phy_device *phy_dev)
+{
+	int rc = 0;
+	u16 val;
+
+	rc = phy_write(phy_dev, GPHY_EXP_SELECT_REG, 0x0F09);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_read(phy_dev, GPHY_EXP_DATA_REG);
+	if (rc < 0)
+		return rc;
+
+	val = 0x5193; /* laneswap PHY 0 */
+
+	if (val != (u16)rc) {
+		/* Apply the laneswap setting */
+		rc = phy_write(phy_dev, GPHY_EXP_SELECT_REG, 0x0F09);
+		if (rc < 0)
+			return rc;
+
+		rc = phy_write(phy_dev, GPHY_EXP_DATA_REG, val);
+		if (rc < 0)
+			return rc;
+	}
+
+	return 0;
+}
+
 /* bcm_amac_gphy_powerup() - Power up the PHY's
  * @privp: driver local data structure pointer
  */
 void bcm_amac_gphy_powerup(struct bcm_amac_priv *privp)
 {
-	if (privp->port.count > 1)
-		if (privp->port.info[AMAC_PORT_TYPE_EXT].phydev)
-			/* Power up the PHY(s) */
-			amac_gphy_enable(
-				privp->port.info[AMAC_PORT_TYPE_EXT].phydev,
-				1);
+	/* We will always have IMP port as 1 port */
+	if (privp->port.count <= 1)
+		return;
+
+	if (privp->port.info[AMAC_PORT_TYPE_EXT].phydev)
+		/* Power up the PHY(s) */
+		amac_gphy_enable(
+			privp->port.info[AMAC_PORT_TYPE_EXT].phydev,
+			1);
+
+	if (privp->lswap)
+		amac_gphy_lswap(privp->port.info[AMAC_PORT_TYPE_EXT].phydev);
 }
 
 /* bcm_amac_gphy_shutdown() - Reset and power down the PHY's

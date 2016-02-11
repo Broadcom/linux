@@ -18,6 +18,8 @@ Optional properties:
                       Only Switch bypass mode is supported.
 	- phy-handle: phandle of the phy to be used in switch-by-pass mode
 		      This typically can only be the PHY0.
+	- port-lswap: Enable lane swap logic for the port. The existence
+		      of the configuration will enable the feature.
 
 Examples:
 

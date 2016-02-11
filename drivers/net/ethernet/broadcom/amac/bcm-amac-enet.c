@@ -749,6 +749,8 @@ static int bcm_amac_get_dt_data(struct bcm_amac_priv *privp)
 		}
 	}
 
+	privp->lswap = of_property_read_bool(np, "port-lswap");
+
 	return 0;
 }
 
