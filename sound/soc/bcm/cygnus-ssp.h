@@ -78,6 +78,7 @@ struct cygnus_ssp_regs {
 	u32 bf_destch_cfg;
 	u32 bf_sourcech_ctrl;
 	u32 bf_sourcech_cfg;
+	u32 bf_sourcech_grp;
 };
 
 struct cygnus_track_clk {
@@ -92,7 +93,6 @@ struct cygnus_aio_port {
 	int mode;
 	bool is_slave;
 	int streams_on;   /* will be 0 if both capture and play are off */
-	int channel_grouping;
 	int fsync_width;
 	int port_type;
 

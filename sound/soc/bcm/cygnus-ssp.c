@@ -43,6 +43,7 @@
 #define I2S_STREAM_CFG_MASK      0xff003ff
 #define I2S_CAP_STREAM_CFG_MASK  0xf0
 #define SPDIF_STREAM_CFG_MASK    0x3ff
+#define CH_GRP_STEREO            0x1
 
 /* Begin register offset defines */
 #define AUD_MISC_SEROUT_OE_REG_BASE  0x01c
@@ -193,10 +194,9 @@
 		.bf_destch_ctrl = BF_DST_CTRL ##num## _OFFSET, \
 		.bf_destch_cfg = BF_DST_CFG ##num## _OFFSET, \
 		.bf_sourcech_ctrl = BF_SRC_CTRL ##num## _OFFSET, \
-		.bf_sourcech_cfg = BF_SRC_CFG ##num## _OFFSET \
+		.bf_sourcech_cfg = BF_SRC_CFG ##num## _OFFSET, \
+		.bf_sourcech_grp = BF_SRC_GRP ##num## _OFFSET \
 }
-
-static int group_id[CYGNUS_MAX_PLAYBACK_PORTS] = {0, 1, 2, 3};
 
 struct pll_macro_entry {
 	u32 mclk;
@@ -399,16 +399,13 @@ static int audio_ssp_init_portregs(struct cygnus_aio_port *aio)
 		value &= ~I2S_STREAM_CFG_MASK;
 
 		/* Set Group ID */
-		writel(group_id[0], aio->cygaud->audio + BF_SRC_GRP0_OFFSET);
-		writel(group_id[1], aio->cygaud->audio + BF_SRC_GRP1_OFFSET);
-		writel(group_id[2], aio->cygaud->audio + BF_SRC_GRP2_OFFSET);
-		writel(group_id[3], aio->cygaud->audio + BF_SRC_GRP3_OFFSET);
+		writel(aio->portnum,
+			aio->cygaud->audio + aio->regs.bf_sourcech_grp);
 
 		/* Configure the AUD_FMM_IOP_OUT_I2S_x_STREAM_CFG reg */
-		value |= group_id[aio->portnum] << I2S_OUT_STREAM_CFG_GROUP_ID;
+		value |= aio->portnum << I2S_OUT_STREAM_CFG_GROUP_ID;
 		value |= aio->portnum; /* FCI ID is the port num */
-		value |= aio->channel_grouping <<
-			I2S_OUT_STREAM_CFG_CHANNEL_GROUPING;
+		value |= CH_GRP_STEREO << I2S_OUT_STREAM_CFG_CHANNEL_GROUPING;
 		writel(value, aio->cygaud->audio + aio->regs.i2s_stream_cfg);
 
 		/* Configure the AUD_FMM_BF_CTRL_SOURCECH_CFGX reg */
@@ -422,7 +419,7 @@ static int audio_ssp_init_portregs(struct cygnus_aio_port *aio)
 		value = readl(aio->cygaud->i2s_in +
 			aio->regs.i2s_cap_stream_cfg);
 		value &= ~I2S_CAP_STREAM_CFG_MASK;
-		value |= group_id[aio->portnum] << I2S_IN_STREAM_CFG_0_GROUP_ID;
+		value |= aio->portnum << I2S_IN_STREAM_CFG_0_GROUP_ID;
 		writel(value, aio->cygaud->i2s_in +
 			aio->regs.i2s_cap_stream_cfg);
 
@@ -442,7 +439,7 @@ static int audio_ssp_init_portregs(struct cygnus_aio_port *aio)
 		writel(value, aio->cygaud->audio + AUD_MISC_SEROUT_OE_REG_BASE);
 		break;
 	case PORT_SPDIF:
-		writel(group_id[3], aio->cygaud->audio + BF_SRC_GRP3_OFFSET);
+		writel(aio->portnum, aio->cygaud->audio + BF_SRC_GRP3_OFFSET);
 
 		value = readl(aio->cygaud->audio + SPDIF_CTRL_OFFSET);
 		value |= BIT(SPDIF_0_OUT_DITHER_ENA);
@@ -1273,7 +1270,6 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 				struct snd_soc_dai_driver *p_dai)
 {
 	struct cygnus_aio_port *aio;
-	const char *channel_grp;
 	struct cygnus_ssp_regs ssp_regs[3];
 	u32 rawval;
 	int portnum = -1;
@@ -1306,11 +1302,6 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	if (of_property_read_string(dn, "channel-group", &channel_grp) != 0) {
-		dev_err(&pdev->dev, "Missing channel_group property\n");
-		return -EINVAL;
-	}
-
 	aio = &cygaud->portinfo[portnum];
 	aio->cygaud = cygaud;
 	aio->portnum = portnum;
@@ -1333,28 +1324,6 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 
 		/* For the purposes of this code SPDIF can be I2S mode */
 		aio->mode = CYGNUS_SSPMODE_I2S;
-	}
-
-	/* Handle the channel grouping */
-	if (aio->port_type == PORT_TDM) {
-		if (strstr(channel_grp, "2_0")) {
-			group_id[portnum] = portnum;
-			aio->channel_grouping = 0x1;
-		} else if (strstr(channel_grp, "3_1")) {
-			group_id[portnum] = 0;
-			aio->channel_grouping = 0x3;
-		} else if (strstr(channel_grp, "5_1")) {
-			group_id[portnum] = 0;
-			aio->channel_grouping = 0x7;
-		} else {
-			dev_err(&pdev->dev, "Invalid channel grouping\n");
-			return -EINVAL;
-		}
-	}
-
-	if (port_type == PORT_SPDIF) {
-		group_id[portnum] = 3;
-		aio->channel_grouping = 0x1;
 	}
 
 	dev_dbg(&pdev->dev, "%s portnum = %d\n", __func__, aio->portnum);
