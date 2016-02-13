@@ -35,6 +35,7 @@
 
 #define CAPTURE_FCI_ID_BASE 0x180
 #define CYGNUS_SSP_TRISTATE_MASK 0x001fff
+#define CYGNUS_PLLCLKSEL_MASK 0xf
 
 /* Used with stream_on field to indicate which streams are active */
 #define  PLAYBACK_STREAM_MASK   BIT(0)
@@ -896,22 +897,35 @@ static void cygnus_ssp_shutdown(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
 	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(dai);
-	u32 val;
 
-	val = readl(aio->cygaud->audio + aio->regs.i2s_mclk_cfg);
-	val &= 0xf;
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		aio->clk_trace.play_en = false;
-		if (aio->clk_trace.play_clk_en) {
-			clk_disable_unprepare(aio->cygaud->audio_clk[val]);
-			aio->clk_trace.play_clk_en = false;
-		}
-	} else {
+	else
 		aio->clk_trace.cap_en = false;
-		if (aio->clk_trace.cap_clk_en) {
-			clk_disable_unprepare(aio->cygaud->audio_clk[val]);
-			aio->clk_trace.cap_clk_en = false;
+
+	if (!aio->is_slave) {
+		u32 val;
+
+		val = readl(aio->cygaud->audio + aio->regs.i2s_mclk_cfg);
+		val &= CYGNUS_PLLCLKSEL_MASK;
+		if (val >= ARRAY_SIZE(aio->cygaud->audio_clk)) {
+			dev_err(aio->cygaud->dev, "Clk index %u is out of bounds\n",
+				val);
+			return;
+		}
+
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			if (aio->clk_trace.play_clk_en) {
+				clk_disable_unprepare(aio->cygaud->
+						audio_clk[val]);
+				aio->clk_trace.play_clk_en = false;
+			}
+		} else {
+			if (aio->clk_trace.cap_clk_en) {
+				clk_disable_unprepare(aio->cygaud->
+						audio_clk[val]);
+				aio->clk_trace.cap_clk_en = false;
+			}
 		}
 	}
 }
@@ -1173,18 +1187,42 @@ static int cygnus_set_dai_tdm_slot(struct snd_soc_dai *cpu_dai,
 static int cygnus_ssp_suspend(struct snd_soc_dai *cpu_dai)
 {
 	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(cpu_dai);
-	struct cygnus_audio *cygaud = snd_soc_dai_get_drvdata(cpu_dai);
 
-	audio_ssp_out_disable(aio);
-	audio_ssp_in_disable(aio);
-	if (cygaud->active_ports > 0)
-		cygaud->active_ports--;
+	if (!aio->is_slave) {
+		u32 val;
+
+		val = readl(aio->cygaud->audio + aio->regs.i2s_mclk_cfg);
+		val &= CYGNUS_PLLCLKSEL_MASK;
+		if (val >= ARRAY_SIZE(aio->cygaud->audio_clk)) {
+			dev_err(aio->cygaud->dev, "Clk index %u is out of bounds\n",
+				val);
+			return -EINVAL;
+		}
+
+		if (aio->clk_trace.cap_clk_en)
+			clk_disable_unprepare(aio->cygaud->audio_clk[val]);
+		if (aio->clk_trace.play_clk_en)
+			clk_disable_unprepare(aio->cygaud->audio_clk[val]);
+
+		aio->pll_clk_num = val;
+	}
 
 	return 0;
 }
 
 static int cygnus_ssp_resume(struct snd_soc_dai *cpu_dai)
 {
+	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(cpu_dai);
+
+	if (!aio->is_slave) {
+		if (aio->clk_trace.cap_clk_en)
+			clk_prepare_enable(aio->cygaud->
+					audio_clk[aio->pll_clk_num]);
+		if (aio->clk_trace.play_clk_en)
+			clk_prepare_enable(aio->cygaud->
+					audio_clk[aio->pll_clk_num]);
+	}
+
 	return 0;
 }
 #else

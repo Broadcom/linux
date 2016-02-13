@@ -99,6 +99,7 @@ struct cygnus_aio_port {
 	u32 mclk;
 	u32 lrclk;
 	u32 bit_per_frame;
+	u32 pll_clk_num;
 
 	struct cygnus_audio *cygaud;
 	struct cygnus_ssp_regs regs;
