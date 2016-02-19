@@ -428,6 +428,20 @@
 			status = "disabled";
 		};
 
+		pwm: pwm@180aa500 {
+			compatible = "brcm,kona-pwm";
+			reg = <0x180aa500 0xc4>;
+			#pwm-cells = <3>;
+			clocks = <&asiu_clks BCM_CYGNUS_ASIU_PWM_CLK>;
+			status = "disabled";
+		};
+
+		bl: backlight {
+			compatible = "pwm-backlight";
+			pwms = <&pwm 0 50000 0>;
+			status = "disabled";
+		};
+
 		cygnus_audio: audio@180ae000 {
 			compatible = "brcm,cygnus-audio";
 			#address-cells = <1>;
