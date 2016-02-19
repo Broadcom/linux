@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Broadcom Corporation
+ * Copyright (C) 2016 Broadcom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -11,17 +11,13 @@
  * GNU General Public License for more details.
  */
 
-#include <asm/mach/arch.h>
-#include "iproc_pm.h"
+#ifndef __ARCH_IPROC_PM_H
+#define __ARCH_IPROC_PM_H
 
-static const char * const bcm_cygnus_dt_compat[] __initconst = {
-	"brcm,cygnus",
-	NULL,
-};
+#ifdef CONFIG_PM
+void iproc_pm_init(void);
+#else
+#define iproc_pm_init NULL
+#endif
 
-DT_MACHINE_START(BCM_CYGNUS_DT, "Broadcom Cygnus SoC")
-	.init_late	= iproc_pm_init,
-	.l2c_aux_val	= 0,
-	.l2c_aux_mask	= ~0,
-	.dt_compat = bcm_cygnus_dt_compat,
-MACHINE_END
+#endif

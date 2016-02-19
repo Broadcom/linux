@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Broadcom Corporation
+ * Copyright (C) 2016 Broadcom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -11,17 +11,29 @@
  * GNU General Public License for more details.
  */
 
-#include <asm/mach/arch.h>
+#include <linux/kernel.h>
+#include <linux/suspend.h>
 #include "iproc_pm.h"
 
-static const char * const bcm_cygnus_dt_compat[] __initconst = {
-	"brcm,cygnus",
-	NULL,
+static int iproc_suspend_enter(suspend_state_t state)
+{
+	switch (state) {
+	case PM_SUSPEND_MEM:
+		cpu_do_idle();
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static const struct platform_suspend_ops iproc_suspend_ops = {
+	.enter = iproc_suspend_enter,
+	.valid = suspend_valid_only_mem,
 };
 
-DT_MACHINE_START(BCM_CYGNUS_DT, "Broadcom Cygnus SoC")
-	.init_late	= iproc_pm_init,
-	.l2c_aux_val	= 0,
-	.l2c_aux_mask	= ~0,
-	.dt_compat = bcm_cygnus_dt_compat,
-MACHINE_END
+void __init iproc_pm_init(void)
+{
+	suspend_set_ops(&iproc_suspend_ops);
+}

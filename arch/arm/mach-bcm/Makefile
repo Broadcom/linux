@@ -18,6 +18,10 @@ obj-$(CONFIG_ARCH_BCM_NSP)	+= bcm_nsp.o
 
 obj-$(CONFIG_SMP)		+= headsmp.o platsmp.o
 
+ifeq ($(CONFIG_ARCH_BCM_IPROC),y)
+obj-$(CONFIG_PM)		+= iproc_pm.o
+endif
+
 # BCM281XX
 obj-$(CONFIG_ARCH_BCM_281XX)	+= board_bcm281xx.o
 
