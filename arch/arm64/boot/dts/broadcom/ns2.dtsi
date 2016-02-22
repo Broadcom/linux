@@ -32,6 +32,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/bcm-ns2.h>
+#include <dt-bindings/pinctrl/brcm,iproc-gpio.h>
 
 /memreserve/ 0x84b00000 0x00000008;
 
@@ -383,6 +384,7 @@
 			gpio-controller;
 			interrupt-controller;
 			interrupts = <GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH>;
+			brcm,pinconf-func-off = <IPROC_PIN_OFF_DRIVE_STRENGTH>;
 		};
 
 		i2c1: i2c@660b0000 {
