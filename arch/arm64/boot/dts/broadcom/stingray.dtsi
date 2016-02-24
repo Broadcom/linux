@@ -263,7 +263,7 @@
 		#include "stingray-clock.dtsi"
 		#include "stingray-pinctrl.dtsi"
 
-		gpio_crmu: gpio@0x66424800 {
+		gpio_crmu: gpio@66424800 {
 			compatible = "brcm,iproc-gpio";
 			reg = <0x66424800 0x4c>;
 			ngpios = <6>;
@@ -367,7 +367,7 @@
 			clock-names = "wdogclk", "apb_pclk";
 		};
 
-		gpio_hsls: gpio@0x689d0000 {
+		gpio_hsls: gpio@689d0000 {
 			compatible = "brcm,iproc-gpio";
 			reg = <0x689d0000 0x864>;
 			ngpios = <151>;
