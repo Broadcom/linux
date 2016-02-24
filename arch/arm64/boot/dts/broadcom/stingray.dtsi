@@ -398,7 +398,7 @@
 			compatible = "snps,dw-apb-uart";
 			reg = <0x68a30000 0x1000>;
 			reg-shift = <2>;
-			clock-frequency = <87500000>;
+			clock-frequency = <2500000>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
