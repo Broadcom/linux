@@ -359,6 +359,14 @@
 			arm,sp804-no-sched-clock;
 		};
 
+		wdt0: watchdog@689c0000 {
+			compatible = "arm,sp805", "arm,primecell";
+			reg = <0x689c0000 0x1000>;
+			interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hsls_div4_clk>, <&hsls_div4_clk>;
+			clock-names = "wdogclk", "apb_pclk";
+		};
+
 		gpio_hsls: gpio@0x689d0000 {
 			compatible = "brcm,iproc-gpio";
 			reg = <0x689d0000 0x864>;
