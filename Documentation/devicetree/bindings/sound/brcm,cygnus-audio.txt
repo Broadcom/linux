@@ -10,6 +10,11 @@ Required properties:
 		set of DMA, I2S_OUT and SPDIF registers. "i2s_in" contains
 		a set of I2S_IN registers.
 	- clocks: PLL and leaf clocks used by audio ports
+	- assigned-clocks: PLL and leaf clocks
+	- assigned-clock-parents: parent clocks of the assigned clocks
+		(usually the PLL)
+	- assigned-clock-rates: List of clock frequencies of the
+		assigned clocks
 	- clock-names: names of 3 leaf clocks used by audio ports
 		Valid names are "ch0_audio", "ch1_audio", "ch2_audio"
 	- interrupts: audio DMA interrupt number
@@ -17,12 +22,6 @@ Required properties:
 SSP Subnode properties:
 - reg: The index of ssp port interface to use
 	Valid value are 0, 1, 2, or 3 (for spdif)
-- channel-group: Surround sound grouping that controls which channel
-  outputs belong to a group, specifically useful in Multi-channel
-  Interfaces grouping of serial port. In multi-channel stereo, use
-  "2_0", in 3.1 multi-channel grouping, use "3_1" and in 5.1
-  multi-channel grouping, use "5_1".
-
 
 Example:
 	cygnus_audio: audio@180ae000 {
@@ -34,30 +33,35 @@ Example:
 		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
 				<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
 				<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+		assigned-clocks = <&audiopll BCM_CYGNUS_AUDIOPLL>,
+							<&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
+							<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
+							<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+		assigned-clock-parents = <&audiopll BCM_CYGNUS_AUDIOPLL>;
+		assigned-clock-rates = <1769470191>,
+								<0>,
+								<0>,
+								<0>;
 		clock-names = "ch0_audio", "ch1_audio", "ch2_audio";
 		interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
 
 		ssp0: ssp_port@0 {
 			reg = <0>;
-			channel-group = "2_0"; /* Use 2_0, 3_1, 5_1 */
 			status = "okay";
 		};
 
 		ssp1: ssp_port@1 {
 			reg = <1>;
-			channel-group = "2_0"; /* Use 2_0, 3_1, 5_1 */
 			status = "disabled";
 		};
 
 		ssp2: ssp_port@2 {
 			reg = <2>;
-			channel-group = "2_0"; /* Use 2_0, 3_1, 5_1 */
 			status = "disabled";
 		};
 
 		spdif: spdif_port@3 {
 			reg = <3>;
-			channel-group = "2_0"; /* Use 2_0, 3_1, 5_1 */
 			status = "disabled";
 		};
 	};
