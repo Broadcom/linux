@@ -1139,6 +1139,7 @@ static int cygnus_set_dai_tdm_slot(struct snd_soc_dai *cpu_dai,
 		bits_per_slot = 0;
 		break;
 	default:
+		bits_per_slot = 0;
 		dev_warn(aio->cygaud->dev,
 			"%s Defaulting Slot Width to 32\n", __func__);
 	}
@@ -1173,12 +1174,12 @@ static int cygnus_set_dai_tdm_slot(struct snd_soc_dai *cpu_dai,
 	writel(value, aio->cygaud->i2s_in + aio->regs.i2s_cap_cfg);
 
 	/* Set playback side of ssp port */
-	value = readl(aio->cygaud->i2s_in + aio->regs.i2s_cfg);
+	value = readl(aio->cygaud->audio + aio->regs.i2s_cfg);
 	value &= ~(0xf << I2S_OUT_CFGX_VALID_SLOT);
 	value |= (active_slots << I2S_OUT_CFGX_VALID_SLOT);
 	value &= ~BIT(I2S_OUT_CFGX_BITS_PER_SLOT);
 	value |= (bits_per_slot << I2S_OUT_CFGX_BITS_PER_SLOT);
-	writel(value, aio->cygaud->i2s_in + aio->regs.i2s_cfg);
+	writel(value, aio->cygaud->audio + aio->regs.i2s_cfg);
 
 	return 0;
 }
