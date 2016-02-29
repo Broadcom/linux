@@ -454,6 +454,14 @@
 			};
 		};
 
+		iproc_shared_mdio: iproc_shared_mdio@6602023c {
+			compatible = "brcm,iproc-shared-mdio";
+			reg = <0x6602023c 0x14>;
+			reg-names = "mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
 		sata: ahci@663f2000 {
 			compatible = "generic-ahci";
 			reg = <0x663f2000 0x1000>;
