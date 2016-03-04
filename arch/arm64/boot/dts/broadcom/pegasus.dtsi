@@ -112,6 +112,14 @@
 
 		#include "pegasus-clock.dtsi"
 
+		pwm: pwm@00210000 {
+			compatible = "brcm,iproc-pwm";
+			reg = <0x210000 0x1000>;
+			clocks = <&osc>;
+			#pwm-cells = <3>;
+			status = "disabled";
+		};
+
 		i2c0: i2c@0x00280000 {
 			compatible = "brcm,iproc-i2c";
 			reg = <0x280000 0x100>;
