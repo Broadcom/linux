@@ -483,8 +483,12 @@ int bcm_amac_core_init(struct bcm_amac_priv *privp)
 	/* Clear persistent sw intstatus */
 	writel(0, (privp->hw.reg.amac_core + GMAC_INT_STATUS_REG));
 
-	if (!privp->switch_mode) {
-		/* Switch Bypass mode */
+	if (privp->hw.reg.switch_global_cfg) {
+		/* Required to access the PHY's in
+		 * switch-by-pass mode in some SoC's
+		 * when the PHY needs to be connected
+		 * directly to the mac.
+		 */
 		dev_info(&privp->pdev->dev,
 			 "%s: Switch bypass mode\n", __func__);
 		/* Configure Switch */
@@ -493,10 +497,12 @@ int bcm_amac_core_init(struct bcm_amac_priv *privp)
 		writel(tmp, (privp->hw.reg.switch_global_cfg));
 	}
 
-	/* Setup IO PAD CTRL */
-	tmp = readl(privp->hw.reg.crmu_io_pad_ctrl);
-	tmp &= ~BIT(CRMU_CHIP_IO_PAD_CONTROL__CDRU_IOMUX_FORCE_PAD_IN);
-	writel(tmp, (privp->hw.reg.crmu_io_pad_ctrl));
+	if (privp->hw.reg.crmu_io_pad_ctrl) {
+		/* Setup IO PAD CTRL */
+		tmp = readl(privp->hw.reg.crmu_io_pad_ctrl);
+		tmp &= ~BIT(CRMU_CHIP_IO_PAD_CONTROL__CDRU_IOMUX_FORCE_PAD_IN);
+		writel(tmp, (privp->hw.reg.crmu_io_pad_ctrl));
+	}
 
 	/* Configure GMAC0 */
 	/* enable one rx interrupt per received frame */

@@ -634,6 +634,7 @@ static int bcm_amac_get_dt_data(struct bcm_amac_priv *privp)
 	struct platform_device *pdev = privp->pdev;
 	struct device_node *np = pdev->dev.of_node;
 	struct resource *iomem;
+	struct device_node *phy_node;
 	int rc;
 
 	/* GMAC Core register */
@@ -657,28 +658,39 @@ static int bcm_amac_get_dt_data(struct bcm_amac_priv *privp)
 		return PTR_ERR(privp->hw.reg.amac_idm_base);
 	}
 
-	/* SWITCH GLOBAL CONFIG register */
-	iomem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-					     "switch_global_base");
-	privp->hw.reg.switch_global_cfg =
-		devm_ioremap_resource(&pdev->dev, iomem);
-	if (IS_ERR(privp->hw.reg.switch_global_cfg)) {
-		dev_err(&privp->pdev->dev,
-			"%s: ioremap of switch_global_cfg reg failed\n",
-			__func__);
-		return PTR_ERR(privp->hw.reg.switch_global_cfg);
+	privp->switch_mode = of_property_read_bool(np, "brcm,enet-switch-mode");
+
+	if (!privp->switch_mode) {
+		/* optional SWITCH GLOBAL CONFIG register
+		 * This is only required for switch-by-pass
+		 * mode to connect IMP port to the PHY
+		 */
+		iomem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						     "switch_global_base");
+		if (iomem) {
+			privp->hw.reg.switch_global_cfg =
+				devm_ioremap_resource(&pdev->dev, iomem);
+			if (IS_ERR(privp->hw.reg.switch_global_cfg)) {
+				dev_err(&privp->pdev->dev,
+					"%s: ioremap of switch_global_cfg failed\n",
+					__func__);
+				return PTR_ERR(privp->hw.reg.switch_global_cfg);
+			}
+		}
 	}
 
-	/* CRMU IO PAD CTRL register */
+	/* optional CRMU IO PAD CTRL register */
 	iomem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					     "crmu_io_pad_ctrl");
-	privp->hw.reg.crmu_io_pad_ctrl =
-		devm_ioremap_resource(&pdev->dev, iomem);
-	if (IS_ERR(privp->hw.reg.crmu_io_pad_ctrl)) {
-		dev_err(&privp->pdev->dev,
-			"%s: ioremap of crmu_io_pad_ctrl failed\n",
-			__func__);
-		return PTR_ERR(privp->hw.reg.crmu_io_pad_ctrl);
+	if (iomem) {
+		privp->hw.reg.crmu_io_pad_ctrl =
+			devm_ioremap_resource(&pdev->dev, iomem);
+		if (IS_ERR(privp->hw.reg.crmu_io_pad_ctrl)) {
+			dev_err(&privp->pdev->dev,
+				"%s: ioremap of crmu_io_pad_ctrl failed\n",
+				__func__);
+			return PTR_ERR(privp->hw.reg.crmu_io_pad_ctrl);
+		}
 	}
 
 	/* Read Interrupt */
@@ -690,11 +702,25 @@ static int bcm_amac_get_dt_data(struct bcm_amac_priv *privp)
 		return -EINVAL;
 	}
 
-	/* Defaulting to switch-bypass mode */
-	privp->switch_mode = false;
+	/* AMAC handles the PHY for SoC's without an
+	 * internal switch or 'switch-by-pass' mode in
+	 * case of SoC's with switch.
+	 *
+	 * In both cases above, the PHY connects directly
+	 * to the IMP port.
+	 *
+	 * With an internal switch involved all PHY
+	 * handling will be done by the switch.
+	 */
+	phy_node = of_parse_phandle(np, "phy-handle", 0);
+	if (!phy_node) {
+		dev_err(&privp->pdev->dev,
+			"%s: phy-handle not specified\n",
+			__func__);
+		return -EINVAL;
+	}
 
-	/* In switch bypass mode there are 2 ports */
-	privp->port.count = (privp->switch_mode ? 1 : 2);
+	privp->port.count = 2; /* IMP Port+Ext Port */
 
 	privp->port.info = devm_kzalloc(&privp->pdev->dev,
 						sizeof(struct port_info) *
@@ -708,45 +734,42 @@ static int bcm_amac_get_dt_data(struct bcm_amac_priv *privp)
 	memset(privp->port.info, 0,
 	       sizeof(struct port_info) * privp->port.count);
 
-	/* Read internal port info */
+	/* Read internal (IMP) port info */
 	privp->port.info[AMAC_PORT_TYPE_IMP].type = AMAC_PORT_TYPE_IMP;
 	privp->port.info[AMAC_PORT_TYPE_IMP].id = AMAC_PORT_IMP;
 
+	/* max-speed setting for the IMP port */
 	rc = of_property_read_u32(np, "max-speed",
 			&privp->port.info[AMAC_PORT_TYPE_IMP].cfg.speed);
 	if (rc)
 		privp->port.info[AMAC_PORT_TYPE_IMP].cfg.speed =
 			AMAC_PORT_DEFAULT_SPEED;
 
-	/* In Switch-by-pass mode read PHY info */
-	if (!privp->switch_mode) {
-		struct device_node *phy_node;
+	/* Get internal / external PHY info */
 
-		phy_node = of_parse_phandle(np, "phy-handle", 0);
-		if (!phy_node) {
-			dev_err(&privp->pdev->dev,
-				"No phy-handle specified in switch-by-pass mode\n");
-			return -EINVAL;
-		}
+	/* NOTE: 'External' only refers to the port type
+	 * The PHY that is connected can be an internal PHY
+	 * or an external PHY.
+	 * IMP is considered 'internal' port.
+	 */
+	privp->port.info[AMAC_PORT_TYPE_EXT].type = AMAC_PORT_TYPE_EXT;
+	privp->port.info[AMAC_PORT_TYPE_EXT].phy_node = phy_node;
 
-		privp->port.info[AMAC_PORT_TYPE_EXT].phy_node = phy_node;
+	privp->port.info[AMAC_PORT_TYPE_EXT].cfg.speed =
+		AMAC_PORT_DEFAULT_SPEED;
+	privp->port.info[AMAC_PORT_TYPE_EXT].cfg.aneg =
+		AMAC_PORT_DEFAULT_ANEG;
+	privp->port.info[AMAC_PORT_TYPE_EXT].cfg.duplex =
+		AMAC_PORT_DEFAULT_DUPLEX;
+	privp->port.info[AMAC_PORT_TYPE_EXT].cfg.pause =
+		AMAC_PORT_PAUSE_DISABLE;
 
-		privp->port.info[AMAC_PORT_TYPE_EXT].cfg.speed =
-			AMAC_PORT_DEFAULT_SPEED;
-		privp->port.info[AMAC_PORT_TYPE_EXT].cfg.aneg =
-			AMAC_PORT_DEFAULT_ANEG;
-		privp->port.info[AMAC_PORT_TYPE_EXT].cfg.duplex =
-			AMAC_PORT_DEFAULT_DUPLEX;
-		privp->port.info[AMAC_PORT_TYPE_EXT].cfg.pause =
-			AMAC_PORT_PAUSE_DISABLE;
-
-		privp->port.info[AMAC_PORT_TYPE_EXT].phy_mode =
-			of_get_phy_mode(phy_node);
-		if (privp->port.info[AMAC_PORT_TYPE_EXT].phy_mode < 0) {
-			dev_err(&privp->pdev->dev,
-				"Invalid phy interface specified\n");
-			return -EINVAL;
-		}
+	privp->port.info[AMAC_PORT_TYPE_EXT].phy_mode =
+		of_get_phy_mode(phy_node);
+	if (privp->port.info[AMAC_PORT_TYPE_EXT].phy_mode < 0) {
+		dev_err(&privp->pdev->dev,
+			"Invalid phy interface specified\n");
+		return -EINVAL;
 	}
 
 	privp->lswap = of_property_read_bool(np, "port-lswap");
