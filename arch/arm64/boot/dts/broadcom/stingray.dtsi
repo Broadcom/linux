@@ -469,4 +469,32 @@
 			status = "disabled";
 		};
 	};
+
+	fs4 {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		crypto_mbox: mbox@67000000 {
+			compatible = "brcm,flexdma-mbox";
+			reg = <0x67000000 0x200000>;
+			msi-parent = <&gic_its 0x7ffd>;
+			#mbox-cells = <3>;
+		};
+
+		raid_mbox: mbox@67400000 {
+			compatible = "brcm,flexdma-mbox";
+			reg = <0x67400000 0x200000>;
+			msi-parent = <&gic_its 0x7ffe>;
+			#mbox-cells = <3>;
+		};
+
+		cop_mbox: mbox@67800000 {
+			compatible = "brcm,flexdma-mbox";
+			reg = <0x67800000 0x200000>;
+			msi-parent = <&gic_its 0x7fff>;
+			#mbox-cells = <3>;
+		};
+	};
 };
