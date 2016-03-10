@@ -1027,7 +1027,7 @@ static int __init bcm_amac_setup_ethaddr(char *s)
 __setup("ethaddr=", bcm_amac_setup_ethaddr);
 
 static const struct of_device_id bcm_amac_of_enet_match[] = {
-	{.compatible = "brcm,amac-enet-cygnus",},
+	{.compatible = "brcm,amac-enet",},
 	{},
 };
 
@@ -1035,7 +1035,7 @@ MODULE_DEVICE_TABLE(of, bcm_amac_of_enet_match);
 
 static struct platform_driver bcm_amac_enet_driver = {
 	.driver = {
-		.name  = "amac-enet-cygnus",
+		.name  = "amac-enet",
 		.of_match_table = bcm_amac_of_enet_match,
 #ifdef CONFIG_PM_SLEEP
 		.pm = &amac_enet_pm_ops,
