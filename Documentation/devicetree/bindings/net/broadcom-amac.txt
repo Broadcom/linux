@@ -1,29 +1,50 @@
-Broadcom AMAC Ethernet Switch Controller Device Tree Bindings
+Broadcom AMAC Ethernet Controller Device Tree Bindings
 -------------------------------------------------------------
 
 Required properties:
-	- compatible: For Cygnus, "brcm,amac-enet-cygnus"
-	- reg       : Physical base address and size of the
-                      ethernet registers (core_base, amac_idm_base,
-		      switch_blobal_base & crmu_io_pad_ctrl).
-	- reg-names : Register names. Used in the driver to get
-	              the register data
-		      This needs to be "core_base", "amac_idm_base",
-		      "switch_global_base" & "crmu_io_pad_ctrl"
-	- interrupts: AMAC Interrupt number
-	- max-speed: max speed for the internal port
+ - compatible: "brcm,amac-enet" - For Cygnus SoC
+ - reg       : Physical base address and size of the
+               ethernet registers.
+               required: core_base, amac_idm_base
+               optional: switch_global_base, crmu_io_pad_ctrl
+                switch_global_base - When this reg is defined
+                  along with 'brcm,enet-switch-mode', the AMAC
+                  driver will configure for switch-by-pass-mode.
+                  This connectes the MAC directly to the PHY
+                  (attached to Port0).
+                crmu_io_pad_ctrl - This reg is required in some
+                  SoC's for performing IO PAD configurations.
+ - reg-names : Register names. Used in the driver to get
+	       the register data
+               required: "core_base", "amac_idm_base",
+               optional: "switch_global_base", "crmu_io_pad_ctrl"
+ - interrupts: AMAC Interrupt number
+ - max-speed : max speed for the internal port
 
 Optional properties:
-	- switchmode: Switch mode (0: Switch bypass mode, 1: Switch mode)
-                      Only Switch bypass mode is supported.
-	- phy-handle: phandle of the phy to be used in switch-by-pass mode
-		      This typically can only be the PHY0.
-	- port-lswap: Enable lane swap logic for the port. The existence
-		      of the configuration will enable the feature.
+ - brcm,enet-switch-mode : Indicates the availability of an internal
+               switch. In the absence of this setting the AMAC driver
+               works in switch-by-pass mode. In some SoC's
+               (with internal switch), this requires specifying the
+               'switch_global_base' reg to configure the
+               switch-by-pass mode.
+ - phy-handle: phandle of the phy to be used in switch-by-pass mode
+               This typically can only be the PHY0 (in case of SoC's
+               with an internal switch).
+ - port-lswap: Enable lane swap logic for the port. The existence
+               of the configuration will enable the feature.
+
+SoC's that require "crmu_io_pad_ctrl" reg:
+------------------------------------------
+ - Cygnus
+
+SoC's with an internal switch & can run in switch-by-pass mode:
+---------------------------------------------------------------
+ - Cygnus
 
 Examples:
 
-Port0 is 1G LAN in Switch bypass mode for Cygnus SoC:
+1. Port0 is 1G LAN in "switch-by-pass" mode for Cygnus SoC:
 
 	mdio: mdio@18002000 {
 		compatible = "brcm,iproc-mdio";
@@ -39,7 +60,7 @@ Port0 is 1G LAN in Switch bypass mode for Cygnus SoC:
 	};
 
 	enet: enet@0x18042000 {
-		compatible = "brcm,amac-enet-cygnus";
+		compatible = "brcm,amac-enet";
 		reg = <0x18042000 0x1000>,
 			<0x18110400 0x1000>,
 			<0x0301d194 0x4>,
@@ -49,7 +70,35 @@ Port0 is 1G LAN in Switch bypass mode for Cygnus SoC:
 			"switch_global_base",
 			"crmu_io_pad_ctrl";
 		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
-		switchmode = <0>;
 		phy-handle = <&gphy0>;
 		status="okay";
 	};
+
+2. Port0 is 1G LAN in "Switch" mode for Cygnus SoC:
+
+        mdio: mdio@18002000 {
+                compatible = "brcm,iproc-mdio";
+                reg = <0x18002000 0x8>;
+                #size-cells = <1>;
+                #address-cells = <0>;
+
+                gphy0: eth-gphy@0 {
+                        reg = <0>;
+                        max-speed = <1000>;
+                        phy-mode = "mii";
+                };
+        };
+
+        enet: enet@0x18042000 {
+                compatible = "brcm,amac-enet";
+                reg = <0x18042000 0x1000>,
+                        <0x18110400 0x1000>,
+                        <0x0301d0bc 0x4>;
+                reg-names = "core_base",
+                        "amac_idm_base",
+                        "crmu_io_pad_ctrl";
+                interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+                brcm,enet-switch-mode;
+                phy-handle = <&gphy0>;
+                status="okay";
+        };
