@@ -320,7 +320,7 @@
 		};
 
 		enet: enet@0x18042000 {
-			compatible = "brcm,amac-enet-cygnus";
+			compatible = "brcm,amac-enet";
 			reg = <0x18042000 0x1000>,
 					<0x18110400 0x1000>,
 					<0x0301d194 0x4>,
@@ -331,7 +331,6 @@
 						"crmu_io_pad_ctrl";
 			interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
 			max-speed = <1000>;
-			switchmode = <0>;
 			phy-handle = <&gphy0>;
 			status = "disabled";
 		};
