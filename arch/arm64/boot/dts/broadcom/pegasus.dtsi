@@ -175,6 +175,25 @@
 			clock-names = "apb_pclk";
 		};
 
+		dma0: dma@00520000 {
+			compatible = "arm,pl330", "arm,primecell";
+			reg = <0x00520000 0x1000>;
+			interrupts = <GIC_SPI 288 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 290 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 292 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 293 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 294 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 295 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 296 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			#dma-channels = <8>;
+			#dma-requests = <32>;
+			clocks = <&iprocslow>;
+			clock-names = "apb_pclk";
+		};
+
 		gic: interrupt-controller@2a000000 {
 			compatible = "arm,gic-400";
 			#interrupt-cells = <3>;

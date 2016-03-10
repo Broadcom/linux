@@ -53,3 +53,12 @@
 		compatible = "fixed-clock";
 		clock-frequency = <25000000>;
 	};
+
+	iprocslow: iprocslow {
+		#clock-cells = <0>;
+		compatible = "fixed-factor-clock";
+		clocks = <&osc 0>;
+		clock-div = <4>;
+		clock-mult = <1>;
+		clock-output-names = "iprocslow";
+	};
