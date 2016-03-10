@@ -19,85 +19,19 @@
 #include <linux/phy.h>
 #include <linux/platform_device.h>
 #include <linux/err.h>
-#include <linux/delay.h>
 #include <linux/kfifo.h>
+#include <linux/brcmphy.h>
 
 #include "bcm-amac-regs.h"
 #include "bcm-amac-enet.h"
 #include "bcm-amac-core.h"
 
-#define ADVERTISE_100M (ADVERTISE_100BASE4 | ADVERTISE_100FULL | \
-				ADVERTISE_100HALF)
-
-static int amac_gphy_advertise_100M(struct phy_device *phydev, bool enable)
-{
-	int adv;
-	int rc = 0;
-
-	adv = phy_read(phydev, MII_ADVERTISE);
-	if (adv < 0)
-		return adv;
-
-	if (enable) {
-		/* Enable 100M advertisement */
-		if (!(adv & ADVERTISE_100M)) {
-			/* 100BaseT4 is not supported in Cygnus,
-			 * so don't enable it
-			 */
-			adv |= ADVERTISE_100FULL;
-			adv |= ADVERTISE_100HALF;
-			rc = phy_write(phydev, MII_ADVERTISE, adv);
-		}
-		phydev->supported |= (SUPPORTED_100baseT_Half);
-		phydev->supported |= (SUPPORTED_100baseT_Full);
-	} else {
-		/* Disable 100M advertisement */
-		if (adv & ADVERTISE_100M) {
-			adv &= ~ADVERTISE_100M;
-			rc = phy_write(phydev, MII_ADVERTISE, adv);
-		}
-		phydev->supported &= ~(SUPPORTED_100baseT_Half);
-		phydev->supported &= ~(SUPPORTED_100baseT_Full);
-	}
-	return rc;
-}
-
-static int amac_gphy_advertise_1G(struct phy_device *phydev, bool enable)
-{
-	int adv;
-	int rc = 0;
-
-	adv = phy_read(phydev, MII_CTRL1000);
-	if (adv < 0)
-		return adv;
-
-	if (enable) {
-		/* Enable 1000M (1G) advertisement */
-		if (!(adv & (ADVERTISE_1000FULL | ADVERTISE_1000HALF))) {
-			adv |= ADVERTISE_1000FULL;
-			adv |= ADVERTISE_1000HALF;
-			rc = phy_write(phydev, MII_CTRL1000, adv);
-		}
-		phydev->supported |= (SUPPORTED_1000baseT_Half);
-		phydev->supported |= (SUPPORTED_1000baseT_Full);
-	} else {
-		/* Disable 1000M (1G) advertisement */
-		if (adv & (ADVERTISE_1000FULL | ADVERTISE_1000HALF)) {
-			adv &= ~(ADVERTISE_1000FULL | ADVERTISE_1000HALF);
-			rc = phy_write(phydev, MII_CTRL1000, adv);
-		}
-		phydev->supported &= ~(SUPPORTED_1000baseT_Half);
-		phydev->supported &= ~(SUPPORTED_1000baseT_Full);
-	}
-	return rc;
-}
-
 static void amac_gphy_handle_link_change(struct net_device *ndev)
 {
 	struct bcm_amac_priv *privp = netdev_priv(ndev);
-	struct phy_device *phydev = privp->port.info[AMAC_PORT_TYPE_EXT].phydev;
+	struct phy_device *phydev = privp->port.ext_port.phydev;
 	struct port_status *port_stat =
-		&privp->port.info[AMAC_PORT_TYPE_EXT].stat;
+		&privp->port.ext_port.stat;
 
 	/* Act on link, speed, duplex status changes */
 	if ((phydev->link !=  port_stat->link) ||
@@ -116,7 +50,7 @@ static void amac_gphy_handle_link_change(struct net_device *ndev)
 	}
 }
 
-static void amac_gphy_enable(struct phy_device *phy_dev, int enable)
+static int amac_gphy_enable(struct phy_device *phy_dev, bool enable)
 {
 	int val;
 
@@ -130,60 +64,7 @@ static void amac_gphy_enable(struct phy_device *phy_dev, int enable)
 	else
 		val |= (GPHY_MII_CTRL_REG_PWR_MASK);
 
-	phy_write(phy_dev, GPHY_MII_CTRL_REG, val);
-}
-
-int bcm_amac_gphy_init(struct bcm_amac_priv *privp)
-{
-	struct port_info *port = &privp->port.info[AMAC_PORT_TYPE_EXT];
-	int rc;
-
-	if (privp->port.count < 2)
-		return 0;
-
-	/* Connect and configure the PHY */
-	port->phydev = of_phy_connect(privp->ndev,
-					   port->phy_node,
-					   amac_gphy_handle_link_change,
-					   0,
-					   (phy_interface_t)port->phy_mode);
-	if (IS_ERR(port->phydev)) {
-		dev_err(&privp->pdev->dev, "Failed to connect phy\n");
-		return -ENODEV;
-	}
-
-	/* Apply settings */
-	port->phydev->autoneg = port->cfg.aneg;
-	port->phydev->speed = port->cfg.speed;
-	port->phydev->duplex = port->cfg.duplex;
-	port->phydev->pause = port->cfg.pause;
-
-	/* Disable 1G advertisement for 10/100M ports */
-	if ((port->phydev->speed == AMAC_PORT_SPEED_100M) ||
-	    (port->phydev->speed == AMAC_PORT_SPEED_10M))
-		amac_gphy_advertise_1G(port->phydev, false);
-
-	/* Disable 100M advertisement for 10M ports */
-	if (port->phydev->speed == AMAC_PORT_SPEED_10M)
-		amac_gphy_advertise_100M(port->phydev,
-					 false);
-
-	rc = phy_start_aneg(port->phydev);
-	if (rc < 0) {
-		phy_disconnect(port->phydev);
-
-		dev_err(&privp->pdev->dev,
-			"Cannot start PHY: %d\n",
-			port->phydev->addr);
-
-		return -ENODEV;
-	}
-
-	dev_info(&privp->pdev->dev,
-		 "Initialized PHY: %s\n",
-		 dev_name(&port->phydev->dev));
-
-	return 0;
+	return phy_write(phy_dev, GPHY_MII_CTRL_REG, val);
 }
 
 static int amac_gphy_lswap(struct phy_device *phy_dev)
@@ -215,55 +96,82 @@ static int amac_gphy_lswap(struct phy_device *phy_dev)
 	return 0;
 }
 
-/* bcm_amac_gphy_powerup() - Power up the PHY's
- * @privp: driver local data structure pointer
- */
-void bcm_amac_gphy_powerup(struct bcm_amac_priv *privp)
+int bcm_amac_gphy_init(struct bcm_amac_priv *privp)
 {
-	/* We will always have IMP port as 1 port */
-	if (privp->port.count <= 1)
+	struct port_info *port = &privp->port.ext_port;
+	int rc;
+
+	/* No PHY handling in switch mode */
+	if (privp->switch_mode)
+		return 0;
+
+	/* Register PHY Fix-ups */
+	if (privp->port.ext_port.lswap) {
+		rc = phy_register_fixup_for_uid(PHY_ID_BCM_CYGNUS,
+						PHY_BCM_OUI_MASK,
+						amac_gphy_lswap);
+		if (rc)
+			return rc;
+	}
+
+	/* Connect and configure the PHY */
+	port->phydev = of_phy_connect(privp->ndev,
+				      port->phy_node,
+				      amac_gphy_handle_link_change,
+				      0,
+				      (phy_interface_t)port->phy_mode);
+	if (IS_ERR_OR_NULL(port->phydev)) {
+		dev_err(&privp->pdev->dev, "Failed to connect phy\n");
+		return -ENODEV;
+	}
+
+	if (privp->port.ext_port.pause_disable) {
+		/* Override the PAUSE frame setting of the PHY */
+		port->phydev->pause = 0;
+
+		rc = phy_start_aneg(port->phydev);
+		if (rc < 0) {
+			phy_disconnect(port->phydev);
+
+			dev_err(&privp->pdev->dev,
+				"Cannot start PHY: %d\n",
+				port->phydev->addr);
+			return -ENODEV;
+		}
+	}
+
+	dev_info(&privp->pdev->dev,
+		 "Initialized PHY: %s\n",
+		 dev_name(&port->phydev->dev));
+
+	return 0;
+}
+
+int bcm_amac_gphy_powerup(struct bcm_amac_priv *privp, bool powerup)
+{
+	int rc = 0;
+
+	/* No PHY handling in switch mode */
+	if (privp->switch_mode)
+		return 0;
+
+	/* Power up the PHY(s) */
+	rc = amac_gphy_enable(
+		privp->port.ext_port.phydev,
+		powerup);
+
+	return rc;
+}
+
+void bcm_amac_gphy_start(struct bcm_amac_priv *privp, bool start)
+{
+	/* No PHY handling in switch mode */
+	if (privp->switch_mode)
 		return;
 
-	if (privp->port.info[AMAC_PORT_TYPE_EXT].phydev)
-		/* Power up the PHY(s) */
-		amac_gphy_enable(
-			privp->port.info[AMAC_PORT_TYPE_EXT].phydev,
-			1);
-
-	if (privp->lswap)
-		amac_gphy_lswap(privp->port.info[AMAC_PORT_TYPE_EXT].phydev);
-}
-
-/* bcm_amac_gphy_shutdown() - Reset and power down the PHY's
- * @privp: driver local data structure pointer
- */
-void bcm_amac_gphy_shutdown(struct bcm_amac_priv *privp)
-{
-	if (privp->port.count > 1)
-		if (privp->port.info[AMAC_PORT_TYPE_EXT].phydev)
-			/* Reset and power down all the PHY */
-			amac_gphy_enable(
-				privp->port.info[AMAC_PORT_TYPE_EXT].phydev,
-				0);
-}
-
-/* bcm_amac_gphy_stop_phy() - stop the PHY's
- * @privp: driver local data structure pointer
- */
-void bcm_amac_gphy_stop_phy(struct bcm_amac_priv *privp)
-{
-	if (privp->port.count > 1)
-		if (privp->port.info[AMAC_PORT_TYPE_EXT].phydev)
-			phy_stop(privp->port.info[AMAC_PORT_TYPE_EXT].phydev);
-}
-
-/* bcm_amac_gphy_start_phy() - start the PHY's
- * @privp: driver local data structure pointer
- */
-void bcm_amac_gphy_start_phy(struct bcm_amac_priv *privp)
-{
-	if (privp->port.count > 1)
-		if (privp->port.info[AMAC_PORT_TYPE_EXT].phydev)
-			phy_start(privp->port.info[AMAC_PORT_TYPE_EXT].phydev);
+	if (start)
+		phy_start(privp->port.ext_port.phydev);
+	else
+		phy_stop(privp->port.ext_port.phydev);
 }
 

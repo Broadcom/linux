@@ -163,7 +163,7 @@ static int amac_enet_start(struct bcm_amac_priv *privp)
 	/* Initialize the PHY's (in switch-by-pass mode) */
 	if (!privp->switch_mode) {
 		rc = bcm_amac_gphy_init(privp);
-		if (rc != 0) {
+		if (rc) {
 			dev_err(&privp->pdev->dev, "PHY Init failed\n");
 			return rc;
 		}
@@ -364,13 +364,22 @@ static int bcm_amac_enet_open(struct net_device *ndev)
 	}
 
 	/* Power-up the PHY(s) */
-	bcm_amac_gphy_powerup(privp);
+	rc = bcm_amac_gphy_powerup(privp, true);
+	if (rc) {
+		netdev_err(ndev, "Failed to powerup PHY\n");
+		goto err_phy_powerup;
+	}
 
 	netif_wake_queue(ndev);
 
 	return rc;
 
+err_phy_powerup:
+	bcm_amac_dma_stop(privp);
+
 err_free_kfifo:
+	bcm_amac_core_enable(privp, false);
+	napi_disable(&privp->napi);
 	kfifo_free(&privp->dma.txfifo);
 	netdev_err(ndev, "%s, open failed!\n", __func__);
 
@@ -393,7 +402,7 @@ static int bcm_amac_enet_close(struct net_device *ndev)
 	netif_stop_queue(ndev);
 
 	/* Shutdown PHY(s) */
-	bcm_amac_gphy_shutdown(privp);
+	bcm_amac_gphy_powerup(privp, false);
 
 	/* Disable RX NAPI */
 	napi_disable(&privp->napi);
@@ -527,24 +536,19 @@ static int bcm_amac_enet_do_ioctl(struct net_device *ndev,
 	int rc;
 	struct bcm_amac_priv *privp = netdev_priv(ndev);
 
+	if (!netif_running(ndev))
+		return -EINVAL;
+
 	switch (cmd) {
 	case SIOCGMIIPHY:
 	case SIOCGMIIREG:
 	case SIOCSMIIREG:
-	{
-		struct mii_ioctl_data *mii_data = if_mii(ifr);
-
-		if ((!netif_running(ndev)) || (privp->port.count < 2))
-			return -EINVAL;
-
-		if (mii_data->phy_id ==
-		    privp->port.info[AMAC_PORT_TYPE_EXT].phydev->phy_id)
-			return phy_mii_ioctl(
-			 privp->port.info[AMAC_PORT_TYPE_EXT].phydev,
-			 ifr, cmd);
-
-		return -ENODEV;
-	}
+		if (privp->port.ext_port.phydev)
+			rc = phy_mii_ioctl(privp->port.ext_port.phydev,
+					   ifr, cmd);
+		else
+			rc = -ENODEV;
+		break;
 	break;
 
 	default:
@@ -720,30 +724,11 @@ static int bcm_amac_get_dt_data(struct bcm_amac_priv *privp)
 		return -EINVAL;
 	}
 
-	privp->port.count = 2; /* IMP Port+Ext Port */
-
-	privp->port.info = devm_kzalloc(&privp->pdev->dev,
-						sizeof(struct port_info) *
-						       privp->port.count,
-						GFP_KERNEL);
-	if (!privp->port.info) {
-		dev_err(&privp->pdev->dev, "port memory alloc failed\n");
-		return -ENOMEM;
-	}
-
-	memset(privp->port.info, 0,
-	       sizeof(struct port_info) * privp->port.count);
-
-	/* Read internal (IMP) port info */
-	privp->port.info[AMAC_PORT_TYPE_IMP].type = AMAC_PORT_TYPE_IMP;
-	privp->port.info[AMAC_PORT_TYPE_IMP].id = AMAC_PORT_IMP;
-
 	/* max-speed setting for the IMP port */
 	rc = of_property_read_u32(np, "max-speed",
-			&privp->port.info[AMAC_PORT_TYPE_IMP].cfg.speed);
+			&privp->port.imp_port_speed);
 	if (rc)
-		privp->port.info[AMAC_PORT_TYPE_IMP].cfg.speed =
-			AMAC_PORT_DEFAULT_SPEED;
+		privp->port.imp_port_speed = AMAC_PORT_DEFAULT_SPEED;
 
 	/* Get internal / external PHY info */
 
@@ -752,27 +737,20 @@ static int bcm_amac_get_dt_data(struct bcm_amac_priv *privp)
 	 * or an external PHY.
 	 * IMP is considered 'internal' port.
 	 */
-	privp->port.info[AMAC_PORT_TYPE_EXT].type = AMAC_PORT_TYPE_EXT;
-	privp->port.info[AMAC_PORT_TYPE_EXT].phy_node = phy_node;
+	privp->port.ext_port.phy_node = phy_node;
 
-	privp->port.info[AMAC_PORT_TYPE_EXT].cfg.speed =
-		AMAC_PORT_DEFAULT_SPEED;
-	privp->port.info[AMAC_PORT_TYPE_EXT].cfg.aneg =
-		AMAC_PORT_DEFAULT_ANEG;
-	privp->port.info[AMAC_PORT_TYPE_EXT].cfg.duplex =
-		AMAC_PORT_DEFAULT_DUPLEX;
-	privp->port.info[AMAC_PORT_TYPE_EXT].cfg.pause =
-		AMAC_PORT_PAUSE_DISABLE;
-
-	privp->port.info[AMAC_PORT_TYPE_EXT].phy_mode =
-		of_get_phy_mode(phy_node);
-	if (privp->port.info[AMAC_PORT_TYPE_EXT].phy_mode < 0) {
+	privp->port.ext_port.phy_mode = of_get_phy_mode(phy_node);
+	if (privp->port.ext_port.phy_mode < 0) {
 		dev_err(&privp->pdev->dev,
 			"Invalid phy interface specified\n");
 		return -EINVAL;
 	}
 
-	privp->lswap = of_property_read_bool(np, "port-lswap");
+	privp->port.ext_port.lswap =
+		of_property_read_bool(np, "brcm,enet-phy-lswap");
+
+	privp->port.ext_port.pause_disable =
+		of_property_read_bool(np, "brcm,enet-pause-disable");
 
 	return 0;
 }
@@ -935,7 +913,7 @@ static int bcm_amac_enet_suspend(struct device *dev)
 	}
 
 	/* Stop PHY's */
-	bcm_amac_gphy_stop_phy(privp);
+	bcm_amac_gphy_start(privp, false);
 
 	return 0;
 }
@@ -965,20 +943,24 @@ static int bcm_amac_enet_resume(struct device *dev)
 		return rc;
 	}
 
-	bcm_amac_gphy_start_phy(privp);
+	bcm_amac_gphy_start(privp, true);
 
 	if (netif_running(ndev)) {
 		/* Start DMA */
 		rc = bcm_amac_dma_start(privp);
 		if (rc) {
 			netdev_err(ndev, "DMA start failed!\n");
-			goto err_amac_resume;
+			goto err_res_dma_start;
 		}
 
 		bcm_amac_core_enable(privp, true);
 
 		/* Power up the PHY */
-		bcm_amac_gphy_powerup(privp);
+		rc = bcm_amac_gphy_powerup(privp, true);
+		if (rc) {
+			netdev_err(ndev, "PHY powerup failed!\n");
+			goto err_res_phy_powerup;
+		}
 
 		napi_enable(&privp->napi);
 
@@ -991,9 +973,13 @@ static int bcm_amac_enet_resume(struct device *dev)
 
 	return 0;
 
-err_amac_resume:
+err_res_phy_powerup:
+	bcm_amac_core_enable(privp, false);
+	bcm_amac_dma_stop(privp);
+
+err_res_dma_start:
 	/* Stop PHY's */
-	bcm_amac_gphy_stop_phy(privp);
+	bcm_amac_gphy_start(privp, false);
 
 	return rc;
 }

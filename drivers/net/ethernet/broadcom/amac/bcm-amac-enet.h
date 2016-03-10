@@ -17,8 +17,6 @@
 #include <linux/netdevice.h>
 #include <linux/platform_device.h>
 
-#define AMAC_MAX_PORTS       1
-
 #define AMAC_RX_BUF_SIZE      2048 /* MAX RX buffer size */
 #define AMAC_DMA_RX_DESC_CNT  512 /* Number of rx dma descriptors */
 #define AMAC_DMA_RXALIGN      16 /* Alignment for SKB */
@@ -39,13 +37,6 @@
 #define AMAC_PORT_SPEED_10M   SPEED_10
 
 #define AMAC_PORT_DEFAULT_SPEED   AMAC_PORT_SPEED_1G
-#define AMAC_PORT_DEFAULT_ANEG    1
-#define AMAC_PORT_DEFAULT_DUPLEX  1
-#define AMAC_PORT_PAUSE_ENABLE    1
-#define AMAC_PORT_PAUSE_DISABLE   0
-
-#define AMAC_LINK_DOWN  0
-#define AMAC_LINK_UP    1
 
 /* DMA Descriptor */
 struct amac_dma64_desc {
@@ -87,19 +78,6 @@ struct amac_dma_priv {
 	atomic_t tx_dma_busy; /* keep track of DMA status */
 };
 
-enum port_id {
-	AMAC_PORT_0 = 0,
-	AMAC_PORT_1 = 1,
-	AMAC_PORT_IMP = 8,
-	MAX_AMAC_PORT = 9
-};
-
-enum port_type {
-	AMAC_PORT_TYPE_IMP = 0, /* Internal Port (no PHY) */
-	AMAC_PORT_TYPE_EXT = 1, /* External Port (Associated PHY) */
-	MAX_AMAC_PORT_TYPE = 2
-};
-
 struct port_status {
 	u32 link; /* link status */
 	u32 speed; /* port speed */
@@ -109,21 +87,22 @@ struct port_status {
 };
 
 struct port_info {
-	enum port_type type;
-	enum port_id id;
-	struct port_status cfg; /* Default port settings */
-	struct port_status stat; /* Current port status */
+	/* Current port status for link updates */
+	struct port_status stat;
 
-	/* in case of switch by pass mode */
+	/* In case of switch-by-pass mode */
 	struct device_node *phy_node;
 	struct phy_device *phydev; /* Connected PHY dev */
 	int phy_mode; /* phy mode */
+	bool lswap; /* lane swapping */
+	bool pause_disable;
 };
 
 /* Ethernet Port data structure */
 struct port_data {
-	struct port_info *info; /* internal/external port */
-	u32 count; /* Number of ports */
+	u32 imp_port_speed; /* IMP Port (Port8) max speed */
+	/* external port (with internal or ext PHY) */
+	struct port_info ext_port;
 };
 
 /* AMAC registers */
@@ -166,8 +145,6 @@ struct bcm_amac_priv {
 	struct sockaddr cur_etheraddr; /* local ethernet address */
 
 	bool switch_mode; /* internal switch availability */
-
-	bool lswap; /* lane swapping */
 
 	spinlock_t lock; /* used by netdev api's */
 	u32 msg_enable; /* message filter bit mask */
