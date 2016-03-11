@@ -31,8 +31,12 @@ Optional properties:
  - phy-handle: phandle of the phy to be used in switch-by-pass mode
                This typically can only be the PHY0 (in case of SoC's
                with an internal switch).
- - port-lswap: Enable lane swap logic for the port. The existence
-               of the configuration will enable the feature.
+ - brcm,enet-phy-lswap: Enable lane swap logic for the port. The
+               existence of the property will enable the feature.
+ - brcm,enet-pause-disable: Disable the PAUSE frame setting of the PHY
+               by overriding the PHY setting (restarts auto-neg during
+               init).
+               The existence of the property will disable PAUSE frames.
 
 SoC's that require "crmu_io_pad_ctrl" reg:
 ------------------------------------------
@@ -44,7 +48,8 @@ SoC's with an internal switch & can run in switch-by-pass mode:
 
 Examples:
 
-1. Port0 is 1G LAN in "switch-by-pass" mode for Cygnus SoC:
+1. Port0 is 1G LAN in "switch-by-pass" mode for Cygnus SoC with pause
+   frames disabled:
 
 	mdio: mdio@18002000 {
 		compatible = "brcm,iproc-mdio";
@@ -71,6 +76,7 @@ Examples:
 			"crmu_io_pad_ctrl";
 		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
 		phy-handle = <&gphy0>;
+		brcm,enet-pause-disable;
 		status="okay";
 	};
 
