@@ -332,6 +332,7 @@
 			interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
 			max-speed = <1000>;
 			phy-handle = <&gphy0>;
+			brcm,enet-pause-disable;
 			status = "disabled";
 		};
 
