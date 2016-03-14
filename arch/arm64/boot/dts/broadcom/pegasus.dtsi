@@ -127,6 +127,14 @@
 			interrupts = <GIC_SPI 300 IRQ_TYPE_NONE>;
 		};
 
+		wdt0: watchdog@00290000 {
+			compatible = "arm,sp805", "arm,primecell";
+			reg = <0x00290000 0x1000>;
+			interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>, <&iprocslow>;
+			clock-names = "wdogclk", "apb_pclk";
+		};
+
 		i2c1: i2c@0x002b0000 {
 			compatible = "brcm,iproc-i2c";
 			reg = <0x2b0000 0x100>;
