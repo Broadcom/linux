@@ -30,38 +30,106 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <dt-bindings/clock/bcm-sr.h>
+
 	osc: oscillator {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <25000000>;
 	};
 
+	genpll0: genpll0@6641d104 {
+		#clock-cells = <1>;
+		compatible = "brcm,sr-genpll0";
+		reg = <0x6641d104 0x32>,
+		      <0x6641c854 0x4>;
+		clocks = <&osc>;
+		clock-output-names = "genpll0", "sata", "scr", "250m",
+				     "pcie_axi", "paxc_axi_x2",
+				     "paxc_axi";
+	};
+
+	genpll3: genpll3@6641d1e0 {
+		#clock-cells = <1>;
+		compatible = "brcm,sr-genpll3";
+		reg = <0x6641d1e0 0x32>,
+		      <0x6641c854 0x4>;
+		clocks = <&osc>;
+		clock-output-names = "genpll3", "hsls", "sdio";
+	};
+
+	genpll4: genpll4@6641d214 {
+		#clock-cells = <1>;
+		compatible = "brcm,sr-genpll4";
+		reg = <0x6641d214 0x32>,
+		      <0x6641c854 0x4>;
+		clocks = <&osc>;
+		clock-output-names = "genpll4", "ccn";
+	};
+
+	genpll5: genpll5@6641d248 {
+		#clock-cells = <1>;
+		compatible = "brcm,sr-genpll5";
+		reg = <0x6641d248 0x32>,
+		      <0x6641c870 0x4>;
+		clocks = <&osc>;
+		clock-output-names = "genpll5", "fs", "spu";
+	};
+
+	lcpll0: lcpll0 {
+		#clock-cells = <1>;
+		compatible = "brcm,sr-lcpll0";
+		reg = <0x6641d0c4 0x3c>, <0x6641c870 0x4>;
+		clocks = <&osc>;
+		clock-output-names = "lcpll0", "sata_phy_ref",
+			"usb_phy_ref", "sata_phy_refpn";
+	};
+
+	lcpll1: lcpll1 {
+		#clock-cells = <1>;
+		compatible = "brcm,sr-lcpll1";
+		reg = <0x6641d138 0x3c>, <0x6641c870 0x4>;
+		clocks = <&osc>;
+		clock-output-names = "lcpll1", "wan";
+	};
+
 	hsls_clk: hsls_clk {
 		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <350000000>;
+		compatible = "fixed-factor-clock";
+		clocks = <&genpll3 1>;
+		clock-div = <1>;
+		clock-mult = <1>;
 	};
 
 	hsls_div2_clk: hsls_div2_clk {
 		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <175000000>;
+		compatible = "fixed-factor-clock";
+		clocks = <&genpll3 BCM_SR_GENPLL3_HSLS_CLK>;
+		clock-div = <2>;
+		clock-mult = <1>;
+
 	};
 
 	hsls_div4_clk: hsls_div4_clk {
 		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <87500000>;
+		compatible = "fixed-factor-clock";
+		clocks = <&genpll3 BCM_SR_GENPLL3_HSLS_CLK>;
+		clock-div = <4>;
+		clock-mult = <1>;
 	};
 
 	sdio0_clk: sdio0_clk {
 		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <200000000>;
+		compatible = "fixed-factor-clock";
+		clocks = <&genpll3 BCM_SR_GENPLL3_SDIO_CLK>;
+		clock-div = <1>;
+		clock-mult = <1>;
 	};
 
 	sdio1_clk: sdio1_clk {
 		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <200000000>;
+		compatible = "fixed-factor-clock";
+		clocks = <&genpll3 BCM_SR_GENPLL3_SDIO_CLK>;
+		clock-div = <1>;
+		clock-mult = <1>;
 	};
