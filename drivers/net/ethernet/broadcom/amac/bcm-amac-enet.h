@@ -150,9 +150,4 @@ struct bcm_amac_priv {
 	u32 msg_enable; /* message filter bit mask */
 };
 
-void bcm_amac_enet_netlink_send(struct bcm_amac_priv *privp,
-				unsigned int port_idx,
-				struct phy_device *phydev,
-				unsigned int link);
-
 #endif /*__BCM_AMAC_ENET_H__*/

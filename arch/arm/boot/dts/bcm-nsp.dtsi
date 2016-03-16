@@ -45,8 +45,6 @@
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		enable-method = "brcm,bcm-nsp-smp";
-		secondary-boot-reg = <0xffff042c>;
 
 		cpu0: cpu@0 {
 			device_type = "cpu";
@@ -59,6 +57,8 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a9";
 			next-level-cache = <&L2>;
+			enable-method = "brcm,bcm-nsp-smp";
+			secondary-boot-reg = <0xffff042c>;
 			reg = <0x1>;
 		};
 	};
@@ -165,9 +165,9 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		gpioa: gpio-a@0020 {
+		gpioa: gpio@0020 {
 			compatible = "brcm,nsp-gpio-a";
-			reg = <0x00020 0x100>,
+			reg = <0x0020 0x70>,
 			      <0x3f1c4 0x1c>;
 			#gpio-cells = <2>;
 			gpio-controller;
@@ -221,7 +221,7 @@
 			status = "disabled";
 		};
 
-		gpiob: gpio-b@30000 {
+		gpiob: gpio@30000 {
 			compatible = "brcm,iproc-gpio";
 			reg = <0x30000 0x50>;
 			#gpio-cells = <2>;
@@ -267,7 +267,7 @@
 			clock-frequency = <100000>;
 		};
 
-		wdt@39000 {
+		watchdog@39000 {
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x39000 0x1000>;
 			interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;

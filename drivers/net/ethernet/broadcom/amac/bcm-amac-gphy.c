@@ -41,12 +41,6 @@ static void amac_gphy_handle_link_change(struct net_device *ndev)
 		port_stat->link = phydev->link;
 		port_stat->speed = phydev->speed;
 		port_stat->duplex = phydev->duplex;
-
-		/* send netlink update */
-		bcm_amac_enet_netlink_send(privp,
-					   phydev->addr,
-					   phydev,
-					   phydev->link);
 	}
 }
 
@@ -133,16 +127,10 @@ int bcm_amac_gphy_init(struct bcm_amac_priv *privp)
 		if (rc < 0) {
 			phy_disconnect(port->phydev);
 
-			dev_err(&privp->pdev->dev,
-				"Cannot start PHY: %d\n",
-				port->phydev->addr);
+			dev_err(&privp->pdev->dev, "Cannot start PHY\n");
 			return -ENODEV;
 		}
 	}
-
-	dev_info(&privp->pdev->dev,
-		 "Initialized PHY: %s\n",
-		 dev_name(&port->phydev->dev));
 
 	return 0;
 }

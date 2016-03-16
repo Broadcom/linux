@@ -26,11 +26,6 @@
 #define KERNEL_PID 0
 #define DST_GROUP 1 /* to mcast group 1<<0 */
 
-#define LINK_UP_STR \
-	"Link UP for EXT Port (PHY=%d) at %d Mbps, %s duplex\n"
-#define LINK_DOWN_STR \
-	"Link DOWN for EXT Port (PHY=%d)\n"
-
 struct bcm_amac_cmd_line_param {
 	char mac_addr[20];
 };
@@ -556,75 +551,6 @@ static int bcm_amac_enet_do_ioctl(struct net_device *ndev,
 	}
 
 	return rc;
-}
-
-/* bcm_amac_enet_netlink_send() - send netlink message to user space
- * @privp: driver info pointer
- * @port_idx: index in of the port in privp
- * @phydev: phy device to report the link change
- * @link: current link status
- *
- * The function creates and sends a custome netlink message to the user
- * space application to indicate a change in the n/w link status, speed
- * or duplex.
- * The API is called from the link change handler.
- */
-void bcm_amac_enet_netlink_send(struct bcm_amac_priv *privp,
-				unsigned int port_idx,
-				struct phy_device *phydev,
-				unsigned int link)
-{
-	char msg[NETLINK_MAX_PAYLOAD];
-	unsigned int size;
-	unsigned int len;
-	struct sk_buff *skb;
-	struct nlmsghdr *nlh;
-	int err;
-
-	if (link)
-		snprintf(msg, NETLINK_MAX_PAYLOAD,
-			 LINK_UP_STR,
-			 phydev->addr,
-			 phydev->speed,
-			 phydev->duplex ? "full" : "half");
-	else
-		snprintf(msg, NETLINK_MAX_PAYLOAD,
-			 LINK_DOWN_STR,
-			 phydev->addr);
-
-	netif_info(privp, link, privp->ndev, msg);
-
-	/* Prepare and send broadcast message via netlink */
-	if (!privp->nl_sk)
-		return;
-
-	len = (strlen(msg) + 1);
-	size = NLMSG_SPACE(len);
-
-	skb = alloc_skb(size, GFP_KERNEL);
-	if (!skb)
-		return;
-
-	nlh = __nlmsg_put(skb, KERNEL_PID,
-			  privp->nl_seq,
-			  NLMSG_DONE,
-			  size - sizeof(*nlh),
-			  0);
-	privp->nl_seq++;
-
-	memcpy(NLMSG_DATA(nlh), msg, len);
-	NETLINK_CB(skb).portid = KERNEL_PID;
-	NETLINK_CB(skb).dst_group = DST_GROUP;
-
-	/* multicast the message to all listening processes
-	 * Note: error handling is done inside 'netlink_broadcast',
-	 * so no need to call free skb in case of an error
-	 */
-	err = netlink_broadcast(privp->nl_sk, skb,
-				KERNEL_PID, DST_GROUP, GFP_KERNEL | GFP_DMA);
-	if (err == ENOBUFS)
-		netdev_alert(privp->ndev,
-			     "netlink_broadcast() failed, No buffer\n");
 }
 
 /* bcm_amac_get_dt_data() - Retrieve data from the device tree

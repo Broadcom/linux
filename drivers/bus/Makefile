@@ -19,4 +19,5 @@ obj-$(CONFIG_SUNXI_RSB)		+= sunxi-rsb.o
 obj-$(CONFIG_SHARED_MDIO)	+= shared_mdio.o
 obj-$(CONFIG_IPROC_SHARED_MDIO)	+= iproc_shared_mdio.o
 obj-$(CONFIG_SIMPLE_PM_BUS)	+= simple-pm-bus.o
+obj-$(CONFIG_UNIPHIER_SYSTEM_BUS)	+= uniphier-system-bus.o
 obj-$(CONFIG_VEXPRESS_CONFIG)	+= vexpress-config.o
