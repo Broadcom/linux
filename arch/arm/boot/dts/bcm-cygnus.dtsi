@@ -358,7 +358,6 @@
 
 			interrupt-controller;
 			interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
-
 			gpio-ranges = <&pinctrl 0 42 1>,
 					<&pinctrl 1 44 3>,
 					<&pinctrl 4 48 1>,

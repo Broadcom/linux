@@ -14,7 +14,7 @@ are supported)
 GPIO/PINCONF controller registers
 
 - ngpios:
-    Total number of GPIOs the controller provides
+    Total number of in-use slots in GPIO controller
 
 - #gpio-cells:
     Must be two. The first cell is the GPIO pin number (within the

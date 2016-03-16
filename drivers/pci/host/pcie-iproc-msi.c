@@ -37,7 +37,7 @@
 #define EQ_LEN                         64
 
 /* Size of each event queue memory region */
-#define EQ_MEM_REGION_SIZE           SZ_4K
+#define EQ_MEM_REGION_SIZE             SZ_4K
 
 /* Size of each MSI address region */
 #define MSI_MEM_REGION_SIZE            SZ_4K
@@ -260,10 +260,10 @@ static int iproc_msi_irq_domain_alloc(struct irq_domain *domain,
 					   msi->nr_cpus, 0);
 	if (hwirq < msi->nr_msi_vecs) {
 		bitmap_set(msi->bitmap, hwirq, msi->nr_cpus);
-		} else {
-			mutex_unlock(&msi->bitmap_lock);
-			return -ENOSPC;
-		}
+	} else {
+		mutex_unlock(&msi->bitmap_lock);
+		return -ENOSPC;
+	}
 
 	mutex_unlock(&msi->bitmap_lock);
 
@@ -599,7 +599,7 @@ int iproc_msi_init(struct iproc_pcie *pcie, struct device_node *node)
 			dev_err(pcie->dev, "unable to parse/map interrupt\n");
 			ret = -ENODEV;
 			goto free_irqs;
-	}
+		}
 		msi->grps[i].gic_irq = irq;
 		msi->grps[i].msi = msi;
 		msi->grps[i].eq = i;
