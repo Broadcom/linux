@@ -27,6 +27,7 @@
 #define BCM_AMAC_DIR_RX true
 
 int bcm_amac_gphy_init(struct bcm_amac_priv *privp);
+void bcm_amac_gphy_exit(struct bcm_amac_priv *privp);
 int bcm_amac_gphy_powerup(struct bcm_amac_priv *privp, bool powerup);
 void bcm_amac_gphy_start(struct bcm_amac_priv *privp, bool start);
 

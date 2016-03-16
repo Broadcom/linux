@@ -136,9 +136,20 @@ static int amac_enet_start(struct bcm_amac_priv *privp)
 	struct sockaddr parsed_mac;
 	bool ret;
 
+	/* parse cmd line and set mac address */
+	ret = mac_pton(cmdline_params.mac_addr, parsed_mac.sa_data);
+	if (ret) {
+		rc = amac_enet_set_mac(privp->ndev, (void *)&parsed_mac);
+		if (rc)
+			return rc;
+	} else {
+		netdev_err(privp->ndev, "Error parsing MAC address\n");
+		rc = -EFAULT;
+	}
+
 	rc = bcm_amac_core_init(privp);
 	if (rc != 0) {
-		dev_err(&privp->pdev->dev, "MAC config failed!\n");
+		dev_err(&privp->pdev->dev, "core init failed!\n");
 		return rc;
 	}
 
@@ -155,24 +166,11 @@ static int amac_enet_start(struct bcm_amac_priv *privp)
 		return rc;
 	}
 
-	/* Initialize the PHY's (in switch-by-pass mode) */
-	if (!privp->switch_mode) {
-		rc = bcm_amac_gphy_init(privp);
-		if (rc) {
-			dev_err(&privp->pdev->dev, "PHY Init failed\n");
-			return rc;
-		}
-	}
-
-	/* parse cmd line and set mac address */
-	ret = mac_pton(cmdline_params.mac_addr, parsed_mac.sa_data);
-	if (ret) {
-		rc = amac_enet_set_mac(privp->ndev, (void *)&parsed_mac);
-		if (rc)
-			return rc;
-	} else {
-		netdev_err(privp->ndev, "Error parsing MAC address\n");
-		return -EFAULT;
+	/* Initialize the PHY's */
+	rc = bcm_amac_gphy_init(privp);
+	if (rc) {
+		dev_err(&privp->pdev->dev, "PHY Init failed\n");
+		return rc;
 	}
 
 	/* Register GMAC Interrupt */
@@ -182,15 +180,21 @@ static int amac_enet_start(struct bcm_amac_priv *privp)
 		netdev_err(privp->ndev,
 			   "IRQ request failed, irq=%i, err=%i\n",
 			   privp->hw.intr_num, rc);
-		return rc;
+		goto err_amac_enet_start;
 	}
 
 	return 0;
+
+err_amac_enet_start:
+	bcm_amac_gphy_exit(privp);
+
+	return rc;
 }
 
 static int bcm_amac_enet_stop(struct bcm_amac_priv *privp)
 {
 	devm_free_irq(&privp->pdev->dev, privp->hw.intr_num, privp);
+	bcm_amac_gphy_exit(privp);
 
 	return 0;
 }

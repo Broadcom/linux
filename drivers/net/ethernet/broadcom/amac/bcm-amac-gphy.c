@@ -214,6 +214,7 @@ int bcm_amac_gphy_init(struct bcm_amac_priv *privp)
 				      (phy_interface_t)port->phy_mode);
 	if (IS_ERR_OR_NULL(port->phydev)) {
 		dev_err(&privp->pdev->dev, "Failed to connect phy\n");
+		port->phydev = NULL;
 		return -ENODEV;
 	}
 
@@ -224,13 +225,25 @@ int bcm_amac_gphy_init(struct bcm_amac_priv *privp)
 		rc = phy_start_aneg(port->phydev);
 		if (rc < 0) {
 			phy_disconnect(port->phydev);
-
+			port->phydev = NULL;
 			dev_err(&privp->pdev->dev, "Cannot start PHY\n");
 			return -ENODEV;
 		}
 	}
 
 	return 0;
+}
+
+void bcm_amac_gphy_exit(struct bcm_amac_priv *privp)
+{
+	/* No PHY handling in switch mode */
+	if (privp->switch_mode)
+		return;
+
+	if (privp->port.ext_port.phydev) {
+		phy_disconnect(privp->port.ext_port.phydev);
+		privp->port.ext_port.phydev = NULL;
+	}
 }
 
 int bcm_amac_gphy_powerup(struct bcm_amac_priv *privp, bool powerup)
