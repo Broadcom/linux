@@ -2,11 +2,12 @@ Broadcom AMAC Ethernet Controller Device Tree Bindings
 -------------------------------------------------------------
 
 Required properties:
- - compatible: "brcm,amac-enet" - For Cygnus SoC
+ - compatible: "brcm,amac-enet" - For Cygnus SoC and NS2 SoC
  - reg       : Physical base address and size of the
                ethernet registers.
                required: core_base, amac_idm_base
-               optional: switch_global_base, crmu_io_pad_ctrl
+               optional: switch_global_base, crmu_io_pad_ctrl,
+	       rgmii_base
                 switch_global_base - When this reg is defined
                   along with 'brcm,enet-switch-mode', the AMAC
                   driver will configure for switch-by-pass-mode.
@@ -14,12 +15,15 @@ Required properties:
                   (attached to Port0).
                 crmu_io_pad_ctrl - This reg is required in some
                   SoC's for performing IO PAD configurations.
+		rgmii_base - This reg is required in some SoC's
+		  for performing rgmii initialization.
  - reg-names : Register names. Used in the driver to get
 	       the register data
                required: "core_base", "amac_idm_base",
-               optional: "switch_global_base", "crmu_io_pad_ctrl"
+               optional: "switch_global_base", "crmu_io_pad_ctrl",
+	       "rgmii_base"
  - interrupts: AMAC Interrupt number
- - max-speed : max speed for the internal port
+ - max-speed : max speed for the internal/external port
 
 Optional properties:
  - brcm,enet-switch-mode : Indicates the availability of an internal
@@ -37,6 +41,9 @@ Optional properties:
                by overriding the PHY setting (restarts auto-neg during
                init).
                The existence of the property will disable PAUSE frames.
+ - brcm,enet-phy54810-rgmii-sync: BCM PHY54810 fix up needed to work in harmony
+	       with RGMII for some SoCs.
+ - dma-coherent: Present if dma operations are coherent.
 
 SoC's that require "crmu_io_pad_ctrl" reg:
 ------------------------------------------
@@ -45,6 +52,14 @@ SoC's that require "crmu_io_pad_ctrl" reg:
 SoC's with an internal switch & can run in switch-by-pass mode:
 ---------------------------------------------------------------
  - Cygnus
+
+SoC's that require "rgmii_base" reg:
+------------------------------------
+ - NS2
+
+SoC's that require "brcm,enet-phy54810-rgmii-sync" property:
+------------------------------------------------------------
+ - NS2
 
 Examples:
 
@@ -108,3 +123,46 @@ Examples:
                 phy-handle = <&gphy0>;
                 status="okay";
         };
+
+3. Port0 is 1G LAN in "switch-by-pass" mode for NS2 SoC with pause
+   frames disabled:
+
+	iproc_shared_mdio: iproc_shared_mdio@6602023c {
+		compatible = "brcm,iproc-shared-mdio";
+		reg = <0x6602023c 0x14>;
+		reg-names = "mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	&iproc_shared_mdio {
+		eth-master@0 {
+			compatible = "brcm,iproc-mdio-master-eth";
+			reg = <0x0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "ok";
+
+			gphy0: eth-phy@10 {
+				reg = <0x10>;
+				phy-mode = "mii";
+			};
+		};
+	};
+
+	enet: enet@61000000 {
+		compatible = "brcm,amac-enet";
+		reg = <0x61000000 0x1000>,
+			<0x61090400 0x1000>,
+			<0x61030000 0x10>;
+		reg-names = "core_base",
+			"amac_idm_base",
+			"rgmii_base";
+		dma-coherent;
+		interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
+		max-speed = <1000>;
+		phy-handle = <&gphy0>;
+		brcm,enet-phy54810-rgmii-sync;
+		brcm,enet-pause-disable;
+		status= "okay";
+	};
