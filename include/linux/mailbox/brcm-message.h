@@ -17,6 +17,7 @@
 enum brcm_message_types {
 	BRCM_MESSAGE_UNKNOWN = 0,
 	BRCM_MESSAGE_SG,
+	BRCM_MESSAGE_SPU,
 	BRCM_MESSAGE_MAX,
 };
 
