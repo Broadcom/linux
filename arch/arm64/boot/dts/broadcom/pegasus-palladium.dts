@@ -97,3 +97,15 @@ earlycon=uart8250,mmio32,0x00300000 initrd=0x83000000,10M";
 &uart0 {
 	status = "ok";
 };
+
+&nand {
+	nandcs@0 {
+		compatible = "brcm,nandcs";
+		reg = <0>;
+		nand-ecc-mode = "hw";
+		nand-ecc-strength = <8>;
+		nand-ecc-step-size = <512>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+	};
+};

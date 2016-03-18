@@ -246,6 +246,19 @@
 			clock-names = "apb_pclk";
 		};
 
+		nand: nand@00660000 {
+			compatible = "brcm,nand-iproc", "brcm,brcmnand-v6.1";
+			reg = <0x00660000 0x600>,
+			      <0x00880408 0x600>,
+			      <0x660f00 0x20>;
+			reg-names = "nand", "iproc-idm", "iproc-ext";
+			interrupts = <GIC_SPI 299 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			brcm,nand-has-wp;
+			status = "disabled";
+		};
+
 		gic: interrupt-controller@2a000000 {
 			compatible = "arm,gic-400";
 			#interrupt-cells = <3>;
