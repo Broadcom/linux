@@ -3,7 +3,7 @@ on some Broadcom SoCs. An SoC may have multiple PDC hardware blocks. There is
 one device tree entry per block.
 
 Required properties:
-- compatible : Should be "brcm,iproc-pdc".
+- compatible : Should be "brcm,pdc-mbox".
 - reg: Should contain PDC registers location and length.
 - interrupts: Should contain the IRQ line for the PDC.
 - #mbox-cells: 1
@@ -15,7 +15,7 @@ Optional properties:
 
 Example:
 	pdc0: iproc-pdc0@0x612C0000 {
-		compatible = "brcm,iproc-pdc";
+		compatible = "brcm,pdc-mbox";
 		reg = <0 0x612C0000 0 0x445>;  /* PDC FS0 regs */
 		interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>;
 		#mbox-cells = <1>;   /* one cell per mailbox channel */
