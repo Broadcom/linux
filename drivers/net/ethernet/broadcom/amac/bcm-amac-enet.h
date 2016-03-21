@@ -14,6 +14,7 @@
 #ifndef __BCM_AMAC_ENET_H__
 #define __BCM_AMAC_ENET_H__
 
+#include <linux/kfifo.h>
 #include <linux/netdevice.h>
 #include <linux/platform_device.h>
 
@@ -152,4 +153,5 @@ struct bcm_amac_priv {
 	u32 msg_enable; /* message filter bit mask */
 };
 
+void bcm_amac_set_ethtool_ops(struct net_device *netdev);
 #endif /*__BCM_AMAC_ENET_H__*/

@@ -12,7 +12,6 @@
  */
 
 #include <linux/etherdevice.h>
-#include <linux/kfifo.h>
 #include <linux/module.h>
 #include <linux/of_net.h>
 
@@ -260,7 +259,6 @@ static int bcm_amac_enet_rx_poll(struct napi_struct *napi, int quota)
 				privp->ndev->stats.rx_dropped++;
 				continue;
 			}
-
 			/* Process the packet */
 			bufp = skb->data;
 
@@ -736,6 +734,7 @@ static int bcm_amac_enet_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ndev);
 	SET_NETDEV_DEV(ndev, &pdev->dev);
+	bcm_amac_set_ethtool_ops(ndev);
 
 	ndev->netdev_ops = &bcm_amac_enet_ops;
 	ndev->watchdog_timeo = TX_TIMEOUT;
