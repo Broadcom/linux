@@ -203,16 +203,20 @@
 #define D64_RC_AE_SHIFT 16
 #define D64_RC_BL_MASK  0x001C0000 /* BurstLen bits */
 #define D64_RC_BL_SHIFT 18
+#define D64_RC_PC_16_DESC 0x3
+#define D64_RC_PC_8_DESC 0x2
+#define D64_RC_PC_4_DESC 0x1
 #define D64_RC_PC_MASK  0x00E00000 /* Prefetch control */
 #define D64_RC_PC_SHIFT 21
 #define D64_RC_PT_MASK  0x03000000 /* Prefetch threshold */
 #define D64_RC_PT_SHIFT 24
 
 /* flags for dma controller */
-#define DMA_CTRL_PEN	BIT(0) /* partity enable */
-#define DMA_CTRL_ROC	BIT(1) /* rx overflow continue */
-#define DMA_CTRL_RXMULTI BIT(2) /* allow rx scatter to multiple descrip */
-#define DMA_CTRL_UNFRAMED BIT(3) /* Unframed Rx/Tx data */
+#define DMA_CTRL_RX_PEN BIT(0) /* rx partity enable */
+#define DMA_CTRL_TX_PEN BIT(1) /* tx partity enable */
+#define DMA_CTRL_RX_ROC BIT(2) /* rx overflow continue */
+#define DMA_CTRL_RX_PC  BIT(3) /* RX Prefetch Control */
+#define DMA_CTRL_TX_PC  BIT(4) /* TX Prefetch Control */
 
 /* receive channel status */
 #define D64_RS0_CD_MASK  0x00001fff /* current descriptor pointer */
@@ -261,3 +265,4 @@
 #define HWRXOFF    30
 
 #endif /*__BCM_AMAC_REGS_H__ */
+

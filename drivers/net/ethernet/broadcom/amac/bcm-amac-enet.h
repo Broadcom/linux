@@ -137,7 +137,6 @@ struct bcm_amac_priv {
 	struct port_data port; /* Port and PHY Info */
 
 	struct amac_dma_priv dma; /* DMA info */
-	u32 dmactrlflags; /* DMA Flags */
 
 	/* netlink socket for link change notifications */
 	struct sock *nl_sk;
@@ -155,3 +154,4 @@ struct bcm_amac_priv {
 
 void bcm_amac_set_ethtool_ops(struct net_device *netdev);
 #endif /*__BCM_AMAC_ENET_H__*/
+

@@ -34,33 +34,6 @@
 		err = -EBUSY; \
 }
 
-static void amac_dma_ctrlflags(struct bcm_amac_priv *privp,
-			       u32 ctrl_flag, bool enable)
-{
-	u32 ctrl_reg;
-
-	ctrl_reg = readl(privp->hw.reg.amac_core +
-		GMAC_DMA_TX_CTRL_REG);
-	if (enable) {
-		if (ctrl_flag & DMA_CTRL_PEN) {
-			privp->dmactrlflags |= DMA_CTRL_PEN;
-			ctrl_reg &= ~D64_XC_PD; /* Enable*/
-		} else {
-			return;
-		}
-	} else {
-		if (ctrl_flag & DMA_CTRL_PEN) {
-			privp->dmactrlflags &= ~DMA_CTRL_PEN;
-			ctrl_reg |= D64_XC_PD; /* disable*/
-		} else {
-			return;
-		}
-	}
-
-	writel(ctrl_reg,
-	       (privp->hw.reg.amac_core + GMAC_DMA_TX_CTRL_REG));
-}
-
 /* amac_alloc_rx_skb() - Allocate RX SKB
  * @privp: driver info pointer
  * @len: length of skb
@@ -640,19 +613,12 @@ int bcm_amac_enable_tx_dma(struct bcm_amac_priv *privp, bool enable)
 	int status = 0;
 
 	if (enable) {
-		/* These bits 20:18 (burstLen) of control register can be
-		 * written but will take effect only if these bits are
-		 * valid. So this will not affect previous versions
-		 * of the DMA. They will continue to have those bits set to 0.
+		/* tx dma flags:
+		 *  burst len (2**(N+4)): N=3
+		 *  parity check: disabled
+		 *  tx enable: enabled
 		 */
-		control = readl(privp->hw.reg.amac_core +
-				GMAC_DMA_TX_CTRL_REG);
-
-		control |= D64_XC_XE;
-		if ((privp->dmactrlflags & DMA_CTRL_PEN) == 0)
-			control |= D64_XC_PD;
-
-		control |= 0x3 << D64_XC_BL_SHIFT; /* Burst length of 3 */
+		control = (3 << D64_XC_BL_SHIFT) | D64_XC_PD  | D64_XC_XE;
 
 		writel(control,
 		       (privp->hw.reg.amac_core + GMAC_DMA_TX_CTRL_REG));
@@ -710,30 +676,20 @@ int bcm_amac_enable_rx_dma(struct bcm_amac_priv *privp, bool enable)
 	int status = 0;
 
 	if (enable) {
-		control = (readl(privp->hw.reg.amac_core +
-				 GMAC_DMA_RX_CTRL_REG) &
-			   D64_RC_AE) |
-			  D64_RC_RE;
-
-		if ((privp->dmactrlflags & DMA_CTRL_PEN) == 0)
-			control |= D64_RC_PD;
-
-		if (privp->dmactrlflags & DMA_CTRL_ROC)
-			control |= D64_RC_OC;
-
-		/* These bits 20:18 (burstLen) of control register can be
-		 * written but will take effect only if these bits are
-		 * valid. So this will not affect previous versions
-		 * of the DMA. They will continue to have those bits
+		/* rx dma flags:
+		 *  dma prefetch control: upto 4
+		 *  burst len(2**(N+4)): default (N=1)
+		 *  parity check: disabled
+		 *  overflow continue: enabled
+		 *  hw status size: 30
+		 *  rx enable: enabled
 		 */
-
-		/* set to 0. */
-		control &= ~D64_RC_BL_MASK;
-		/* Keep default Rx burstlen */
-		control |= readl(privp->hw.reg.amac_core +
-				 GMAC_DMA_RX_CTRL_REG) &
-			   D64_RC_BL_MASK;
-		control |= HWRXOFF << D64_RC_RO_SHIFT;
+		control = (D64_RC_PC_4_DESC << D64_RC_PC_SHIFT) |
+			BIT(D64_XC_BL_SHIFT) |
+			D64_XC_PD |
+			D64_RC_OC |
+			(HWRXOFF << D64_RC_RO_SHIFT) |
+			D64_RC_RE;
 
 		writel(control,
 		       privp->hw.reg.amac_core + GMAC_DMA_RX_CTRL_REG);
@@ -746,7 +702,6 @@ int bcm_amac_enable_rx_dma(struct bcm_amac_priv *privp, bool enable)
 			(AMAC_DMA_RX_DESC_CNT - 1) * AMAC_RX_BUF_SIZE) &
 			 D64_XP_LD_MASK,
 			(privp->hw.reg.amac_core + GMAC_DMA_RX_PTR_REG));
-
 	} else {
 		/* Disable RX DMA */
 
@@ -832,9 +787,6 @@ int bcm_amac_dma_start(struct bcm_amac_priv *privp)
 
 	if (!privp)
 		return -EINVAL;
-
-	/* disable parity */
-	amac_dma_ctrlflags(privp, DMA_CTRL_PEN, false);
 
 	rc = amac_dma_rx_init(privp); /* Initialize RX DMA */
 	if (rc) {
