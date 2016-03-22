@@ -19,9 +19,8 @@
 #define GMAC_RESET_DELAY 2
 #define DMA_DESC_ALIGN 0x2000 /* 8K aligned */
 
-#define DMA_LOW_ADDR(addr) (addr & 0xFFFFFFFF)
-#define DMA_HIGH_ADDR(addr) (((sizeof(dma_addr_t) > 32) ? \
-			       (addr >> 32) & 0xFFFFFFFF : 0))
+#define DMA_LOW_ADDR(addr) cpu_to_le32(lower_32_bits(addr))
+#define DMA_HIGH_ADDR(addr) cpu_to_le32(upper_32_bits(addr))
 
 #define SPINWAIT(exp, ms, err) { \
 	u32 countdown = ms; \
@@ -273,12 +272,12 @@ static int amac_dma_rx_init(struct bcm_amac_priv *privp)
 		if (i == (AMAC_DMA_RX_DESC_CNT - 1))
 			ctrl = D64_CTRL1_EOT;
 
-		descp->ctrl1 = ctrl;
-		descp->ctrl2 = AMAC_DMA_RX_BUF_LEN;
+		descp->ctrl1 = cpu_to_le32(ctrl);
+		descp->ctrl2 = cpu_to_le32(AMAC_DMA_RX_BUF_LEN);
 		descp->addrlow =
-			(u32)DMA_LOW_ADDR(dma_p->rx_skb_list[i].dma_addr);
+			DMA_LOW_ADDR(dma_p->rx_skb_list[i].dma_addr);
 		descp->addrhigh =
-			(u32)DMA_HIGH_ADDR(dma_p->rx_skb_list[i].dma_addr);
+			DMA_HIGH_ADDR(dma_p->rx_skb_list[i].dma_addr);
 	}
 
 	amac_dma_rx_init_chnl(privp);
@@ -851,7 +850,7 @@ int bcm_amac_dma_get_rx_data(struct bcm_amac_priv *privp,
 
 	/* Get frame descriptor */
 	descp = (&((struct amac_dma64_desc *)(dmap->rx.descp))[dmap->rx.index]);
-	descp->ctrl2 = AMAC_DMA_RX_BUF_LEN;
+	descp->ctrl2 = cpu_to_le32(AMAC_DMA_RX_BUF_LEN);
 
 	rx_ptr_desc = (struct amac_dma64_desc *)dmap->rx.base_addr;
 	rx_ptr = ((unsigned long)(&rx_ptr_desc[dmap->rx.index]) & 0xFFFFFFFF);
@@ -874,8 +873,8 @@ int bcm_amac_dma_get_rx_data(struct bcm_amac_priv *privp,
 	}
 
 	/* Re-arm descriptor with new skb */
-	descp->addrlow = (u32)DMA_LOW_ADDR(node->dma_addr);
-	descp->addrhigh = (u32)DMA_HIGH_ADDR(node->dma_addr);
+	descp->addrlow = DMA_LOW_ADDR(node->dma_addr);
+	descp->addrhigh = DMA_HIGH_ADDR(node->dma_addr);
 
 	dma_sync_single_for_cpu(&privp->pdev->dev,
 				read_skb_node.dma_addr,
@@ -887,7 +886,7 @@ int bcm_amac_dma_get_rx_data(struct bcm_amac_priv *privp,
 	/* Process the SKB with data */
 	bufp = (*skbp)->data;
 
-	len = *((u16 *)bufp);
+	len = cpu_to_le16(*((u16 *)bufp));
 
 	/* Received an invalid frame length */
 	if (len > AMAC_DMA_RX_BUF_LEN) {
@@ -968,10 +967,10 @@ void bcm_amac_tx_send_packet(struct bcm_amac_priv *privp)
 		descp = (&((struct amac_dma64_desc *)
 					(dmap->tx.descp))[(desc_idx)]);
 
-		descp->addrhigh = (u32)DMA_HIGH_ADDR(buf_dma);
-		descp->addrlow = (u32)DMA_LOW_ADDR(buf_dma);
-		descp->ctrl1 = (u32)(D64_CTRL1_SOF | D64_CTRL1_EOF);
-		descp->ctrl2 = (u32)(len & D64_CTRL2_BC_MASK);
+		descp->addrhigh = DMA_HIGH_ADDR(buf_dma);
+		descp->addrlow = DMA_LOW_ADDR(buf_dma);
+		descp->ctrl1 = cpu_to_le32((D64_CTRL1_SOF | D64_CTRL1_EOF));
+		descp->ctrl2 = cpu_to_le32((len & D64_CTRL2_BC_MASK));
 
 		/* Add skb to list */
 		dmap->tx_skb_list[curr].skb = skb;
@@ -986,11 +985,14 @@ void bcm_amac_tx_send_packet(struct bcm_amac_priv *privp)
 		dmap->tx_curr = curr;
 		dmap->tx.index = desc_idx;
 
-		descp->ctrl1 |=  D64_CTRL1_IOC;/* Interrupt after the last one*/
+		/* Interrupt after the last one*/
+		descp->ctrl1 |= cpu_to_le32(D64_CTRL1_IOC);
 
 		descp = (&((struct amac_dma64_desc *)
 					(dmap->tx.descp))[(desc_idx)]);
-		descp->ctrl1 = D64_CTRL1_EOT; /* Mark last descriptor as EOT */
+
+		/* Mark last descriptor as EOT */
+		descp->ctrl1 = cpu_to_le32(D64_CTRL1_EOT);
 
 		last_desc = ((unsigned long)(&((struct amac_dma64_desc *)
 			(dmap->tx.base_addr))[desc_idx]));
