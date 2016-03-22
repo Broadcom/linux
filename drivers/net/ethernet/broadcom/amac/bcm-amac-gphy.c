@@ -218,17 +218,17 @@ int bcm_amac_gphy_init(struct bcm_amac_priv *privp)
 		return -ENODEV;
 	}
 
-	if (privp->port.ext_port.pause_disable) {
+	if (privp->port.ext_port.pause_disable)
 		/* Override the PAUSE frame setting of the PHY */
-		port->phydev->pause = 0;
+		port->phydev->advertising &= ~(ADVERTISED_Pause |
+					       ADVERTISED_Asym_Pause);
 
-		rc = phy_start_aneg(port->phydev);
-		if (rc < 0) {
-			phy_disconnect(port->phydev);
-			port->phydev = NULL;
-			dev_err(&privp->pdev->dev, "Cannot start PHY\n");
-			return -ENODEV;
-		}
+	rc = phy_start_aneg(port->phydev);
+	if (rc < 0) {
+		phy_disconnect(port->phydev);
+		port->phydev = NULL;
+		dev_err(&privp->pdev->dev, "Cannot start PHY\n");
+		return -ENODEV;
 	}
 
 	return 0;
