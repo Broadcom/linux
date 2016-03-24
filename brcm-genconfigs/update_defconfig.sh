@@ -80,7 +80,7 @@ main() {
 	# iproc_defconfig, for both NS2 and Stingray
 	# for uses when NS2/Stingray run standalone without NB host
 	iproc_base="base-arm64 clocksource dbg"
-	iproc_extra="blk net dma fs i2c iomux misc mmc mtd rng spi virtio watchdog"
+	iproc_extra="blk net dma fs i2c iomux mailbox misc mmc mtd rng spi virtio watchdog"
 	do_update iproc $iproc_base $iproc_extra
 
 	# add support for other defconfigs here
