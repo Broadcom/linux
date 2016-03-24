@@ -82,6 +82,7 @@ config BCM_FLEXDMA_MBOX
 	tristate "Broadcom FlexDMA Mailbox"
 	depends on ARM64
 	select GENERIC_MSI_IRQ_DOMAIN
+	default ARCH_BCM_IPROC
 	help
 	  Mailbox implementation of the Broadcom FlexDMA. It is used by
 	  offload engine drivers such as Crypto and RAID/XOR to offload
