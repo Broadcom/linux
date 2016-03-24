@@ -16,7 +16,6 @@
 
 enum brcm_message_type {
 	BRCM_MESSAGE_UNKNOWN = 0,
-	BRCM_MESSAGE_SG,
 	BRCM_MESSAGE_SPU,
 	BRCM_MESSAGE_SBA,
 	BRCM_MESSAGE_MAX,
@@ -44,7 +43,7 @@ struct brcm_message {
 		struct {
 			struct scatterlist *src;
 			struct scatterlist *dst;
-		} sg;
+		} spu;
 		struct {
 			struct brcm_sba_command *cmds;
 			unsigned int cmds_count;

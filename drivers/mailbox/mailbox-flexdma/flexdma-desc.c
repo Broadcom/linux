@@ -333,7 +333,7 @@ static u64 flexdma_immt_desc(u64 data)
 	return desc;
 }
 
-static bool flexdma_sg_sanity_check(struct brcm_message *msg)
+static bool flexdma_spu_sanity_check(struct brcm_message *msg)
 {
 	struct scatterlist *sg;
 
@@ -342,11 +342,11 @@ static bool flexdma_sg_sanity_check(struct brcm_message *msg)
 	 * using startpkt and endpkt fields.
 	 */
 
-	if (!msg->sg.src || !msg->sg.dst)
+	if (!msg->spu.src || !msg->spu.dst)
 		return false;
-	if ((sg_nents(msg->sg.src) + sg_nents(msg->sg.dst)) > 31)
+	if ((sg_nents(msg->spu.src) + sg_nents(msg->spu.dst)) > 31)
 		return false;
-	for (sg = msg->sg.src; sg; sg = sg_next(sg)) {
+	for (sg = msg->spu.src; sg; sg = sg_next(sg)) {
 		if (sg->length & 0xf) {
 			if (sg->length > SRC_LENGTH_MASK)
 				return false;
@@ -355,7 +355,7 @@ static bool flexdma_sg_sanity_check(struct brcm_message *msg)
 				return false;
 		}
 	}
-	for (sg = msg->sg.dst; sg; sg = sg_next(sg)) {
+	for (sg = msg->spu.dst; sg; sg = sg_next(sg)) {
 		if (sg->length & 0xf) {
 			if (sg->length > DST_LENGTH_MASK)
 				return false;
@@ -368,7 +368,7 @@ static bool flexdma_sg_sanity_check(struct brcm_message *msg)
 	return true;
 }
 
-static u32 flexdma_sg_estimate_desc_count(struct brcm_message *msg)
+static u32 flexdma_spu_estimate_desc_count(struct brcm_message *msg)
 {
 	/*
 	 * TODO: Use multiple headers for longer scatterlist
@@ -381,22 +381,22 @@ static u32 flexdma_sg_estimate_desc_count(struct brcm_message *msg)
 	 *			destination descriptor(s) +
 	 *			1x null descriptor
 	 */
-	return sg_nents(msg->sg.src) + sg_nents(msg->sg.dst) + 2;
+	return sg_nents(msg->spu.src) + sg_nents(msg->spu.dst) + 2;
 }
 
-static int flexdma_sg_dma_map(struct device *dev, struct brcm_message *msg)
+static int flexdma_spu_dma_map(struct device *dev, struct brcm_message *msg)
 {
 	int rc;
 
-	rc = dma_map_sg(dev, msg->sg.src, sg_nents(msg->sg.src),
+	rc = dma_map_sg(dev, msg->spu.src, sg_nents(msg->spu.src),
 			DMA_TO_DEVICE);
 	if (rc < 0)
 		return rc;
 
-	rc = dma_map_sg(dev, msg->sg.dst, sg_nents(msg->sg.dst),
+	rc = dma_map_sg(dev, msg->spu.dst, sg_nents(msg->spu.dst),
 			DMA_FROM_DEVICE);
 	if (rc < 0) {
-		dma_unmap_sg(dev, msg->sg.src, sg_nents(msg->sg.src),
+		dma_unmap_sg(dev, msg->spu.src, sg_nents(msg->spu.src),
 			     DMA_TO_DEVICE);
 		return rc;
 	}
@@ -404,15 +404,17 @@ static int flexdma_sg_dma_map(struct device *dev, struct brcm_message *msg)
 	return 0;
 }
 
-static void flexdma_sg_dma_unmap(struct device *dev, struct brcm_message *msg)
+static void flexdma_spu_dma_unmap(struct device *dev, struct brcm_message *msg)
 {
-	dma_unmap_sg(dev, msg->sg.dst, sg_nents(msg->sg.dst), DMA_FROM_DEVICE);
-	dma_unmap_sg(dev, msg->sg.src, sg_nents(msg->sg.src), DMA_TO_DEVICE);
+	dma_unmap_sg(dev, msg->spu.dst, sg_nents(msg->spu.dst),
+		     DMA_FROM_DEVICE);
+	dma_unmap_sg(dev, msg->spu.src, sg_nents(msg->spu.src),
+		     DMA_TO_DEVICE);
 }
 
-static void *flexdma_sg_write_descs(struct brcm_message *msg,
-				    u32 reqid, void *desc_ptr, u32 toggle,
-				    void *start_desc, void *end_desc)
+static void *flexdma_spu_write_descs(struct brcm_message *msg,
+				     u32 reqid, void *desc_ptr, u32 toggle,
+				     void *start_desc, void *end_desc)
 {
 	u64 desc;
 	void *orig_desc_ptr = desc_ptr;
@@ -425,12 +427,12 @@ static void *flexdma_sg_write_descs(struct brcm_message *msg,
 
 	/* Header descriptor */
 	desc = flexdma_header_desc(!toggle, 0x1, 0x1,
-				   flexdma_sg_estimate_desc_count(msg) - 2,
+				   flexdma_spu_estimate_desc_count(msg) - 2,
 				   0x0, reqid);
 	flexdma_enqueue_desc(desc, &desc_ptr, &toggle, start_desc, end_desc);
 
 	/* Source descriptor(s) */
-	for (sg = msg->sg.src; sg; sg = sg_next(sg)) {
+	for (sg = msg->spu.src; sg; sg = sg_next(sg)) {
 		if (sg_dma_len(sg) & 0xf)
 			desc = flexdma_src_desc(sg_dma_address(sg),
 						sg_dma_len(sg));
@@ -442,7 +444,7 @@ static void *flexdma_sg_write_descs(struct brcm_message *msg,
 	}
 
 	/* Destination descriptor(s) */
-	for (sg = msg->sg.dst; sg; sg = sg_next(sg)) {
+	for (sg = msg->spu.dst; sg; sg = sg_next(sg)) {
 		if (sg_dma_len(sg) & 0xf)
 			desc = flexdma_dst_desc(sg_dma_address(sg),
 						sg_dma_len(sg));
@@ -603,8 +605,8 @@ bool flexdma_sanity_check(struct brcm_message *msg)
 		return false;
 
 	switch (msg->type) {
-	case BRCM_MESSAGE_SG:
-		return flexdma_sg_sanity_check(msg);
+	case BRCM_MESSAGE_SPU:
+		return flexdma_spu_sanity_check(msg);
 	case BRCM_MESSAGE_SBA:
 		return flexdma_sba_sanity_check(msg);
 	default:
@@ -618,8 +620,8 @@ u32 flexdma_estimate_desc_count(struct brcm_message *msg)
 		return 0;
 
 	switch (msg->type) {
-	case BRCM_MESSAGE_SG:
-		return flexdma_sg_estimate_desc_count(msg);
+	case BRCM_MESSAGE_SPU:
+		return flexdma_spu_estimate_desc_count(msg);
 	case BRCM_MESSAGE_SBA:
 		return flexdma_sba_estimate_desc_count(msg);
 	default:
@@ -633,8 +635,8 @@ int flexdma_dma_map(struct device *dev, struct brcm_message *msg)
 		return -EINVAL;
 
 	switch (msg->type) {
-	case BRCM_MESSAGE_SG:
-		return flexdma_sg_dma_map(dev, msg);
+	case BRCM_MESSAGE_SPU:
+		return flexdma_spu_dma_map(dev, msg);
 	default:
 		break;
 	};
@@ -648,8 +650,8 @@ void flexdma_dma_unmap(struct device *dev, struct brcm_message *msg)
 		return;
 
 	switch (msg->type) {
-	case BRCM_MESSAGE_SG:
-		flexdma_sg_dma_unmap(dev, msg);
+	case BRCM_MESSAGE_SPU:
+		flexdma_spu_dma_unmap(dev, msg);
 		break;
 	default:
 		break;
@@ -667,10 +669,10 @@ void *flexdma_write_descs(struct brcm_message *msg,
 		return ERR_PTR(-ERANGE);
 
 	switch (msg->type) {
-	case BRCM_MESSAGE_SG:
-		return flexdma_sg_write_descs(msg, reqid,
-					      desc_ptr, toggle,
-					      start_desc, end_desc);
+	case BRCM_MESSAGE_SPU:
+		return flexdma_spu_write_descs(msg, reqid,
+					       desc_ptr, toggle,
+					       start_desc, end_desc);
 	case BRCM_MESSAGE_SBA:
 		return flexdma_sba_write_descs(msg, reqid,
 					       desc_ptr, toggle,
