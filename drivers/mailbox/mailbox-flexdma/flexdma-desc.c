@@ -111,6 +111,25 @@
 #define MDST_ADDR_SHIFT				0
 #define MDST_ADDR_MASK				0x00000fffffffffff
 
+/* Source with tlast (SRCT) descriptor format */
+#define SRCT_TYPE				8
+#define SRCT_LENGTH_SHIFT			44
+#define SRCT_LENGTH_MASK			0xffff
+#define SRCT_ADDR_SHIFT				0
+#define SRCT_ADDR_MASK				0x00000fffffffffff
+
+/* Destination with tlast (DSTT) descriptor format */
+#define DSTT_TYPE				9
+#define DSTT_LENGTH_SHIFT			44
+#define DSTT_LENGTH_MASK			0xffff
+#define DSTT_ADDR_SHIFT				0
+#define DSTT_ADDR_MASK				0x00000fffffffffff
+
+/* Immediate with tlast (IMMT) descriptor format */
+#define IMMT_TYPE				10
+#define IMMT_DATA_SHIFT				0
+#define IMMT_DATA_MASK				0x0fffffffffffffff
+
 /* Descriptor helper macros */
 #define DESC_DEC(_d, _s, _m)			(((_d) >> (_s)) & (_m))
 #define DESC_ENC(_d, _v, _s, _m)		\
@@ -272,6 +291,48 @@ static u64 flexdma_mdst_desc(dma_addr_t addr, unsigned int length_div_16)
 	return desc;
 }
 
+static u64 flexdma_imm_desc(u64 data)
+{
+	u64 desc = 0;
+
+	DESC_ENC(desc, IMM_TYPE, DESC_TYPE_SHIFT, DESC_TYPE_MASK);
+	DESC_ENC(desc, data, IMM_DATA_SHIFT, IMM_DATA_MASK);
+
+	return desc;
+}
+
+static u64 flexdma_srct_desc(dma_addr_t addr, unsigned int length)
+{
+	u64 desc = 0;
+
+	DESC_ENC(desc, SRCT_TYPE, DESC_TYPE_SHIFT, DESC_TYPE_MASK);
+	DESC_ENC(desc, length, SRCT_LENGTH_SHIFT, SRCT_LENGTH_MASK);
+	DESC_ENC(desc, addr, SRCT_ADDR_SHIFT, SRCT_ADDR_MASK);
+
+	return desc;
+}
+
+static u64 flexdma_dstt_desc(dma_addr_t addr, unsigned int length)
+{
+	u64 desc = 0;
+
+	DESC_ENC(desc, DSTT_TYPE, DESC_TYPE_SHIFT, DESC_TYPE_MASK);
+	DESC_ENC(desc, length, DSTT_LENGTH_SHIFT, DSTT_LENGTH_MASK);
+	DESC_ENC(desc, addr, DSTT_ADDR_SHIFT, DSTT_ADDR_MASK);
+
+	return desc;
+}
+
+static u64 flexdma_immt_desc(u64 data)
+{
+	u64 desc = 0;
+
+	DESC_ENC(desc, IMMT_TYPE, DESC_TYPE_SHIFT, DESC_TYPE_MASK);
+	DESC_ENC(desc, data, IMMT_DATA_SHIFT, IMMT_DATA_MASK);
+
+	return desc;
+}
+
 static bool flexdma_sg_sanity_check(struct brcm_message *msg)
 {
 	struct scatterlist *sg;
@@ -364,8 +425,8 @@ static void *flexdma_sg_write_descs(struct brcm_message *msg,
 
 	/* Header descriptor */
 	desc = flexdma_header_desc(!toggle, 0x1, 0x1,
-				sg_nents(msg->sg.src) + sg_nents(msg->sg.dst),
-				0x0, reqid);
+				   flexdma_sg_estimate_desc_count(msg) - 2,
+				   0x0, reqid);
 	flexdma_enqueue_desc(desc, &desc_ptr, &toggle, start_desc, end_desc);
 
 	/* Source descriptor(s) */
@@ -401,6 +462,141 @@ static void *flexdma_sg_write_descs(struct brcm_message *msg,
 	return desc_ptr;
 }
 
+static bool flexdma_sba_sanity_check(struct brcm_message *msg)
+{
+	u32 i;
+
+	/*
+	 * TODO: Use multiple headers for large number of
+	 * source and/or destinetion buffers using startpkt
+	 * and endpkt fields.
+	 */
+
+	if (!msg->sba.cmds || !msg->sba.cmds_count)
+		return false;
+
+	for (i = 0; i < msg->sba.cmds_count; i++) {
+		if ((msg->sba.cmds[i].flags & BRCM_SBA_CMD_TYPE_B) &&
+		    (msg->sba.cmds[i].input_len > SRCT_LENGTH_MASK))
+			return false;
+		if ((msg->sba.cmds[i].flags & BRCM_SBA_CMD_TYPE_C) &&
+		    (msg->sba.cmds[i].input_len > SRCT_LENGTH_MASK))
+			return false;
+		if ((msg->sba.cmds[i].flags & BRCM_SBA_CMD_HAS_RESP) &&
+		    (msg->sba.cmds[i].resp_len > DSTT_LENGTH_MASK))
+			return false;
+		if ((msg->sba.cmds[i].flags & BRCM_SBA_CMD_HAS_OUTPUT) &&
+		    (msg->sba.cmds[i].output_len > DSTT_LENGTH_MASK))
+			return false;
+	}
+
+	return true;
+}
+
+static u32 flexdma_sba_estimate_desc_count(struct brcm_message *msg)
+{
+	u32 i, cnt;
+
+	/*
+	 * TODO: Use multiple headers for large number of
+	 * source and/or destinetion buffers using startpkt
+	 * and endpkt fields.
+	 */
+
+	cnt = 0;
+	for (i = 0; i < msg->sba.cmds_count; i++) {
+		cnt++;
+
+		if ((msg->sba.cmds[i].flags & BRCM_SBA_CMD_TYPE_B) ||
+		    (msg->sba.cmds[i].flags & BRCM_SBA_CMD_TYPE_C))
+			cnt++;
+
+		if (msg->sba.cmds[i].flags & BRCM_SBA_CMD_HAS_RESP)
+			cnt++;
+
+		if (msg->sba.cmds[i].flags & BRCM_SBA_CMD_HAS_OUTPUT)
+			cnt++;
+	}
+
+	/* +2 for header at start and null descriptor at end */
+	return cnt + 2;
+}
+
+static void *flexdma_sba_write_descs(struct brcm_message *msg,
+				     u32 reqid, void *desc_ptr, u32 toggle,
+				     void *start_desc, void *end_desc)
+{
+	u64 desc;
+	unsigned int i;
+	struct brcm_sba_command *c;
+	void *orig_desc_ptr = desc_ptr;
+
+	/*
+	 * TODO: Use multiple headers for large number of
+	 * source and/or destinetion buffers using startpkt
+	 * and endpkt fields.
+	 */
+
+	/* Header descriptor */
+	desc = flexdma_header_desc(!toggle, 0x1, 0x1,
+				   flexdma_sba_estimate_desc_count(msg) - 2,
+				   0x0, reqid);
+	flexdma_enqueue_desc(desc, &desc_ptr, &toggle, start_desc, end_desc);
+
+	/* Convert SBA commands into descriptors */
+	for (i = 0; i < msg->sba.cmds_count; i++) {
+		c = &msg->sba.cmds[i];
+
+		if ((c->flags & BRCM_SBA_CMD_HAS_RESP) &&
+		    (c->flags & BRCM_SBA_CMD_HAS_OUTPUT)) {
+			/* Destination response descriptor */
+			desc = flexdma_dst_desc(c->resp, c->resp_len);
+			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+					     start_desc, end_desc);
+		} else if (c->flags & BRCM_SBA_CMD_HAS_RESP) {
+			/* Destination response with tlast descriptor */
+			desc = flexdma_dstt_desc(c->resp, c->resp_len);
+			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+					     start_desc, end_desc);
+		}
+
+		if (c->flags & BRCM_SBA_CMD_HAS_OUTPUT) {
+			/* Destination with tlast descriptor */
+			desc = flexdma_dstt_desc(c->output, c->output_len);
+			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+					     start_desc, end_desc);
+		}
+
+		if (c->flags & BRCM_SBA_CMD_TYPE_B) {
+			/* Command as immediate descriptor */
+			desc = flexdma_imm_desc(c->cmd);
+			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+					     start_desc, end_desc);
+		} else {
+			/* Command as immediate descriptor with tlast */
+			desc = flexdma_immt_desc(c->cmd);
+			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+					     start_desc, end_desc);
+		}
+
+		if ((c->flags & BRCM_SBA_CMD_TYPE_B) ||
+		    (c->flags & BRCM_SBA_CMD_TYPE_C)) {
+			/* Source with tlast descriptor */
+			desc = flexdma_srct_desc(c->input, c->input_len);
+			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+					     start_desc, end_desc);
+		}
+	}
+
+	/* Null descriptor with invalid toggle bit */
+	flexdma_write_desc(desc_ptr, flexdma_null_desc(!toggle));
+
+	/* Flip toggle bit in header */
+	flexdma_flip_header_toogle(orig_desc_ptr);
+
+	return desc_ptr;
+}
+
 bool flexdma_sanity_check(struct brcm_message *msg)
 {
 	if (!msg)
@@ -409,6 +605,8 @@ bool flexdma_sanity_check(struct brcm_message *msg)
 	switch (msg->type) {
 	case BRCM_MESSAGE_SG:
 		return flexdma_sg_sanity_check(msg);
+	case BRCM_MESSAGE_SBA:
+		return flexdma_sba_sanity_check(msg);
 	default:
 		return false;
 	};
@@ -422,6 +620,8 @@ u32 flexdma_estimate_desc_count(struct brcm_message *msg)
 	switch (msg->type) {
 	case BRCM_MESSAGE_SG:
 		return flexdma_sg_estimate_desc_count(msg);
+	case BRCM_MESSAGE_SBA:
+		return flexdma_sba_estimate_desc_count(msg);
 	default:
 		return 0;
 	};
@@ -468,8 +668,13 @@ void *flexdma_write_descs(struct brcm_message *msg,
 
 	switch (msg->type) {
 	case BRCM_MESSAGE_SG:
-		return flexdma_sg_write_descs(msg, reqid, desc_ptr, toggle,
+		return flexdma_sg_write_descs(msg, reqid,
+					      desc_ptr, toggle,
 					      start_desc, end_desc);
+	case BRCM_MESSAGE_SBA:
+		return flexdma_sba_write_descs(msg, reqid,
+					       desc_ptr, toggle,
+					       start_desc, end_desc);
 	default:
 		return ERR_PTR(-ENOTSUPP);
 	};
