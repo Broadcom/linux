@@ -75,6 +75,7 @@ config BCM_NET_PHYLIB
 config BROADCOM_PHY
 	tristate "Drivers for Broadcom PHYs"
 	select BCM_NET_PHYLIB
+	default ARCH_BCM_IPROC
 	---help---
 	  Currently supports the BCM5411, BCM5421, BCM5461, BCM54616S, BCM5464,
 	  BCM5481, BCM54810 and BCM5482 PHYs.
