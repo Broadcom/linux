@@ -494,12 +494,5 @@
 			msi-parent = <&gic_its 0x7ffe>;
 			#mbox-cells = <3>;
 		};
-
-		cop_mbox: mbox@67800000 {
-			compatible = "brcm,flexdma-mbox";
-			reg = <0x67800000 0x200000>;
-			msi-parent = <&gic_its 0x7fff>;
-			#mbox-cells = <3>;
-		};
 	};
 };
