@@ -82,10 +82,8 @@
 	};
 
 	psci {
-		compatible = "arm,psci";
+		compatible = "arm,psci-1.0";
 		method = "smc";
-		cpu_off = <0x84000002>;
-		cpu_on = <0xc4000003>;
 	};
 
 	timer {
@@ -301,18 +299,6 @@
 			reg = <0x6501d130 0x08>,
 			      <0x660a0028 0x04>,
 			      <0x660009b0 0x40>;
-		};
-
-		crmu: crmu@65024000 {
-			compatible = "syscon";
-			reg = <0x65024000 0x100>;
-		};
-
-		reboot@65024000 {
-			compatible ="syscon-reboot";
-			regmap = <&crmu>;
-			offset = <0x90>;
-			mask = <0xfffffffd>;
 		};
 
 		gpio_aon: gpio@65024800 {
