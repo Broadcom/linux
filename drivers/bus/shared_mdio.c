@@ -16,27 +16,34 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/errno.h>
+#include <linux/idr.h>
 #include <linux/of_device.h>
 #include <linux/stddef.h>
 #include <linux/module.h>
 #include <linux/shared_mdio.h>
 #include <linux/slab.h>
 
+static DEFINE_IDA(shared_mdio_ida);
+
 static void shared_mdio_release_master(struct device *dev)
 {
 	struct shared_mdio_master *master = to_shared_mdio_master(dev);
 
+	ida_simple_remove(&shared_mdio_ida, master->dev_num);
 	kfree(master);
 }
 
 struct shared_mdio_master *shared_mdio_alloc_master(struct device *parent,
 						    struct device_node *node)
 {
+	int ret = 0;
 	struct shared_mdio_master *master;
 
 	master = kzalloc(sizeof(*master), GFP_KERNEL);
-	if (!master)
-		return NULL;
+	if (!master) {
+		ret = -ENOMEM;
+		goto fail1;
+	}
 
 	master->dev.parent = parent;
 	master->dev.bus = &shared_mdio_bus;
@@ -44,10 +51,22 @@ struct shared_mdio_master *shared_mdio_alloc_master(struct device *parent,
 
 	device_initialize(&master->dev);
 
+	ret = ida_simple_get(&shared_mdio_ida, 0, 0, GFP_KERNEL);
+	if (ret < 0)
+		goto fail2;
+	master->dev_num = ret;
+
+	dev_set_name(&master->dev, "shared-mdio-master%d", master->dev_num);
+
 	of_node_get(node);
 	master->dev.of_node = node;
 
 	return master;
+
+fail2:
+	kfree(master);
+fail1:
+	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(shared_mdio_alloc_master);
 
@@ -55,9 +74,6 @@ int shared_mdio_add_master(struct shared_mdio_master *master)
 {
 	if (!master)
 		return -EINVAL;
-
-	dev_set_name(&master->dev, "%s.%d",
-		     dev_name(master->dev.parent), master->master_id);
 
 	return device_add(&master->dev);
 }
@@ -150,11 +166,14 @@ static int __init shared_mdio_init(void)
 static void __exit shared_mdio_exit(void)
 {
 	bus_unregister(&shared_mdio_bus);
+
+	ida_destroy(&shared_mdio_ida);
 }
 
 subsys_initcall(shared_mdio_init);
 module_exit(shared_mdio_exit);
 
 MODULE_DESCRIPTION("Shared MDIO Bus");
-MODULE_AUTHOR("Broadcom");
+MODULE_AUTHOR("Anup Patel <anup.patel@broadcom.com>");
+MODULE_AUTHOR("Pramod Kumar <pramod.kumar@broadcom.com>");
 MODULE_LICENSE("GPL v2");

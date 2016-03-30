@@ -10,7 +10,6 @@
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- *
  * Platform driver for Shared MDIO Masters on iProc SoC
  */
 
@@ -212,8 +211,8 @@ static int iproc_shared_mdio_probe(struct platform_device *pdev)
 		}
 
 		master = shared_mdio_alloc_master(dev, child);
-		if (!master) {
-			ret = -ENOMEM;
+		if (IS_ERR(master)) {
+			ret = PTR_ERR(master);
 			goto fail;
 		}
 		imdio->masters[cnt] = master;
@@ -283,5 +282,5 @@ static struct platform_driver iproc_shared_mdio_driver = {
 module_platform_driver(iproc_shared_mdio_driver);
 
 MODULE_DESCRIPTION("iProc Shared MDIO Master Driver");
-MODULE_AUTHOR("Broadcom");
+MODULE_AUTHOR("Pramod Kumar <pramod.kumar@broadcom.com>");
 MODULE_LICENSE("GPL v2");

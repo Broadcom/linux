@@ -22,10 +22,15 @@ extern struct bus_type shared_mdio_bus;
 /*
  * This structure represets the mdio master that control the MDIO bus
  * to access the phy attached on it.
- * @master_id : Represent the master id which represents the bus transaction.
+ * @dev Underlying device for mdio master
+ * @dev_num Unique device number of mdio master
+ * @master_id Represent the master id of mdio master
+ * @mdio_write Write callback of mdio master
+ * @mdio_read Read callback for mdio master
  */
 struct shared_mdio_master {
 	struct device dev;
+	int dev_num;
 	int master_id;
 	void *priv;
 
