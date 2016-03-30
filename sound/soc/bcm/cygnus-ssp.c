@@ -48,7 +48,7 @@
 
 /* Begin register offset defines */
 #define AUD_MISC_SEROUT_OE_REG_BASE  0x01c
-#define AUD_MISC_SEROUT_SPDIF_OE  13
+#define AUD_MISC_SEROUT_SPDIF_OE  12
 #define AUD_MISC_SEROUT_MCLK_OE   3
 #define AUD_MISC_SEROUT_LRCK_OE   2
 #define AUD_MISC_SEROUT_SCLK_OE   1
@@ -688,16 +688,11 @@ static int cygnus_ssp_set_clocks(struct cygnus_aio_port *aio,
 	bool found = false;
 	const struct _ssp_clk_coeff *p_entry = NULL;
 
-	if ((!aio->lrclk) || (!aio->bit_per_frame)) {
-		dev_err(aio->cygaud->dev, "First set up port through hw_params()\n");
-		return -EINVAL;
-	}
-
 	for (i = 0; i < ARRAY_SIZE(ssp_clk_coeff); i++) {
 		p_entry = &ssp_clk_coeff[i];
 		if ((p_entry->rate == aio->lrclk) &&
-				(p_entry->sclk_rate == aio->bit_per_frame) &&
-				(p_entry->mclk == aio->mclk)) {
+		    (p_entry->sclk_rate == aio->bit_per_frame) &&
+		    (p_entry->mclk == aio->mclk)) {
 			found = true;
 			break;
 		}
@@ -716,7 +711,8 @@ static int cygnus_ssp_set_clocks(struct cygnus_aio_port *aio,
 	/* sclks_per_1fs_div = sclk cycles/32 */
 	sclk /= 32;
 	/* Set sclk rate */
-	if (aio->port_type == PORT_TDM) {
+	switch (aio->port_type) {
+	case PORT_TDM:
 		/* Set number of bitclks per frame */
 		value = readl(aio->cygaud->audio + aio->regs.i2s_cfg);
 		value &= ~(mask << I2S_OUT_CFGX_SCLKS_PER_1FS_DIV32);
@@ -724,6 +720,12 @@ static int cygnus_ssp_set_clocks(struct cygnus_aio_port *aio,
 		writel(value, aio->cygaud->audio + aio->regs.i2s_cfg);
 		dev_dbg(aio->cygaud->dev,
 			"SCLKS_PER_1FS_DIV32 = 0x%x\n", value);
+		break;
+	case PORT_SPDIF:
+		break;
+	default:
+		dev_err(aio->cygaud->dev, "Unknown port type\n");
+		return -EINVAL;
 	}
 
 	/* Set MCLK_RATE ssp port (spdif and ssp are the same) */
@@ -775,24 +777,22 @@ static int cygnus_ssp_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		/* Configure channels as mono or stereo */
-		if (params_channels(params) == 1) {
-			value = readl(aio->cygaud->audio +
-				aio->regs.bf_sourcech_cfg);
+		value = readl(aio->cygaud->audio + aio->regs.bf_sourcech_cfg);
+		value &= ~BIT(BF_SRC_CFGX_BUFFER_PAIR_ENABLE);
+		/* Configure channels as mono or stereo/TDM */
+		if (params_channels(params) == 1)
 			value |= BIT(BF_SRC_CFGX_SAMPLE_CH_MODE);
-			value &= ~BIT(BF_SRC_CFGX_BUFFER_PAIR_ENABLE);
-			writel(value, aio->cygaud->audio +
-				aio->regs.bf_sourcech_cfg);
-		} else {
-			value = readl(aio->cygaud->audio +
-				aio->regs.bf_sourcech_cfg);
+		else
 			value &= ~BIT(BF_SRC_CFGX_SAMPLE_CH_MODE);
-			writel(value, aio->cygaud->audio +
-				aio->regs.bf_sourcech_cfg);
-		}
+		writel(value, aio->cygaud->audio + aio->regs.bf_sourcech_cfg);
 
 		switch (params_format(params)) {
 		case SNDRV_PCM_FORMAT_S8:
+			if (aio->port_type == PORT_SPDIF) {
+				dev_err(aio->cygaud->dev,
+				"SPDIF does not support 8bit format\n");
+				return -EINVAL;
+			}
 			bitres = 8;
 			break;
 
@@ -801,7 +801,6 @@ static int cygnus_ssp_hw_params(struct snd_pcm_substream *substream,
 			break;
 
 		case SNDRV_PCM_FORMAT_S32_LE:
-		case SNDRV_PCM_FORMAT_S24_LE:
 			/* 32 bit mode is coded as 0 */
 			bitres = 0;
 			break;
@@ -827,7 +826,6 @@ static int cygnus_ssp_hw_params(struct snd_pcm_substream *substream,
 			break;
 
 		case SNDRV_PCM_FORMAT_S32_LE:
-		case SNDRV_PCM_FORMAT_S24_LE:
 			value = readl(aio->cygaud->audio +
 					aio->regs.bf_destch_cfg);
 			value &= ~BIT(BF_DST_CFGX_CAP_MODE);
@@ -1214,14 +1212,30 @@ static int cygnus_ssp_suspend(struct snd_soc_dai *cpu_dai)
 static int cygnus_ssp_resume(struct snd_soc_dai *cpu_dai)
 {
 	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(cpu_dai);
+	int error;
 
 	if (!aio->is_slave) {
-		if (aio->clk_trace.cap_clk_en)
-			clk_prepare_enable(aio->cygaud->
+		if (aio->clk_trace.cap_clk_en) {
+			error = clk_prepare_enable(aio->cygaud->
 					audio_clk[aio->pll_clk_num]);
-		if (aio->clk_trace.play_clk_en)
-			clk_prepare_enable(aio->cygaud->
+			if (error) {
+				dev_err(aio->cygaud->dev, "%s clk_prepare_enable failed\n",
+					__func__);
+				return -EINVAL;
+			}
+		}
+		if (aio->clk_trace.play_clk_en) {
+			error = clk_prepare_enable(aio->cygaud->
 					audio_clk[aio->pll_clk_num]);
+			if (error) {
+				if (aio->clk_trace.cap_clk_en)
+					clk_disable_unprepare(aio->cygaud->
+						audio_clk[aio->pll_clk_num]);
+				dev_err(aio->cygaud->dev, "%s clk_prepare_enable failed\n",
+					__func__);
+				return -EINVAL;
+			}
+		}
 	}
 
 	return 0;
@@ -1252,7 +1266,6 @@ static const struct snd_soc_dai_ops cygnus_ssp_dai_ops = {
 			SNDRV_PCM_RATE_192000, \
 		.formats = SNDRV_PCM_FMTBIT_S8 | \
 				SNDRV_PCM_FMTBIT_S16_LE | \
-				SNDRV_PCM_FMTBIT_S24_LE | \
 				SNDRV_PCM_FMTBIT_S32_LE, \
 	}, \
 	.capture = { \
@@ -1262,7 +1275,6 @@ static const struct snd_soc_dai_ops cygnus_ssp_dai_ops = {
 			SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_176400 | \
 			SNDRV_PCM_RATE_192000, \
 		.formats =  SNDRV_PCM_FMTBIT_S16_LE | \
-					SNDRV_PCM_FMTBIT_S24_LE | \
 					SNDRV_PCM_FMTBIT_S32_LE, \
 	}, \
 	.ops = &cygnus_ssp_dai_ops, \
@@ -1347,22 +1359,26 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 	aio->port_type = port_type;
 	aio->fsync_width = -1;
 
-	if (port_type == PORT_TDM) {
+	switch (port_type) {
+	case PORT_TDM:
 		aio->regs = ssp_regs[portnum];
-
 		*p_dai = cygnus_ssp_dai_info[portnum];
 		aio->mode = CYGNUS_SSPMODE_UNKNOWN;
+		break;
 
-	} else { /* SPDIF case */
+	case PORT_SPDIF:
 		aio->regs.bf_sourcech_cfg = BF_SRC_CFG3_OFFSET;
 		aio->regs.bf_sourcech_ctrl = BF_SRC_CTRL3_OFFSET;
 		aio->regs.i2s_mclk_cfg = SPDIF_MCLK_CFG_OFFSET;
 		aio->regs.i2s_stream_cfg = SPDIF_STREAM_CFG_OFFSET;
-
 		*p_dai = cygnus_spdif_dai_info;
 
 		/* For the purposes of this code SPDIF can be I2S mode */
 		aio->mode = CYGNUS_SSPMODE_I2S;
+		break;
+	default:
+		dev_err(&pdev->dev, "Bad value for port_type %d\n", port_type);
+		return -EINVAL;
 	}
 
 	dev_dbg(&pdev->dev, "%s portnum = %d\n", __func__, aio->portnum);
