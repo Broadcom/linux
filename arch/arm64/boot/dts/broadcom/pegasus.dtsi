@@ -248,6 +248,17 @@
 			iommus = <&smmu>;
 		};
 
+		sdio0: sdhci@00620000 {
+			compatible = "brcm,sdhci-iproc";
+			reg = <0x00620000 0x100>;
+			interrupts = <GIC_SPI 298 IRQ_TYPE_LEVEL_HIGH>;
+			bus-width = <8>;
+			clocks = <&sdio0_clk>;
+			#stream-id-cells = <1>;
+			iommus = <&smmu>;
+			status = "disabled";
+		};
+
 		nand: nand@00660000 {
 			compatible = "brcm,nand-iproc", "brcm,brcmnand-v6.1";
 			reg = <0x00660000 0x600>,
@@ -286,7 +297,8 @@
 				     <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
-			mmu-masters = <&dma0 0x6000>;
+			mmu-masters = <&dma0 0x6000>,
+				      <&sdio0 0x6001>;
 			smmu-inst-as-data;
 			#iommu-cells = <0>;
 		};
