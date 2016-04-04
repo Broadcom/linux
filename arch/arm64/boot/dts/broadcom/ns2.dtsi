@@ -193,7 +193,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
-		ranges = <0x83000000 0 0x00000000 0 0x60000000 0 0x01000000>;
+		ranges = <0x83000000 0 0x00000000 0 0x60000000 0 0x00c00000>;
 
 		status = "disabled";
 
