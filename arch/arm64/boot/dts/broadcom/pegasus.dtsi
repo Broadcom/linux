@@ -272,6 +272,24 @@
 			status = "disabled";
 		};
 
+		pdc0: iproc-pdc0@28200000 {
+			compatible = "brcm,pdc-mbox";
+			reg = <0x28200000 0x628>;
+			interrupts = <GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH>;
+			#mbox-cells = <1>;
+			dma-coherent;
+			brcm,rx_status_len = <17>;
+		};
+
+		pdc1: iproc-pdc1@28210000 {
+			compatible = "brcm,pdc-mbox";
+			reg = <0x28210000 0x628>;
+			interrupts = <GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH>;
+			#mbox-cells = <1>;
+			dma-coherent;
+			brcm,rx_status_len = <17>;
+		};
+
 		gic: interrupt-controller@2a000000 {
 			compatible = "arm,gic-400";
 			#interrupt-cells = <3>;
