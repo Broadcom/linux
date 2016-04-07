@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/irqchip/arm-gic-v3.h>
 #include <linux/platform_device.h>
 #include <linux/of_address.h>
 #include <linux/of_pci.h>
@@ -37,6 +38,12 @@
 #define RC_PCIE_RST_OUTPUT_SHIFT     0
 #define RC_PCIE_RST_OUTPUT           BIT(RC_PCIE_RST_OUTPUT_SHIFT)
 #define PAXC_RESET_MASK              0x7f
+
+#define GIC_V3_CFG_SHIFT             0
+#define GIC_V3_CFG                   BIT(GIC_V3_CFG_SHIFT)
+
+#define MSI_ENABLE_CFG_SHIFT         0
+#define MSI_ENABLE_CFG               BIT(MSI_ENABLE_CFG_SHIFT)
 
 #define CFG_IND_ADDR_MASK            0x00001ffc
 
@@ -68,48 +75,121 @@
 
 #define IPROC_PCIE_REG_INVALID 0xffff
 
+/*
+ * iProc PCIe host registers
+ */
 enum iproc_pcie_reg {
+	/* clock/reset signal control */
 	IPROC_PCIE_CLK_CTRL = 0,
+
+	/*
+	 * To allow MSI to be steered to an external MSI controller (e.g., ARM
+	 * GICv3 ITS). Only available in PAXC v2
+	 */
+	IPROC_PCIE_MSI_GIC_MODE,
+
+	/*
+	 * IPROC_PCIE_MSI_BASE_ADDR and IPROC_PCIE_MSI_WINDOW_SIZE define the
+	 * window where the MSI posted writes are written, for the writes to be
+	 * interpreted as MSI writes. Only available in PAXC v2
+	 */
+	IPROC_PCIE_MSI_BASE_ADDR,
+	IPROC_PCIE_MSI_WINDOW_SIZE,
+
+	/*
+	 * To hold the address of the register where the MSI writes are
+	 * programed. When ARM GICv3 ITS is used, this should be programmed
+	 * with the address of the GITS_TRANSLATER register. Only available in
+	 * PAXC v2
+	 */
+	IPROC_PCIE_MSI_ADDR_LO,
+	IPROC_PCIE_MSI_ADDR_HI,
+
+	/* enable MSI. Only available in PAXC v2 */
+	IPROC_PCIE_MSI_EN_CFG,
+
+	/* allow access to root complex configuration space */
 	IPROC_PCIE_CFG_IND_ADDR,
 	IPROC_PCIE_CFG_IND_DATA,
+
+	/* allow access to device configuration space */
 	IPROC_PCIE_CFG_ADDR,
 	IPROC_PCIE_CFG_DATA,
+
+	/* enable INTx. Only available in PAXB */
 	IPROC_PCIE_INTX_EN,
+
+	/* outbound address mapping */
 	IPROC_PCIE_OARR_LO,
 	IPROC_PCIE_OARR_HI,
 	IPROC_PCIE_OMAP_LO,
 	IPROC_PCIE_OMAP_HI,
+
+	/* link status. Only available in PAXB */
 	IPROC_PCIE_LINK_STATUS,
 };
 
 /* iProc PCIe PAXB registers */
 static const u16 iproc_pcie_reg_paxb[] = {
-	[IPROC_PCIE_CLK_CTRL]     = 0x000,
-	[IPROC_PCIE_CFG_IND_ADDR] = 0x120,
-	[IPROC_PCIE_CFG_IND_DATA] = 0x124,
-	[IPROC_PCIE_CFG_ADDR]     = 0x1f8,
-	[IPROC_PCIE_CFG_DATA]     = 0x1fc,
-	[IPROC_PCIE_INTX_EN]      = 0x330,
-	[IPROC_PCIE_OARR_LO]      = 0xd20,
-	[IPROC_PCIE_OARR_HI]      = 0xd24,
-	[IPROC_PCIE_OMAP_LO]      = 0xd40,
-	[IPROC_PCIE_OMAP_HI]      = 0xd44,
-	[IPROC_PCIE_LINK_STATUS]  = 0xf0c,
+	[IPROC_PCIE_CLK_CTRL]         = 0x000,
+	[IPROC_PCIE_MSI_GIC_MODE]     = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_BASE_ADDR]    = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_WINDOW_SIZE]  = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_ADDR_LO]      = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_ADDR_HI]      = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_EN_CFG]       = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_CFG_IND_ADDR]     = 0x120,
+	[IPROC_PCIE_CFG_IND_DATA]     = 0x124,
+	[IPROC_PCIE_CFG_ADDR]         = 0x1f8,
+	[IPROC_PCIE_CFG_DATA]         = 0x1fc,
+	[IPROC_PCIE_INTX_EN]          = 0x330,
+	[IPROC_PCIE_OARR_LO]          = 0xd20,
+	[IPROC_PCIE_OARR_HI]          = 0xd24,
+	[IPROC_PCIE_OMAP_LO]          = 0xd40,
+	[IPROC_PCIE_OMAP_HI]          = 0xd44,
+	[IPROC_PCIE_LINK_STATUS]      = 0xf0c,
 };
 
 /* iProc PCIe PAXC v1 registers */
 static const u16 iproc_pcie_reg_paxc[] = {
-	[IPROC_PCIE_CLK_CTRL]     = 0x000,
-	[IPROC_PCIE_CFG_IND_ADDR] = 0x1f0,
-	[IPROC_PCIE_CFG_IND_DATA] = 0x1f4,
-	[IPROC_PCIE_CFG_ADDR]     = 0x1f8,
-	[IPROC_PCIE_CFG_DATA]     = 0x1fc,
-	[IPROC_PCIE_INTX_EN]      = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OARR_LO]      = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OARR_HI]      = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OMAP_LO]      = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OMAP_HI]      = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_LINK_STATUS]  = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_CLK_CTRL]         = 0x000,
+	[IPROC_PCIE_MSI_GIC_MODE]     = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_BASE_ADDR]    = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_WINDOW_SIZE]  = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_ADDR_LO]      = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_ADDR_HI]      = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_EN_CFG]       = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_CFG_IND_ADDR]     = 0x1f0,
+	[IPROC_PCIE_CFG_IND_DATA]     = 0x1f4,
+	[IPROC_PCIE_CFG_ADDR]         = 0x1f8,
+	[IPROC_PCIE_CFG_DATA]         = 0x1fc,
+	[IPROC_PCIE_INTX_EN]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_OARR_LO]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_OARR_HI]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_OMAP_LO]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_OMAP_HI]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_LINK_STATUS]      = IPROC_PCIE_REG_INVALID,
+};
+
+/* iProc PCIe PAXC v2 registers */
+static const u16 iproc_pcie_reg_paxc_v2[] = {
+	[IPROC_PCIE_CLK_CTRL]         = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_GIC_MODE]     = 0x050,
+	[IPROC_PCIE_MSI_BASE_ADDR]    = 0x074,
+	[IPROC_PCIE_MSI_WINDOW_SIZE]  = 0x078,
+	[IPROC_PCIE_MSI_ADDR_LO]      = 0x07c,
+	[IPROC_PCIE_MSI_ADDR_HI]      = 0x080,
+	[IPROC_PCIE_MSI_EN_CFG]       = 0x09c,
+	[IPROC_PCIE_CFG_IND_ADDR]     = 0x1f0,
+	[IPROC_PCIE_CFG_IND_DATA]     = 0x1f4,
+	[IPROC_PCIE_CFG_ADDR]         = 0x1f8,
+	[IPROC_PCIE_CFG_DATA]         = 0x1fc,
+	[IPROC_PCIE_INTX_EN]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_OARR_LO]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_OARR_HI]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_OMAP_LO]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_OMAP_HI]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_LINK_STATUS]      = IPROC_PCIE_REG_INVALID,
 };
 
 static inline struct iproc_pcie *iproc_data(struct pci_bus *bus)
@@ -203,7 +283,7 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct pci_bus *bus,
 	 * PAXC is connected to an internally emulated EP within the SoC.  It
 	 * allows only one device.
 	 */
-	if (pcie->type == IPROC_PCIE_PAXC)
+	if (pcie->ep_is_internal)
 		if (slot > 0)
 			return NULL;
 
@@ -236,7 +316,7 @@ static void iproc_pcie_reset(struct iproc_pcie *pcie)
 	 * be reset. If firmware has been loaded on the endpoint device at an
 	 * earlier boot stage, reset here causes issues
 	 */
-	if (pcie->type == IPROC_PCIE_PAXC)
+	if (pcie->ep_is_internal)
 		return;
 
 	/*
@@ -265,7 +345,7 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie, struct pci_bus *bus)
 	 * PAXC connects to emulated endpoint devices directly and does not
 	 * have a Serdes.  Therefore skip the link detection logic here.
 	 */
-	if (pcie->type == IPROC_PCIE_PAXC)
+	if (pcie->ep_is_internal)
 		return 0;
 
 	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_LINK_STATUS);
@@ -431,13 +511,95 @@ static int iproc_pcie_map_ranges(struct iproc_pcie *pcie,
 	return 0;
 }
 
+static int iproc_pcie_paxc_msi_steer(struct iproc_pcie *pcie,
+				     struct device_node *msi_node)
+{
+	int ret;
+	struct resource res;
+	u64 msi_addr;
+	u32 val;
+
+	/*
+	 * Check if 'msi-parent' points to ARM GICv3 ITS, which is the only MSI
+	 * controller hooked up with PAXC v2
+	 *
+	 * Ideally we should not need such knowledge in the iProc PCIe driver,
+	 * and the iProc PCIe driver should not even care about which MSI
+	 * controller is used in the system. Unfortunately the ASIC is done
+	 * this way that requires us to program the address of the
+	 * GITS_TRANSLATER register from GICv3 into the iProc PCIe MSI base
+	 * address register, to allow all MSI messages to be steered towards
+	 * GICv3 ITS
+	 */
+	if (!of_device_is_compatible(msi_node, "arm,gic-v3-its")) {
+		dev_err(pcie->dev,
+			"unable to find compatible MSI controller\n");
+		return -ENODEV;
+	}
+
+	/* derive GITS_TRANSLATER address from GICv3 */
+	ret = of_address_to_resource(msi_node, 0, &res);
+	if (ret < 0) {
+		dev_err(pcie->dev,
+			"unable to obtain MSI controller resources\n");
+		return ret;
+	}
+
+	msi_addr = res.start + GITS_TRANSLATER;
+
+	/*
+	 * Program bits [43:13] of address of GITS_TRANSLATER register into
+	 * bits [30:0] of the MSI base address register. In fact, in all iProc
+	 * based SoCs, all I/O register bases are well below the 32-bit
+	 * boundary, so we can safely assume bits [43:32] are always zeros
+	 */
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_MSI_BASE_ADDR,
+			     (u32)(msi_addr >> 13));
+
+	/* use a default 8K window size */
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_MSI_WINDOW_SIZE, 0);
+
+	/* steering MSI to GICv3 ITS */
+	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_MSI_GIC_MODE);
+	val |= GIC_V3_CFG;
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_MSI_GIC_MODE, val);
+
+	/*
+	 * Program bits [43:2] of address of GITS_TRANSLATER register into the
+	 * iProc MSI address registers
+	 */
+	msi_addr >>= 2;
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_MSI_ADDR_HI,
+			     upper_32_bits(msi_addr));
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_MSI_ADDR_LO,
+			     lower_32_bits(msi_addr));
+
+	/* enable MSI */
+	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_MSI_EN_CFG);
+	val |= MSI_ENABLE_CFG;
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_MSI_EN_CFG, val);
+
+	return 0;
+}
+
 static int iproc_pcie_msi_enable(struct iproc_pcie *pcie)
 {
 	struct device_node *msi_node;
+	int ret;
 
 	msi_node = of_parse_phandle(pcie->dev->of_node, "msi-parent", 0);
 	if (!msi_node)
 		return -ENODEV;
+
+	/*
+	 * PAXC v2 requires additional configurations to steer MSI to another
+	 * MSI controller
+	 */
+	if (pcie->type == IPROC_PCIE_PAXC_V2) {
+		ret = iproc_pcie_paxc_msi_steer(pcie, msi_node);
+		if (ret)
+			return ret;
+	}
 
 	/*
 	 * If another MSI controller is being used, the call below should fail
@@ -475,10 +637,15 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	switch (pcie->type) {
 	case IPROC_PCIE_PAXB:
 		pcie->reg_offsets = iproc_pcie_reg_paxb;
+		pcie->ep_is_internal = false;
 		break;
 	case IPROC_PCIE_PAXC:
 		pcie->reg_offsets = iproc_pcie_reg_paxc;
+		pcie->ep_is_internal = true;
 		break;
+	case IPROC_PCIE_PAXC_V2:
+		pcie->reg_offsets = iproc_pcie_reg_paxc_v2;
+		pcie->ep_is_internal = true;
 	default:
 		dev_err(pcie->dev, "incompatible iProc PCIe interface\n");
 		ret = -EINVAL;

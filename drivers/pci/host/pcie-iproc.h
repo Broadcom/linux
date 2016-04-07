@@ -22,10 +22,14 @@
  *
  * PAXC is the wrapper used in root complex dedicated for internal emulated
  * endpoint devices.
+ *
+ * PAXC v2 is the second generation of root complex wrapper dedicated for
+ * internal emulated endpoint devices.
  */
 enum iproc_pcie_type {
 	IPROC_PCIE_PAXB = 0,
 	IPROC_PCIE_PAXC,
+	IPROC_PCIE_PAXC_V2,
 };
 
 /**
@@ -56,6 +60,7 @@ struct iproc_msi;
  * @phy: optional PHY device that controls the Serdes
  * @map_irq: function callback to map interrupts
  * @need_ob_cfg: indicates SW needs to configure the outbound mapping window
+ * @ep_is_internal: indicates an internal emulated endpoint device is connected
  * @ob: outbound mapping parameters
  * @msi: MSI data
  */
@@ -72,6 +77,7 @@ struct iproc_pcie {
 	struct phy *phy;
 	int (*map_irq)(const struct pci_dev *, u8, u8);
 	bool need_ob_cfg;
+	bool ep_is_internal;
 	struct iproc_pcie_ob ob;
 	struct iproc_msi *msi;
 };
