@@ -1,0 +1,30 @@
+* Broadcom NS2 PCIe PHY binding document
+
+Required properties:
+- compatible: should be "brcm,ns2-pcie-phy"
+- brcm,phy_internal: NS2 only has internal MDIO phys
+- reg: MDIO chain number for the MDIO interface
+- #address-cells: must be 1
+- #size-cells: must be 0
+
+This is a child node of "brcm,iproc-shared-mdio"
+
+Required properties for child nodes:
+- reg: MDIO Phy ID for the MDIO interface
+- #phy-cells: must be 0
+
+
+Example:
+
+pci-master@0 {
+	compatible = "brcm,ns2-pcie-phy";
+	brcm,phy_internal;
+	reg = <0x0>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pci_phy0: pci-phy@0 {
+		reg = <0x0>;
+		#phy-cells = <0>;
+	};
+};
