@@ -135,6 +135,9 @@
 
 		status = "disabled";
 
+		phys = <&pci_phy0>;
+		phy-names = "pcie-phy";
+
 		msi-parent = <&msi0>;
 		msi0: msi@20020000 {
 			compatible = "brcm,iproc-msi";
@@ -170,6 +173,9 @@
 		brcm,pcie-ob-window-size = <256>;
 
 		status = "disabled";
+
+		phys = <&pci_phy1>;
+		phy-names = "pcie-phy";
 
 		msi-parent = <&msi4>;
 		msi4: msi@50020000 {
@@ -504,6 +510,32 @@
 			reg-names = "mdio";
 			#address-cells = <1>;
 			#size-cells = <0>;
+
+			pci-master@0 {
+				compatible = "brcm,ns2-pcie-phy";
+				brcm,phy_internal;
+				reg = <0x0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pci_phy0: pci-phy@0 {
+					reg = <0x0>;
+					#phy-cells = <0>;
+				};
+			};
+
+			pci-master@7 {
+				compatible = "brcm,ns2-pcie-phy";
+				brcm,phy_internal;
+				reg = <0x7>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pci_phy1: pci-phy@0 {
+					reg = <0x0>;
+					#phy-cells = <0>;
+				};
+			};
 		};
 
 		sata: ahci@663f2000 {
