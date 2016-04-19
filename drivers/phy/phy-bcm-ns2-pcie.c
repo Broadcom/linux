@@ -67,6 +67,12 @@ static int ns2_pci_phy_probe(struct shared_mdio_master *master)
 	struct phy *phy;
 	int rc, phy_id;
 
+	/* NS2 only has internal Phys.  Enfore this to prevent someone from
+	 * shooting themselves in the foot
+	 */
+	if (!of_property_read_bool(dn, "brcm,phy_internal"))
+		return -EINVAL;
+
 	for_each_available_child_of_node(dn, child) {
 		rc = of_property_read_u32(child, "reg", &phy_id);
 		if (rc < 0)
