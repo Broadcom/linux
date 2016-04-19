@@ -1,0 +1,29 @@
+The Broadcom Secure Processing Unit (SPU) driver supports symmetric
+cryptographic offload for Broadcom SoCs with SPU hardware. A SoC may have
+multiple SPU hardware blocks.
+
+Required properties:
+- compatible : Should be "brcm,spum-crypto" for devices with SPU-M hardware
+  (e.g., Northstar2), or "brcm,spu2-crypto" for devices with SPU2 hardware
+  (e.g., Pegasus, Stingray).
+- reg: Should contain SPU registers location and length.
+- mboxes: A list of mailbox channels to be used by the kernel driver. Mailbox
+channels correspond to DMA rings on the device.
+- brcm,max-pkt-size: Maximum payload length of a SPU message, in bytes. The max
+  pkt size must be a multiple of the hash and cipher block sizes, so that
+  when the driver breaks a request into chunks, the chunks are a multiple of
+  block size.
+
+Example:
+	spu-crypto@612d0000 {
+		compatible = "brcm,spum-crypto";
+		reg = <0 0x612d0000 0 0x900>,    /* SPU 0 control regs */
+			<0 0x612f0000 0 0x900>,  /* SPU 1 control regs */
+			<0 0x61310000 0 0x900>,  /* SPU 2 control regs */
+			<0 0x61330000 0 0x900>;  /* SPU 3 control regs */
+		mboxes = <&pdc0 0>,
+			<&pdc1 0>,
+			<&pdc2 0>,
+			<&pdc3 0>;
+		brcm,max-pkt-size = <65536>;
+	};
