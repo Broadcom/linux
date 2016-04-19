@@ -496,5 +496,65 @@
 			#mbox-cells = <3>;
 			dma-coherent;
 		};
+
+		raid0 {
+			compatible = "brcm,iproc-sba";
+			brcm,max-pq-disks = <30>;
+			brcm,max-requests = <256>;
+			brcm,request-size = <131072>;
+			mboxes = <&raid_mbox 0 0x1 0xffff>,
+				 <&raid_mbox 1 0x1 0xffff>,
+				 <&raid_mbox 2 0x1 0xffff>,
+				 <&raid_mbox 3 0x1 0xffff>,
+				 <&raid_mbox 4 0x1 0xffff>,
+				 <&raid_mbox 5 0x1 0xffff>,
+				 <&raid_mbox 6 0x1 0xffff>,
+				 <&raid_mbox 7 0x1 0xffff>;
+		};
+
+		raid1 {
+			compatible = "brcm,iproc-sba";
+			brcm,max-pq-disks = <30>;
+			brcm,max-requests = <256>;
+			brcm,request-size = <131072>;
+			mboxes = <&raid_mbox 8 0x1 0xffff>,
+				 <&raid_mbox 9 0x1 0xffff>,
+				 <&raid_mbox 10 0x1 0xffff>,
+				 <&raid_mbox 11 0x1 0xffff>,
+				 <&raid_mbox 12 0x1 0xffff>,
+				 <&raid_mbox 13 0x1 0xffff>,
+				 <&raid_mbox 14 0x1 0xffff>,
+				 <&raid_mbox 15 0x1 0xffff>;
+		};
+
+		raid2 {
+			compatible = "brcm,iproc-sba";
+			brcm,max-pq-disks = <30>;
+			brcm,max-requests = <256>;
+			brcm,request-size = <131072>;
+			mboxes = <&raid_mbox 16 0x1 0xffff>,
+				 <&raid_mbox 17 0x1 0xffff>,
+				 <&raid_mbox 18 0x1 0xffff>,
+				 <&raid_mbox 19 0x1 0xffff>,
+				 <&raid_mbox 20 0x1 0xffff>,
+				 <&raid_mbox 21 0x1 0xffff>,
+				 <&raid_mbox 22 0x1 0xffff>,
+				 <&raid_mbox 23 0x1 0xffff>;
+		};
+
+		raid3 {
+			compatible = "brcm,iproc-sba";
+			brcm,max-pq-disks = <30>;
+			brcm,max-requests = <256>;
+			brcm,request-size = <131072>;
+			mboxes = <&raid_mbox 24 0x1 0xffff>,
+				 <&raid_mbox 25 0x1 0xffff>,
+				 <&raid_mbox 26 0x1 0xffff>,
+				 <&raid_mbox 27 0x1 0xffff>,
+				 <&raid_mbox 28 0x1 0xffff>,
+				 <&raid_mbox 29 0x1 0xffff>,
+				 <&raid_mbox 30 0x1 0xffff>,
+				 <&raid_mbox 31 0x1 0xffff>;
+		};
 	};
 };
