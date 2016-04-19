@@ -126,6 +126,7 @@ struct flexdma_ring {
 	/* Unprotected members */
 	int num;
 	struct flexdma_mbox *mbox;
+	void __iomem *regs;
 	bool irq_requested;
 	unsigned int irq;
 	unsigned int msi_timer_val;
@@ -134,14 +135,13 @@ struct flexdma_ring {
 	struct brcm_message *requests[RING_MAX_REQ_COUNT];
 	void *bd_base;
 	dma_addr_t bd_dma_base;
+	u32 bd_write_offset;
 	void *cmpl_base;
 	dma_addr_t cmpl_dma_base;
-	/* Protected members */
-	spinlock_t lock;
-	void __iomem *regs;
-	struct brcm_message *last_pending_msg;
-	u32 bd_write_offset;
 	u32 cmpl_read_offset;
+	/* Protected members */
+	spinlock_t last_pending_lock;
+	struct brcm_message *last_pending_msg;
 };
 
 struct flexdma_mbox {
@@ -158,10 +158,10 @@ struct flexdma_mbox {
 static int flexdma_new_request(struct flexdma_ring *ring,
 				struct brcm_message *msg)
 {
-	u32 val, count;
-	u32 read_offset, write_offset;
 	void *next;
 	unsigned long flags;
+	u32 val, count;
+	u32 read_offset, write_offset;
 	bool exit_cleanup = false;
 	int ret = 0, reqid;
 
@@ -174,9 +174,9 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 	reqid = ida_simple_get(&ring->requests_ida, 0,
 				RING_MAX_REQ_COUNT, GFP_KERNEL);
 	if (reqid < 0) {
-		spin_lock_irqsave(&ring->lock, flags);
+		spin_lock_irqsave(&ring->last_pending_lock, flags);
 		ring->last_pending_msg = msg;
-		spin_unlock_irqrestore(&ring->lock, flags);
+		spin_unlock_irqrestore(&ring->last_pending_lock, flags);
 		return 0;
 	}
 	ring->requests[reqid] = msg;
@@ -189,12 +189,13 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 		return ret;
 	}
 
-	spin_lock_irqsave(&ring->lock, flags);
-
 	/* If last_pending_msg is already set then goto done with error */
-	if (ring->last_pending_msg) {
-		dev_warn(ring->mbox->dev, "no space in ring %d\n", ring->num);
+	spin_lock_irqsave(&ring->last_pending_lock, flags);
+	if (ring->last_pending_msg)
 		ret = -ENOSPC;
+	spin_unlock_irqrestore(&ring->last_pending_lock, flags);
+	if (ret < 0) {
+		dev_warn(ring->mbox->dev, "no space in ring %d\n", ring->num);
 		exit_cleanup = true;
 		goto exit;
 	}
@@ -218,7 +219,9 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 			break;
 	}
 	if (count) {
+		spin_lock_irqsave(&ring->last_pending_lock, flags);
 		ring->last_pending_msg = msg;
+		spin_unlock_irqrestore(&ring->last_pending_lock, flags);
 		ret = 0;
 		exit_cleanup = true;
 		goto exit;
@@ -239,8 +242,6 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 	ring->bd_write_offset = (unsigned long)(next - ring->bd_base);
 
 exit:
-	spin_unlock_irqrestore(&ring->lock, flags);
-
 	/* Update error status in message */
 	msg->error = ret;
 
@@ -256,45 +257,31 @@ exit:
 
 static irqreturn_t flexdma_irq_event(int irq, void *dev_id)
 {
-	u32 val;
-	unsigned long flags;
-	struct flexdma_ring *ring = dev_id;
-
-	spin_lock_irqsave(&ring->lock, flags);
-
-	/* Disable MSI */
-	/* The IRQ thread will re-enable MSI after it's done */
-	val = readl_relaxed(ring->regs + RING_MSI_CONTROL);
-	val &= ~BIT(MSI_ENABLE_SHIFT);
-	writel_relaxed(val, ring->regs + RING_MSI_CONTROL);
-
 	/* We only have MSI for completions so just wakeup IRQ thread */
 	/* Ring related errors will be informed via completion descriptors */
-
-	spin_unlock_irqrestore(&ring->lock, flags);
 
 	return IRQ_WAKE_THREAD;
 }
 
 static irqreturn_t flexdma_irq_thread(int irq, void *dev_id)
 {
+	int err;
 	u64 desc;
 	unsigned long flags;
-	u32 val, reqid, cmpl_write_offset;
-	struct brcm_message *msg;
+	u32 reqid, cmpl_write_offset;
+	struct brcm_message *msg = NULL;
 	struct flexdma_ring *ring = dev_id;
 	struct mbox_chan *chan = &ring->mbox->controller.chans[ring->num];
 
-	spin_lock_irqsave(&ring->lock, flags);
-
 	/* If last_pending_msg is set then queue it back */
+	spin_lock_irqsave(&ring->last_pending_lock, flags);
 	if (ring->last_pending_msg) {
-		spin_unlock_irqrestore(&ring->lock, flags);
 		msg = ring->last_pending_msg;
 		ring->last_pending_msg = NULL;
-		flexdma_new_request(ring, msg);
-		spin_lock_irqsave(&ring->lock, flags);
 	}
+	spin_unlock_irqrestore(&ring->last_pending_lock, flags);
+	if (msg)
+		flexdma_new_request(ring, msg);
 
 	/*
 	 * Get current completion write offset
@@ -318,15 +305,25 @@ static irqreturn_t flexdma_irq_thread(int irq, void *dev_id)
 		if (ring->cmpl_read_offset == RING_CMPL_SIZE)
 			ring->cmpl_read_offset = 0;
 
-		spin_unlock_irqrestore(&ring->lock, flags);
+		/* Decode error from completion descriptor */
+		err = flexdma_cmpl_desc_to_error(desc);
+		if (err < 0) {
+			dev_warn(ring->mbox->dev,
+				 "got completion desc=0x%lx with error %d",
+				 (unsigned long)desc, err);
+		}
 
 		/* Determine request id from completion descriptor */
 		reqid = flexdma_cmpl_desc_to_reqid(desc);
 
 		/* Determine message pointer based on reqid */
 		msg = ring->requests[reqid];
-		if (!msg)
+		if (!msg) {
+			dev_warn(ring->mbox->dev,
+				 "null msg pointer for completion desc=0x%lx",
+				 (unsigned long)desc);
 			continue;
+		}
 
 		/* Release reqid for recycling */
 		ring->requests[reqid] = NULL;
@@ -336,18 +333,9 @@ static irqreturn_t flexdma_irq_thread(int irq, void *dev_id)
 		flexdma_dma_unmap(ring->mbox->dev, msg);
 
 		/* Give-back message to mailbox client */
-		msg->error = flexdma_cmpl_desc_to_error(desc);
+		msg->error = err;
 		mbox_chan_received_data(chan, msg);
-
-		spin_lock_irqsave(&ring->lock, flags);
 	}
-
-	/* Re-enable MSI */
-	val = readl_relaxed(ring->regs + RING_MSI_CONTROL);
-	val |= BIT(MSI_ENABLE_SHIFT);
-	writel_relaxed(val, ring->regs + RING_MSI_CONTROL);
-
-	spin_unlock_irqrestore(&ring->lock, flags);
 
 	return IRQ_HANDLED;
 }
@@ -362,7 +350,6 @@ static int flexdma_startup(struct mbox_chan *chan)
 	u64 d;
 	u32 val, off;
 	int ret = 0;
-	unsigned long flags;
 	dma_addr_t next_addr;
 	struct flexdma_ring *ring = chan->con_priv;
 
@@ -411,8 +398,6 @@ static int flexdma_startup(struct mbox_chan *chan)
 		goto fail_free_cmpl_memory;
 	ring->irq_requested = true;
 
-	spin_lock_irqsave(&ring->lock, flags);
-
 	/* Disable/inactivate ring */
 	writel_relaxed(0x0, ring->regs + RING_CONTROL);
 
@@ -452,8 +437,6 @@ static int flexdma_startup(struct mbox_chan *chan)
 	val = BIT(CONTROL_ACTIVE_SHIFT);
 	writel_relaxed(val, ring->regs + RING_CONTROL);
 
-	spin_unlock_irqrestore(&ring->lock, flags);
-
 	return 0;
 
 fail_free_cmpl_memory:
@@ -471,12 +454,9 @@ fail:
 static void flexdma_shutdown(struct mbox_chan *chan)
 {
 	u32 reqid;
-	unsigned long flags;
 	unsigned int timeout;
 	struct brcm_message *msg;
 	struct flexdma_ring *ring = chan->con_priv;
-
-	spin_lock_irqsave(&ring->lock, flags);
 
 	/* Disable/inactivate ring */
 	writel_relaxed(0x0, ring->regs + RING_CONTROL);
@@ -491,8 +471,6 @@ static void flexdma_shutdown(struct mbox_chan *chan)
 			break;
 		mdelay(1);
 	} while (timeout--);
-
-	spin_unlock_irqrestore(&ring->lock, flags);
 
 	/* Abort all in-flight requests */
 	for (reqid = 0; reqid < RING_MAX_REQ_COUNT; reqid++) {
@@ -539,38 +517,9 @@ static bool flexdma_last_tx_done(struct mbox_chan *chan)
 	unsigned long flags;
 	struct flexdma_ring *ring = chan->con_priv;
 
-	spin_lock_irqsave(&ring->lock, flags);
+	spin_lock_irqsave(&ring->last_pending_lock, flags);
 	ret = (ring->last_pending_msg) ? false : true;
-	spin_unlock_irqrestore(&ring->lock, flags);
-
-	return ret;
-}
-
-static bool flexdma_peek_data(struct mbox_chan *chan)
-{
-	bool ret;
-	unsigned long flags;
-	u32 val, cmpl_write_offset;
-	struct flexdma_ring *ring = chan->con_priv;
-
-	spin_lock_irqsave(&ring->lock, flags);
-
-	/* Save MSI control */
-	val = readl_relaxed(ring->regs + RING_MSI_CONTROL);
-
-	/* Ensure MSI is disabled */
-	writel_relaxed(val & ~BIT(MSI_ENABLE_SHIFT),
-			ring->regs + RING_MSI_CONTROL);
-
-	/* Compare completion write offset with read offset */
-	cmpl_write_offset = readl_relaxed(ring->regs + RING_CMPL_WRITE_PTR);
-	cmpl_write_offset *= RING_DESC_SIZE;
-	ret = (cmpl_write_offset != ring->cmpl_read_offset) ? true : false;
-
-	/* Restore MSI control */
-	writel_relaxed(val, ring->regs + RING_MSI_CONTROL);
-
-	spin_unlock_irqrestore(&ring->lock, flags);
+	spin_unlock_irqrestore(&ring->last_pending_lock, flags);
 
 	return ret;
 }
@@ -580,24 +529,18 @@ static const struct mbox_chan_ops flexdma_mbox_chan_ops = {
 	.startup	= flexdma_startup,
 	.shutdown	= flexdma_shutdown,
 	.last_tx_done	= flexdma_last_tx_done,
-	.peek_data	= flexdma_peek_data
 };
 
 static void flexdma_mbox_msi_write(struct msi_desc *desc, struct msi_msg *msg)
 {
-	unsigned long flags;
 	struct device *dev = msi_desc_to_dev(desc);
 	struct flexdma_mbox *mbox = dev_get_drvdata(dev);
 	struct flexdma_ring *ring = &mbox->rings[desc->platform.msi_index];
-
-	spin_lock_irqsave(&ring->lock, flags);
 
 	/* Configure per-Ring MSI registers */
 	writel_relaxed(msg->address_lo, ring->regs + RING_MSI_ADDR_LS);
 	writel_relaxed(msg->address_hi, ring->regs + RING_MSI_ADDR_MS);
 	writel_relaxed(msg->data, ring->regs + RING_MSI_DATA_VALUE);
-
-	spin_unlock_irqrestore(&ring->lock, flags);
 }
 
 static struct mbox_chan *flexdma_mbox_of_xlate(struct mbox_controller *cntlr,
@@ -687,6 +630,15 @@ static int flexdma_mbox_probe(struct platform_device *pdev)
 		ring = &mbox->rings[index];
 		ring->num = index;
 		ring->mbox = mbox;
+		while ((regs < regs_end) &&
+		       (readl_relaxed(regs + RING_VER) != RING_VER_MAGIC))
+			regs += RING_REGS_SIZE;
+		if (regs_end <= regs) {
+			ret = -ENODEV;
+			goto fail;
+		}
+		ring->regs = regs;
+		regs += RING_REGS_SIZE;
 		ring->irq = UINT_MAX;
 		ring->irq_requested = false;
 		ring->msi_timer_val = MSI_TIMER_VAL_MASK;
@@ -697,16 +649,6 @@ static int flexdma_mbox_probe(struct platform_device *pdev)
 		ring->bd_dma_base = 0;
 		ring->cmpl_base = NULL;
 		ring->cmpl_dma_base = 0;
-		spin_lock_init(&ring->lock);
-		while ((regs < regs_end) &&
-		       (readl_relaxed(regs + RING_VER) != RING_VER_MAGIC))
-			regs += RING_REGS_SIZE;
-		if (regs_end <= regs) {
-			ret = -ENODEV;
-			goto fail;
-		}
-		ring->regs = regs;
-		regs += RING_REGS_SIZE;
 	}
 
 	/* FlexDMA is capable of 40-bit physical addresses only */

@@ -9,6 +9,7 @@
  * FlexDMA descriptor library
  */
 
+#include <asm/barrier.h>
 #include <asm/byteorder.h>
 #include <linux/dma-mapping.h>
 #include <linux/printk.h>
@@ -458,6 +459,9 @@ static void *flexdma_spu_write_descs(struct brcm_message *msg,
 	/* Null descriptor with invalid toggle bit */
 	flexdma_write_desc(desc_ptr, flexdma_null_desc(!toggle));
 
+	/* Ensure that descriptors have been written to memory */
+	wmb();
+
 	/* Flip toggle bit in header */
 	flexdma_flip_header_toogle(orig_desc_ptr);
 
@@ -592,6 +596,9 @@ static void *flexdma_sba_write_descs(struct brcm_message *msg,
 
 	/* Null descriptor with invalid toggle bit */
 	flexdma_write_desc(desc_ptr, flexdma_null_desc(!toggle));
+
+	/* Ensure that descriptors have been written to memory */
+	wmb();
 
 	/* Flip toggle bit in header */
 	flexdma_flip_header_toogle(orig_desc_ptr);
