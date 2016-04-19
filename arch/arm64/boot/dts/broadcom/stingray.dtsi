@@ -486,6 +486,7 @@
 			reg = <0x67000000 0x200000>;
 			msi-parent = <&gic_its 0x7ffd>;
 			#mbox-cells = <3>;
+			dma-coherent;
 		};
 
 		raid_mbox: mbox@67400000 {
@@ -493,6 +494,7 @@
 			reg = <0x67400000 0x200000>;
 			msi-parent = <&gic_its 0x7ffe>;
 			#mbox-cells = <3>;
+			dma-coherent;
 		};
 	};
 };
