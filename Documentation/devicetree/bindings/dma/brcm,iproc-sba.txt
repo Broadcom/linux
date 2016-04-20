@@ -1,0 +1,31 @@
+* Broadcom SBA RAID engine
+
+Required properties:
+- compatible: Should be "brcm,iproc-sba"
+- brcm,max-pq-disks: Maximum number of PQ disks supported by SBA hardware
+- brcm,max-requests: Maximum number of requests to be supported by SBA driver
+- brcm,request-size: Size of request to be supported by SBA driver
+- mboxes: List of phandle and mailbox channel specifiers
+
+Example:
+
+raid_mbox: mbox@67400000 {
+	...
+	#mbox-cells = <3>;
+	...
+};
+
+raid0 {
+	compatible = "brcm,iproc-sba";
+	brcm,max-pq-disks = <30>;
+	brcm,max-requests = <256>;
+	brcm,request-size = <131072>;
+	mboxes = <&raid_mbox 0 0x1 0xffff>,
+		 <&raid_mbox 1 0x1 0xffff>,
+		 <&raid_mbox 2 0x1 0xffff>,
+		 <&raid_mbox 3 0x1 0xffff>,
+		 <&raid_mbox 4 0x1 0xffff>,
+		 <&raid_mbox 5 0x1 0xffff>,
+		 <&raid_mbox 6 0x1 0xffff>,
+		 <&raid_mbox 7 0x1 0xffff>;
+};
