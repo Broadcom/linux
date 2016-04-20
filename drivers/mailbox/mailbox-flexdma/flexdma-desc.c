@@ -67,6 +67,7 @@
 #define HEADER_STARTPKT_MASK			0x1
 #define HEADER_BDCOUNT_SHIFT			36
 #define HEADER_BDCOUNT_MASK			0x1f
+#define HEADER_BDCOUNT_MAX			HEADER_BDCOUNT_MASK
 #define HEADER_FLAGS_SHIFT			16
 #define HEADER_FLAGS_MASK			0xffff
 #define HEADER_OPAQUE_SHIFT			0
@@ -246,6 +247,63 @@ static u64 flexdma_header_desc(u32 toggle, u32 startpkt, u32 endpkt,
 	DESC_ENC(desc, opaque, HEADER_OPAQUE_SHIFT, HEADER_OPAQUE_MASK);
 
 	return desc;
+}
+
+static void flexdma_check_n_enqueue_header(u32 nhpos, u32 nhcnt, u32 reqid,
+					   void **desc_ptr, u32 *toggle,
+					   void *start_desc, void *end_desc)
+{
+	u64 d;
+	u32 nhavail;
+
+	/*
+	 * Each request or packet start with a HEADER descriptor followed
+	 * by one or more non-HEADER descriptors (SRC, SRCT, MSRC, DST,
+	 * DSTT, MDST, IMM, and IMMT). The number of non-HEADER descriptors
+	 * following a HEADER descriptor is represented by BDCOUNT field
+	 * of HEADER descriptor. The max value of BDCOUNT field is 31 which
+	 * means we can only have 31 non-HEADER descriptors following one
+	 * HEADER descriptor.
+	 *
+	 * In general use, number of non-HEADER descriptors can easily go
+	 * beyond 31. To tackle this situation, we have packet (or request)
+	 * extenstion bits (STARTPKT and ENDPKT) in the HEADER descriptor.
+	 *
+	 * To use packet extension, the first HEADER descriptor of request
+	 * (or packet) will have STARTPKT=1 and ENDPKT=0. The intermediate
+	 * HEADER descriptors will have STARTPKT=0 and ENDPKT=0. The last
+	 * HEADER descriptor will have STARTPKT=0 and ENDPKT=1. Also, the
+	 * TOGGLE bit of the first HEADER will be set to invalid state to
+	 * ensure that FlexDMA engine does not start fetching descriptors
+	 * till all descriptors are enqueued. The user of this function
+	 * will flip the TOGGLE bit of first HEADER after all descriptors
+	 * are enqueued.
+	 *
+	 * The flexdma_check_n_enqueue_header() is supposed to be called
+	 * before enqueuing any non-HEADER descriptor (i.e. before calling
+	 * flexdma_enqueue_desc()). This function will ensure that HEADER
+	 * descriptors are inserted at appropriate location based on total
+	 * number of non-HEADER descriptors and number of already queued
+	 * non-HEADER descriptors.
+	 *
+	 * TODO: Eventually, the logic of inserting HEADER descriptors
+	 * will be directly part of the flexdma_enqueue_desc() once packet
+	 * extension is tested for both SPU2 and SBA messages. Currently,
+	 * packet extension is only tested for SBA messages.
+	 */
+
+	if ((nhpos % HEADER_BDCOUNT_MAX == 0) && (nhcnt - nhpos)) {
+		nhavail = nhcnt - nhpos;
+		d = flexdma_header_desc(
+		(nhpos == 0) ? !(*toggle) : (*toggle),		/* toggle */
+		(nhpos == 0) ? 0x1 : 0x0,			/* startpkt */
+		(nhavail <= HEADER_BDCOUNT_MAX) ? 0x1 : 0x0,	/* endpkt */
+		(nhavail <= HEADER_BDCOUNT_MAX) ?
+				nhavail : HEADER_BDCOUNT_MAX,	/* bdcount */
+		0x0, reqid);
+		flexdma_enqueue_desc(d, desc_ptr, toggle,
+				     start_desc, end_desc);
+	}
 }
 
 static u64 flexdma_src_desc(dma_addr_t addr, unsigned int length)
@@ -472,12 +530,6 @@ static bool flexdma_sba_sanity_check(struct brcm_message *msg)
 {
 	u32 i;
 
-	/*
-	 * TODO: Use multiple headers for large number of
-	 * source and/or destinetion buffers using startpkt
-	 * and endpkt fields.
-	 */
-
 	if (!msg->sba.cmds || !msg->sba.cmds_count)
 		return false;
 
@@ -499,15 +551,9 @@ static bool flexdma_sba_sanity_check(struct brcm_message *msg)
 	return true;
 }
 
-static u32 flexdma_sba_estimate_desc_count(struct brcm_message *msg)
+static u32 flexdma_sba_estimate_nonhdr_desc_count(struct brcm_message *msg)
 {
 	u32 i, cnt;
-
-	/*
-	 * TODO: Use multiple headers for large number of
-	 * source and/or destinetion buffers using startpkt
-	 * and endpkt fields.
-	 */
 
 	cnt = 0;
 	for (i = 0; i < msg->sba.cmds_count; i++) {
@@ -524,30 +570,35 @@ static u32 flexdma_sba_estimate_desc_count(struct brcm_message *msg)
 			cnt++;
 	}
 
-	/* +2 for header at start and null descriptor at end */
-	return cnt + 2;
+	return cnt;
+}
+
+static u32 flexdma_sba_estimate_desc_count(struct brcm_message *msg)
+{
+	u32 hcnt = 0, nhpos;
+	u32 nhcnt = flexdma_sba_estimate_nonhdr_desc_count(msg);
+
+	for (nhpos = 0; nhpos < nhcnt; nhpos++) {
+		if (nhpos % 31 == 0)
+			hcnt++;
+	}
+
+	/*
+	 * total descriptors = non-header descriptors +
+	 *			header descriptors +
+	 *			1x null descriptor
+	 */
+	return nhcnt + hcnt + 1;
 }
 
 static void *flexdma_sba_write_descs(struct brcm_message *msg,
 				     u32 reqid, void *desc_ptr, u32 toggle,
 				     void *start_desc, void *end_desc)
 {
-	u64 desc;
-	unsigned int i;
+	u64 d;
+	u32 i, nhpos = 0, nhcnt = flexdma_sba_estimate_nonhdr_desc_count(msg);
 	struct brcm_sba_command *c;
 	void *orig_desc_ptr = desc_ptr;
-
-	/*
-	 * TODO: Use multiple headers for large number of
-	 * source and/or destinetion buffers using startpkt
-	 * and endpkt fields.
-	 */
-
-	/* Header descriptor */
-	desc = flexdma_header_desc(!toggle, 0x1, 0x1,
-				   flexdma_sba_estimate_desc_count(msg) - 2,
-				   0x0, reqid);
-	flexdma_enqueue_desc(desc, &desc_ptr, &toggle, start_desc, end_desc);
 
 	/* Convert SBA commands into descriptors */
 	for (i = 0; i < msg->sba.cmds_count; i++) {
@@ -556,41 +607,65 @@ static void *flexdma_sba_write_descs(struct brcm_message *msg,
 		if ((c->flags & BRCM_SBA_CMD_HAS_RESP) &&
 		    (c->flags & BRCM_SBA_CMD_HAS_OUTPUT)) {
 			/* Destination response descriptor */
-			desc = flexdma_dst_desc(c->resp, c->resp_len);
-			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
+						       &desc_ptr, &toggle,
+						       start_desc, end_desc);
+			d = flexdma_dst_desc(c->resp, c->resp_len);
+			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
+			nhpos++;
 		} else if (c->flags & BRCM_SBA_CMD_HAS_RESP) {
 			/* Destination response with tlast descriptor */
-			desc = flexdma_dstt_desc(c->resp, c->resp_len);
-			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
+						       &desc_ptr, &toggle,
+						       start_desc, end_desc);
+			d = flexdma_dstt_desc(c->resp, c->resp_len);
+			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
+			nhpos++;
 		}
 
 		if (c->flags & BRCM_SBA_CMD_HAS_OUTPUT) {
 			/* Destination with tlast descriptor */
-			desc = flexdma_dstt_desc(c->output, c->output_len);
-			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
+						       &desc_ptr, &toggle,
+						       start_desc, end_desc);
+			d = flexdma_dstt_desc(c->output, c->output_len);
+			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
+			nhpos++;
 		}
 
 		if (c->flags & BRCM_SBA_CMD_TYPE_B) {
 			/* Command as immediate descriptor */
-			desc = flexdma_imm_desc(c->cmd);
-			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
+						       &desc_ptr, &toggle,
+						       start_desc, end_desc);
+			d = flexdma_imm_desc(c->cmd);
+			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
+			nhpos++;
 		} else {
 			/* Command as immediate descriptor with tlast */
-			desc = flexdma_immt_desc(c->cmd);
-			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
+						       &desc_ptr, &toggle,
+						       start_desc, end_desc);
+			d = flexdma_immt_desc(c->cmd);
+			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
+			nhpos++;
 		}
 
 		if ((c->flags & BRCM_SBA_CMD_TYPE_B) ||
 		    (c->flags & BRCM_SBA_CMD_TYPE_C)) {
 			/* Source with tlast descriptor */
-			desc = flexdma_srct_desc(c->input, c->input_len);
-			flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
+			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
+						       &desc_ptr, &toggle,
+						       start_desc, end_desc);
+			d = flexdma_srct_desc(c->input, c->input_len);
+			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
+			nhpos++;
 		}
 	}
 
