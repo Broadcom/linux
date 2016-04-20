@@ -149,6 +149,7 @@
 		nand-ecc-mode = "hw";
 		nand-ecc-strength = <8>;
 		nand-ecc-step-size = <512>;
+		nand-bus-width = <16>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 	};
