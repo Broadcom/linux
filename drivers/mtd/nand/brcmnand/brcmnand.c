@@ -1194,7 +1194,9 @@ static void brcmnand_cmdfunc(struct mtd_info *mtd, unsigned command,
 		u32 *flash_cache = (u32 *)ctrl->flash_cache;
 		int i;
 
+#ifndef CONFIG_CPU_BIG_ENDIAN
 		brcmnand_soc_data_bus_prepare(ctrl->soc);
+#endif
 
 		/*
 		 * Must cache the FLASH_CACHE now, since changes in
@@ -1207,7 +1209,9 @@ static void brcmnand_cmdfunc(struct mtd_info *mtd, unsigned command,
 			 */
 			flash_cache[i] = be32_to_cpu(brcmnand_read_fc(ctrl, i));
 
+#ifndef CONFIG_CPU_BIG_ENDIAN
 		brcmnand_soc_data_bus_unprepare(ctrl->soc);
+#endif
 
 		/* Cleanup from HW quirk: restore SECTOR_SIZE_1K */
 		if (host->hwcfg.sector_size_1k)
