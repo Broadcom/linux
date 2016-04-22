@@ -254,7 +254,11 @@ static void flexdma_check_n_enqueue_header(u32 nhpos, u32 nhcnt, u32 reqid,
 					   void *start_desc, void *end_desc)
 {
 	u64 d;
-	u32 nhavail;
+	u32 nhavail, _toggle, _startpkt, _endpkt, _bdcount;
+
+	/* Sanity check */
+	if (nhcnt <= nhpos)
+		return;
 
 	/*
 	 * Each request or packet start with a HEADER descriptor followed
@@ -293,17 +297,54 @@ static void flexdma_check_n_enqueue_header(u32 nhpos, u32 nhcnt, u32 reqid,
 	 */
 
 	if ((nhpos % HEADER_BDCOUNT_MAX == 0) && (nhcnt - nhpos)) {
-		nhavail = nhcnt - nhpos;
-		d = flexdma_header_desc(
-		(nhpos == 0) ? !(*toggle) : (*toggle),		/* toggle */
-		(nhpos == 0) ? 0x1 : 0x0,			/* startpkt */
-		(nhavail <= HEADER_BDCOUNT_MAX) ? 0x1 : 0x0,	/* endpkt */
-		(nhavail <= HEADER_BDCOUNT_MAX) ?
-				nhavail : HEADER_BDCOUNT_MAX,	/* bdcount */
-		0x0, reqid);
+		nhavail = (nhcnt - nhpos);
+		_toggle = (nhpos == 0) ? !(*toggle) : (*toggle);
+		_startpkt = (nhpos == 0) ? 0x1 : 0x0;
+		_endpkt = (nhavail <= HEADER_BDCOUNT_MAX) ? 0x1 : 0x0;
+		_bdcount = (nhavail <= HEADER_BDCOUNT_MAX) ?
+				nhavail : HEADER_BDCOUNT_MAX;
+		if (nhavail <= HEADER_BDCOUNT_MAX)
+			/*
+			 * Extra NULL descriptor required when
+			 * available non-HEADER descriptors is 1.
+			 */
+			_bdcount = (nhavail == 1) ? 2 : nhavail;
+		else
+			_bdcount = HEADER_BDCOUNT_MAX;
+		d = flexdma_header_desc(_toggle, _startpkt, _endpkt,
+					_bdcount, 0x0, reqid);
 		flexdma_enqueue_desc(d, desc_ptr, toggle,
 				     start_desc, end_desc);
+		if (nhavail == 1)
+			/*
+			 * Enqueue dummy NULL descriptor immediately
+			 * after HEADER descriptor when number of
+			 * non-HEADER descriptors is 1 to ensure that
+			 * atlease 2 non-HEADER descriptors after each
+			 * HEADER descriptor.
+			 */
+			flexdma_enqueue_desc(flexdma_null_desc(0),
+					     desc_ptr, toggle,
+					     start_desc, end_desc);
 	}
+}
+
+static u32 flexdma_estimate_header_desc_count(u32 nhcnt)
+{
+	u32 hcnt = nhcnt / HEADER_BDCOUNT_MAX;
+
+	switch (nhcnt % HEADER_BDCOUNT_MAX) {
+	case 0:
+		break;
+	case 1:
+		hcnt += 2; /* Extra NULL descriptor */
+		break;
+	default:
+		hcnt += 1;
+		break;
+	};
+
+	return hcnt;
 }
 
 static u64 flexdma_src_desc(dma_addr_t addr, unsigned int length)
@@ -551,7 +592,7 @@ static bool flexdma_sba_sanity_check(struct brcm_message *msg)
 	return true;
 }
 
-static u32 flexdma_sba_estimate_nonhdr_desc_count(struct brcm_message *msg)
+static u32 flexdma_sba_estimate_nonheader_desc_count(struct brcm_message *msg)
 {
 	u32 i, cnt;
 
@@ -575,20 +616,14 @@ static u32 flexdma_sba_estimate_nonhdr_desc_count(struct brcm_message *msg)
 
 static u32 flexdma_sba_estimate_desc_count(struct brcm_message *msg)
 {
-	u32 hcnt = 0, nhpos;
-	u32 nhcnt = flexdma_sba_estimate_nonhdr_desc_count(msg);
-
-	for (nhpos = 0; nhpos < nhcnt; nhpos++) {
-		if (nhpos % 31 == 0)
-			hcnt++;
-	}
+	u32 nhcnt = flexdma_sba_estimate_nonheader_desc_count(msg);
 
 	/*
 	 * total descriptors = non-header descriptors +
 	 *			header descriptors +
 	 *			1x null descriptor
 	 */
-	return nhcnt + hcnt + 1;
+	return nhcnt + flexdma_estimate_header_desc_count(nhcnt) + 1;
 }
 
 static void *flexdma_sba_write_descs(struct brcm_message *msg,
@@ -596,7 +631,8 @@ static void *flexdma_sba_write_descs(struct brcm_message *msg,
 				     void *start_desc, void *end_desc)
 {
 	u64 d;
-	u32 i, nhpos = 0, nhcnt = flexdma_sba_estimate_nonhdr_desc_count(msg);
+	u32 i, nhpos = 0;
+	u32 nhcnt = flexdma_sba_estimate_nonheader_desc_count(msg);
 	struct brcm_sba_command *c;
 	void *orig_desc_ptr = desc_ptr;
 
