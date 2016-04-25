@@ -437,14 +437,7 @@ static bool flexdma_spu_sanity_check(struct brcm_message *msg)
 {
 	struct scatterlist *sg;
 
-	/*
-	 * TODO: Use multiple headers for longer scatterlist
-	 * using startpkt and endpkt fields.
-	 */
-
 	if (!msg->spu.src || !msg->spu.dst)
-		return false;
-	if ((sg_nents(msg->spu.src) + sg_nents(msg->spu.dst)) > 31)
 		return false;
 	for (sg = msg->spu.src; sg; sg = sg_next(sg)) {
 		if (sg->length & 0xf) {
@@ -468,20 +461,43 @@ static bool flexdma_spu_sanity_check(struct brcm_message *msg)
 	return true;
 }
 
+static u32 flexdma_spu_estimate_nonheader_desc_count(struct brcm_message *msg)
+{
+	u32 cnt = 0;
+	unsigned int dst_target = 0;
+	struct scatterlist *src_sg = msg->spu.src, *dst_sg = msg->spu.dst;
+
+	while (src_sg || dst_sg) {
+		if (src_sg) {
+			cnt++;
+			dst_target = src_sg->length;
+			src_sg = sg_next(src_sg);
+		} else
+			dst_target = UINT_MAX;
+
+		while (dst_target && dst_sg) {
+			cnt++;
+			if (dst_sg->length < dst_target)
+				dst_target -= dst_sg->length;
+			else
+				dst_target = 0;
+			dst_sg = sg_next(dst_sg);
+		}
+	}
+
+	return cnt;
+}
+
 static u32 flexdma_spu_estimate_desc_count(struct brcm_message *msg)
 {
-	/*
-	 * TODO: Use multiple headers for longer scatterlist
-	 * using startpkt and endpkt fields.
-	 */
+	u32 nhcnt = flexdma_spu_estimate_nonheader_desc_count(msg);
 
 	/*
-	 * Total descriptors = 1x header descriptor +
-	 *			source descriptor(s) +
-	 *			destination descriptor(s) +
+	 * total descriptors = non-header descriptors +
+	 *			header descriptors +
 	 *			1x null descriptor
 	 */
-	return sg_nents(msg->spu.src) + sg_nents(msg->spu.dst) + 2;
+	return nhcnt + flexdma_estimate_header_desc_count(nhcnt) + 1;
 }
 
 static int flexdma_spu_dma_map(struct device *dev, struct brcm_message *msg)
@@ -516,43 +532,50 @@ static void *flexdma_spu_write_descs(struct brcm_message *msg,
 				     u32 reqid, void *desc_ptr, u32 toggle,
 				     void *start_desc, void *end_desc)
 {
-	u64 desc;
+	u64 d;
+	u32 nhpos = 0, nhcnt = flexdma_spu_estimate_nonheader_desc_count(msg);
 	void *orig_desc_ptr = desc_ptr;
-	struct scatterlist *sg;
+	unsigned int dst_target = 0;
+	struct scatterlist *src_sg = msg->spu.src, *dst_sg = msg->spu.dst;
 
-	/*
-	 * TODO: Use multiple headers for longer scatterlist
-	 * using startpkt and endpkt fields.
-	 */
+	while (src_sg || dst_sg) {
+		if (src_sg) {
+			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
+						       &desc_ptr, &toggle,
+						       start_desc, end_desc);
+			if (sg_dma_len(src_sg) & 0xf)
+				d = flexdma_src_desc(sg_dma_address(src_sg),
+						     sg_dma_len(src_sg));
+			else
+				d = flexdma_msrc_desc(sg_dma_address(src_sg),
+						      sg_dma_len(src_sg)/16);
+			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
+					     start_desc, end_desc);
+			nhpos++;
+			dst_target = sg_dma_len(src_sg);
+			src_sg = sg_next(src_sg);
+		} else
+			dst_target = UINT_MAX;
 
-	/* Header descriptor */
-	desc = flexdma_header_desc(!toggle, 0x1, 0x1,
-				   flexdma_spu_estimate_desc_count(msg) - 2,
-				   0x0, reqid);
-	flexdma_enqueue_desc(desc, &desc_ptr, &toggle, start_desc, end_desc);
-
-	/* Source descriptor(s) */
-	for (sg = msg->spu.src; sg; sg = sg_next(sg)) {
-		if (sg_dma_len(sg) & 0xf)
-			desc = flexdma_src_desc(sg_dma_address(sg),
-						sg_dma_len(sg));
-		else
-			desc = flexdma_msrc_desc(sg_dma_address(sg),
-						 sg_dma_len(sg)/16);
-		flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
-				     start_desc, end_desc);
-	}
-
-	/* Destination descriptor(s) */
-	for (sg = msg->spu.dst; sg; sg = sg_next(sg)) {
-		if (sg_dma_len(sg) & 0xf)
-			desc = flexdma_dst_desc(sg_dma_address(sg),
-						sg_dma_len(sg));
-		else
-			desc = flexdma_mdst_desc(sg_dma_address(sg),
-						 sg_dma_len(sg)/16);
-		flexdma_enqueue_desc(desc, &desc_ptr, &toggle,
-				     start_desc, end_desc);
+		while (dst_target && dst_sg) {
+			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
+						       &desc_ptr, &toggle,
+						       start_desc, end_desc);
+			if (sg_dma_len(dst_sg) & 0xf)
+				d = flexdma_dst_desc(sg_dma_address(dst_sg),
+						     sg_dma_len(dst_sg));
+			else
+				d = flexdma_mdst_desc(sg_dma_address(dst_sg),
+						      sg_dma_len(dst_sg)/16);
+			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
+					     start_desc, end_desc);
+			nhpos++;
+			if (sg_dma_len(dst_sg) < dst_target)
+				dst_target -= sg_dma_len(dst_sg);
+			else
+				dst_target = 0;
+			dst_sg = sg_next(dst_sg);
+		}
 	}
 
 	/* Null descriptor with invalid toggle bit */
