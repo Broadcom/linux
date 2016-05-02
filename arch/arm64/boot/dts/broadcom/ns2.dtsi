@@ -250,6 +250,19 @@
 			brcm,use_bcm_hdr;
 		};
 
+		spu-crypto@612d0000 {
+			compatible = "brcm,spum-crypto";
+			reg = <0x612d0000 0x900>,    /* SPU 0 control regs */
+				<0x612f0000 0x900>,  /* SPU 1 control regs */
+				<0x61310000 0x900>,  /* SPU 2 control regs */
+				<0x61330000 0x900>;  /* SPU 3 control regs */
+			mboxes = <&pdc0 0>,
+				<&pdc1 0>,
+				<&pdc2 0>,
+				<&pdc3 0>;
+			brcm,max-pkt-size = <65536>;
+		};
+
 		pdc1: iproc-pdc1@612e0000 {
 			compatible = "brcm,pdc-mbox";
 			reg = <0x612e0000 0x445>;  /* PDC FS1 regs */
