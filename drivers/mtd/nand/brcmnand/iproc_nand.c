@@ -86,12 +86,23 @@ static void iproc_nand_apb_access(struct brcmnand_soc *soc, bool prepare,
 	spin_lock_irqsave(&priv->idm_lock, flags);
 
 	val = brcmnand_readl(mmio);
-
-	if (prepare)
-		val |= IPROC_NAND_APB_LE_MODE;
-	else
-		val &= ~IPROC_NAND_APB_LE_MODE;
-
+	if (mode == BRCMNAND_READ_DATA) {
+		if (prepare)
+			val |= IPROC_NAND_APB_LE_MODE;
+		else
+			val &= ~IPROC_NAND_APB_LE_MODE;
+	} else if (mode == BRCMNAND_READ_PARAM) {
+	/* After un prepare is called, APB mode should be always in BE mode */
+#ifndef CONFIG_CPU_BIG_ENDIAN
+		if (prepare)
+			val &= ~IPROC_NAND_APB_LE_MODE;
+#else
+		if (prepare)
+			val |= IPROC_NAND_APB_LE_MODE;
+		else
+			val &= ~IPROC_NAND_APB_LE_MODE;
+#endif
+	}
 	brcmnand_writel(val, mmio);
 
 	spin_unlock_irqrestore(&priv->idm_lock, flags);
