@@ -20,22 +20,30 @@
 struct platform_device;
 struct dev_pm_ops;
 
+enum brcmnand_data_type_read {
+	BRCMNAND_READ_PARAM = 0,
+	BRCMNAND_READ_DATA = 1,
+};
+
 struct brcmnand_soc {
 	bool (*ctlrdy_ack)(struct brcmnand_soc *soc);
 	void (*ctlrdy_set_enabled)(struct brcmnand_soc *soc, bool en);
-	void (*prepare_data_bus)(struct brcmnand_soc *soc, bool prepare);
+	void (*prepare_data_bus)(struct brcmnand_soc *soc, bool prepare,
+					enum brcmnand_data_type_read mode);
 };
 
-static inline void brcmnand_soc_data_bus_prepare(struct brcmnand_soc *soc)
+static inline void brcmnand_soc_data_bus_prepare(struct brcmnand_soc *soc,
+			enum brcmnand_data_type_read mode)
 {
 	if (soc && soc->prepare_data_bus)
-		soc->prepare_data_bus(soc, true);
+		soc->prepare_data_bus(soc, true, mode);
 }
 
-static inline void brcmnand_soc_data_bus_unprepare(struct brcmnand_soc *soc)
+static inline void brcmnand_soc_data_bus_unprepare(struct brcmnand_soc *soc,
+			enum brcmnand_data_type_read mode)
 {
 	if (soc && soc->prepare_data_bus)
-		soc->prepare_data_bus(soc, false);
+		soc->prepare_data_bus(soc, false, mode);
 }
 
 static inline u32 brcmnand_readl(void __iomem *addr)

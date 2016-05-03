@@ -1194,10 +1194,8 @@ static void brcmnand_cmdfunc(struct mtd_info *mtd, unsigned command,
 		u32 *flash_cache = (u32 *)ctrl->flash_cache;
 		int i;
 
-#ifndef CONFIG_CPU_BIG_ENDIAN
-		brcmnand_soc_data_bus_prepare(ctrl->soc);
-#endif
-
+		brcmnand_soc_data_bus_prepare(ctrl->soc,
+			BRCMNAND_READ_PARAM);
 		/*
 		 * Must cache the FLASH_CACHE now, since changes in
 		 * SECTOR_SIZE_1K may invalidate it
@@ -1208,10 +1206,8 @@ static void brcmnand_cmdfunc(struct mtd_info *mtd, unsigned command,
 			 * least on STB SoCs
 			 */
 			flash_cache[i] = be32_to_cpu(brcmnand_read_fc(ctrl, i));
-
-#ifndef CONFIG_CPU_BIG_ENDIAN
-		brcmnand_soc_data_bus_unprepare(ctrl->soc);
-#endif
+		brcmnand_soc_data_bus_unprepare(ctrl->soc,
+			BRCMNAND_READ_PARAM);
 
 		/* Cleanup from HW quirk: restore SECTOR_SIZE_1K */
 		if (host->hwcfg.sector_size_1k)
@@ -1427,12 +1423,14 @@ static int brcmnand_read_by_pio(struct mtd_info *mtd, struct nand_chip *chip,
 		brcmnand_waitfunc(mtd, chip);
 
 		if (likely(buf)) {
-			brcmnand_soc_data_bus_prepare(ctrl->soc);
+			brcmnand_soc_data_bus_prepare(ctrl->soc,
+				BRCMNAND_READ_DATA);
 
 			for (j = 0; j < FC_WORDS; j++, buf++)
 				*buf = brcmnand_read_fc(ctrl, j);
 
-			brcmnand_soc_data_bus_unprepare(ctrl->soc);
+			brcmnand_soc_data_bus_unprepare(ctrl->soc,
+				BRCMNAND_READ_DATA);
 		}
 
 		if (oob)
@@ -1597,12 +1595,14 @@ static int brcmnand_write(struct mtd_info *mtd, struct nand_chip *chip,
 		(void)brcmnand_read_reg(ctrl, BRCMNAND_CMD_ADDRESS);
 
 		if (buf) {
-			brcmnand_soc_data_bus_prepare(ctrl->soc);
+			brcmnand_soc_data_bus_prepare(ctrl->soc,
+				BRCMNAND_READ_DATA);
 
 			for (j = 0; j < FC_WORDS; j++, buf++)
 				brcmnand_write_fc(ctrl, j, *buf);
 
-			brcmnand_soc_data_bus_unprepare(ctrl->soc);
+			brcmnand_soc_data_bus_unprepare(ctrl->soc,
+				BRCMNAND_READ_DATA);
 		} else if (oob) {
 			for (j = 0; j < FC_WORDS; j++)
 				brcmnand_write_fc(ctrl, j, 0xffffffff);

@@ -74,7 +74,8 @@ static void iproc_nand_intc_set(struct brcmnand_soc *soc, bool en)
 	spin_unlock_irqrestore(&priv->idm_lock, flags);
 }
 
-static void iproc_nand_apb_access(struct brcmnand_soc *soc, bool prepare)
+static void iproc_nand_apb_access(struct brcmnand_soc *soc, bool prepare,
+					enum brcmnand_data_type_read mode)
 {
 	struct iproc_nand_soc *priv =
 			container_of(soc, struct iproc_nand_soc, soc);
