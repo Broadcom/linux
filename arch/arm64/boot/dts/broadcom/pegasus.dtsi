@@ -290,6 +290,15 @@
 			brcm,rx_status_len = <17>;
 		};
 
+		spu-crypto@28280000 {
+			compatible = "brcm,spu2-crypto";
+			reg = <0x28280000 0x3c>,    /* SPU 0 control regs */
+				<0x28290000 0x3c>;  /* SPU 1 control regs */
+			mboxes = <&pdc0 0>,
+				<&pdc1 0>;
+			brcm,max_pkt_size = <4294967232>;  /* 2^32 - 64 */
+		};
+
 		gic: interrupt-controller@2a000000 {
 			compatible = "arm,gic-400";
 			#interrupt-cells = <3>;
