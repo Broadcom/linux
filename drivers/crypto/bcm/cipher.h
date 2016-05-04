@@ -314,6 +314,9 @@ struct spu_hw {
 	u8 (*spu_rx_status_len)(void);
 	int (*spu_status_process)(u8 *statp);
 
+	/* The base virtual address of the SPU hw registers */
+	void __iomem **reg_vbase;
+
 	/* Version of the SPU hardware */
 	enum spu_spu_type spu_type;
 

@@ -19,6 +19,10 @@
 #include "cipher.h"
 #include "util.h"
 
+/* offset of SPU_OFIFO_CTRL register */
+#define SPU_OFIFO_CTRL      0x40
+#define SPU_FIFO_WATERMARK  0x1FF
+
 /**
  * spu_sg_at_offset() - Find the scatterlist entry at a given distance from the
  * start of a scatterlist.
@@ -363,6 +367,9 @@ static ssize_t spu_debugfs_read(struct file *filp, char __user *ubuf,
 	struct device_private *ipriv;
 	char *buf;
 	ssize_t ret, out_offset, out_count;
+	int i;
+	u32 fifo_len;
+	u32 spu_ofifo_ctrl;
 
 	out_count = 1024;
 
@@ -417,6 +424,16 @@ static ssize_t spu_debugfs_read(struct file *filp, char __user *ubuf,
 	out_offset += snprintf(buf + out_offset, out_count - out_offset,
 			       "Check ICV errors.......%u\n",
 			       atomic_read(&ipriv->bad_icv));
+	if (ipriv->spu.spu_type == SPU_TYPE_SPUM)
+		for (i = 0; i < ipriv->spu.num_spu; i++) {
+			spu_ofifo_ctrl = ioread32(ipriv->spu.reg_vbase[i] +
+						  SPU_OFIFO_CTRL);
+			fifo_len = spu_ofifo_ctrl & SPU_FIFO_WATERMARK;
+			out_offset += snprintf(buf + out_offset,
+					       out_count - out_offset,
+				       "SPU %d output FIFO high water.....%u\n",
+				       i, fifo_len);
+		}
 
 	if (out_offset > out_count)
 		out_offset = out_count;

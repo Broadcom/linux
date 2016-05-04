@@ -73,7 +73,7 @@ int givencrypt_test_mode;
 module_param(givencrypt_test_mode, int, 0644);
 MODULE_PARM_DESC(givencrypt_test_mode, "Turn off givencrypt rnd IV generation");
 
-#define SPU_WQ_NAME_LEN  16
+#define MAX_SPUS 16
 
 /* A type 3 BCM header, expected to precede the SPU header for SPU-M.
  * Bits 3 and 4 in the first byte encode the channel number (the dma ringset).
@@ -3336,6 +3336,7 @@ static int spu_dt_read(struct platform_device *pdev)
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct device_node *dn = pdev->dev.of_node;
 	struct resource *spu_ctrl_regs;
+	void __iomem *spu_reg_vbase[MAX_SPUS];
 	int i;
 	u32 max_pkt_size;
 	int err;
@@ -3371,21 +3372,34 @@ static int spu_dt_read(struct platform_device *pdev)
 
 	/* Read registers and count number of SPUs */
 	i = 0;
-	while ((spu_ctrl_regs =
-		platform_get_resource(pdev, IORESOURCE_MEM, i)) != NULL) {
+	while ((i < MAX_SPUS) && ((spu_ctrl_regs =
+		platform_get_resource(pdev, IORESOURCE_MEM, i)) != NULL)) {
 
 		dev_dbg(dev,
 			 "SPU %d control register region res.start = %#x, res.end = %#x",
 			 i,
 			 (unsigned int)spu_ctrl_regs->start,
 			 (unsigned int)spu_ctrl_regs->end);
-		/* Not currently using the SPU ctrl registers. So for now, no
-		 * need to map them.
-		 */
+
+		spu_reg_vbase[i] = devm_ioremap_resource(dev, spu_ctrl_regs);
+		if (IS_ERR(spu_reg_vbase[i])) {
+			err = PTR_ERR(spu_reg_vbase[i]);
+			dev_err(&pdev->dev, "Failed to map registers: %d\n",
+				err);
+			spu_reg_vbase[i] = NULL;
+			return err;
+		}
 		i++;
 	}
 	spu->num_spu = i;
 	dev_dbg(dev, "Device has %d SPUs", spu->num_spu);
+
+	spu->reg_vbase = devm_kcalloc(dev, spu->num_spu,
+				      sizeof(*(spu->reg_vbase)), GFP_KERNEL);
+	if (spu->reg_vbase == NULL)
+		return -ENOMEM;
+	memcpy(spu->reg_vbase, spu_reg_vbase,
+	       spu->num_spu * sizeof(*(spu->reg_vbase)));
 
 	return spu_dt_validate(dev, spu);
 }
