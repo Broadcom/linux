@@ -38,8 +38,16 @@
 	model = "Broadcom NS2 SVK";
 	compatible = "brcm,ns2-svk", "brcm,ns2";
 
+	aliases {
+		serial0 = &uart3;
+		serial1 = &uart0;
+		serial2 = &uart1;
+		serial3 = &uart2;
+	};
+
 	chosen {
-		bootargs = "console=ttyS0,115200n8 earlycon=uart8250,mmio32,0x66130000";
+		stdout-path = "serial0:115200n8";
+		bootargs = "earlycon=uart8250,mmio32,0x66130000";
 	};
 
 	memory {
@@ -67,6 +75,18 @@
 		function = "nand";
 		groups = "nand_grp";
 	};
+};
+
+&uart0 {
+	status = "ok";
+};
+
+&uart1 {
+	status = "ok";
+};
+
+&uart2 {
+	status = "ok";
 };
 
 &uart3 {
