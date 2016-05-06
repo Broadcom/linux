@@ -240,6 +240,11 @@
 			status = "disabled";
 		};
 
+		rng: rng@33000 {
+			compatible = "brcm,bcm2835-rng";
+			reg = <0x33000 0x14>;
+		};
+
 		ccbtimer0: timer@34000 {
 			compatible = "arm,sp804";
 			reg = <0x34000 0x1000>;
