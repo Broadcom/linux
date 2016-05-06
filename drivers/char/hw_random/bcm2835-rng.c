@@ -19,6 +19,7 @@
 #define RNG_CTRL	0x0
 #define RNG_STATUS	0x4
 #define RNG_DATA	0x8
+#define RNG_INT_MASK	0x10
 
 /* enable rng */
 #define RNG_RBGEN	0x1
@@ -26,19 +27,32 @@
 /* the initial numbers generated are "less random" so will be discarded */
 #define RNG_WARMUP_COUNT 0x40000
 
+#define RNG_VALID_SHIFT		24
+#define RNG_INT_OFF		0x1
+
 static int bcm2835_rng_read(struct hwrng *rng, void *buf, size_t max,
 			       bool wait)
 {
 	void __iomem *rng_base = (void __iomem *)rng->priv;
+	u32 max_words = max/sizeof(u32);
+	u32 num_words, count;
 
-	while ((__raw_readl(rng_base + RNG_STATUS) >> 24) == 0) {
+	while ((readl(rng_base + RNG_STATUS) >> RNG_VALID_SHIFT) == 0) {
 		if (!wait)
 			return 0;
 		cpu_relax();
 	}
 
-	*(u32 *)buf = __raw_readl(rng_base + RNG_DATA);
-	return sizeof(u32);
+	num_words = (readl(rng_base + RNG_STATUS) >> RNG_VALID_SHIFT);
+	if (num_words > max_words)
+		num_words = max_words;
+
+	for (count = 0; count < num_words; count++) {
+		*(u32 *)buf = readl(rng_base + RNG_DATA);
+		buf += sizeof(u32);
+	}
+
+	return (num_words * sizeof(u32));
 }
 
 static struct hwrng bcm2835_rng_ops = {
@@ -52,6 +66,7 @@ static int bcm2835_rng_probe(struct platform_device *pdev)
 	struct device_node *np = dev->of_node;
 	void __iomem *rng_base;
 	int err;
+	u32 val = 0;
 
 	/* map peripheral */
 	rng_base = of_iomap(np, 0);
@@ -61,9 +76,14 @@ static int bcm2835_rng_probe(struct platform_device *pdev)
 	}
 	bcm2835_rng_ops.priv = (unsigned long)rng_base;
 
+	/* mask the interrupt */
+	val = readl(rng_base + RNG_INT_MASK);
+	val |= RNG_INT_OFF;
+	writel(val, rng_base + RNG_INT_MASK);
+
 	/* set warm-up count & enable */
-	__raw_writel(RNG_WARMUP_COUNT, rng_base + RNG_STATUS);
-	__raw_writel(RNG_RBGEN, rng_base + RNG_CTRL);
+	writel(RNG_WARMUP_COUNT, rng_base + RNG_STATUS);
+	writel(RNG_RBGEN, rng_base + RNG_CTRL);
 
 	/* register driver */
 	err = hwrng_register(&bcm2835_rng_ops);
@@ -81,7 +101,7 @@ static int bcm2835_rng_remove(struct platform_device *pdev)
 	void __iomem *rng_base = (void __iomem *)bcm2835_rng_ops.priv;
 
 	/* disable rng hardware */
-	__raw_writel(0, rng_base + RNG_CTRL);
+	writel(0, rng_base + RNG_CTRL);
 
 	/* unregister driver */
 	hwrng_unregister(&bcm2835_rng_ops);
