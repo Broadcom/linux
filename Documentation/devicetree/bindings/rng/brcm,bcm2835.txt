@@ -8,6 +8,6 @@ Required properties:
 Example:
 
 rng {
-        compatible = "brcm,bcm2835-rng";
-        reg = <0x7e104000 0x10>;
+	compatible = "brcm,bcm2835-rng";
+	reg = <0x7e104000 0x14>;
 };
