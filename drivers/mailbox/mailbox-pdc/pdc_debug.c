@@ -55,9 +55,6 @@ static ssize_t pdc_debugfs_read(struct file *filp, char __user *ubuf,
 	out_offset += snprintf(buf + out_offset, out_count - out_offset,
 			       "Receive overflow........%u\n",
 			       pdcs->rx_oflow);
-	out_offset += snprintf(buf + out_offset, out_count - out_offset,
-			       "Missing rx init call....%u\n",
-			       pdcs->no_rx_init);
 
 	if (out_offset > out_count)
 		out_offset = out_count;

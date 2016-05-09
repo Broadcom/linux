@@ -30,7 +30,7 @@
 #define RING_ALIGN_ORDER  13
 #define RING_ALIGN (1 << RING_ALIGN_ORDER)
 
-#define RX_BUF_ALIGN_ORDER  2
+#define RX_BUF_ALIGN_ORDER  5
 #define RX_BUF_ALIGN (1 << RX_BUF_ALIGN_ORDER)
 
 /* descriptor bumping macros */
@@ -205,6 +205,7 @@ struct pdc_state {
 	struct dma64_regs *rxregs_64; /* dma rx engine registers */
 
 	/* Arrays of PDC_RING_ENTRIES descriptors */
+	/* To use multiple ringsets, this needs to be extended */
 	struct dma64dd   *txd_64;  /* tx descriptor ring */
 	struct dma64dd   *rxd_64;  /* rx descriptor ring */
 
@@ -278,6 +279,7 @@ struct pdc_state {
 	u32  rxin_numd[PDC_RING_ENTRIES];
 
 	void *resp_hdr[PDC_RING_ENTRIES];
+	dma_addr_t resp_hdr_daddr[PDC_RING_ENTRIES];
 
 	struct dentry *debugfs_stats;  /* debug FS stats file for this PDC */
 
@@ -287,6 +289,5 @@ struct pdc_state {
 	u32  txnobuf;         /* count of tx ring full */
 	u32  rxnobuf;         /* count of rx ring full */
 	u32  rx_oflow;        /* count of rx overflows */
-	u32  no_rx_init;      /* missing rx init calls */
 };
 #endif

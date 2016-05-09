@@ -60,19 +60,26 @@
 /* Length of BCM header at start of SPU msg, in bytes */
 #define BCM_HDR_LEN  8
 
+/* PDC driver reserves ringset 0 on each SPU for its own use. The driver does
+ * not currently support use of multiple ringsets on a single PDC engine.
+ */
+#define PDC_RINGSET  0
+
 /*
  * Interrupt mask and status definitions. Enable interrupts for tx and rx on
  * ring 0
  */
-#define PDC_XMTINTEN_0 (1 << 24)
-#define PDC_RCVINTEN_0 (1 << 16)
+#define PDC_XMTINT_0         (24+PDC_RINGSET)
+#define PDC_RCVINT_0         (16+PDC_RINGSET)
+#define PDC_XMTINTEN_0 (1 << PDC_XMTINT_0)
+#define PDC_RCVINTEN_0 (1 << PDC_RCVINT_0)
 #define PDC_INTMASK  (PDC_XMTINTEN_0 | PDC_RCVINTEN_0)
 #define PDC_LAZY_FRAMECOUNT  1
 #define PDC_LAZY_TIMEOUT     10000
 #define PDC_LAZY_INT  (PDC_LAZY_TIMEOUT | (PDC_LAZY_FRAMECOUNT << 24))
 #define PDC_INTMASK_OFFSET   0x24
 #define PDC_INTSTATUS_OFFSET 0x20
-#define PDC_RCVLAZY0_OFFSET  0x30
+#define PDC_RCVLAZY0_OFFSET  (0x30+4*PDC_RINGSET)
 
 /*
  * For SPU2, configure MDE_CKSUM_CONTROL to write 17 bytes of metadata
@@ -119,9 +126,6 @@
 
 #define PDC_TXREGS_OFFSET  0x200
 #define PDC_RXREGS_OFFSET  0x220
-
-/* PDC driver reserves ringset 0 on each SPU for its own use */
-#define PDC_RINGSET  0
 
 /* Maximum size buffer the DMA engine can handle */
 #define PDC_DMA_BUF_MAX 16384
@@ -261,9 +265,7 @@ pdc_receive(struct pdc_state *pdcs, struct brcm_message *mssg)
 	mssg->ctx = pdcs->rxp_ctx[rx_idx];
 	pdcs->rxp_ctx[rx_idx] = NULL;
 	resp_hdr = pdcs->resp_hdr[rx_idx];
-	resp_hdr_daddr = pdcs->rxd_64[rx_idx].addrhigh;
-	resp_hdr_daddr = resp_hdr_daddr << 32;
-	resp_hdr_daddr += pdcs->rxd_64[rx_idx].addrlow;
+	resp_hdr_daddr = pdcs->resp_hdr_daddr[rx_idx];
 	dma_unmap_sg(dev, pdcs->dst_sg[rx_idx],
 		     sg_nents(pdcs->dst_sg[rx_idx]), DMA_FROM_DEVICE);
 
@@ -466,6 +468,7 @@ static int pdc_rx_list_init(struct pdc_state *pdcs, struct scatterlist *dst_sg,
 	pdcs->rxp_ctx[pdcs->rxout] = ctx;
 	pdcs->dst_sg[pdcs->rxout] = dst_sg;
 	pdcs->resp_hdr[pdcs->rxout] = vaddr;
+	pdcs->resp_hdr_daddr[pdcs->rxout] = daddr;
 	pdc_build_rxd(pdcs, daddr, pdcs->pdc_resp_hdr_len, flags);
 	return PDC_SUCCESS;
 }
@@ -555,9 +558,9 @@ static irqreturn_t pdc_irq_handler(int irq, void *cookie)
 	u32 intstatus = ioread32(pdcs->pdc_reg_vbase + PDC_INTSTATUS_OFFSET);
 
 	if (intstatus & PDC_XMTINTEN_0)
-		set_bit(PDC_XMTINTEN_0, &pdcs->intstatus);
+		set_bit(PDC_XMTINT_0, &pdcs->intstatus);
 	if (intstatus & PDC_RCVINTEN_0)
-		set_bit(PDC_RCVINTEN_0, &pdcs->intstatus);
+		set_bit(PDC_RCVINT_0, &pdcs->intstatus);
 
 	/* Clear interrupt flags in device */
 	iowrite32(intstatus, pdcs->pdc_reg_vbase + PDC_INTSTATUS_OFFSET);
@@ -592,8 +595,8 @@ static irqreturn_t pdc_irq_thread(int irq, void *cookie)
 	int rx_status;
 	struct brcm_message mssg;
 
-	tx_int = test_and_clear_bit(PDC_XMTINTEN_0, &pdcs->intstatus);
-	rx_int = test_and_clear_bit(PDC_RCVINTEN_0, &pdcs->intstatus);
+	tx_int = test_and_clear_bit(PDC_XMTINT_0, &pdcs->intstatus);
+	rx_int = test_and_clear_bit(PDC_RCVINT_0, &pdcs->intstatus);
 
 	if (pdcs && (tx_int || rx_int)) {
 		dev_dbg(&pdcs->pdev->dev,
@@ -602,7 +605,7 @@ static irqreturn_t pdc_irq_thread(int irq, void *cookie)
 			tx_int ? "set" : "clear", rx_int ? "set" : "clear");
 
 		mbc = &pdcs->mbc;
-		chan = &mbc->chans[PDC_RINGSET];
+		chan = &mbc->chans[0];
 
 		if (tx_int) {
 			dev_dbg(&pdcs->pdev->dev, "%s(): tx done", __func__);
@@ -869,9 +872,7 @@ void pdc_hw_init(struct device *dev, struct pdc_state *pdcs,
 	pdcs->regs->intmask = 0;
 
 	dma_reg = &pdcs->regs->dmaregs[ringset];
-	iowrite32(0, (void *)&dma_reg->dmaxmt.control);
 	iowrite32(0, (void *)&dma_reg->dmaxmt.ptr);
-	iowrite32(0, (void *)&dma_reg->dmarcv.control);
 	iowrite32(0, (void *)&dma_reg->dmarcv.ptr);
 
 	iowrite32(PDC_TX_CTL, (void *)&dma_reg->dmaxmt.control);
@@ -904,7 +905,7 @@ static int pdc_rx_buf_pool_create(struct device *dev, struct pdc_state *pdcs)
 
 	pdcs->rx_buf_pool = dma_pool_create("pdc rx bufs", dev,
 					    pdcs->pdc_resp_hdr_len,
-					    RX_BUF_ALIGN_ORDER, 0);
+					    RX_BUF_ALIGN, 0);
 	if (pdcs->rx_buf_pool == NULL)
 		return -ENOMEM;
 
@@ -1050,8 +1051,6 @@ static int pdc_probe(struct platform_device *pdev)
 	struct resource *pdc_regs;
 	struct pdc_state *pdcs;
 	struct hw_init_parms hw_parms;	/* params for initializing spu-dma */
-
-	pr_info("pdc_probe\n");
 
 	/* PDC state for one SPU */
 	pdcs = devm_kzalloc(dev, sizeof(*pdcs), GFP_KERNEL);
