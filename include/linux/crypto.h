@@ -52,6 +52,7 @@
 #define CRYPTO_ALG_TYPE_HASH		0x00000008
 #define CRYPTO_ALG_TYPE_SHASH		0x00000009
 #define CRYPTO_ALG_TYPE_AHASH		0x0000000a
+#define CRYPTO_ALG_TYPE_RABIN		0x0000000b
 #define CRYPTO_ALG_TYPE_RNG		0x0000000c
 #define CRYPTO_ALG_TYPE_AKCIPHER	0x0000000d
 #define CRYPTO_ALG_TYPE_PCOMPRESS	0x0000000f
@@ -192,6 +193,9 @@ struct hash_desc {
 	u32 flags;
 };
 
+struct rabin_desc {
+	struct crypto_rabin *tfm;
+};
 /**
  * DOC: Block Cipher Algorithm Definitions
  *
@@ -531,6 +535,13 @@ struct hash_tfm {
 	unsigned int digestsize;
 };
 
+struct rabin_tfm {
+	int (*init)(struct rabin_desc *desc);
+	int (*finger_print)(struct rabin_desc *desc, struct scatterlist *dst,
+		       struct scatterlist *src, unsigned int nsrc_sg);
+
+};
+
 struct compress_tfm {
 	int (*cot_compress)(struct crypto_tfm *tfm,
 	                    const u8 *src, unsigned int slen,
@@ -545,21 +556,23 @@ struct compress_tfm {
 #define crt_cipher	crt_u.cipher
 #define crt_hash	crt_u.hash
 #define crt_compress	crt_u.compress
+#define crt_rabin	crt_u.rabin
 
 struct crypto_tfm {
 
 	u32 crt_flags;
-	
+
 	union {
 		struct ablkcipher_tfm ablkcipher;
 		struct blkcipher_tfm blkcipher;
 		struct cipher_tfm cipher;
 		struct hash_tfm hash;
 		struct compress_tfm compress;
+		struct rabin_tfm rabin;
 	} crt_u;
 
 	void (*exit)(struct crypto_tfm *tfm);
-	
+
 	struct crypto_alg *__crt_alg;
 
 	void *__crt_ctx[] CRYPTO_MINALIGN_ATTR;
