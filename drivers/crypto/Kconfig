@@ -516,7 +516,7 @@ config CRYPTO_DEV_ROCKCHIP
 config CRYPTO_DEV_BCM_SPU
 	tristate "Broadcom symmetric crypto/hash acceleration support"
 	depends on ARM64
-	depends on BCM_PDC_MBOX
+	depends on BCM_PDC_MBOX || BCM_FLEXDMA_MBOX
 	default ARCH_BCM_IPROC
 	select CRYPTO_BLKCIPHER
 	select CRYPTO_AEAD
