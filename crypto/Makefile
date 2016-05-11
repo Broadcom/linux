@@ -132,3 +132,4 @@ obj-$(CONFIG_ASYMMETRIC_KEY_TYPE) += asymmetric_keys/
 obj-$(CONFIG_CRYPTO_HASH_INFO) += hash_info.o
 obj-$(CONFIG_CRYPTO_ABLK_HELPER) += ablk_helper.o
 obj-$(CONFIG_CRYPTO_RABIN_FINGER_PRINT) += rabin.o
+obj-$(CONFIG_CRYPTO_RABIN_FINGER_PRINT_ALG) += rfp.o

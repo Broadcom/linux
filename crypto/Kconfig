@@ -608,6 +608,19 @@ config CRYPTO_RABIN_FINGER_PRINT
 	  hash could be calculated for that complete chunk along with finger
 	  print.
 
+config CRYPTO_RABIN_FINGER_PRINT_ALG
+	tristate "Rabin Finger Print algorithm"
+	select CRYPTO_MD5
+	select CRYPTO_SHA1
+	select CRYPTO_SHA256
+	select CRYPTO_SHA512
+	select CRYPTO_RABIN_FINGER_PRINT
+	help
+	  This implements the Rabin Finger print in software to calculate
+	  a rolling hash where the input is hashed in a window that moves
+	  through the input. This calculates requested hash along with
+	  finger prints.
+
 config CRYPTO_SHA1
 	tristate "SHA1 digest algorithm"
 	select CRYPTO_HASH
