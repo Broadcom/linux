@@ -646,6 +646,7 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	case IPROC_PCIE_PAXC_V2:
 		pcie->reg_offsets = iproc_pcie_reg_paxc_v2;
 		pcie->ep_is_internal = true;
+		break;
 	default:
 		dev_err(pcie->dev, "incompatible iProc PCIe interface\n");
 		ret = -EINVAL;
