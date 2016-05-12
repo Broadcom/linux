@@ -151,6 +151,21 @@
 			      IRQ_TYPE_EDGE_RISING)>;
 	};
 
+	pcie8: pcie@60400000 {
+		compatible = "brcm,iproc-pcie-paxc-v2";
+		reg = <0 0x60400000 0 0x1000>;
+		linux,pci-domain = <8>;
+
+		bus-range = <0x0 0x1>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0 0x00000000 0 0x60000000 0 0x00400000>;
+
+		status = "disabled";
+	};
+
 	scr {
 		compatible = "simple-bus";
 		#address-cells = <1>;
