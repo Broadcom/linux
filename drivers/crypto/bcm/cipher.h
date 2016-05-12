@@ -24,6 +24,7 @@
 #include <crypto/internal/hash.h>
 #include <crypto/aead.h>
 #include <crypto/sha.h>
+#include <crypto/rabin.h>
 
 #include "spu.h"
 #include "spum.h"
@@ -80,6 +81,7 @@ struct iproc_alg_s {
 		struct crypto_alg crypto;
 		struct ahash_alg hash;
 		struct aead_alg aead;
+		struct rabin_alg rabin;
 	} alg;
 	struct cipher_op cipher_info;
 	struct auth_op auth_info;
@@ -268,6 +270,8 @@ struct iproc_reqctx_s {
 	struct crypto_tfm *old_tfm;
 	crypto_completion_t old_complete;
 	void *old_data;
+	u32 rabin_tag_idx;
+	char rabin_tag[CRYPTO_MAX_ALG_NAME];
 };
 
 /*
@@ -371,6 +375,7 @@ struct device_private {
 	struct mbox_client mcl;
 	/* Array of mailbox channel pointers, one for each channel */
 	struct mbox_chan **mbox;
+	struct rfp_desc rfp_desc;
 };
 
 extern struct device_private iproc_priv;

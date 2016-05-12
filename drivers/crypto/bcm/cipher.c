@@ -30,6 +30,8 @@
 #include <linux/workqueue.h>
 #include <linux/sched.h>
 #include <linux/of_address.h>
+#include <linux/io.h>
+#include <linux/bitops.h>
 
 #include <crypto/algapi.h>
 #include <crypto/aead.h>
@@ -42,6 +44,8 @@
 #include <crypto/skcipher.h>
 #include <crypto/hash.h>
 #include <crypto/aes.h>
+#include <crypto/rabin.h>
+#include <crypto/internal/rabin.h>
 
 #include "util.h"
 #include "cipher.h"
@@ -1479,6 +1483,19 @@ static void spu_rx_callback(struct mbox_client *cl, void *msg)
 	areq = rctx->parent;
 	ctx = rctx->ctx;
 
+	if (rctx->ctx->alg->type == CRYPTO_ALG_TYPE_RABIN) {
+		areq = rctx->parent;
+
+		/* free allocated memory */
+		kfree(sg_virt(mssg->spu.src));
+		kfree(mssg->spu.src);
+
+		if (areq)
+			areq->complete(areq, 0);
+
+		return;
+	}
+
 	/* process the SPU status */
 	err = spu->spu_status_process(rctx->msg_buf->rx_stat);
 	if (err != 0) {
@@ -2502,6 +2519,19 @@ static struct iproc_alg_s driver_algs[] = {
 /* AEAD algorithms. */
 	/* AES-GCM */
 	{
+	 .type = CRYPTO_ALG_TYPE_RABIN,
+	 .alg.rabin = {
+		 .base = {
+			.cra_name = "rabin-fp",
+			.cra_driver_name = "rabin-fp-iproc",
+		 },
+	 },
+	 .auth_info = {
+		       .alg = HASH_ALG_NONE,
+		       .mode = SPU2_HASH_MODE_RABIN,
+		       },
+	 },
+	{
 	 .type = CRYPTO_ALG_TYPE_AEAD,
 	 .alg.aead = {
 		 .base = {
@@ -3253,6 +3283,23 @@ static int ahash_cra_init(struct crypto_tfm *tfm)
 	return err;
 }
 
+static int rabin_cra_init(struct crypto_rabin *rabin)
+{
+	struct crypto_tfm *tfm = crypto_rabin_tfm(rabin);
+	struct crypto_alg *alg = tfm->__crt_alg;
+	struct rabin_alg *aalg = container_of(alg, struct rabin_alg, base);
+	struct iproc_alg_s *cipher_alg = container_of(aalg, struct iproc_alg_s,
+						      alg.rabin);
+
+	int err = generic_cra_init(tfm, cipher_alg);
+
+	flow_log("%s() tfm:%p\n", __func__, tfm);
+
+	crypto_rabin_set_reqsize(rabin, sizeof(struct iproc_reqctx_s));
+
+	return err;
+}
+
 static int aead_cra_init(struct crypto_aead *aead)
 {
 	struct crypto_tfm *tfm = crypto_aead_tfm(aead);
@@ -3296,6 +3343,13 @@ static void generic_cra_exit(struct crypto_tfm *tfm)
 	atomic_dec(&iproc_priv.session_count);
 }
 
+static void rabin_cra_exit(struct crypto_rabin *rabin)
+{
+	struct crypto_tfm *tfm = crypto_rabin_tfm(rabin);
+
+	generic_cra_exit(tfm);
+}
+
 static void aead_cra_exit(struct crypto_aead *aead)
 {
 	struct crypto_tfm *tfm = crypto_aead_tfm(aead);
@@ -3309,6 +3363,276 @@ static void aead_cra_exit(struct crypto_aead *aead)
 	}
 }
 
+static void get_lut_programmed(void)
+{
+	unsigned int i, j;
+	struct spu_hw *spu = &iproc_priv.spu;
+
+	initialize_lut(iproc_priv.rfp_desc.win_sz,
+				iproc_priv.rfp_desc.polynomial,
+				iproc_priv.rfp_desc.rabin_lut);
+
+	for (i = 0; i < LUT_TABLE_SIZE; i++) {
+		for (j = 0; j < spu->num_spu; j++)
+			writel(iproc_priv.rfp_desc.rabin_lut[i],
+				spu->reg_vbase[j] + SPU2_SEC_RFC_POPLUT);
+	}
+	iproc_priv.rfp_desc.rabin_flag |= FLAG_RABIN_LUT_DONE;
+	pr_debug("Lut initialization done\n");
+}
+
+static int rabin_set_chunk_size(struct crypto_rabin *tfm,
+					u32 minchunk, u32 maxchunk)
+{
+	struct spu_hw *spu = &iproc_priv.spu;
+	int i = 0;
+
+	for (i = 0; i < spu->num_spu; i++) {
+		writel(maxchunk, spu->reg_vbase[i] + SPU2_SEC_RFC_CSZMAX);
+		writel(minchunk, spu->reg_vbase[i] + SPU2_SEC_RFC_CSZMIN);
+	}
+
+	iproc_priv.rfp_desc.min_chunk_sz = minchunk;
+	iproc_priv.rfp_desc.max_chunk_sz = maxchunk;
+
+	pr_debug("%s:chunk_size min=0x%x, max:0x%x\n",
+		__func__, iproc_priv.rfp_desc.min_chunk_sz,
+		iproc_priv.rfp_desc.max_chunk_sz);
+
+	iproc_priv.rfp_desc.rabin_flag |= FLAG_RABIN_CHUNK_SZ;
+
+	return 0;
+}
+
+static int rabin_set_polynomial(struct crypto_rabin *tfm, u32 poly)
+{
+	struct spu_hw *spu = &iproc_priv.spu;
+	u32 i;
+
+	for (i = 0; i < spu->num_spu; i++)
+		writel(poly, spu->reg_vbase[i] + SPU2_SEC_RFC_POLY);
+
+	iproc_priv.rfp_desc.polynomial = poly;
+	iproc_priv.rfp_desc.rabin_flag &= ~FLAG_RABIN_LUT_DONE;
+	iproc_priv.rfp_desc.rabin_flag |= FLAG_RABIN_POLY;
+
+	pr_debug("Rabin polynomial :0x%x\n", poly);
+	return 0;
+}
+
+static int rabin_set_win_size(struct crypto_rabin *tfm, u32 winsize)
+{
+	struct spu_hw *spu = &iproc_priv.spu;
+	u32 i, val;
+
+	if (winsize >= RABIN_MAX_WIN_SIZE) {
+		pr_err("%s: Rabin window size can't be more than %u\n",
+						__func__, RABIN_MAX_WIN_SIZE);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < spu->num_spu; i++) {
+		val = readl(spu->reg_vbase[i] + SPU2_SEC_RFC_CFG);
+		val &= (~RABIN_MAX_WIN_SIZE_MASK);
+		val |= winsize;
+		writel(val, spu->reg_vbase[i] + SPU2_SEC_RFC_CFG);
+	}
+
+	iproc_priv.rfp_desc.win_sz = winsize;
+	iproc_priv.rfp_desc.rabin_flag &= ~FLAG_RABIN_LUT_DONE;
+	iproc_priv.rfp_desc.rabin_flag |= FLAG_RABIN_WIN_SZ;
+
+	return 0;
+}
+
+static int rabin_set_termination(struct crypto_rabin *tfm,
+						u32 tfprint, u32 mask)
+{
+	struct spu_hw *spu = &iproc_priv.spu;
+	u32 val, idx, i;
+
+	idx = ffz(iproc_priv.rfp_desc.tfp_bitmask);
+
+	for (i = 0; i < spu->num_spu; i++) {
+		writel(mask, spu->reg_vbase[i] + SPU2_SEC_RFC_TMASK0 + idx * 8);
+		writel(tfprint, spu->reg_vbase[i] + SPU2_SEC_RFC_TFPRINT0 +
+								idx * 8 + 4);
+
+		/* Enable this termination condition */
+		val = readl(spu->reg_vbase[i] + SPU2_SEC_RFC_CFG);
+		val |= (1 << (RABIN_TFMASK_SHIFT + idx));
+		writel(val, spu->reg_vbase[i] + SPU2_SEC_RFC_CFG);
+	}
+
+	iproc_priv.rfp_desc.tfp[idx] = tfprint;
+	iproc_priv.rfp_desc.tfp_mask[idx] = mask;
+	iproc_priv.rfp_desc.tfp_bitmask |= (1 << idx);
+	pr_debug("%s:tfprint:%u, mask:%u, bitmsak:0x%x\n",
+		__func__, tfprint, mask, iproc_priv.rfp_desc.tfp_bitmask);
+
+	return 0;
+}
+
+static int handle_rabin_req(struct iproc_reqctx_s *rctx)
+{
+	struct spu_hw *spu = &iproc_priv.spu;
+	struct iproc_ctx_s *ctx = rctx->ctx;
+
+	struct SPU2_FMD *fmd;
+	unsigned int spu_hdr_len = 0;
+	struct brcm_message *mssg;	/* mailbox message */
+	struct scatterlist *sg;
+	int err = 0;
+
+	struct spu_request_opts req_opts;
+	struct spu_cipher_parms cipher_parms;
+	struct spu_hash_parms hash_parms;
+	struct spu_aead_parms aead_parms;
+
+	memset(&req_opts, 0, sizeof(req_opts));
+	memset(&cipher_parms, 0, sizeof(cipher_parms));
+	memset(&hash_parms, 0, sizeof(hash_parms));
+	memset(&aead_parms, 0, sizeof(aead_parms));
+
+	hash_parms.mode = ctx->auth.mode;
+	hash_parms.alg  = rctx->rabin_tag_idx;
+	hash_parms.type = (rctx->src_sent) ? HASH_TYPE_UPDT : HASH_TYPE_INIT;
+	hash_parms.digestsize = crypto_rabin_get_tag_size(rctx->rabin_tag);
+	pr_debug("mode:%#x, alg:%#x, digestsize:%#x\n",
+		hash_parms.mode, hash_parms.alg, hash_parms.digestsize);
+
+	req_opts.bd_suppress = true;
+
+	/* allocate sg for spu2 header. one for fmd and other for chaining */
+	sg = kcalloc(2, sizeof(struct scatterlist), GFP_KERNEL);
+	if (unlikely(sg == NULL))
+		return -ENOMEM;
+	sg_init_table(sg, 2);
+
+	fmd = kzalloc(sizeof(*fmd), GFP_KERNEL);
+	if (unlikely(fmd == NULL)) {
+		err = -ENOMEM;
+		goto fmd_fail;
+	}
+
+	spu_hdr_len = spu->spu_create_request((u8 *)fmd, &req_opts,
+						&cipher_parms, &hash_parms,
+						&aead_parms, rctx->total_todo);
+
+	if (spu_hdr_len == 0) {
+		pr_err("Failed to create SPU request header\n");
+		err = -EFAULT;
+		goto out;
+	}
+
+	sg_set_buf(sg, fmd, spu_hdr_len);
+
+	/* chaining both request */
+	sg_chain(sg, 2, rctx->src_sg);
+
+	/* Build mailbox message containing SPU request msg and rx buffers
+	 * to catch response message
+	 */
+	mssg = &rctx->mb_mssg;
+	memset(mssg, 0, sizeof(*mssg));
+	mssg->type = BRCM_MESSAGE_SPU;
+	mssg->ctx = rctx;	/* Will be returned in response */
+	mssg->spu.src = sg;
+	mssg->spu.dst = rctx->dst_sg;
+
+	err = mbox_send_message(iproc_priv.mbox[rctx->chan_idx], mssg);
+	if (err < 0) {
+		atomic_inc(&iproc_priv.mb_send_fail);
+		pr_err("%s: Failed to send mailbox message. err %d\n",
+			__func__, err);
+		goto out;
+	}
+	return -EINPROGRESS;
+out:
+	kfree(fmd);
+fmd_fail:
+	kfree(sg);
+	return err;
+}
+
+static int rabin_get_finger_print(struct rabin_request *req)
+{
+	unsigned int i;
+	struct scatterlist *sg;
+	struct iproc_reqctx_s *rctx = rabin_request_ctx(req);
+	struct iproc_ctx_s *ctx = crypto_rabin_ctx(crypto_rabin_reqtfm(req));
+
+	rctx->ctx = ctx;
+
+	if (!(iproc_priv.rfp_desc.rabin_flag & FLAG_RABIN_LUT_DONE)) {
+		if ((iproc_priv.rfp_desc.rabin_flag & FLAG_RABIN_WIN_SZ) &&
+		    (iproc_priv.rfp_desc.rabin_flag & FLAG_RABIN_POLY)) {
+			get_lut_programmed();
+		} else {
+			pr_err("%s: LUT initialization error flag:%x\n",
+				__func__, iproc_priv.rfp_desc.rabin_flag);
+			return -EINVAL;
+		}
+	}
+
+
+	rctx->parent = &req->base;
+	rctx->rabin_tag_idx = rabintag_to_hash_index(req->tag);
+	strcpy(rctx->rabin_tag, req->tag);
+	pr_info("rctx->tag :%s, tagval :0x%x\n",
+		rctx->rabin_tag, rctx->rabin_tag_idx);
+
+	rctx->src_sg = req->src_sg;
+	rctx->dst_sg = req->dst_sg,
+	rctx->src_nents = sg_nents(rctx->src_sg);
+	rctx->dst_nents = sg_nents(rctx->dst_sg);
+	rctx->total_todo = 0;
+	for_each_sg(rctx->src_sg, sg, sg_nents(rctx->src_sg), i)
+		rctx->total_todo += sg->length;
+
+	pr_info("%s: nbytes:%u\n", __func__, rctx->total_todo);
+
+	rctx->bd_suppress = false;
+	rctx->src_sent = rctx->total_sent = 0;
+	rctx->total_received = 0;
+	rctx->is_sw_hmac = false;
+	rctx->chan_idx = select_channel();
+
+	pr_info("Selected channel for operation:%u\n", rctx->chan_idx);
+
+	return handle_rabin_req(rctx);
+}
+
+static int spu_register_rabin(struct iproc_alg_s *driver_alg)
+{
+	int err;
+	struct rabin_alg *rabin = &driver_alg->alg.rabin;
+
+	rabin->base.cra_module = THIS_MODULE;
+	rabin->base.cra_priority = 400;
+	rabin->base.cra_alignmask = 0;
+	rabin->base.cra_ctxsize = sizeof(struct iproc_ctx_s);
+	rabin->base.cra_type = &crypto_rabin_type;
+	INIT_LIST_HEAD(&rabin->base.cra_list);
+
+	rabin->base.cra_flags |= CRYPTO_ALG_TYPE_RABIN | CRYPTO_ALG_ASYNC;
+
+	rabin->set_chunk_size = rabin_set_chunk_size;
+	rabin->set_polynomial = rabin_set_polynomial;
+	rabin->set_win_size = rabin_set_win_size;
+	rabin->get_finger_print = rabin_get_finger_print;
+	rabin->set_fp_termination = rabin_set_termination;
+	rabin->init = rabin_cra_init;
+	rabin->exit = rabin_cra_exit;
+
+	err = crypto_register_rabin(rabin);
+	if (err)
+		pr_info("Rabin regsitration failed\n");
+
+	pr_info("registered rabin %s\n", rabin->base.cra_driver_name);
+
+	return 0;
+}
 /* ==================== Kernel Platform API ==================== */
 
 static int spu_dt_validate(struct device *dev, struct spu_hw *spu)
@@ -3626,6 +3950,12 @@ static int spu_algs_register(struct device *dev)
 		case CRYPTO_ALG_TYPE_AEAD:
 			err = spu_register_aead(&driver_algs[i]);
 			break;
+		case CRYPTO_ALG_TYPE_RABIN:
+			if (spu->spu_type == SPU_TYPE_SPU2) {
+				err = spu_register_rabin(&driver_algs[i]);
+				dev_info(dev, "Rabin regsitered:%d\n", err);
+			}
+			break;
 		default:
 			dev_err(dev,
 				"iproc-crypto: unknown alg type: %d",
@@ -3653,6 +3983,11 @@ err_algs:
 			break;
 		case CRYPTO_ALG_TYPE_AEAD:
 			crypto_unregister_aead(&driver_algs[j].alg.aead);
+			break;
+		case CRYPTO_ALG_TYPE_RABIN:
+			if (spu->spu_type == SPU_TYPE_SPU2)
+				crypto_unregister_rabin(
+						&driver_algs[i].alg.rabin);
 			break;
 		}
 	}
@@ -3716,6 +4051,7 @@ failure:
 
 int bcm_spu_remove(struct platform_device *pdev)
 {
+	struct spu_hw *spu = &iproc_priv.spu;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(driver_algs); i++) {
@@ -3735,6 +4071,14 @@ int bcm_spu_remove(struct platform_device *pdev)
 			crypto_unregister_aead(&driver_algs[i].alg.aead);
 			pr_info("  unregistered aead %s\n",
 				driver_algs[i].alg.aead.base.cra_driver_name);
+			break;
+		case CRYPTO_ALG_TYPE_RABIN:
+			if (spu->spu_type == SPU_TYPE_SPU2) {
+				crypto_unregister_rabin(
+						&driver_algs[i].alg.rabin);
+				pr_info("  unregistered rabin %s\n",
+				driver_algs[i].alg.rabin.base.cra_driver_name);
+			}
 			break;
 		}
 	}

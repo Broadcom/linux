@@ -77,6 +77,7 @@ enum hash_mode {
 	HASH_MODE_CMAC = 0x1,
 	HASH_MODE_CTXT = 0x1,
 	HASH_MODE_HMAC = 0x2,
+	HASH_MODE_RABIN = 0x4,
 	HASH_MODE_FHMAC = 0x6,
 	HASH_MODE_CCM = 0x5,
 	HASH_MODE_GCM = 0x6,
@@ -237,4 +238,5 @@ u8 spum_tx_status_len(void);
 u8 spum_rx_status_len(void);
 int spum_status_process(u8 *statp);
 
+int rabintag_to_hash_index(unsigned char *tag);
 #endif

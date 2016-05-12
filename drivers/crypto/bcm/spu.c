@@ -21,6 +21,11 @@
 #include "spu.h"
 #include "spum.h"
 
+/*
+ * This array is based on the hash algo type supporeted in spu.h
+ */
+char *tag_to_hash_idx[] = { "none", "md5", "sha1", "sha224", "sha256" };
+
 /* Assumes SPU-M messages are in big endian */
 void spum_dump_msg_hdr(u8 *buf, unsigned buf_len)
 {
@@ -907,4 +912,23 @@ int spum_status_process(u8 *statp)
 		return -EBADMSG;
 	}
 	return 0;
+}
+
+/*
+ *maps tags to hash value
+ *
+ *@tag: tags meant for rabin.
+ *
+ *return hash index in case of success else negative error code.
+ */
+int rabintag_to_hash_index(unsigned char *tag)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(tag_to_hash_idx); i++)
+		if (!strcmp(tag, tag_to_hash_idx[i]))
+			return i;
+
+	pr_err("Invalid Rabin tag:%s\n", tag);
+	return -EINVAL;
 }

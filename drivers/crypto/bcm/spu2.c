@@ -219,6 +219,9 @@ static int spu2_hash_mode_xlate(enum hash_mode hash_mode,
 	case HASH_MODE_GCM:
 		*spu2_mode = SPU2_HASH_MODE_GCM;
 		break;
+	case HASH_MODE_RABIN:
+		*spu2_mode = SPU2_HASH_MODE_RABIN;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -633,6 +636,7 @@ static void spu2_fmd_ctrl0_write(struct SPU2_FMD *fmd,
  * @cipher_iv_len:  Length of cipher IV, in bytes
  * @digest_size:    Length of digest (aka, hash tag or ICV), in bytes
  * @return_payload: Return payload in SPU response
+ * @return_md : return metadata in SPU response
  *
  * Packet can have AAD2 w/o AAD1. For algorithms currently supported,
  * associated data goes in AAD2.
@@ -642,7 +646,8 @@ static void spu2_fmd_ctrl1_write(struct SPU2_FMD *fmd, bool is_inbound,
 				 u64 auth_key_len, u64 cipher_key_len,
 				 bool gen_iv, bool hash_iv, bool return_iv,
 				 u64 cipher_iv_len, u64 digest_size,
-				 bool return_payload)
+				 bool return_payload,
+				 bool return_md)
 {
 	u64 ctrl1 = 0;
 
@@ -678,7 +683,10 @@ static void spu2_fmd_ctrl1_write(struct SPU2_FMD *fmd, bool is_inbound,
 	/* Let's ask for the output pkt to include FMD, but don't need to
 	 * get keys and IVs back in OMD.
 	 */
-	ctrl1 |= ((u64) SPU2_RET_FMD_ONLY << SPU2_RETURN_MD_SHIFT);
+	if (return_md)
+		ctrl1 |= ((u64) SPU2_RET_FMD_ONLY << SPU2_RETURN_MD_SHIFT);
+	else
+		ctrl1 |= ((u64) SPU2_RET_NO_MD << SPU2_RETURN_MD_SHIFT);
 
 	/* Crypto API does not get assoc data back. So no need for AAD2. */
 
@@ -988,7 +996,8 @@ u32 spu2_create_request(u8 *spu_hdr,
 	spu2_fmd_ctrl1_write(fmd, req_opts->is_inbound, aead_parms->assoc_size,
 			     hash_parms->key_len, cipher_parms->key_len,
 			     false, false, false, cipher_parms->iv_len,
-			     hash_parms->digestsize, !req_opts->bd_suppress);
+			     hash_parms->digestsize, !req_opts->bd_suppress,
+			     false);
 
 	spu2_fmd_ctrl2_write(fmd, cipher_offset, hash_parms->key_len, 0,
 			     cipher_parms->key_len, cipher_parms->iv_len);

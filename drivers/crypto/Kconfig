@@ -526,6 +526,7 @@ config CRYPTO_DEV_BCM_SPU
 	select CRYPTO_BLKCIPHER
 	select CRYPTO_AEAD
 	select CRYPTO_DES
+	select CRYPTO_RABIN_FINGER_PRINT
 	help
 	This driver provides support for Broadcom crypto acceleration using the
 	Secure Processing Unit (SPU). The SPU driver registers ablkcipher,
