@@ -83,7 +83,8 @@ main() {
 	iproc_extra="blk net dma fs i2c iomux mailbox md misc mmc mtd rng spi virtio watchdog"
 	do_update iproc $iproc_base $iproc_extra
 
-	# add support for other defconfigs here
+	# sr_nitro_lite_defconfig. for PAXC/Nitro bring up on Stingray palladium
+	do_update sr_nitro_lite $iproc_base blk fs net
 
 	#Cleanup
 	make ARCH=${ARCH} mrproper > /dev/null
