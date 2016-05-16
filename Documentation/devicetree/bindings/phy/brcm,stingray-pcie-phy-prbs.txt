@@ -1,0 +1,51 @@
+Broadcom PCIe PHY PRBS for Stingray
+
+Required properties:
+- compatible: must be "brcm,stingray-mdio-master-pcie-prbs"
+- reg: master id of PCIe block
+- brcm,phy_internal: Stingray has only internal PCIe PHYs
+- address-cells: should be 1
+- size-cells: should be 0
+- brcm, pcie-strap: a phandle to the pcie subsystem registers containing
+		    the PIPE MUX configuration register.
+
+Sub-nodes:
+  Each port's PHY should be represented as a sub-node.
+
+Sub-nodes required properties:
+- reg: the PHY number
+
+Example:
+	pcie-master@0 {
+		compatible = "brcm,stingray-mdio-master-pcie-prbs";
+		reg = <0x0>;
+		brcm,phy_internal;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		brcm,pcie-strap = <&pcie_ss>;
+		status = "ok";
+		pcie-phy@0 {
+			reg = <0x0>;
+		};
+		pcie-phy@1 {
+			reg = <0x1>;
+		};
+		pcie-phy@2 {
+			reg = <0x2>;
+		};
+		pcie-phy@3 {
+			reg = <0x3>;
+		};
+		pcie-phy@4 {
+			reg = <0x4>;
+		};
+		pcie-phy@5 {
+			reg = <0x5>;
+		};
+		pcie-phy@6 {
+			reg = <0x6>;
+		};
+		pcie-phy@7 {
+			reg = <0x7>;
+		};
+	};
