@@ -32,8 +32,21 @@
 
 /dts-v1/;
 
-/* HACK: Reserve initrd location */
+/* HACK: Reserve initrd location
+ * The memreserve entry for initrd is supposed
+ * to be updated in DTB by bootloader before
+ * handing over DTB to Linux kernel.
+ */
 /memreserve/ 0x81000000 0x00800000;
+/* HACK: Reserve bl31 location
+ * The memreserve entry for bl31 is supposed to
+ * be updated in DTB by bootloader before handing
+ * over DTB to Linux kernel. This is so because
+ * only firmware (or bootloader) know the correct
+ * location of bl31 and bl31 location in DDR can
+ * also change in-future.
+ */
+/memreserve/ 0x8f000000 0x00100000;
 
 #include "stingray.dtsi"
 
