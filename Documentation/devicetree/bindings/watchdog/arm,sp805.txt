@@ -8,7 +8,7 @@ Required properties:
 	clocks. With 2 clocks, the order is wdogclk clock, apb_pclk.
 
 Example:
-	wdt@66090000 {
+	watchdog@66090000 {
 		compatible = "arm,sp805", "arm,primecell";
 		reg = <0x66090000 0x1000>;
 		interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH>;

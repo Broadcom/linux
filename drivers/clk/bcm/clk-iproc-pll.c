@@ -24,11 +24,13 @@
 
 #define PLL_VCO_HIGH_SHIFT 19
 #define PLL_VCO_LOW_SHIFT  30
-/* PLL MACRO_SELECT modes 0 to 5 choose pre-calculated
- * PLL output frequencies from a Look up Table. Mode 7
- * allows user to manipulate PLL clock dividers
+
+/*
+ * PLL MACRO_SELECT modes 0 to 5 choose pre-calculated PLL output frequencies
+ * from a look-up table. Mode 7 allows user to manipulate PLL clock dividers
  */
 #define PLL_USER_MODE 7
+
 /* number of delay loops waiting for PLL to lock */
 #define LOCK_DELAY 100
 
@@ -302,7 +304,7 @@ static int pll_set_rate(struct iproc_clk *clk, unsigned int rate_index,
 	/* put PLL in reset */
 	__pll_put_in_reset(pll);
 
-	/* Set PLL in user mode before modifying pll controls */
+	/* set PLL in user mode before modifying PLL controls */
 	if (ctrl->flags & IPROC_CLK_PLL_USER_MODE_ON) {
 		val = readl(pll->control_base + ctrl->macro_mode.offset);
 		val &= ~(bit_mask(ctrl->macro_mode.width) <<
@@ -599,7 +601,6 @@ static int iproc_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	if (rate == 0 || parent_rate == 0)
 		return -EINVAL;
-
 
 	div = DIV_ROUND_UP(parent_rate, rate);
 	if (ctrl->flags & IPROC_CLK_MCLK_DIV_BY_2)

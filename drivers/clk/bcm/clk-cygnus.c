@@ -271,9 +271,11 @@ CLK_OF_DECLARE(cygnus_asiu_clk, "brcm,cygnus-asiu-clk", cygnus_asiu_init);
 
 /*
  * AUDIO PLL VCO frequency parameter table
- * PLL output frequency =
- * ((ndiv_int + ndiv_frac / 2^20) * (parent clock rate / pdiv)
- * Here, parent rate = 25MHz oscillator
+ *
+ * PLL output frequency = ((ndiv_int + ndiv_frac / 2^20) *
+ * (parent clock rate / pdiv)
+ *
+ * On Cygnus, parent is the 25MHz oscillator
  */
 static const struct iproc_pll_vco_param audiopll_vco_params[] = {
 	/* rate (Hz) ndiv_int ndiv_frac pdiv */
@@ -283,8 +285,7 @@ static const struct iproc_pll_vco_param audiopll_vco_params[] = {
 
 static const struct iproc_pll_ctrl audiopll = {
 	.flags = IPROC_CLK_PLL_NEEDS_SW_CFG | IPROC_CLK_PLL_HAS_NDIV_FRAC |
-			IPROC_CLK_PLL_USER_MODE_ON |
-			IPROC_CLK_PLL_RESET_ACTIVE_LOW,
+		IPROC_CLK_PLL_USER_MODE_ON | IPROC_CLK_PLL_RESET_ACTIVE_LOW,
 	.reset = RESET_VAL(0x5c, 0, 1),
 	.dig_filter = DF_VAL(0x48, 0, 3, 6, 4, 3, 3),
 	.sw_ctrl = SW_CTRL_VAL(0x4, 0),
