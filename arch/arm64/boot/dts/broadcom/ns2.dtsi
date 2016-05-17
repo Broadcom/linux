@@ -450,7 +450,7 @@
 			};
 		};
 
-		timer01: timer@66030000 {
+		timer0: timer@66030000 {
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x66030000 0x1000>;
 			interrupts = <GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>;
@@ -460,7 +460,7 @@
 			clock-names = "timer1", "timer2", "apb_pclk";
 		};
 
-		timer23: timer@66040000 {
+		timer1: timer@66040000 {
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x66040000 0x1000>;
 			interrupts = <GIC_SPI 397 IRQ_TYPE_LEVEL_HIGH>;
@@ -470,7 +470,7 @@
 			clock-names = "timer1", "timer2", "apb_pclk";
 		};
 
-		timer45: timer@66050000 {
+		timer2: timer@66050000 {
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x66050000 0x1000>;
 			interrupts = <GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH>;
@@ -480,7 +480,7 @@
 			clock-names = "timer1", "timer2", "apb_pclk";
 		};
 
-		timer67: timer@66060000 {
+		timer3: timer@66060000 {
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x66060000 0x1000>;
 			interrupts = <GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH>;
@@ -500,7 +500,7 @@
 			status = "disabled";
 		};
 
-		wdt0: wdt@66090000 {
+		wdt0: watchdog@66090000 {
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x66090000 0x1000>;
 			interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH>;
@@ -672,21 +672,21 @@
 			};
 		};
 
-		sdio0: sdhci@0x66420000 {
+		sdio0: sdhci@66420000 {
 			compatible = "brcm,sdhci-iproc-cygnus";
 			reg = <0x66420000 0x100>;
 			interrupts = <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
-			clocks = <&genpll_sw BCM_NS2_GENPLL_SW_SDIO_CLK>;
+			clocks = <&sdio_clk>;
 			status = "disabled";
 		};
 
-		sdio1: sdhci@0x66430000 {
+		sdio1: sdhci@66430000 {
 			compatible = "brcm,sdhci-iproc-cygnus";
 			reg = <0x66430000 0x100>;
 			interrupts = <GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
-			clocks = <&genpll_sw BCM_NS2_GENPLL_SW_SDIO_CLK>;
+			clocks = <&sdio_clk>;
 			status = "disabled";
 		};
 

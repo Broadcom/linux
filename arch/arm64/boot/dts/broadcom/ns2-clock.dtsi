@@ -38,6 +38,13 @@
 		clock-frequency = <25000000>;
 	};
 
+	/* FIXME: dummy clock to allow SDIO to work */
+	sdio_clk: fixed_216mhz {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <216000000>;
+	};
+
 	lcpll_ddr: lcpll_ddr@6501d058 {
 		#clock-cells = <1>;
 		compatible = "brcm,ns2-lcpll-ddr";
