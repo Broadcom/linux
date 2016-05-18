@@ -168,9 +168,6 @@
 #define S2CR_TYPE_TRANS			(0 << S2CR_TYPE_SHIFT)
 #define S2CR_TYPE_BYPASS		(1 << S2CR_TYPE_SHIFT)
 #define S2CR_TYPE_FAULT			(2 << S2CR_TYPE_SHIFT)
-#define S2CR_INSTCFG_SHIFT		26
-#define S2CR_INSTCFG_MASK		0x3
-#define S2CR_INSTCFG_DATA		(0x2 << S2CR_INSTCFG_SHIFT)
 
 #define S2CR_PRIVCFG_SHIFT		24
 #define S2CR_PRIVCFG_UNPRIV		(2 << S2CR_PRIVCFG_SHIFT)
@@ -312,7 +309,6 @@ struct arm_smmu_device {
 	u32				features;
 
 #define ARM_SMMU_OPT_SECURE_CFG_ACCESS (1 << 0)
-#define ARM_SMMU_OPT_INST_AS_DATA      (1 << 1)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -374,7 +370,6 @@ struct arm_smmu_option_prop {
 
 static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SECURE_CFG_ACCESS, "calxeda,smmu-secure-config-access" },
-	{ ARM_SMMU_OPT_INST_AS_DATA, "smmu-inst-as-data" },
 	{ 0, NULL},
 };
 
@@ -1121,9 +1116,6 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 		idx = cfg->smrs ? cfg->smrs[i].idx : cfg->streamids[i];
 		s2cr = S2CR_TYPE_TRANS | S2CR_PRIVCFG_UNPRIV |
 		       (smmu_domain->cfg.cbndx << S2CR_CBNDX_SHIFT);
-		if ((smmu->version == ARM_SMMU_V2) &&
-		    (smmu->options & ARM_SMMU_OPT_INST_AS_DATA))
-			s2cr |= S2CR_INSTCFG_DATA;
 		writel_relaxed(s2cr, gr0_base + ARM_SMMU_GR0_S2CR(idx));
 	}
 
