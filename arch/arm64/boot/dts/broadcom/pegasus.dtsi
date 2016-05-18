@@ -326,7 +326,6 @@
 				     <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
 			mmu-masters = <&dma0 0x6000>,
 				      <&sdio0 0x6001>;
-			smmu-inst-as-data;
 			#iommu-cells = <0>;
 		};
 	};

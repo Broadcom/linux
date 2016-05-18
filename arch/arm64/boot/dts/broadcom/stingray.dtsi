@@ -264,7 +264,6 @@
 			mmu-masters = <&dma0 0x6000>,
 				      <&sdio0 0x6002>,
 				      <&sdio1 0x6003>;
-			smmu-inst-as-data;
 			#iommu-cells = <0>;
 		};
 	};
