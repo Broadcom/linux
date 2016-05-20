@@ -158,6 +158,7 @@ struct sba_device {
 	int mchans_count;
 	atomic_t mchans_current;
 	struct mbox_chan **mchans;
+	struct device *mbox_dev;
 	/* DMA device and DMA channel */
 	struct dma_device dma_dev;
 	struct dma_chan dma_chan;
@@ -335,11 +336,51 @@ static void sba_free_chan_resources(struct dma_chan *dchan)
 	sba_cleanup_inflight_requests(to_sba_device(dchan));
 }
 
+static int sba_send_mbox_request(struct sba_device *sba,
+				 struct sba_request *req)
+{
+	int i, mchans_idx, ret = 0;
+	struct sba_request_chunk *chunk;
+
+	/* For each request chunk */
+	ret = 0;
+	for (i = req->chunks_queued; i < req->chunks_count; i++) {
+		chunk = &req->chunks[i];
+
+		/* Select mailbox channel in round-robin fashion */
+		mchans_idx = atomic_inc_return(&sba->mchans_current);
+		mchans_idx = mchans_idx % sba->mchans_count;
+
+		/* Send mailbox message */
+		ret = mbox_send_message(sba->mchans[mchans_idx],
+					&chunk->msg);
+		if (ret < 0) {
+			dev_info(sba->dev,
+				 "channel %d chunk %d (total %d)",
+				 mchans_idx, i, req->chunks_count);
+			dev_err(sba->dev,
+				"send message failed with error %d",
+				ret);
+			break;
+		}
+		ret = chunk->msg.error;
+		if (ret < 0) {
+			dev_info(sba->dev,
+				 "mbox channel %d chunk %d (total %d)",
+				 mchans_idx, i, req->chunks_count);
+			dev_err(sba->dev, "message error %d", ret);
+			break;
+		}
+		req->chunks_queued++;
+	}
+
+	return ret;
+}
+
 static void sba_issue_pending(struct dma_chan *dchan)
 {
-	int i, mchans_idx, ret;
+	int ret;
 	unsigned long flags;
-	struct sba_request_chunk *chunk;
 	struct sba_request *req, *req1;
 	struct sba_device *sba = to_sba_device(dchan);
 
@@ -350,40 +391,9 @@ static void sba_issue_pending(struct dma_chan *dchan)
 		/* Make request active */
 		_sba_active_request(sba, req);
 
+		/* Send request to mailbox channel */
 		spin_unlock_irqrestore(&sba->reqs_lock, flags);
-
-		/* For each request chunk */
-		ret = 0;
-		for (i = req->chunks_queued; i < req->chunks_count; i++) {
-			chunk = &req->chunks[i];
-
-			/* Select mailbox channel in round-robin fashion */
-			mchans_idx = atomic_inc_return(&sba->mchans_current);
-			mchans_idx = mchans_idx % sba->mchans_count;
-
-			/* Send mailbox message */
-			ret = mbox_send_message(sba->mchans[mchans_idx],
-						&chunk->msg);
-			if (ret < 0) {
-				dev_info(sba->dev,
-					 "channel %d chunk %d (total %d)",
-					 mchans_idx, i, req->chunks_count);
-				dev_err(sba->dev,
-					"send message failed with error %d",
-					ret);
-				break;
-			}
-			ret = chunk->msg.error;
-			if (ret < 0) {
-				dev_info(sba->dev,
-					 "mbox channel %d chunk %d (total %d)",
-					 mchans_idx, i, req->chunks_count);
-				dev_err(sba->dev, "message error %d", ret);
-				break;
-			}
-			req->chunks_queued++;
-		}
-
+		ret = sba_send_mbox_request(sba, req);
 		spin_lock_irqsave(&sba->reqs_lock, flags);
 
 		/* If something went wrong then keep request pending */
@@ -398,10 +408,11 @@ static void sba_issue_pending(struct dma_chan *dchan)
 
 static dma_cookie_t sba_tx_submit(struct dma_async_tx_descriptor *tx)
 {
+	int ret;
 	unsigned long flags;
+	dma_cookie_t cookie;
 	struct sba_request *req;
 	struct sba_device *sba;
-	dma_cookie_t cookie;
 
 	if (unlikely(!tx))
 		return -EINVAL;
@@ -409,10 +420,21 @@ static dma_cookie_t sba_tx_submit(struct dma_async_tx_descriptor *tx)
 	sba = to_sba_device(tx->chan);
 	req = to_sba_request(tx);
 
+	/* Assign cookie and mark request active */
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 	cookie = dma_cookie_assign(tx);
-	_sba_pending_request(sba, req);
+	_sba_active_request(sba, req);
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
+
+	/* Send request to mailbox channel */
+	ret = sba_send_mbox_request(sba, req);
+
+	/* If something went wrong then keep request pending */
+	if (ret < 0) {
+		spin_lock_irqsave(&sba->reqs_lock, flags);
+		_sba_pending_request(sba, req);
+		spin_unlock_irqrestore(&sba->reqs_lock, flags);
+	}
 
 	return cookie;
 }
@@ -950,14 +972,18 @@ static int sba_async_register(struct sba_device *sba)
 	 * our dma_device because the actual memory accesses
 	 * will be done by mailbox controller
 	 */
-	dma_dev->dev = mbox_channel_device(sba->mchans[0]);
+	dma_dev->dev = sba->mbox_dev;
 
 	/* Set base prep routines */
 	dma_dev->device_alloc_chan_resources = sba_alloc_chan_resources;
 	dma_dev->device_free_chan_resources = sba_free_chan_resources;
 	dma_dev->device_issue_pending = sba_issue_pending;
 	dma_dev->device_tx_status = sba_tx_status;
-	dma_dev->device_prep_dma_memcpy = sba_prep_dma_memcpy;
+
+	/* Set memcpy routines and capability */
+	if (dma_has_cap(DMA_MEMCPY, dma_dev->cap_mask)) {
+		dma_dev->device_prep_dma_memcpy = sba_prep_dma_memcpy;
+	}
 
 	/* Set xor routines and capability */
 	if (dma_has_cap(DMA_XOR, dma_dev->cap_mask)) {
@@ -1056,10 +1082,16 @@ static int sba_probe(struct platform_device *pdev)
 		sba->mchans_count++;
 	}
 
+	/* Find-out underlying mailbox device */
+	sba->mbox_dev = mbox_channel_device(sba->mchans[0]);
+	if (IS_ERR(sba->mbox_dev)) {
+		ret = PTR_ERR(sba->mbox_dev);
+		goto fail_free_mchans;
+	}
+
 	/* All mailbox channels should be of same ring manager device */
 	for (i = 1; i < mchans_count; i++) {
-		if (mbox_channel_device(sba->mchans[i]) !=
-				mbox_channel_device(sba->mchans[0])) {
+		if (mbox_channel_device(sba->mchans[i]) != sba->mbox_dev) {
 			ret = -EINVAL;
 			goto fail_free_mchans;
 		}
