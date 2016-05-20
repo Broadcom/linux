@@ -357,10 +357,10 @@ static int flexdma_startup(struct mbox_chan *chan)
 	ring->bd_base = dma_pool_alloc(ring->mbox->bd_pool,
 				       GFP_KERNEL, &ring->bd_dma_base);
 	if (!ring->bd_base) {
+		dev_err(ring->mbox->dev, "can't allocate BD memory\n");
 		ret = -ENOMEM;
 		goto fail;
 	}
-	memset(ring->bd_base, 0, RING_BD_SIZE);
 
 	/* Configure next table pointer entries in BD memory */
 	for (off = 0; off < RING_BD_SIZE; off += RING_DESC_SIZE) {
@@ -380,6 +380,7 @@ static int flexdma_startup(struct mbox_chan *chan)
 	ring->cmpl_base = dma_pool_alloc(ring->mbox->cmpl_pool,
 					 GFP_KERNEL, &ring->cmpl_dma_base);
 	if (!ring->cmpl_base) {
+		dev_err(ring->mbox->dev, "can't allocate completion memory\n");
 		ret = -ENOMEM;
 		goto fail_free_bd_memory;
 	}
@@ -387,6 +388,7 @@ static int flexdma_startup(struct mbox_chan *chan)
 
 	/* Request IRQ */
 	if (ring->irq == UINT_MAX) {
+		dev_err(ring->mbox->dev, "ring IRQ not available\n");
 		ret = -ENODEV;
 		goto fail_free_cmpl_memory;
 	}
@@ -394,8 +396,10 @@ static int flexdma_startup(struct mbox_chan *chan)
 				   flexdma_irq_event,
 				   flexdma_irq_thread,
 				   0, dev_name(ring->mbox->dev), ring);
-	if (ret)
+	if (ret) {
+		dev_err(ring->mbox->dev, "failed to request ring IRQ\n");
 		goto fail_free_cmpl_memory;
+	}
 	ring->irq_requested = true;
 
 	/* Disable/inactivate ring */
