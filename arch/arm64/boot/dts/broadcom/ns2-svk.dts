@@ -56,6 +56,14 @@
 	};
 };
 
+&pci_phy0 {
+	status = "ok";
+};
+
+&pci_phy1 {
+	status = "ok";
+};
+
 &pcie0 {
 	status = "ok";
 };
@@ -177,6 +185,14 @@
 		brcm,nand-oob-sector-size = <16>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+	};
+};
+
+&mdio_mux_iproc {
+	mdio@10 {
+		gphy0: eth-phy@10 {
+			reg = <0x10>;
+		};
 	};
 };
 
