@@ -54,3 +54,4 @@ obj-$(CONFIG_PHY_PISTACHIO_USB)		+= phy-pistachio-usb.o
 obj-$(CONFIG_PHY_CYGNUS_PCIE)		+= phy-bcm-cygnus-pcie.o
 obj-$(CONFIG_PHY_NS2_PCIE)		+= phy-bcm-ns2-pcie.o
 obj-$(CONFIG_PHY_NS2_SATA)		+= phy-bcm-ns2-sata.o
+obj-$(CONFIG_PHY_STINGRAY_PCIE_PRBS)	+= phy-bcm-stingray-pcie-prbs.o
