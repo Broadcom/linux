@@ -958,6 +958,7 @@ __setup("ethaddr=", bcm_amac_setup_ethaddr);
 
 static const struct of_device_id bcm_amac_of_enet_match[] = {
 	{.compatible = "brcm,amac-enet",},
+	{.compatible = "brcm,amac-enet-v2",},
 	{},
 };
 

@@ -93,6 +93,8 @@ static int amac_gphy_lswap(struct phy_device *phy_dev)
 void amac_gphy_rgmii_init(struct bcm_amac_priv *privp, bool enable)
 {
 	u32 val;
+	struct platform_device *pdev = privp->pdev;
+	struct device_node *np = pdev->dev.of_node;
 	struct net_device *ndev;
 	void __iomem *rgmii_regs;
 
@@ -121,8 +123,14 @@ void amac_gphy_rgmii_init(struct bcm_amac_priv *privp, bool enable)
 		val = readl(rgmii_regs + NICPM_IOMUX_CTRL);
 		dev_dbg(&ndev->dev, "NICPM_IOMUX_CTRL:%u, default 0x%x\n",
 			(NICPM_ROOT + NICPM_IOMUX_CTRL), val);
-		writel(NICPM_IOMUX_CTRL_INIT_VAL,
-		       (rgmii_regs + NICPM_IOMUX_CTRL));
+		if (of_device_is_compatible(np, "brcm,amac-enet"))
+			writel(NICPM_IOMUX_CTRL_INIT_VAL,
+			       (rgmii_regs + NICPM_IOMUX_CTRL));
+		else if (of_device_is_compatible(np, "brcm,amac-enet-v2"))
+			writel(NICPM_IOMUX_CTRL_INIT_VAL_BX,
+			       (rgmii_regs + NICPM_IOMUX_CTRL));
+		else
+			dev_err(&ndev->dev, "device tree node for unknown device\n");
 		dev_dbg(&ndev->dev, "NICPM_IOMUX_CTRL:%u, value 0x%x\n",
 			(NICPM_ROOT + NICPM_IOMUX_CTRL),
 			readl(rgmii_regs + NICPM_IOMUX_CTRL));
