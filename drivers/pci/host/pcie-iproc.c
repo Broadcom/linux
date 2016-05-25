@@ -283,9 +283,14 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct pci_bus *bus,
 	 * PAXC is connected to an internally emulated EP within the SoC.  It
 	 * allows only one device.
 	 */
-	if (pcie->ep_is_internal)
+	if (pcie->ep_is_internal) {
 		if (slot > 0)
 			return NULL;
+
+		/* only enumerate up to supported number of PFs */
+		if (fn >= pcie->nr_pf)
+			return NULL;
+	}
 
 	/* EP device access */
 	val = (busno << CFG_ADDR_BUS_NUM_SHIFT) |
@@ -642,10 +647,12 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	case IPROC_PCIE_PAXC:
 		pcie->reg_offsets = iproc_pcie_reg_paxc;
 		pcie->ep_is_internal = true;
+		pcie->nr_pf = 4;
 		break;
 	case IPROC_PCIE_PAXC_V2:
 		pcie->reg_offsets = iproc_pcie_reg_paxc_v2;
 		pcie->ep_is_internal = true;
+		pcie->nr_pf = 1;
 		break;
 	default:
 		dev_err(pcie->dev, "incompatible iProc PCIe interface\n");

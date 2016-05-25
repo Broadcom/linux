@@ -61,6 +61,8 @@ struct iproc_msi;
  * @map_irq: function callback to map interrupts
  * @need_ob_cfg: indicates SW needs to configure the outbound mapping window
  * @ep_is_internal: indicates an internal emulated endpoint device is connected
+ * @nr_pf: number of physical functions (only valid for internally emulated
+ * EPs)
  * @ob: outbound mapping parameters
  * @msi: MSI data
  */
@@ -78,6 +80,7 @@ struct iproc_pcie {
 	int (*map_irq)(const struct pci_dev *, u8, u8);
 	bool need_ob_cfg;
 	bool ep_is_internal;
+	unsigned int nr_pf;
 	struct iproc_pcie_ob ob;
 	struct iproc_msi *msi;
 };
