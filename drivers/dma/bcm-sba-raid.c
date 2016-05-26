@@ -443,6 +443,17 @@ static enum dma_status sba_tx_status(struct dma_chan *dchan,
 				     dma_cookie_t cookie,
 				     struct dma_tx_state *txstate)
 {
+	int mchan_idx;
+	enum dma_status ret;
+	struct sba_device *sba = to_sba_device(dchan);
+
+	ret = dma_cookie_status(dchan, cookie, txstate);
+	if (ret == DMA_COMPLETE)
+		return ret;
+
+	for (mchan_idx = 0; mchan_idx < sba->mchans_count; mchan_idx++)
+		mbox_client_peek_data(sba->mchans[mchan_idx]);
+
 	return dma_cookie_status(dchan, cookie, txstate);
 }
 
@@ -795,24 +806,21 @@ static void sba_dma_tx_actions(struct sba_request *req)
 {
 	struct dma_async_tx_descriptor *tx = &req->tx;
 
-	/*
-	 * If this is not the last transaction in the group,
-	 * then no need to complete cookie and run any callback as
-	 * this is not the tx_descriptor which had been sent to caller
-	 * of this DMA request
-	 */
-	if (tx->cookie == 0)
-		return;
+	WARN_ON(tx->cookie < 0);
 
-	dma_cookie_complete(tx);
+	if (tx->cookie > 0) {
+		dma_cookie_complete(tx);
 
-	/* Run the link descriptor callback function */
-	if (tx->callback)
-		tx->callback(tx->callback_param);
+		/* call the callback (must not sleep or submit new
+		 * operations to this channel)
+		 */
+		if (tx->callback)
+			tx->callback(tx->callback_param);
 
-	dma_descriptor_unmap(tx);
+		dma_descriptor_unmap(tx);
+	}
 
-	/* Run any dependencies */
+	/* run dependent operations */
 	dma_run_dependencies(tx);
 }
 
