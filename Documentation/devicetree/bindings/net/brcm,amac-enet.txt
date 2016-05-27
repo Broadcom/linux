@@ -2,7 +2,8 @@ Broadcom AMAC Ethernet Controller Device Tree Bindings
 -------------------------------------------------------------
 
 Required properties:
- - compatible: "brcm,amac-enet" - For Cygnus SoC and NS2 SoC
+ - compatible: "brcm,amac-enet" - For Cygnus SoC and NS2 A0/A1 SoC
+	       "brcm,amac-enet-v2" - For NS2 B0/B1 Soc
  - reg       : Physical base address and size of the
                ethernet registers.
                required: core_base, amac_idm_base
@@ -124,7 +125,7 @@ Examples:
                 status="okay";
         };
 
-3. Port0 is 1G LAN in "switch-by-pass" mode for NS2 SoC with pause
+3. Port0 is 1G LAN in "switch-by-pass" mode for NS2 A0/A1 SoC with pause
    frames disabled:
 
 	iproc_shared_mdio: iproc_shared_mdio@6602023c {
@@ -152,6 +153,49 @@ Examples:
 
 	enet: enet@61000000 {
 		compatible = "brcm,amac-enet";
+		reg = <0x61000000 0x1000>,
+			<0x61090400 0x1000>,
+			<0x61030000 0x10>;
+		reg-names = "core_base",
+			"amac_idm_base",
+			"rgmii_base";
+		dma-coherent;
+		interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
+		max-speed = <1000>;
+		phy-handle = <&gphy0>;
+		brcm,enet-phy54810-rgmii-sync;
+		brcm,enet-pause-disable;
+		status= "okay";
+	};
+
+4. Port0 is 1G LAN in "switch-by-pass" mode for NS2 B0/B1 SoC with pause
+   frames disabled:
+
+	iproc_shared_mdio: iproc_shared_mdio@6602023c {
+		compatible = "brcm,iproc-shared-mdio";
+		reg = <0x6602023c 0x14>;
+		reg-names = "mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	&iproc_shared_mdio {
+		eth-master@0 {
+			compatible = "brcm,iproc-mdio-master-eth";
+			reg = <0x0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "ok";
+
+			gphy0: eth-phy@10 {
+				reg = <0x10>;
+				phy-mode = "mii";
+			};
+		};
+	};
+
+	enet: enet@61000000 {
+		compatible = "brcm,amac-enet-v2";
 		reg = <0x61000000 0x1000>,
 			<0x61090400 0x1000>,
 			<0x61030000 0x10>;
