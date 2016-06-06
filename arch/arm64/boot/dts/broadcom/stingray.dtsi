@@ -509,7 +509,7 @@
 		};
 	};
 
-	fs4 {
+	fs4: fs4 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
