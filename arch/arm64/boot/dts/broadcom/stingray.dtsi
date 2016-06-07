@@ -592,7 +592,7 @@
 		};
 
 		spu2 {
-			compatible = "brcm,spu2-crypto";
+			compatible = "brcm,spu2-v2-crypto";
 			brcm,max-pkt-size = <4294967232>;  /* 2^32 - 64 */
 			reg = <0x672c0000 0x1000>,
 			      <0x672c1000 0x1000>,
