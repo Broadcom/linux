@@ -3605,10 +3605,35 @@ static int rabin_get_finger_print(struct rabin_request *req)
 	return handle_rabin_req(rctx);
 }
 
+static void spu_unregister_rabin(struct rabin_alg *rabin)
+{
+	struct spu_hw *spu = &iproc_priv.spu;
+
+	/*
+	 * Currently SPU2_V2 only supports RABIN Fingerprint
+	 * algorithm.
+	 */
+	if ((spu->spu_type == SPU_TYPE_SPU2) ||
+	    (spu->spu_type == SPU_TYPE_SPUM))
+		return;
+
+	crypto_unregister_rabin(rabin);
+	pr_info("  unregistered rabin %s\n", rabin->base.cra_driver_name);
+}
+
 static int spu_register_rabin(struct iproc_alg_s *driver_alg)
 {
 	int err;
 	struct rabin_alg *rabin = &driver_alg->alg.rabin;
+	struct spu_hw *spu = &iproc_priv.spu;
+
+	/*
+	 * Currently SPU2_V2 only supports RABIN Fingerprint
+	 * algorithm.
+	 */
+	if ((spu->spu_type == SPU_TYPE_SPU2) ||
+	    (spu->spu_type == SPU_TYPE_SPUM))
+		return 0;
 
 	rabin->base.cra_module = THIS_MODULE;
 	rabin->base.cra_priority = 400;
@@ -3957,10 +3982,7 @@ static int spu_algs_register(struct device *dev)
 			err = spu_register_aead(&driver_algs[i]);
 			break;
 		case CRYPTO_ALG_TYPE_RABIN:
-			if (spu->spu_type == SPU_TYPE_SPU2) {
-				err = spu_register_rabin(&driver_algs[i]);
-				dev_info(dev, "Rabin regsitered:%d\n", err);
-			}
+			err = spu_register_rabin(&driver_algs[i]);
 			break;
 		default:
 			dev_err(dev,
@@ -3991,9 +4013,7 @@ err_algs:
 			crypto_unregister_aead(&driver_algs[j].alg.aead);
 			break;
 		case CRYPTO_ALG_TYPE_RABIN:
-			if (spu->spu_type == SPU_TYPE_SPU2)
-				crypto_unregister_rabin(
-						&driver_algs[j].alg.rabin);
+			spu_unregister_rabin(&driver_algs[j].alg.rabin);
 			break;
 		}
 	}
@@ -4058,7 +4078,6 @@ failure:
 
 int bcm_spu_remove(struct platform_device *pdev)
 {
-	struct spu_hw *spu = &iproc_priv.spu;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(driver_algs); i++) {
@@ -4080,12 +4099,7 @@ int bcm_spu_remove(struct platform_device *pdev)
 				driver_algs[i].alg.aead.base.cra_driver_name);
 			break;
 		case CRYPTO_ALG_TYPE_RABIN:
-			if (spu->spu_type == SPU_TYPE_SPU2) {
-				crypto_unregister_rabin(
-						&driver_algs[i].alg.rabin);
-				pr_info("  unregistered rabin %s\n",
-				driver_algs[i].alg.rabin.base.cra_driver_name);
-			}
+			spu_unregister_rabin(&driver_algs[i].alg.rabin);
 			break;
 		}
 	}
