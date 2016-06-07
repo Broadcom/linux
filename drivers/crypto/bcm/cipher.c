@@ -1744,7 +1744,8 @@ static int ablkcipher_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
 
 	if (spu->spu_type == SPU_TYPE_SPUM)
 		alloc_len = BCM_HDR_LEN + SPU_HEADER_ALLOC_LEN;
-	else if (spu->spu_type == SPU_TYPE_SPU2)
+	else if ((spu->spu_type == SPU_TYPE_SPU2) ||
+		 (spu->spu_type == SPU_TYPE_SPU2_V2))
 		alloc_len = BCM_HDR_LEN + SPU2_HEADER_ALLOC_LEN;
 	memset(ctx->bcm_spu_req_hdr, 0, alloc_len);
 	cipher_parms.iv_buf = NULL;
@@ -1819,7 +1820,8 @@ static int ahash_enqueue(struct ahash_request *req)
 
 	/* SPU2 hardware does not compute hash of zero length data */
 	if ((rctx->is_final == 1) && (rctx->total_todo == 0) &&
-	    (iproc_priv.spu.spu_type == SPU_TYPE_SPU2)) {
+	    ((iproc_priv.spu.spu_type == SPU_TYPE_SPU2) ||
+	    (iproc_priv.spu.spu_type == SPU_TYPE_SPU2_V2))) {
 		pr_err("%s() Error: hash of zero length data\n",
 		     __func__);
 		return -EINVAL;
@@ -3678,6 +3680,8 @@ static int spu_dt_read(struct platform_device *pdev)
 		spu->spu_type = SPU_TYPE_SPUM;
 	else if (of_device_is_compatible(dn, "brcm,spu2-crypto"))
 		spu->spu_type = SPU_TYPE_SPU2;
+	else if (of_device_is_compatible(dn, "brcm,spu2-v2-crypto"))
+		spu->spu_type = SPU_TYPE_SPU2_V2;
 	else {
 		dev_err(dev, "Unknown SPU type");
 		return -EINVAL;
@@ -3756,7 +3760,8 @@ static void spu_functions_register(struct device *dev,
 		spu->spu_rx_status_len = spum_rx_status_len;
 		spu->spu_status_process = spum_status_process;
 
-	} else if (spu_type == SPU_TYPE_SPU2) {
+	} else if ((spu_type == SPU_TYPE_SPU2) ||
+		   (spu_type == SPU_TYPE_SPU2_V2)) {
 		dev_dbg(dev, "Registering SPU2 functions");
 		spu->spu_dump_msg_hdr = spu2_dump_msg_hdr;
 		spu->spu_payload_length = spu2_payload_length;
@@ -3837,7 +3842,8 @@ static int spu_register_ablkcipher(struct iproc_alg_s *driver_alg)
 
 	/* SPU2 does not support RC4 */
 	if ((driver_alg->cipher_info.alg == CIPHER_ALG_RC4) &&
-	    (spu->spu_type == SPU_TYPE_SPU2))
+	    ((spu->spu_type == SPU_TYPE_SPU2) ||
+	    (spu->spu_type == SPU_TYPE_SPU2_V2)))
 		return 0;
 
 	crypto->cra_module = THIS_MODULE;
@@ -4010,7 +4016,8 @@ int bcm_spu_probe(struct platform_device *pdev)
 
 	if (spu->spu_type == SPU_TYPE_SPUM)
 		iproc_priv.bcm_hdr_len = 8;
-	else if (spu->spu_type == SPU_TYPE_SPU2)
+	else if ((spu->spu_type == SPU_TYPE_SPU2) ||
+		 (spu->spu_type == SPU_TYPE_SPU2_V2))
 		iproc_priv.bcm_hdr_len = 0;
 
 	spu_functions_register(&pdev->dev, spu->spu_type);
@@ -4093,6 +4100,7 @@ int bcm_spu_remove(struct platform_device *pdev)
 static const struct of_device_id bcm_spu_dt_ids[] = {
 	{.compatible = "brcm,spum-crypto"},
 	{.compatible = "brcm,spu2-crypto"},
+	{.compatible = "brcm,spu2-v2-crypto"},
 	{ /* sentinel */ }
 };
 

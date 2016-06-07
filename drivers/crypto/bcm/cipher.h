@@ -62,7 +62,8 @@ enum op_type {
 
 enum spu_spu_type {
 	SPU_TYPE_SPUM,
-	SPU_TYPE_SPU2
+	SPU_TYPE_SPU2,
+	SPU_TYPE_SPU2_V2
 };
 
 struct cipher_op {
