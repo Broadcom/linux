@@ -5,7 +5,10 @@ multiple SPU hardware blocks.
 Required properties:
 - compatible : Should be "brcm,spum-crypto" for devices with SPU-M hardware
   (e.g., Northstar2), or "brcm,spu2-crypto" for devices with SPU2 hardware
-  (e.g., Pegasus, Stingray).
+  (e.g., Pegasus), or "brcm,spu2-v2-crypto" for devices with enhanced SPU2
+  hardware features like SHA3, Rabin Fingerprint algorithms support.
+  (e.g., Stingray)
+
 - reg: Should contain SPU registers location and length.
 - mboxes: A list of mailbox channels to be used by the kernel driver. Mailbox
 channels correspond to DMA rings on the device.
