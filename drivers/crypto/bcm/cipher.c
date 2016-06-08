@@ -3993,7 +3993,7 @@ err_algs:
 		case CRYPTO_ALG_TYPE_RABIN:
 			if (spu->spu_type == SPU_TYPE_SPU2)
 				crypto_unregister_rabin(
-						&driver_algs[i].alg.rabin);
+						&driver_algs[j].alg.rabin);
 			break;
 		}
 	}
