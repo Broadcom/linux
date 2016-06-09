@@ -2530,7 +2530,7 @@ static struct iproc_alg_s driver_algs[] = {
 	 },
 	 .auth_info = {
 		       .alg = HASH_ALG_NONE,
-		       .mode = SPU2_HASH_MODE_RABIN,
+		       .mode = HASH_MODE_RABIN,
 		       },
 	 },
 	{

@@ -898,6 +898,7 @@ u32 spu2_create_request(u8 *spu_hdr,
 	enum spu2_cipher_mode spu2_ciph_mode;
 	enum spu2_hash_type spu2_auth_type = SPU2_HASH_TYPE_NONE;
 	enum spu2_hash_mode spu2_auth_mode;
+	bool return_md = true;
 
 	/* size of the payload */
 	unsigned payload_len =
@@ -938,6 +939,9 @@ u32 spu2_create_request(u8 *spu_hdr,
 			 */
 			req_opts->auth_first = req_opts->is_inbound;
 	}
+
+	if (hash_parms->mode == HASH_MODE_RABIN)
+		return_md = false;
 
 	flow_log("%s()\n", __func__);
 	flow_log("  in:%u authFirst:%u\n",
@@ -997,7 +1001,7 @@ u32 spu2_create_request(u8 *spu_hdr,
 			     hash_parms->key_len, cipher_parms->key_len,
 			     false, false, false, cipher_parms->iv_len,
 			     hash_parms->digestsize, !req_opts->bd_suppress,
-			     false);
+			     return_md);
 
 	spu2_fmd_ctrl2_write(fmd, cipher_offset, hash_parms->key_len, 0,
 			     cipher_parms->key_len, cipher_parms->iv_len);
