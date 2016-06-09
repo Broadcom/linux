@@ -4271,6 +4271,22 @@ static void quirk_intel_qat_vf_cap(struct pci_dev *pdev)
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443, quirk_intel_qat_vf_cap);
 
 /*
+ * classless end points are not enumarted by pci framework, because
+ * of which, resources are not aligned into pci bus addresses, and
+ * hence, no BAR populated.
+ */
+static void quirk_avip_force_class(struct pci_dev *pdev)
+{
+	u32 class;
+
+	pci_read_config_dword(pdev, PCI_CLASS_REVISION, &class);
+	class = class >> 8;
+	if (class == PCI_CLASS_NOT_DEFINED)
+		pdev->class = PCI_CLASS_MEMORY_OTHER;
+}
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_CADENCE, PCI_DEVICE_ID_CADENCE_AVIP, quirk_avip_force_class);
+
+/*
  * The PCI capabilities list for Broadcom NS2 and Stingray PAXC root complexes
  * is incorrectly terminated due to corrupted configuration space registers in
  * the range of 0x50 - 0x5f
