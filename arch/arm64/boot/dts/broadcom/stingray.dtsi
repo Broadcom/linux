@@ -151,6 +151,166 @@
 			      IRQ_TYPE_EDGE_RISING)>;
 	};
 
+	pcie0: pcie@48000000 {
+		compatible = "brcm,iproc-pcie-paxb-v2";
+		reg = <0 0x48000000 0 0x4000>;
+
+		linux,pci-domain = <0>;
+
+		bus-range = <0x0 0xff>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0 0x00000000 0x4 0x0 0 0x80000000>;
+
+		brcm,pcie-ob;
+		brcm,pcie-ob-axi-offset = <0x00000000>;
+		brcm,pcie-ob-window-size = <1024>;
+
+		status = "disabled";
+	};
+
+	pcie1: pcie@48004000 {
+		compatible = "brcm,iproc-pcie-paxb-v2";
+		reg = <0 0x48004000 0 0x4000>;
+
+		linux,pci-domain = <1>;
+
+		bus-range = <0x0 0xff>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0 0x00000000 0x4 0x80000000 0 0x80000000>;
+
+		brcm,pcie-ob;
+		brcm,pcie-ob-axi-offset = <0x00000000>;
+		brcm,pcie-ob-window-size = <1024>;
+
+		status = "disabled";
+	};
+
+	pcie2: pcie@48008000 {
+		compatible = "brcm,iproc-pcie-paxb-v2";
+		reg = <0 0x48008000 0 0x4000>;
+
+		linux,pci-domain = <2>;
+
+		bus-range = <0x0 0xff>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0 0x00000000 0x5 0x0 0 0x80000000>;
+
+		brcm,pcie-ob;
+		brcm,pcie-ob-axi-offset = <0x00000000>;
+		brcm,pcie-ob-window-size = <1024>;
+
+		status = "disabled";
+	};
+
+	pcie3: pcie@4800c000 {
+		compatible = "brcm,iproc-pcie-paxb-v2";
+		reg = <0 0x4800c000 0 0x4000>;
+
+		linux,pci-domain = <3>;
+
+		bus-range = <0x0 0xff>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0 0x00000000 0x5 0x80000000 0 0x80000000>;
+
+		brcm,pcie-ob;
+		brcm,pcie-ob-axi-offset = <0x00000000>;
+		brcm,pcie-ob-window-size = <1024>;
+
+		status = "disabled";
+	};
+
+	pcie4: pcie@48010000 {
+		compatible = "brcm,iproc-pcie-paxb-v2";
+		reg = <0 0x48010000 0 0x4000>;
+
+		linux,pci-domain = <4>;
+
+		bus-range = <0x0 0xff>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0 0x00000000 0x6 0x0 0 0x80000000>;
+
+		brcm,pcie-ob;
+		brcm,pcie-ob-axi-offset = <0x00000000>;
+		brcm,pcie-ob-window-size = <1024>;
+
+		status = "disabled";
+	};
+
+	pcie5: pcie@48014000 {
+		compatible = "brcm,iproc-pcie-paxb-v2";
+		reg = <0 0x48014000 0 0x4000>;
+
+		linux,pci-domain = <5>;
+
+		bus-range = <0x0 0xff>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0 0x00000000 0x6 0x80000000 0 0x80000000>;
+
+		brcm,pcie-ob;
+		brcm,pcie-ob-axi-offset = <0x00000000>;
+		brcm,pcie-ob-window-size = <1024>;
+
+		status = "disabled";
+	};
+
+	pcie6: pcie@48018000 {
+		compatible = "brcm,iproc-pcie-paxb-v2";
+		reg = <0 0x48018000 0 0x4000>;
+
+		linux,pci-domain = <6>;
+
+		bus-range = <0x0 0xff>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0 0x00000000 0x7 0x0 0 0x80000000>;
+
+		brcm,pcie-ob;
+		brcm,pcie-ob-axi-offset = <0x00000000>;
+		brcm,pcie-ob-window-size = <1024>;
+
+		status = "disabled";
+	};
+
+	pcie7: pcie@4801c000 {
+		compatible = "brcm,iproc-pcie-paxb-v2";
+		reg = <0 0x4801c000 0 0x4000>;
+
+		linux,pci-domain = <7>;
+
+		bus-range = <0x0 0xff>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0 0x00000000 0x7 0x80000000 0 0x80000000>;
+
+		brcm,pcie-ob;
+		brcm,pcie-ob-axi-offset = <0x00000000>;
+		brcm,pcie-ob-window-size = <1024>;
+
+		status = "disabled";
+	};
+
 	pcie8: pcie@60400000 {
 		compatible = "brcm,iproc-pcie-paxc-v2";
 		reg = <0 0x60400000 0 0x1000>;
