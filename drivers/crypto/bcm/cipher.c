@@ -3653,11 +3653,12 @@ static int spu_register_rabin(struct iproc_alg_s *driver_alg)
 	rabin->exit = rabin_cra_exit;
 
 	err = crypto_register_rabin(rabin);
-	if (err)
+	if (err) {
 		pr_info("Rabin regsitration failed\n");
+		return err;
+	}
 
 	pr_info("registered rabin %s\n", rabin->base.cra_driver_name);
-
 	return 0;
 }
 /* ==================== Kernel Platform API ==================== */
