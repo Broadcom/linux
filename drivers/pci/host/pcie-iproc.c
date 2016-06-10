@@ -150,6 +150,27 @@ static const u16 iproc_pcie_reg_paxb[] = {
 	[IPROC_PCIE_LINK_STATUS]      = 0xf0c,
 };
 
+/* iProc PCIe PAXB_V2 registers */
+static const u16 iproc_pcie_reg_paxb_v2[] = {
+	[IPROC_PCIE_CLK_CTRL]         = 0x000,
+	[IPROC_PCIE_MSI_GIC_MODE]     = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_BASE_ADDR]    = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_WINDOW_SIZE]  = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_ADDR_LO]      = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_ADDR_HI]      = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_MSI_EN_CFG]       = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_CFG_IND_ADDR]     = 0x120,
+	[IPROC_PCIE_CFG_IND_DATA]     = 0x124,
+	[IPROC_PCIE_CFG_ADDR]         = 0x1f8,
+	[IPROC_PCIE_CFG_DATA]         = 0x1fc,
+	[IPROC_PCIE_INTX_EN]          = 0x330,
+	[IPROC_PCIE_OARR_LO]          = 0xd60,
+	[IPROC_PCIE_OARR_HI]          = 0xd64,
+	[IPROC_PCIE_OMAP_LO]          = 0xd68,
+	[IPROC_PCIE_OMAP_HI]          = 0xd6c,
+	[IPROC_PCIE_LINK_STATUS]      = 0xf0c,
+};
+
 /* iProc PCIe PAXC v1 registers */
 static const u16 iproc_pcie_reg_paxc[] = {
 	[IPROC_PCIE_CLK_CTRL]         = 0x000,
@@ -662,6 +683,10 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	switch (pcie->type) {
 	case IPROC_PCIE_PAXB:
 		pcie->reg_offsets = iproc_pcie_reg_paxb;
+		pcie->ep_is_internal = false;
+		break;
+	case IPROC_PCIE_PAXB_V2:
+		pcie->reg_offsets = iproc_pcie_reg_paxb_v2;
 		pcie->ep_is_internal = false;
 		break;
 	case IPROC_PCIE_PAXC:
