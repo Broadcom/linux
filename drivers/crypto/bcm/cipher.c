@@ -46,6 +46,7 @@
 #include <crypto/aes.h>
 #include <crypto/rabin.h>
 #include <crypto/internal/rabin.h>
+#include <crypto/sha3.h>
 
 #include "util.h"
 #include "cipher.h"
@@ -3229,6 +3230,82 @@ static struct iproc_alg_s driver_algs[] = {
 		       },
 	 .max_payload = -128,
 	 },
+	 {
+	 .type = CRYPTO_ALG_TYPE_AHASH,
+	 .alg.hash = {
+		      .halg.digestsize = SHA3_224_DIGEST_SIZE,
+		      .halg.base = {
+				    .cra_name = "sha3-224",
+				    .cra_driver_name = "sha3-224-iproc",
+				    .cra_blocksize = SHA3_224_BLOCK_SIZE,
+				    }
+		      },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_NONE,
+			 .mode = CIPHER_MODE_NONE,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA3_224,
+		       .mode = HASH_MODE_HASH,
+		       },
+	 },
+	 {
+	 .type = CRYPTO_ALG_TYPE_AHASH,
+	 .alg.hash = {
+		      .halg.digestsize = SHA3_256_DIGEST_SIZE,
+		      .halg.base = {
+				    .cra_name = "sha3-256",
+				    .cra_driver_name = "sha3-256-iproc",
+				    .cra_blocksize = SHA3_256_BLOCK_SIZE,
+				    }
+		      },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_NONE,
+			 .mode = CIPHER_MODE_NONE,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA3_256,
+		       .mode = HASH_MODE_HASH,
+		       },
+	 },
+	 {
+	 .type = CRYPTO_ALG_TYPE_AHASH,
+	 .alg.hash = {
+		      .halg.digestsize = SHA3_384_DIGEST_SIZE,
+		      .halg.base = {
+				    .cra_name = "sha3-384",
+				    .cra_driver_name = "sha3-384-iproc",
+				    .cra_blocksize = SHA3_224_BLOCK_SIZE,
+				    }
+		      },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_NONE,
+			 .mode = CIPHER_MODE_NONE,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA3_384,
+		       .mode = HASH_MODE_HASH,
+		       },
+	 },
+	 {
+	 .type = CRYPTO_ALG_TYPE_AHASH,
+	 .alg.hash = {
+		      .halg.digestsize = SHA3_512_DIGEST_SIZE,
+		      .halg.base = {
+				    .cra_name = "sha3-512",
+				    .cra_driver_name = "sha3-512-iproc",
+				    .cra_blocksize = SHA3_512_BLOCK_SIZE,
+				    }
+		      },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_NONE,
+			 .mode = CIPHER_MODE_NONE,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA3_512,
+		       .mode = HASH_MODE_HASH,
+		       },
+	 },
 };
 
 static int generic_cra_init(struct crypto_tfm *tfm,
@@ -3900,8 +3977,18 @@ static int spu_register_ablkcipher(struct iproc_alg_s *driver_alg)
 
 static int spu_register_ahash(struct iproc_alg_s *driver_alg)
 {
+	struct spu_hw *spu = &iproc_priv.spu;
 	struct ahash_alg *hash = &driver_alg->alg.hash;
 	int err;
+
+	/*
+	 * Only SPU2_V2 supports SHA3 algorithm variants,
+	 * So don't register for SPU2 and SPUM engines.
+	 */
+	if ((driver_alg->auth_info.alg >= HASH_ALG_SHA3_224) &&
+	     ((spu->spu_type == SPU_TYPE_SPU2) ||
+	     (spu->spu_type == SPU_TYPE_SPUM)))
+		return 0;
 
 	hash->halg.base.cra_module = THIS_MODULE;
 	hash->halg.base.cra_priority = 400;

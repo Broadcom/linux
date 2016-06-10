@@ -68,6 +68,11 @@ enum hash_alg {
 	HASH_ALG_SHA224 = 0x3,
 	HASH_ALG_SHA256 = 0x4,
 	HASH_ALG_AES = 0x5,
+	/* Keep SHA3 algorithms at the end always */
+	HASH_ALG_SHA3_224 = 0x6,
+	HASH_ALG_SHA3_256 = 0x7,
+	HASH_ALG_SHA3_384 = 0x8,
+	HASH_ALG_SHA3_512 = 0x9,
 };
 
 enum hash_mode {

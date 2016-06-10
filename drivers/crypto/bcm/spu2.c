@@ -283,6 +283,18 @@ spu2_hash_xlate(enum hash_alg hash_alg, enum hash_mode hash_mode,
 		default:
 			err = -EINVAL;
 		}
+		break;
+	case HASH_ALG_SHA3_224:
+		*spu2_type = SPU2_HASH_TYPE_SHA3_224;
+		break;
+	case HASH_ALG_SHA3_256:
+		*spu2_type = SPU2_HASH_TYPE_SHA3_256;
+		break;
+	case HASH_ALG_SHA3_384:
+		*spu2_type = SPU2_HASH_TYPE_SHA3_384;
+		break;
+	case HASH_ALG_SHA3_512:
+		*spu2_type = SPU2_HASH_TYPE_SHA3_512;
 	}
 
 	if (err)

@@ -25,6 +25,7 @@
 #include <crypto/aead.h>
 #include <crypto/sha.h>
 #include <crypto/rabin.h>
+#include <crypto/sha3.h>
 
 #include "spu.h"
 #include "spum.h"
@@ -37,7 +38,7 @@
 
 #define MAX_KEY_SIZE	ARC4_MAX_KEY_SIZE
 #define MAX_IV_SIZE	AES_BLOCK_SIZE
-#define MAX_DIGEST_SIZE	SHA256_DIGEST_SIZE
+#define MAX_DIGEST_SIZE	SHA3_512_DIGEST_SIZE
 #define MAX_ASSOC_SIZE	512
 
 /* MD5, SHA1, SHA224, SHA256 all have the same block size of 64 bytes */
