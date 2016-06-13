@@ -622,32 +622,6 @@
 			reg-names = "mdio";
 			#address-cells = <1>;
 			#size-cells = <0>;
-
-			pci-master@0 {
-				compatible = "brcm,ns2-pcie-phy";
-				brcm,phy_internal;
-				reg = <0x0>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				pci_phy0: pci-phy@0 {
-					reg = <0x0>;
-					#phy-cells = <0>;
-				};
-			};
-
-			pci-master@7 {
-				compatible = "brcm,ns2-pcie-phy";
-				brcm,phy_internal;
-				reg = <0x7>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				pci_phy1: pci-phy@0 {
-					reg = <0x0>;
-					#phy-cells = <0>;
-				};
-			};
 		};
 
 		sata: ahci@663f2000 {
