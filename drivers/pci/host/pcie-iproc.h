@@ -35,13 +35,13 @@ enum iproc_pcie_type {
 
 /**
  * iProc PCIe outbound mapping
- * @set_oarr_size: indicates the OARR size bit needs to be set
+ * @oarr_size_bits: indicates the OARR size bits
  * @axi_offset: offset from the AXI address to the internal address used by
  * the iProc PCIe core
  * @window_size: outbound window size
  */
 struct iproc_pcie_ob {
-	bool set_oarr_size;
+	unsigned int oarr_size_bits;
 	resource_size_t axi_offset;
 	resource_size_t window_size;
 };

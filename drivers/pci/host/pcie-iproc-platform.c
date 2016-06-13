@@ -98,10 +98,31 @@ static int iproc_pcie_pltfm_probe(struct platform_device *pdev)
 				"missing brcm,pcie-ob-window-size property\n");
 			return ret;
 		}
-		pcie->ob.window_size = (resource_size_t)val * SZ_1M;
 
-		if (of_property_read_bool(np, "brcm,pcie-ob-oarr-size"))
-			pcie->ob.set_oarr_size = true;
+		if (pcie->type == IPROC_PCIE_PAXB)
+			if (val > 256)
+				return -EINVAL;
+
+		switch (val) {
+		case 128:
+			pcie->ob.oarr_size_bits = 0;
+			break;
+		case 256:
+			pcie->ob.oarr_size_bits = 1;
+			break;
+		case 512:
+			pcie->ob.oarr_size_bits = 2;
+			break;
+		case 1024:
+			pcie->ob.oarr_size_bits = 3;
+			break;
+		default:
+			dev_err(pcie->dev,
+			"invalid OARR size: %u MB\n", val);
+			return -EINVAL;
+		}
+
+		pcie->ob.window_size = (resource_size_t)val * SZ_1M;
 
 		pcie->need_ob_cfg = true;
 	}

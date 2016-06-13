@@ -75,6 +75,9 @@
 
 #define IPROC_PCIE_REG_INVALID 0xffff
 
+#define PAXB_OARR_OFFSET             0x8
+#define PAXB_OARR_V2_OFFSET          0x90
+
 /*
  * iProc PCIe host registers
  */
@@ -264,11 +267,13 @@ static inline void iproc_pcie_ob_write(struct iproc_pcie *pcie,
 				       unsigned window, u32 val)
 {
 	u16 offset = iproc_pcie_reg_offset(pcie, reg);
+	u32 oarr_offset = (pcie->type == IPROC_PCIE_PAXB_V2) ?
+			PAXB_OARR_V2_OFFSET : PAXB_OARR_OFFSET;
 
 	if (iproc_pcie_reg_is_invalid(offset))
 		return;
 
-	writel(val, pcie->base + offset + (window * 8));
+	writel(val, pcie->base + offset + (window * oarr_offset));
 }
 
 /**
@@ -488,7 +493,7 @@ static int iproc_pcie_setup_ob(struct iproc_pcie *pcie, u64 axi_addr,
 	for (i = 0; i < MAX_NUM_OB_WINDOWS; i++) {
 		iproc_pcie_ob_write(pcie, IPROC_PCIE_OARR_LO, i,
 				    lower_32_bits(axi_addr) | OARR_VALID |
-				    (ob->set_oarr_size ? 1 : 0));
+			    (ob->oarr_size_bits << OARR_SIZE_CFG_SHIFT));
 		iproc_pcie_ob_write(pcie, IPROC_PCIE_OARR_HI, i,
 				    upper_32_bits(axi_addr));
 		iproc_pcie_ob_write(pcie, IPROC_PCIE_OMAP_LO, i,
