@@ -24,6 +24,7 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/mailbox_controller.h>
+#include <linux/mailbox_client.h>
 #include <linux/mailbox/brcm-message.h>
 #include <linux/module.h>
 #include <linux/msi.h>
@@ -289,7 +290,7 @@ static int flexdma_process_completions(struct flexdma_ring *ring)
 
 	/* If last_pending_msg was set then queue it back */
 	if (msg)
-		flexdma_new_request(ring, msg);
+		mbox_send_message(chan, msg);
 
 	/* For each completed request notify mailbox clients */
 	reqid = 0;
@@ -357,7 +358,31 @@ static irqreturn_t flexdma_irq_thread(int irq, void *dev_id)
 
 static int flexdma_send_data(struct mbox_chan *chan, void *data)
 {
-	return flexdma_new_request(chan->con_priv, data);
+	int i, rc;
+	unsigned long flags;
+	struct flexdma_ring *ring = chan->con_priv;
+	struct brcm_message *msg = data;
+
+	if (msg->type == BRCM_MESSAGE_BATCH) {
+		for (i = msg->batch.msgs_queued;
+		     i < msg->batch.msgs_count; i++) {
+			rc = flexdma_new_request(ring,
+						 &msg->batch.msgs[i]);
+			if (rc) {
+				spin_lock_irqsave(&ring->lock, flags);
+				if (ring->last_pending_msg ==
+							&msg->batch.msgs[i])
+					ring->last_pending_msg = msg;
+				spin_unlock_irqrestore(&ring->lock, flags);
+				msg->error = rc;
+				return rc;
+			}
+			msg->batch.msgs_queued++;
+		}
+		return 0;
+	}
+
+	return flexdma_new_request(ring, data);
 }
 
 static bool flexdma_peek_data(struct mbox_chan *chan)
