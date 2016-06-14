@@ -161,7 +161,7 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 {
 	void *next;
 	unsigned long flags;
-	u32 val, count;
+	u32 val, count, nhcnt;
 	u32 read_offset, write_offset;
 	bool exit_cleanup = false;
 	int ret = 0, reqid;
@@ -207,8 +207,15 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 	read_offset *= RING_DESC_SIZE;
 	read_offset += (u32)(BD_START_ADDR_DECODE(val) - ring->bd_dma_base);
 
+	/*
+	 * Number required descriptors = number of non-header descriptors +
+	 *				 number of header descriptors +
+	 *				 1x null descriptor
+	 */
+	nhcnt = flexdma_estimate_nonheader_desc_count(msg);
+	count = flexdma_estimate_header_desc_count(nhcnt) + nhcnt + 1;
+
 	/* Check for available descriptor space. */
-	count = flexdma_estimate_desc_count(msg);
 	write_offset = ring->bd_write_offset;
 	while (count) {
 		if (!flexdma_is_next_table_desc(ring->bd_base + write_offset))
@@ -229,7 +236,7 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 	}
 
 	/* Write descriptors to ring */
-	next = flexdma_write_descs(msg, reqid,
+	next = flexdma_write_descs(msg, nhcnt, reqid,
 			ring->bd_base + ring->bd_write_offset,
 			RING_BD_TOGGLE_VALID(ring->bd_write_offset),
 			ring->bd_base, ring->bd_base + RING_BD_SIZE);

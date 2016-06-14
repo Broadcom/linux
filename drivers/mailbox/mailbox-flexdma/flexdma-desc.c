@@ -202,6 +202,16 @@ u64 flexdma_null_desc(u32 toggle)
 	return desc;
 }
 
+u32 flexdma_estimate_header_desc_count(u32 nhcnt)
+{
+	u32 hcnt = nhcnt / HEADER_BDCOUNT_MAX;
+
+	if (!(nhcnt % HEADER_BDCOUNT_MAX))
+		hcnt += 1;
+
+	return hcnt;
+}
+
 static void flexdma_flip_header_toogle(void *desc_ptr)
 {
 	u64 desc = flexdma_read_desc(desc_ptr);
@@ -212,25 +222,6 @@ static void flexdma_flip_header_toogle(void *desc_ptr)
 		desc |= ((u64)0x1 << HEADER_TOGGLE_SHIFT);
 
 	flexdma_write_desc(desc_ptr, desc);
-}
-
-static void flexdma_enqueue_desc(u64 desc, void **desc_ptr, u32 *toggle,
-				 void *start_desc, void *end_desc)
-{
-	flexdma_write_desc(*desc_ptr, desc);
-
-	/* Point to next descriptor */
-	*desc_ptr += sizeof(desc);
-	if (*desc_ptr == end_desc)
-		*desc_ptr = start_desc;
-
-	/* Skip next pointer descriptors */
-	while (flexdma_is_next_table_desc(*desc_ptr)) {
-		*toggle = (*toggle) ? 0 : 1;
-		*desc_ptr += sizeof(desc);
-		if (*desc_ptr == end_desc)
-			*desc_ptr = start_desc;
-	}
 }
 
 static u64 flexdma_header_desc(u32 toggle, u32 startpkt, u32 endpkt,
@@ -249,9 +240,9 @@ static u64 flexdma_header_desc(u32 toggle, u32 startpkt, u32 endpkt,
 	return desc;
 }
 
-static void flexdma_check_n_enqueue_header(u32 nhpos, u32 nhcnt, u32 reqid,
-					   void **desc_ptr, u32 *toggle,
-					   void *start_desc, void *end_desc)
+static void flexdma_enqueue_desc(u32 nhpos, u32 nhcnt, u32 reqid,
+				 u64 desc, void **desc_ptr, u32 *toggle,
+				 void *start_desc, void *end_desc)
 {
 	u64 d;
 	u32 nhavail, _toggle, _startpkt, _endpkt, _bdcount;
@@ -282,21 +273,10 @@ static void flexdma_check_n_enqueue_header(u32 nhpos, u32 nhcnt, u32 reqid,
 	 * till all descriptors are enqueued. The user of this function
 	 * will flip the TOGGLE bit of first HEADER after all descriptors
 	 * are enqueued.
-	 *
-	 * The flexdma_check_n_enqueue_header() is supposed to be called
-	 * before enqueuing any non-HEADER descriptor (i.e. before calling
-	 * flexdma_enqueue_desc()). This function will ensure that HEADER
-	 * descriptors are inserted at appropriate location based on total
-	 * number of non-HEADER descriptors and number of already queued
-	 * non-HEADER descriptors.
-	 *
-	 * TODO: Eventually, the logic of inserting HEADER descriptors
-	 * will be directly part of the flexdma_enqueue_desc() once packet
-	 * extension is tested for both SPU2 and SBA messages. Currently,
-	 * packet extension is only tested for SBA messages.
 	 */
 
 	if ((nhpos % HEADER_BDCOUNT_MAX == 0) && (nhcnt - nhpos)) {
+		/* Prepare the header descriptor */
 		nhavail = (nhcnt - nhpos);
 		_toggle = (nhpos == 0) ? !(*toggle) : (*toggle);
 		_startpkt = (nhpos == 0) ? 0x1 : 0x0;
@@ -304,47 +284,44 @@ static void flexdma_check_n_enqueue_header(u32 nhpos, u32 nhcnt, u32 reqid,
 		_bdcount = (nhavail <= HEADER_BDCOUNT_MAX) ?
 				nhavail : HEADER_BDCOUNT_MAX;
 		if (nhavail <= HEADER_BDCOUNT_MAX)
-			/*
-			 * Extra NULL descriptor required when
-			 * available non-HEADER descriptors is 1.
-			 */
-			_bdcount = (nhavail == 1) ? 2 : nhavail;
+			_bdcount = nhavail;
 		else
 			_bdcount = HEADER_BDCOUNT_MAX;
 		d = flexdma_header_desc(_toggle, _startpkt, _endpkt,
 					_bdcount, 0x0, reqid);
-		flexdma_enqueue_desc(d, desc_ptr, toggle,
-				     start_desc, end_desc);
-		if (nhavail == 1)
-			/*
-			 * Enqueue dummy NULL descriptor immediately
-			 * after HEADER descriptor when number of
-			 * non-HEADER descriptors is 1 to ensure that
-			 * atlease 2 non-HEADER descriptors after each
-			 * HEADER descriptor.
-			 */
-			flexdma_enqueue_desc(flexdma_null_desc(0),
-					     desc_ptr, toggle,
-					     start_desc, end_desc);
+
+		/* Write header descriptor */
+		flexdma_write_desc(*desc_ptr, d);
+
+		/* Point to next descriptor */
+		*desc_ptr += sizeof(desc);
+		if (*desc_ptr == end_desc)
+			*desc_ptr = start_desc;
+
+		/* Skip next pointer descriptors */
+		while (flexdma_is_next_table_desc(*desc_ptr)) {
+			*toggle = (*toggle) ? 0 : 1;
+			*desc_ptr += sizeof(desc);
+			if (*desc_ptr == end_desc)
+				*desc_ptr = start_desc;
+		}
 	}
-}
 
-static u32 flexdma_estimate_header_desc_count(u32 nhcnt)
-{
-	u32 hcnt = nhcnt / HEADER_BDCOUNT_MAX;
+	/* Write desired descriptor */
+	flexdma_write_desc(*desc_ptr, desc);
 
-	switch (nhcnt % HEADER_BDCOUNT_MAX) {
-	case 0:
-		break;
-	case 1:
-		hcnt += 2; /* Extra NULL descriptor */
-		break;
-	default:
-		hcnt += 1;
-		break;
-	};
+	/* Point to next descriptor */
+	*desc_ptr += sizeof(desc);
+	if (*desc_ptr == end_desc)
+		*desc_ptr = start_desc;
 
-	return hcnt;
+	/* Skip next pointer descriptors */
+	while (flexdma_is_next_table_desc(*desc_ptr)) {
+		*toggle = (*toggle) ? 0 : 1;
+		*desc_ptr += sizeof(desc);
+		if (*desc_ptr == end_desc)
+			*desc_ptr = start_desc;
+	}
 }
 
 static u64 flexdma_src_desc(dma_addr_t addr, unsigned int length)
@@ -488,18 +465,6 @@ static u32 flexdma_spu_estimate_nonheader_desc_count(struct brcm_message *msg)
 	return cnt;
 }
 
-static u32 flexdma_spu_estimate_desc_count(struct brcm_message *msg)
-{
-	u32 nhcnt = flexdma_spu_estimate_nonheader_desc_count(msg);
-
-	/*
-	 * total descriptors = non-header descriptors +
-	 *			header descriptors +
-	 *			1x null descriptor
-	 */
-	return nhcnt + flexdma_estimate_header_desc_count(nhcnt) + 1;
-}
-
 static int flexdma_spu_dma_map(struct device *dev, struct brcm_message *msg)
 {
 	int rc;
@@ -528,28 +493,26 @@ static void flexdma_spu_dma_unmap(struct device *dev, struct brcm_message *msg)
 		     DMA_TO_DEVICE);
 }
 
-static void *flexdma_spu_write_descs(struct brcm_message *msg,
+static void *flexdma_spu_write_descs(struct brcm_message *msg, u32 nhcnt,
 				     u32 reqid, void *desc_ptr, u32 toggle,
 				     void *start_desc, void *end_desc)
 {
 	u64 d;
-	u32 nhpos = 0, nhcnt = flexdma_spu_estimate_nonheader_desc_count(msg);
+	u32 nhpos = 0;
 	void *orig_desc_ptr = desc_ptr;
 	unsigned int dst_target = 0;
 	struct scatterlist *src_sg = msg->spu.src, *dst_sg = msg->spu.dst;
 
 	while (src_sg || dst_sg) {
 		if (src_sg) {
-			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
-						       &desc_ptr, &toggle,
-						       start_desc, end_desc);
 			if (sg_dma_len(src_sg) & 0xf)
 				d = flexdma_src_desc(sg_dma_address(src_sg),
 						     sg_dma_len(src_sg));
 			else
 				d = flexdma_msrc_desc(sg_dma_address(src_sg),
 						      sg_dma_len(src_sg)/16);
-			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
+			flexdma_enqueue_desc(nhpos, nhcnt, reqid,
+					     d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
 			nhpos++;
 			dst_target = sg_dma_len(src_sg);
@@ -558,16 +521,14 @@ static void *flexdma_spu_write_descs(struct brcm_message *msg,
 			dst_target = UINT_MAX;
 
 		while (dst_target && dst_sg) {
-			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
-						       &desc_ptr, &toggle,
-						       start_desc, end_desc);
 			if (sg_dma_len(dst_sg) & 0xf)
 				d = flexdma_dst_desc(sg_dma_address(dst_sg),
 						     sg_dma_len(dst_sg));
 			else
 				d = flexdma_mdst_desc(sg_dma_address(dst_sg),
 						      sg_dma_len(dst_sg)/16);
-			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
+			flexdma_enqueue_desc(nhpos, nhcnt, reqid,
+					     d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
 			nhpos++;
 			if (sg_dma_len(dst_sg) < dst_target)
@@ -637,25 +598,12 @@ static u32 flexdma_sba_estimate_nonheader_desc_count(struct brcm_message *msg)
 	return cnt;
 }
 
-static u32 flexdma_sba_estimate_desc_count(struct brcm_message *msg)
-{
-	u32 nhcnt = flexdma_sba_estimate_nonheader_desc_count(msg);
-
-	/*
-	 * total descriptors = non-header descriptors +
-	 *			header descriptors +
-	 *			1x null descriptor
-	 */
-	return nhcnt + flexdma_estimate_header_desc_count(nhcnt) + 1;
-}
-
-static void *flexdma_sba_write_descs(struct brcm_message *msg,
+static void *flexdma_sba_write_descs(struct brcm_message *msg, u32 nhcnt,
 				     u32 reqid, void *desc_ptr, u32 toggle,
 				     void *start_desc, void *end_desc)
 {
 	u64 d;
 	u32 i, nhpos = 0;
-	u32 nhcnt = flexdma_sba_estimate_nonheader_desc_count(msg);
 	struct brcm_sba_command *c;
 	void *orig_desc_ptr = desc_ptr;
 
@@ -666,51 +614,41 @@ static void *flexdma_sba_write_descs(struct brcm_message *msg,
 		if ((c->flags & BRCM_SBA_CMD_HAS_RESP) &&
 		    (c->flags & BRCM_SBA_CMD_HAS_OUTPUT)) {
 			/* Destination response descriptor */
-			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
-						       &desc_ptr, &toggle,
-						       start_desc, end_desc);
 			d = flexdma_dst_desc(c->resp, c->resp_len);
-			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
+			flexdma_enqueue_desc(nhpos, nhcnt, reqid,
+					     d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
 			nhpos++;
 		} else if (c->flags & BRCM_SBA_CMD_HAS_RESP) {
 			/* Destination response with tlast descriptor */
-			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
-						       &desc_ptr, &toggle,
-						       start_desc, end_desc);
 			d = flexdma_dstt_desc(c->resp, c->resp_len);
-			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
+			flexdma_enqueue_desc(nhpos, nhcnt, reqid,
+					     d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
 			nhpos++;
 		}
 
 		if (c->flags & BRCM_SBA_CMD_HAS_OUTPUT) {
 			/* Destination with tlast descriptor */
-			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
-						       &desc_ptr, &toggle,
-						       start_desc, end_desc);
 			d = flexdma_dstt_desc(c->output, c->output_len);
-			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
+			flexdma_enqueue_desc(nhpos, nhcnt, reqid,
+					     d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
 			nhpos++;
 		}
 
 		if (c->flags & BRCM_SBA_CMD_TYPE_B) {
 			/* Command as immediate descriptor */
-			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
-						       &desc_ptr, &toggle,
-						       start_desc, end_desc);
 			d = flexdma_imm_desc(c->cmd);
-			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
+			flexdma_enqueue_desc(nhpos, nhcnt, reqid,
+					     d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
 			nhpos++;
 		} else {
 			/* Command as immediate descriptor with tlast */
-			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
-						       &desc_ptr, &toggle,
-						       start_desc, end_desc);
 			d = flexdma_immt_desc(c->cmd);
-			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
+			flexdma_enqueue_desc(nhpos, nhcnt, reqid,
+					     d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
 			nhpos++;
 		}
@@ -718,11 +656,9 @@ static void *flexdma_sba_write_descs(struct brcm_message *msg,
 		if ((c->flags & BRCM_SBA_CMD_TYPE_B) ||
 		    (c->flags & BRCM_SBA_CMD_TYPE_C)) {
 			/* Source with tlast descriptor */
-			flexdma_check_n_enqueue_header(nhpos, nhcnt, reqid,
-						       &desc_ptr, &toggle,
-						       start_desc, end_desc);
 			d = flexdma_srct_desc(c->input, c->input_len);
-			flexdma_enqueue_desc(d, &desc_ptr, &toggle,
+			flexdma_enqueue_desc(nhpos, nhcnt, reqid,
+					     d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
 			nhpos++;
 		}
@@ -755,16 +691,16 @@ bool flexdma_sanity_check(struct brcm_message *msg)
 	};
 }
 
-u32 flexdma_estimate_desc_count(struct brcm_message *msg)
+u32 flexdma_estimate_nonheader_desc_count(struct brcm_message *msg)
 {
 	if (!msg)
 		return 0;
 
 	switch (msg->type) {
 	case BRCM_MESSAGE_SPU:
-		return flexdma_spu_estimate_desc_count(msg);
+		return flexdma_spu_estimate_nonheader_desc_count(msg);
 	case BRCM_MESSAGE_SBA:
-		return flexdma_sba_estimate_desc_count(msg);
+		return flexdma_sba_estimate_nonheader_desc_count(msg);
 	default:
 		return 0;
 	};
@@ -799,7 +735,7 @@ void flexdma_dma_unmap(struct device *dev, struct brcm_message *msg)
 	};
 }
 
-void *flexdma_write_descs(struct brcm_message *msg,
+void *flexdma_write_descs(struct brcm_message *msg, u32 nhcnt,
 			  u32 reqid, void *desc_ptr, u32 toggle,
 			  void *start_desc, void *end_desc)
 {
@@ -811,11 +747,11 @@ void *flexdma_write_descs(struct brcm_message *msg,
 
 	switch (msg->type) {
 	case BRCM_MESSAGE_SPU:
-		return flexdma_spu_write_descs(msg, reqid,
+		return flexdma_spu_write_descs(msg, nhcnt, reqid,
 					       desc_ptr, toggle,
 					       start_desc, end_desc);
 	case BRCM_MESSAGE_SBA:
-		return flexdma_sba_write_descs(msg, reqid,
+		return flexdma_sba_write_descs(msg, nhcnt, reqid,
 					       desc_ptr, toggle,
 					       start_desc, end_desc);
 	default:

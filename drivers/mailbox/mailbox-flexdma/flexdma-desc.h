@@ -30,15 +30,17 @@ extern u64 flexdma_next_table_desc(u32 toggle, dma_addr_t next_addr);
 
 extern u64 flexdma_null_desc(u32 toogle);
 
+extern u32 flexdma_estimate_header_desc_count(u32 nhcnt);
+
 extern bool flexdma_sanity_check(struct brcm_message *msg);
 
-extern u32 flexdma_estimate_desc_count(struct brcm_message *msg);
+extern u32 flexdma_estimate_nonheader_desc_count(struct brcm_message *msg);
 
 extern int flexdma_dma_map(struct device *dev, struct brcm_message *msg);
 
 extern void flexdma_dma_unmap(struct device *dev, struct brcm_message *msg);
 
-extern void *flexdma_write_descs(struct brcm_message *msg,
+extern void *flexdma_write_descs(struct brcm_message *msg, u32 nhcnt,
 				 u32 reqid, void *desc_ptr, u32 toggle,
 				 void *start_desc, void *end_desc);
 
