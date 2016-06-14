@@ -450,6 +450,45 @@
 			};
 		};
 
+		mdio_mux_iproc: mdio-mux@6602023c {
+			compatible = "brcm,mdio-mux-iproc";
+			reg = <0x6602023c 0x14>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mdio@0 {
+				reg = <0x0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pci_phy0: pci-phy@0 {
+					compatible = "brcm,ns2-pcie-phy";
+					reg = <0x0>;
+					#phy-cells = <0>;
+					status = "disabled";
+				};
+			};
+
+			mdio@7 {
+				reg = <0x7>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pci_phy1: pci-phy@0 {
+					compatible = "brcm,ns2-pcie-phy";
+					reg = <0x0>;
+					#phy-cells = <0>;
+					status = "disabled";
+				};
+			};
+
+			mdio@10 {
+				reg = <0x10>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+		};
+
 		timer0: timer@66030000 {
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x66030000 0x1000>;
@@ -613,40 +652,6 @@
 				reg = <1>;
 				#phy-cells = <0>;
 				status = "disabled";
-			};
-		};
-
-		iproc_shared_mdio: iproc_shared_mdio@6602023c {
-			compatible = "brcm,iproc-shared-mdio";
-			reg = <0x6602023c 0x14>;
-			reg-names = "mdio";
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			pci-master@0 {
-				compatible = "brcm,ns2-pcie-phy";
-				brcm,phy_internal;
-				reg = <0x0>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				pci_phy0: pci-phy@0 {
-					reg = <0x0>;
-					#phy-cells = <0>;
-				};
-			};
-
-			pci-master@7 {
-				compatible = "brcm,ns2-pcie-phy";
-				brcm,phy_internal;
-				reg = <0x7>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				pci_phy1: pci-phy@0 {
-					reg = <0x0>;
-					#phy-cells = <0>;
-				};
 			};
 		};
 
