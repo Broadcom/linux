@@ -207,6 +207,7 @@
 			dma-coherent;
 			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
 			max-speed = <1000>;
+			phy-mode = "mii";
 			phy-handle = <&gphy0>;
 			brcm,enet-phy54810-rgmii-sync;
 			brcm,enet-pause-disable;
