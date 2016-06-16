@@ -679,7 +679,7 @@ static int bcm_amac_get_dt_data(struct bcm_amac_priv *privp)
 	 */
 	privp->port.ext_port.phy_node = phy_node;
 
-	privp->port.ext_port.phy_mode = of_get_phy_mode(phy_node);
+	privp->port.ext_port.phy_mode = of_get_phy_mode(np);
 	if (privp->port.ext_port.phy_mode < 0) {
 		dev_err(&privp->pdev->dev,
 			"Invalid phy interface specified\n");
