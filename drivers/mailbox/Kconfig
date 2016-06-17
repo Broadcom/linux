@@ -107,6 +107,13 @@ config BCM_PDC_MBOX
 	  cryptographic offload hardware. Say Y here if you
 	  want to use the Broadcom PDC for access to the SPU.
 
+config BCM_FS4_MBOX_TEST
+	tristate "Broadcom FlexSparx4 Mailbox Test Client"
+	depends on (ARM64 && RAID6_PQ) || COMPILE_TEST
+	default ARCH_BCM_IPROC
+	help
+	  Test mailbox client for FlexSparx4 offload engines.
+
 config TI_MESSAGE_MANAGER
 	tristate "Texas Instruments Message Manager Driver"
 	depends on ARCH_KEYSTONE
