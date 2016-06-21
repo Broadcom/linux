@@ -866,6 +866,10 @@ static int __sba_memcpy_exec(struct fs4_test *test)
 				rc = cmsg->bmsg[i].error;
 				break;
 			}
+
+			if (test->poll &&
+			    (atomic_read(&cmsg->done_count) > 0))
+				mbox_client_peek_data(chan);
 		}
 		if (rc < 0)
 			break;
@@ -1438,6 +1442,10 @@ static int __sba_xor_exec(struct fs4_test *test)
 				rc = cmsg->bmsg[i].error;
 				break;
 			}
+
+			if (test->poll &&
+			    (atomic_read(&cmsg->done_count) > 0))
+				mbox_client_peek_data(chan);
 		}
 		if (rc < 0)
 			break;
@@ -1739,7 +1747,7 @@ static int fs4_test_probe(struct platform_device *pdev)
 	test->min_split_size = 8192;
 	test->src_size = 8192;
 	test->src_count = 3;
-	test->iterations = 20;
+	test->iterations = 50;
 	test->timeout = 300;
 	test->verify = 0;
 	test->software = 0;
