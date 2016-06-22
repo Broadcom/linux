@@ -260,3 +260,19 @@
 &xhci1 {
 	status = "ok";
 };
+
+&usbdrd_phy {
+	status = "ok";
+};
+
+&ehci2 {
+	status = "ok";
+};
+
+&ohci2 {
+	status = "ok";
+};
+
+&udc_dwc {
+	status = "ok";
+};
