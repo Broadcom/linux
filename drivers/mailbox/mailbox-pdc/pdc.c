@@ -1065,7 +1065,7 @@ static int pdc_probe(struct platform_device *pdev)
 	pdcs->pdc_idx = pdcg.num_spu;
 	pdcg.num_spu++;
 
-	err = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+	err = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(39));
 	if (err) {
 		dev_warn(dev, "PDC device cannot perform DMA. Error %d.", err);
 		goto cleanup;
