@@ -199,3 +199,19 @@
 &enet {
 	status = "ok";
 };
+
+&usb3_phy0 {
+	status = "ok";
+};
+
+&usb3_phy1 {
+	status = "ok";
+};
+
+&xhci0 {
+	status = "ok";
+};
+
+&xhci1 {
+	status = "ok";
+};

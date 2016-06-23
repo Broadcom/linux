@@ -334,6 +334,11 @@
 			      <0x660009b0 0x40>;
 		};
 
+		usb3_ctrl: syscon@6501d144 {
+			compatible = "brcm,ns2-usb3-ctrl", "syscon";
+			reg = <0x6501d144 0x4>;
+		};
+
 		gpio_aon: gpio@65024800 {
 			compatible = "brcm,iproc-gpio";
 			reg = <0x65024800 0x50>,
@@ -451,6 +456,11 @@
 			};
 		};
 
+		usb3_phy_cfg: syscon@66000910 {
+			compatible = "brcm,ns2-usb3-phy-cfg", "syscon";
+			reg = <0x66000910 0x14>;
+		};
+
 		mdio_mux_iproc: mdio-mux@6602023c {
 			compatible = "brcm,mdio-mux-iproc";
 			reg = <0x6602023c 0x14>;
@@ -467,6 +477,34 @@
 					reg = <0x0>;
 					#phy-cells = <0>;
 					status = "disabled";
+				};
+			};
+
+			mdio@1 {
+				reg = <0x1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				usb3_phy: usb3_phy@0 {
+					compatible = "brcm,ns2-usb3-phy";
+					reg = <0x0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					usb3-ctrl-syscon = <&usb3_ctrl>;
+					usb3-phy-cfg-syscon = <&usb3_phy_cfg>;
+					usb3-rst-ctrl-syscon = <&usb3_rst_ctrl>;
+
+					usb3_phy0: usb3_phy@0 {
+						reg = <0>;
+						#phy-cells = <0>;
+						status = "disabled";
+					};
+
+					usb3_phy1: usb_phy@1 {
+						reg = <1>;
+						#phy-cells = <0>;
+						status = "disabled";
+					};
 				};
 			};
 
@@ -636,6 +674,24 @@
 			reg = <0x66220000 0x28>;
 		};
 
+		xhci0: usb@66300000 {
+			compatible = "generic-xhci";
+			reg = <0x66300000 0x1000>;
+			interrupts = <GIC_SPI 429 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb3_phy0>;
+			phy-names = "usb3-phy";
+			status = "disabled";
+		};
+
+		xhci1: usb@66310000 {
+			compatible = "generic-xhci";
+			reg = <0x66310000 0x1000>;
+			interrupts = <GIC_SPI 433 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb3_phy1>;
+			phy-names = "usb3-phy";
+			status = "disabled";
+		};
+
 		sata_phy: sata_phy@663f0000 {
 			compatible = "brcm,ns2-sata-phy";
 			reg = <0x663f0000 0x2000>;
@@ -708,6 +764,11 @@
 			#size-cells = <0>;
 
 			brcm,nand-has-wp;
+		};
+
+		usb3_rst_ctrl: syscon@67000800 {
+			compatible = "brcm,ns2-usb3-rst-ctrl", "syscon";
+			reg = <0x67000800 0x1808>;
 		};
 	};
 };
