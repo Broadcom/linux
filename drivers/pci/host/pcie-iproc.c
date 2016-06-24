@@ -73,11 +73,31 @@
 #define MAX_NUM_OB_WINDOWS           2
 #define MAX_NUM_PAXC_PF              4
 
-#define IPROC_PCIE_REG_INVALID 0xffff
+#define IB_IMAP_VALID                0x1
+#define IB_IMAP_MAX                  8
+
+#define IARR_SIZE_CFG_SHIFT          0
+#define IARR_SIZE_CFG                BIT(IARR_SIZE_CFG_SHIFT)
+
+#define IPROC_PCIE_REG_INVALID       0xffff
 
 #define PAXB_OARR_OFFSET             0x8
 #define PAXB_OARR_V2_OFFSET          0x90
+#define PAXB_IARR_V2_OFFSET          0x68
+#define PAXB_IARR3_OFFSET            0xf0
+#define PAXB_IMAP3_OFFSET            0x148
+#define PAXB_IARR_V2_OFFSET          0x68
+/*
+ * get the offset to IMAP_LO and IMAP_HI
+ * applicable to only IMAP_3 and IMAP_4.
+ */
+#define PAXB_IMAP_LO_OFFSET(window, which_imap) \
+	(PAXB_IMAP3_OFFSET + ((window - 1) * \
+	PAXB_IARR_V2_OFFSET) + (which_imap * IB_IMAP_MAX))
 
+#define PAXB_IMAP_HI_OFFSET(window, which_imap) \
+	(PAXB_IMAP3_OFFSET + ((window - 1) * \
+	 PAXB_IARR_V2_OFFSET) + (which_imap * IB_IMAP_MAX) + 4)
 /*
  * iProc PCIe host registers
  */
@@ -128,6 +148,12 @@ enum iproc_pcie_reg {
 	IPROC_PCIE_OMAP_LO,
 	IPROC_PCIE_OMAP_HI,
 
+	/* inbound address mapping */
+	IPROC_PCIE_IARR_LO,
+	IPROC_PCIE_IARR_HI,
+	IPROC_PCIE_IMAP_LO,
+	IPROC_PCIE_IMAP_HI,
+
 	/* link status. Only available in PAXB */
 	IPROC_PCIE_LINK_STATUS,
 };
@@ -150,6 +176,10 @@ static const u16 iproc_pcie_reg_paxb[] = {
 	[IPROC_PCIE_OARR_HI]          = 0xd24,
 	[IPROC_PCIE_OMAP_LO]          = 0xd40,
 	[IPROC_PCIE_OMAP_HI]          = 0xd44,
+	[IPROC_PCIE_IARR_LO]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IARR_HI]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP_LO]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_LINK_STATUS]      = 0xf0c,
 };
 
@@ -171,6 +201,10 @@ static const u16 iproc_pcie_reg_paxb_v2[] = {
 	[IPROC_PCIE_OARR_HI]          = 0xd64,
 	[IPROC_PCIE_OMAP_LO]          = 0xd68,
 	[IPROC_PCIE_OMAP_HI]          = 0xd6c,
+	[IPROC_PCIE_IARR_LO]          = 0xd10,
+	[IPROC_PCIE_IARR_HI]          = 0xd14,
+	[IPROC_PCIE_IMAP_LO]          = 0xcc0,
+	[IPROC_PCIE_IMAP_HI]          = 0xcc4,
 	[IPROC_PCIE_LINK_STATUS]      = 0xf0c,
 };
 
@@ -192,6 +226,10 @@ static const u16 iproc_pcie_reg_paxc[] = {
 	[IPROC_PCIE_OARR_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_OMAP_LO]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_OMAP_HI]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IARR_LO]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IARR_HI]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP_LO]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_LINK_STATUS]      = IPROC_PCIE_REG_INVALID,
 };
 
@@ -213,6 +251,10 @@ static const u16 iproc_pcie_reg_paxc_v2[] = {
 	[IPROC_PCIE_OARR_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_OMAP_LO]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_OMAP_HI]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IARR_LO]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IARR_HI]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP_LO]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_LINK_STATUS]      = IPROC_PCIE_REG_INVALID,
 };
 
@@ -512,6 +554,86 @@ static int iproc_pcie_setup_ob(struct iproc_pcie *pcie, u64 axi_addr,
 	return 0;
 }
 
+/**
+ * iproc_pcie_ib_write_imapx - map imap to inbound memory
+ * @pcie: iproc pcie
+ * @reg: imap reg
+ * @window: which window ? e.g. iarr_2 iarr_3 iarr_4
+ * @size: size of the window
+ * @axi_addr: address to map
+ * @wmask: window mask for particular iarr
+ */
+static inline void iproc_pcie_ib_write_imapx(struct iproc_pcie *pcie,
+				enum iproc_pcie_reg reg,
+				unsigned int window,
+				unsigned long size,
+				resource_size_t axi_addr,
+				unsigned int wmask)
+{
+	int imap;
+	unsigned int val;
+	u16 offset = iproc_pcie_reg_offset(pcie, reg);
+
+	if (iproc_pcie_reg_is_invalid(offset))
+		return;
+
+	if (window == 0) {
+		/* IARR_2 does not have windows. */
+		val = (lower_32_bits(axi_addr) & wmask) | IB_IMAP_VALID;
+		writel(val, pcie->base + offset);
+		val = upper_32_bits(axi_addr);
+		writel(val, pcie->base + offset + 4);
+		return;
+	}
+	size = size / IB_IMAP_MAX;
+	for (imap = 0; imap < IB_IMAP_MAX; imap++) {
+		val = (lower_32_bits(axi_addr) & wmask) | IB_IMAP_VALID;
+		writel(val, pcie->base + offset +
+			PAXB_IMAP_LO_OFFSET(window, imap));
+		val = upper_32_bits(axi_addr);
+		writel(val, pcie->base + offset +
+			PAXB_IMAP_HI_OFFSET(window, imap));
+		axi_addr += size;
+	}
+}
+
+static inline void iproc_pcie_ib_write(struct iproc_pcie *pcie,
+				       enum iproc_pcie_reg reg,
+				       unsigned int window,
+				       u32 val)
+{
+	u16 offset = iproc_pcie_reg_offset(pcie, reg);
+
+	if (iproc_pcie_reg_is_invalid(offset))
+		return;
+
+	if (window == 0)
+		writel(val, pcie->base + offset);
+	else
+		writel(val, pcie->base + offset + PAXB_IARR3_OFFSET +
+			((window - 1) * PAXB_IARR_V2_OFFSET));
+}
+
+static int iproc_pcie_map_ib_ranges(struct iproc_pcie *pcie)
+{
+	int iarr;
+
+	for (iarr = 0; iarr < pcie->num_of_ib; iarr++) {
+		iproc_pcie_ib_write(pcie, IPROC_PCIE_IARR_LO, iarr,
+				(lower_32_bits(pcie->ib[iarr].pci_addr) &
+				pcie->ib[iarr].wmask) |
+				(pcie->ib[iarr].iarr_size_bits <<
+				IARR_SIZE_CFG_SHIFT));
+		iproc_pcie_ib_write(pcie, IPROC_PCIE_IARR_HI, iarr,
+					upper_32_bits(pcie->ib[iarr].pci_addr));
+		iproc_pcie_ib_write_imapx(pcie, IPROC_PCIE_IMAP_LO, iarr,
+					pcie->ib[iarr].window_size,
+					pcie->ib[iarr].axi_addr,
+					pcie->ib[iarr].wmask);
+	}
+	return 0;
+}
+
 static int iproc_pcie_map_ranges(struct iproc_pcie *pcie,
 				 struct list_head *resources)
 {
@@ -716,6 +838,14 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 		ret = iproc_pcie_map_ranges(pcie, res);
 		if (ret) {
 			dev_err(pcie->dev, "map failed\n");
+			goto err_power_off_phy;
+		}
+	}
+
+	if (pcie->need_ib_cfg) {
+		ret = iproc_pcie_map_ib_ranges(pcie);
+		if (ret) {
+			dev_err(pcie->dev, "inbound mapping failed\n");
 			goto err_power_off_phy;
 		}
 	}
