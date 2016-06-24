@@ -22,6 +22,10 @@ Optional properties:
 - phys: phandle of the PCIe PHY device
 - phy-names: must be "pcie-phy"
 
+- dma-ranges: Some PAXB based root complex do not have inbound mapping done by
+the ASIC after power on reset. SW needs to expand the range. dma-ranges are
+inbound memory ranges, which defines the exposed host memory to the PCI endpoints.
+
 - brcm,pcie-ob: Some iProc SoCs do not have the outbound address mapping done
 by the ASIC after power on reset. In this case, SW needs to configure it
 
