@@ -1,23 +1,34 @@
-/* Broadcom Stingray PCIe PRBS Driver
- *
- * Copyright (C) 2016 Broadcom
+/*
+ * Copyright 2016 Broadcom
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU General Public License, version 2, as
+ * published by the Free Software Foundation (the "GPL").
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License version 2 (GPLv2) for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * version 2 (GPLv2) along with this source code.
  */
 
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
+#include <linux/mdio.h>
+#include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <linux/shared_mdio.h>
+#include <linux/of_mdio.h>
+#include <linux/regmap.h>
 #include <linux/string.h>
 
 #define MAX_PHY_COUNT 8
+#define PIPE_MUX_CONFIG 0x10C
 
 /* PCIe SERDES Block Addresses */
 #define PCIE5_BLK_ADR 0x1500
@@ -55,19 +66,17 @@ enum pcie_modes {
 	PCIE_MODE13,
 	PCIE_MODE_DEFAULT = -1,
 };
-struct pcie_prbs_test {
-	struct device *dev;
-	struct shared_mdio_master *pcie;
-	unsigned int pcie_phy_id[MAX_PHY_COUNT];
-	void __iomem *pcie_strap_regbase;
-	enum pcie_modes pcie_mode;
-	struct mutex test_lock;
-	unsigned int phy_count;
-	unsigned int test_retries;
-	unsigned int slot_num;
-	unsigned int err_count;
-	unsigned int test_start;
-};
+
+static struct mdio_device *pcie[MAX_PHY_COUNT];
+static struct regmap *pcie_strap_map;
+static enum pcie_modes pcie_mode;
+static unsigned int test_retries;
+static unsigned int slot_num;
+static unsigned int err_count;
+static unsigned int test_start;
+static unsigned int phy_count;
+static DEFINE_MUTEX(test_lock);
+
 static unsigned int phy_mask[15][8] = {
 	/* Mode 0: 1x16(EP) */
 	[PCIE_MODE0] = {0xff},
@@ -100,140 +109,155 @@ static unsigned int phy_mask[15][8] = {
 };
 /* PCIe PRBS loopback test sequence */
 
-static void pcie_phy_bert_setup(struct pcie_prbs_test *test, int phy_num)
+static void pcie_phy_bert_setup(int phy_num)
 {
-	unsigned int phy_id = test->pcie_phy_id[phy_num];
-	struct shared_mdio_master *pcie = test->pcie;
+	unsigned int phy_id = pcie[phy_num]->addr;
+	struct mii_bus *bus = pcie[phy_num]->bus;
 
-	shared_mdio_write(pcie, phy_id, 0x1f, PCIE3_BLK_ADR);
-	shared_mdio_write(pcie, phy_id, GEN2_CTRL1_A, 0x05);
+	mdiobus_write(bus, phy_id, 0x1f, PCIE3_BLK_ADR);
+	mdiobus_write(bus, phy_id, GEN2_CTRL1_A, 0x05);
 
-	shared_mdio_write(pcie, phy_id, 0x1f, PCIE4_BLK_ADR);
-	shared_mdio_write(pcie, phy_id, LANE_CTRL2_A, 0x00c0);
+	mdiobus_write(bus, phy_id, 0x1f, PCIE4_BLK_ADR);
+	mdiobus_write(bus, phy_id, LANE_CTRL2_A, 0x00c0);
 
 	/*setup prbs test*/
-	shared_mdio_write(pcie, phy_id, 0x1f, PCIE5_BLK_ADR);
-	shared_mdio_write(pcie, phy_id, LANE_PRBS3_A, 0xe4e4);
-	shared_mdio_write(pcie, phy_id, LANE_PRBS4_A, 0xe4e4);
+	mdiobus_write(bus, phy_id, 0x1f, PCIE5_BLK_ADR);
+	mdiobus_write(bus, phy_id, LANE_PRBS3_A, 0xe4e4);
+	mdiobus_write(bus, phy_id, LANE_PRBS4_A, 0xe4e4);
 }
 
-static int pcie_phy_begin_test(struct pcie_prbs_test *test, int phy_num)
+static int pcie_phy_begin_test(int phy_num)
 {
 	uint16_t data_rd;
-	unsigned int phy_id = test->pcie_phy_id[phy_num];
-	struct shared_mdio_master *pcie = test->pcie;
+	unsigned int phy_id = pcie[phy_num]->addr;
+	struct mii_bus *bus = pcie[phy_num]->bus;
+	struct device *dev = &pcie[phy_num]->dev;
+
 	int ret = 0;
 
 	/* Lane 0 */
-	shared_mdio_write(pcie, phy_id, 0x1f,
+	mdiobus_write(bus, phy_id, 0x1f,
 			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	shared_mdio_write(pcie, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
+	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
 			  0x0800);
 
-	shared_mdio_write(pcie, phy_id, 0x1f, RX_DFE0_BLK_ADR);
-	shared_mdio_write(pcie, phy_id, RX_DFE0_CTRL4_A, 0x1130);
-	shared_mdio_write(pcie, phy_id, RX_DFE0_CTRL1_A, 0xe002);
+	mdiobus_write(bus, phy_id, 0x1f, RX_DFE0_BLK_ADR);
+	mdiobus_write(bus, phy_id, RX_DFE0_CTRL4_A, 0x1130);
+	mdiobus_write(bus, phy_id, RX_DFE0_CTRL1_A, 0xe002);
 
 	/* Lane 1 */
-	shared_mdio_write(pcie, phy_id, 0x1f,
+	mdiobus_write(bus, phy_id, 0x1f,
 			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	shared_mdio_write(pcie, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
+	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
 			  0x0801);
 
-	shared_mdio_write(pcie, phy_id, 0x1f, RX_DFE0_BLK_ADR);
-	shared_mdio_write(pcie, phy_id, RX_DFE0_CTRL4_A, 0x1130);
-	shared_mdio_write(pcie, phy_id, RX_DFE0_CTRL1_A, 0xe002);
+	mdiobus_write(bus, phy_id, 0x1f, RX_DFE0_BLK_ADR);
+	mdiobus_write(bus, phy_id, RX_DFE0_CTRL4_A, 0x1130);
+	mdiobus_write(bus, phy_id, RX_DFE0_CTRL1_A, 0xe002);
 
-	shared_mdio_write(pcie, phy_id, 0x1f,
+	mdiobus_write(bus, phy_id, 0x1f,
 			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	shared_mdio_write(pcie, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
+	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
 			  0x0800);
-	shared_mdio_write(pcie, phy_id, 0x1f, PCIE5_BLK_ADR);
-	shared_mdio_write(pcie, phy_id, LANE_PRBS0_A, 0xffff);
+	mdiobus_write(bus, phy_id, 0x1f, PCIE5_BLK_ADR);
+	mdiobus_write(bus, phy_id, LANE_PRBS0_A, 0xffff);
 
 	ndelay(500);
 
 	/* Clear PRBS Error status */
-	shared_mdio_write(pcie, phy_id, 0x1f,
+	mdiobus_write(bus, phy_id, 0x1f,
 			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	shared_mdio_write(pcie, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
+	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
 			  0x0800);
 
-	shared_mdio_write(pcie, phy_id, 0x1f, RX_DFE0_BLK_ADR);
-	shared_mdio_read(pcie, phy_id, RX_DFE0_STATUS1_A);
+	mdiobus_write(bus, phy_id, 0x1f, RX_DFE0_BLK_ADR);
+	mdiobus_read(bus, phy_id, RX_DFE0_STATUS1_A);
 
 	udelay(20);
 
 	/* Read PRBS Error status */
-	shared_mdio_write(pcie, phy_id, 0x1f,
+	mdiobus_write(bus, phy_id, 0x1f,
+
 			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	shared_mdio_write(pcie, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
+	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
 			  0x0800);
 
-	shared_mdio_write(pcie, phy_id, 0x1f, RX_DFE0_BLK_ADR);
-	data_rd = shared_mdio_read(pcie, phy_id, RX_DFE0_STATUS1_A);
+	mdiobus_write(bus, phy_id, 0x1f, RX_DFE0_BLK_ADR);
+	data_rd = mdiobus_read(bus, phy_id, RX_DFE0_STATUS1_A);
 
 	if (data_rd == RX_DFE0_PASS_VAL)
-		dev_info(&pcie->dev, "Data read from DFE0 for phy-%d is correct- 0x%x",
+		dev_info(dev, "Data read from DFE0 for phy-%d is correct- 0x%x",
 			 phy_id, data_rd);
 	else {
-		dev_err(&pcie->dev, "Data read from DFE0 for phy-%d is incorrect",
+		dev_err(dev, "Data read from DFE0 for phy-%d is incorrect",
 			phy_id);
-		dev_err(&pcie->dev, "Expected is 0x%x, Received is 0x%x\n",
+		dev_err(dev, "Expected is 0x%x, Received is 0x%x\n",
 			RX_DFE0_PASS_VAL, data_rd);
 		ret = 1;
 	}
 
-	shared_mdio_write(pcie, phy_id, 0x1f,
+	mdiobus_write(bus, phy_id, 0x1f,
 			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	shared_mdio_write(pcie, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
+	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
 			  0x0801);
 
-	shared_mdio_write(pcie, phy_id, 0x1f, RX_DFE0_BLK_ADR);
-	data_rd = shared_mdio_read(pcie, phy_id, RX_DFE0_STATUS1_A);
+	mdiobus_write(bus, phy_id, 0x1f, RX_DFE0_BLK_ADR);
+	data_rd = mdiobus_read(bus, phy_id, RX_DFE0_STATUS1_A);
 
 	if (data_rd == RX_DFE0_PASS_VAL)
-		dev_info(&pcie->dev, "Data read from DFE1 for phy-%d is correct - 0x%x",
+		dev_info(dev, "Data read from DFE1 for phy-%d is correct - 0x%x",
 			 phy_id, data_rd);
 	else {
-		dev_err(&pcie->dev, "Data read from DFE1 for phy-%d is incorrect",
+		dev_err(dev, "Data read from DFE1 for phy-%d is incorrect",
 			phy_id);
-		dev_err(&pcie->dev, "Expected is 0x%x, Received is 0x%x\n",
+		dev_err(dev, "Expected is 0x%x, Received is 0x%x\n",
 			RX_DFE0_PASS_VAL, data_rd);
 		ret = 1;
 	}
 	return ret;
 }
 
-static int do_prbs_test(struct pcie_prbs_test *test)
+static int do_prbs_test(struct device *dev)
 {
 	int phy_num, phy_err, ret, i;
 
-	for (i = 0; i < test->test_retries; i++) {
+	if (phy_count < MAX_PHY_COUNT) {
+		dev_err(dev, "All the PCIe phys not registered\n");
+		return -EINVAL;
+	}
+	if (phy_mask[pcie_mode][slot_num] == 0x00) {
+		dev_info(dev, "pcie_mode(%d) and slot_num(%d)\n",
+			pcie_mode, slot_num);
+		dev_err(dev, "no such combination exists\n");
+		return -EINVAL;
+	}
+	for (i = 0; i <= test_retries; i++) {
 		phy_err = 0;
-		for (phy_num = 0; phy_num < test->phy_count; phy_num++) {
-			if (!((phy_mask[test->pcie_mode][test->slot_num]) &
+
+		/* check pcie phys according to self loopback cable position */
+		for (phy_num = 0; phy_num < phy_count; phy_num++) {
+			if (!((phy_mask[pcie_mode][slot_num]) &
 			     (1 << phy_num)))
 				continue;
 
-			pcie_phy_bert_setup(test, phy_num);
-			ret = pcie_phy_begin_test(test, phy_num);
+			pcie_phy_bert_setup(phy_num);
+			ret = pcie_phy_begin_test(phy_num);
 			if (ret) {
-				dev_err(test->dev, "PCIe PHY-%d test failed\n",
-					test->pcie_phy_id[phy_num]);
+				dev_err(dev, "PCIe PHY(0x%.2x) test failed\n",
+					pcie[phy_num]->addr);
 				phy_err++;
 			} else
-				dev_info(test->dev, "PCIe PHY-%d test passed\n",
-					test->pcie_phy_id[phy_num]);
+				dev_info(dev, "PCIe PHY(0x%.2x) test passed\n",
+					pcie[phy_num]->addr);
 		}
 		if (phy_err == 0) {
-			dev_info(test->dev, "Try %d: PCIe PRBS test PASSED (error %d)\n",
-				test->test_retries, phy_err);
+			dev_info(dev, "Try %d: PCIe PRBS test PASSED (error %d)\n",
+				i, phy_err);
 			return 0;
 		}
-		dev_err(test->dev, "Try %d: PCIe PRBS test Failed (error %d)\n",
-			test->test_retries, phy_err);
-		test->err_count = phy_err;
+		dev_err(dev, "Try %d: PCIe PRBS test Failed (error %d)\n",
+			i, phy_err);
+		err_count = phy_err;
 	}
 	return 1;
 }
@@ -243,13 +267,11 @@ static ssize_t pcie_prbs_retries_show(struct device *dev,
 				      struct device_attribute *attr,
 				      char *buf)
 {
-	struct shared_mdio_master *pdev = to_shared_mdio_master(dev);
-	struct pcie_prbs_test *test = shared_mdio_get_drvdata(pdev);
 	ssize_t ret;
 
-	mutex_lock(&test->test_lock);
-	ret = sprintf(buf, "%u\n", test->test_retries);
-	mutex_unlock(&test->test_lock);
+	mutex_lock(&test_lock);
+	ret = sprintf(buf, "%u\n", test_retries);
+	mutex_unlock(&test_lock);
 	return ret;
 }
 
@@ -257,17 +279,15 @@ static ssize_t pcie_prbs_retries_store(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	struct shared_mdio_master *pdev = to_shared_mdio_master(dev);
-	struct pcie_prbs_test *test = shared_mdio_get_drvdata(pdev);
 	int state;
 
-	if (kstrtoint(buf, 0, &state) != 1)
+	if (kstrtoint(buf, 0, &state) != 0)
 		return -EINVAL;
 	if (state < 1)
 		return -EINVAL;
-	mutex_lock(&test->test_lock);
-	test->test_retries = state;
-	mutex_unlock(&test->test_lock);
+	mutex_lock(&test_lock);
+	test_retries = state;
+	mutex_unlock(&test_lock);
 	return strnlen(buf, count);
 }
 
@@ -275,13 +295,11 @@ static ssize_t pcie_prbs_pcie_mode_show(struct device *dev,
 				    struct device_attribute *attr,
 				    char *buf)
 {
-	struct shared_mdio_master *pdev = to_shared_mdio_master(dev);
-	struct pcie_prbs_test *test = shared_mdio_get_drvdata(pdev);
 	ssize_t ret;
 
-	mutex_lock(&test->test_lock);
-	ret = sprintf(buf, "%u\n", test->pcie_mode);
-	mutex_unlock(&test->test_lock);
+	mutex_lock(&test_lock);
+	ret = sprintf(buf, "%u\n", pcie_mode);
+	mutex_unlock(&test_lock);
 	return ret;
 }
 
@@ -289,17 +307,15 @@ static ssize_t pcie_prbs_pcie_mode_store(struct device *dev,
 				       struct device_attribute *attr,
 				       const char *buf, size_t count)
 {
-	struct shared_mdio_master *pdev = to_shared_mdio_master(dev);
-	struct pcie_prbs_test *test = shared_mdio_get_drvdata(pdev);
 	int state;
 
-	if (kstrtoint(buf, 0, &state) != 1)
+	if (kstrtoint(buf, 0, &state) != 0)
 		return -EINVAL;
-	if (state < 1)
+	if (state < PCIE_MODE_DEFAULT || state > PCIE_MODE13)
 		return -EINVAL;
-	mutex_lock(&test->test_lock);
-	test->pcie_mode = state;
-	mutex_unlock(&test->test_lock);
+	mutex_lock(&test_lock);
+	pcie_mode = state;
+	mutex_unlock(&test_lock);
 	return strnlen(buf, count);
 }
 
@@ -307,13 +323,11 @@ static ssize_t pcie_prbs_slot_num_show(struct device *dev,
 				    struct device_attribute *attr,
 				    char *buf)
 {
-	struct shared_mdio_master *pdev = to_shared_mdio_master(dev);
-	struct pcie_prbs_test *test = shared_mdio_get_drvdata(pdev);
 	ssize_t ret;
 
-	mutex_lock(&test->test_lock);
-	ret = sprintf(buf, "%u\n", test->slot_num);
-	mutex_unlock(&test->test_lock);
+	mutex_lock(&test_lock);
+	ret = sprintf(buf, "%u\n", slot_num);
+	mutex_unlock(&test_lock);
 	return ret;
 }
 
@@ -321,17 +335,15 @@ static ssize_t pcie_prbs_slot_num_store(struct device *dev,
 				       struct device_attribute *attr,
 				       const char *buf, size_t count)
 {
-	struct shared_mdio_master *pdev = to_shared_mdio_master(dev);
-	struct pcie_prbs_test *test = shared_mdio_get_drvdata(pdev);
 	int state;
 
-	if (kstrtoint(buf, 0, &state) != 1)
+	if (kstrtoint(buf, 0, &state) != 0)
 		return -EINVAL;
-	if (state < 1)
+	if (state < 0 || state > 8)
 		return -EINVAL;
-	mutex_lock(&test->test_lock);
-	test->slot_num = state;
-	mutex_unlock(&test->test_lock);
+	mutex_lock(&test_lock);
+	slot_num = state;
+	mutex_unlock(&test_lock);
 	return strnlen(buf, count);
 }
 
@@ -339,13 +351,11 @@ static ssize_t pcie_prbs_start_show(struct device *dev,
 				    struct device_attribute *attr,
 				    char *buf)
 {
-	struct shared_mdio_master *pdev = to_shared_mdio_master(dev);
-	struct pcie_prbs_test *test = shared_mdio_get_drvdata(pdev);
 	ssize_t ret;
 
-	mutex_lock(&test->test_lock);
-	ret = sprintf(buf, "%u\n", test->test_start);
-	mutex_unlock(&test->test_lock);
+	mutex_lock(&test_lock);
+	ret = sprintf(buf, "%u\n", test_start);
+	mutex_unlock(&test_lock);
 	return ret;
 }
 
@@ -353,27 +363,24 @@ static ssize_t pcie_prbs_start_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
-	struct shared_mdio_master *pdev = to_shared_mdio_master(dev);
-	struct pcie_prbs_test *test = shared_mdio_get_drvdata(pdev);
 	int state;
 	unsigned int val;
 
-	if (kstrtoint(buf, 0, &state) != 1)
+	if (kstrtoint(buf, 0, &state) != 0)
 		return -EINVAL;
 	if (state < 1)
 		return -EINVAL;
-	mutex_lock(&test->test_lock);
-	test->test_start = state;
-	if (test->test_start) {
-		if (test->pcie_mode == PCIE_MODE_DEFAULT) {
+	mutex_lock(&test_lock);
+	test_start = state;
+	if (test_start) {
+		if (pcie_mode == PCIE_MODE_DEFAULT) {
 			/* read pcie pipemux configuration register */
-			val = readl(test->pcie_strap_regbase + 0x10c);
-			val &= 0xf;
-			test->pcie_mode = val;
+			regmap_read(pcie_strap_map, PIPE_MUX_CONFIG, &val);
+			pcie_mode = val;
 		}
-		do_prbs_test(test);
+		do_prbs_test(dev);
 	}
-	mutex_unlock(&test->test_lock);
+	mutex_unlock(&test_lock);
 	return strnlen(buf, count);
 }
 
@@ -381,13 +388,11 @@ static ssize_t pcie_phy_err_count_show(struct device *dev,
 				    struct device_attribute *attr,
 				    char *buf)
 {
-	struct shared_mdio_master *pdev = to_shared_mdio_master(dev);
-	struct pcie_prbs_test *test = shared_mdio_get_drvdata(pdev);
 	ssize_t ret;
 
-	mutex_lock(&test->test_lock);
-	ret = sprintf(buf, "%u\n", test->err_count);
-	mutex_unlock(&test->test_lock);
+	mutex_lock(&test_lock);
+	ret = sprintf(buf, "%u\n", err_count);
+	mutex_unlock(&test_lock);
 	return ret;
 }
 
@@ -406,50 +411,26 @@ static DEVICE_ATTR(test_start, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(err_count, S_IRUGO,
 		   pcie_phy_err_count_show, NULL);
 
-static int stingray_pcie_phy_probe(struct shared_mdio_master *master)
+static int stingray_pcie_phy_probe(struct mdio_device *mdiodev)
 {
 	int ret = 0;
-	struct device *dev = &master->dev;
-	struct device_node *dn = dev->of_node, *child, *pcie_strap;
-	struct pcie_prbs_test *test;
+	struct device *dev = &mdiodev->dev;
+	struct device_node *dn = dev->of_node;
 
-	test = devm_kzalloc(dev, sizeof(*test), GFP_KERNEL);
-	if (!test)
-		return -ENOMEM;
-	test->dev = dev;
-	shared_mdio_set_drvdata(master, test);
-
-	if (of_get_child_count(dn) == 0)
+	if (mdiodev->addr >= MAX_PHY_COUNT)
 		return -ENODEV;
+	pcie_strap_map =
+		syscon_regmap_lookup_by_phandle(dn, "brcm, pcie-strap-syscon");
+	if (IS_ERR(pcie_strap_map))
+		return PTR_ERR(pcie_strap_map);
 
-	pcie_strap = of_parse_phandle(dn, "brcm,pcie-strap", 0);
-	if (!pcie_strap)
-		return -ENODEV;
-
-	test->pcie_strap_regbase = of_iomap(pcie_strap, 0);
-	of_node_put(pcie_strap);
-	if (!test->pcie_strap_regbase)
-		return -ENODEV;
-	test->pcie = master;
-
-	/* find-out number of PHYs and their IDs */
-	test->phy_count = 0;
-	for_each_available_child_of_node(dn, child) {
-		unsigned int id;
-
-		if (of_property_read_u32(child, "reg", &id)) {
-			dev_err(dev, "missing reg property in node %s\n",
-					child->name);
-			ret = -EINVAL;
-			goto release_iomap;
-		}
-		test->pcie_phy_id[test->phy_count++] = id;
-	}
+	pcie[mdiodev->addr] = mdiodev;
+	phy_count++;
 
 	/* creating sysfs entries */
 	ret = device_create_file(dev, &dev_attr_test_retries);
 	if (ret < 0)
-		goto release_iomap;
+		return ret;
 	ret = device_create_file(dev, &dev_attr_pcie_mode);
 	if (ret < 0)
 		goto destroy_test_retries;
@@ -463,12 +444,12 @@ static int stingray_pcie_phy_probe(struct shared_mdio_master *master)
 	if (ret < 0)
 		goto destroy_err_count;
 
-	mutex_init(&test->test_lock);
-	test->test_retries = 10;
-	test->test_start = 0;
-	test->pcie_mode = PCIE_MODE_DEFAULT;
-	test->slot_num = 0;
-	dev_info(dev, "Stingray PCIe PRBS test ready\n");
+	mutex_init(&test_lock);
+	test_retries = 0;
+	test_start = 0;
+	pcie_mode = PCIE_MODE_DEFAULT;
+	slot_num = 0;
+	dev_info(dev, "%s PHY registered\n", dev_name(dev));
 	return 0;
 
 destroy_err_count:
@@ -479,25 +460,25 @@ destroy_pcie_mode:
 	device_remove_file(dev, &dev_attr_pcie_mode);
 destroy_test_retries:
 	device_remove_file(dev, &dev_attr_test_retries);
-release_iomap:
-	iounmap(pcie_strap);
 	return ret;
 }
 
 static const struct of_device_id stingray_pcie_phy_of_match[] = {
-	{ .compatible = "brcm,stingray-mdio-master-pcie-prbs" },
+	{ .compatible = "brcm,stingray-pcie-phy-prbs" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, stingray_pcie_phy_of_match);
 
-static struct shared_mdio_driver stingray_pcie_prbs_driver = {
-	.driver = {
-		.name = "stingray-pcie-prbs",
-		.of_match_table = stingray_pcie_phy_of_match,
+static struct mdio_driver stingray_pcie_prbs_driver = {
+	.mdiodrv = {
+		.driver = {
+			.name = "stingray-pcie-prbs",
+			.of_match_table = stingray_pcie_phy_of_match,
+		},
 	},
 	.probe = stingray_pcie_phy_probe,
 };
-module_shared_mdio_driver(stingray_pcie_prbs_driver);
+mdio_module_driver(stingray_pcie_prbs_driver);
 
 MODULE_DESCRIPTION("Broadcom Stingray PCIe PHY PRBS test driver");
 MODULE_LICENSE("GPL v2");
