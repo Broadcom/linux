@@ -1,51 +1,78 @@
 Broadcom PCIe PHY PRBS for Stingray
 
-Required properties:
-- compatible: must be "brcm,stingray-mdio-master-pcie-prbs"
-- reg: master id of PCIe block
-- brcm,phy_internal: Stingray has only internal PCIe PHYs
-- address-cells: should be 1
-- size-cells: should be 0
-- brcm, pcie-strap: a phandle to the pcie subsystem registers containing
-		    the PIPE MUX configuration register.
+Required bus properties:
+- reg: MDIO Bus number for the MDIO interface
+- #address-cells: must be 1
+- #size-cells: must be 0
 
-Sub-nodes:
-  Each port's PHY should be represented as a sub-node.
+Required PHY properties:
+- compatible: should be "brcm,stingray-pcie-phy-prbs"
+- reg: MDIO Phy ID for the MDIO interface
+- brcm, pcie-strap-syscon: A phandle to the "pcie_ss_syscon" syscon node
+			   defining the pcie subsystem registers containing
+			   the PIPE MUX configuration register.
 
-Sub-nodes required properties:
-- reg: the PHY number
+This is a child bus node of "brcm,mdio-mux-iproc" node.
 
 Example:
-	pcie-master@0 {
-		compatible = "brcm,stingray-mdio-master-pcie-prbs";
-		reg = <0x0>;
-		brcm,phy_internal;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		brcm,pcie-strap = <&pcie_ss>;
-		status = "ok";
-		pcie-phy@0 {
+	pcie_ss_syscon: syscon@40000000 {
+		compatible = "syscon";
+		reg = <0x0 0x40000000 0x0 0x1000>;
+	};
+
+	&mdio_mux_iproc {
+		mdio@0 {
 			reg = <0x0>;
-		};
-		pcie-phy@1 {
-			reg = <0x1>;
-		};
-		pcie-phy@2 {
-			reg = <0x2>;
-		};
-		pcie-phy@3 {
-			reg = <0x3>;
-		};
-		pcie-phy@4 {
-			reg = <0x4>;
-		};
-		pcie-phy@5 {
-			reg = <0x5>;
-		};
-		pcie-phy@6 {
-			reg = <0x6>;
-		};
-		pcie-phy@7 {
-			reg = <0x7>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pci_phy0: phy@0 {
+				compatible = "brcm,stingray-pcie-phy-prbs";
+				reg = <0x0>;
+				brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+				status = "ok";
+			};
+			pci_phy1: phy@1 {
+				compatible = "brcm,stingray-pcie-phy-prbs";
+				reg = <0x1>;
+				brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+				status = "ok";
+			};
+			pci_phy2: phy@2 {
+				compatible = "brcm,stingray-pcie-phy-prbs";
+				reg = <0x2>;
+				brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+				status = "ok";
+			};
+			pci_phy3: phy@3 {
+				compatible = "brcm,stingray-pcie-phy-prbs";
+				reg = <0x3>;
+				brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+				status = "ok";
+			};
+			pci_phy4: phy@4 {
+				compatible = "brcm,stingray-pcie-phy-prbs";
+				reg = <0x4>;
+				brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+				status = "ok";
+			};
+			pci_phy5: phy@5 {
+				compatible = "brcm,stingray-pcie-phy-prbs";
+				reg = <0x5>;
+				brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+				status = "ok";
+			};
+			pci_phy6: phy@6 {
+				compatible = "brcm,stingray-pcie-phy-prbs";
+				reg = <0x6>;
+				brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+				status = "ok";
+			};
+			pci_phy7: phy@7 {
+				compatible = "brcm,stingray-pcie-phy-prbs";
+				reg = <0x7>;
+				brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+				status = "ok";
+			};
 		};
 	};
