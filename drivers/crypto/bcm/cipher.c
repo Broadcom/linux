@@ -897,7 +897,7 @@ static int ahash_req_done(struct iproc_reqctx_s *rctx)
 		flow_dump("  hmac: ", req->result, ctx->digestsize);
 	}
 
-	if (rctx->is_sw_hmac)
+	if (rctx->is_sw_hmac || ctx->auth.mode == HASH_MODE_HMAC)
 		atomic_inc(&iproc_priv.op_counts[SPU_OP_HMAC]);
 	else
 		atomic_inc(&iproc_priv.op_counts[SPU_OP_HASH]);
@@ -1960,16 +1960,16 @@ static int ahash_hmac_setkey(struct crypto_ahash *ahash, const u8 *key,
 	if (keylen > blocksize) {
 		switch (ctx->auth.alg) {
 		case HASH_ALG_MD5:
-			do_shash("md5", ctx->ipad, key, keylen, NULL, 0);
+			do_shash("md5", ctx->authkey, key, keylen, NULL, 0);
 			break;
 		case HASH_ALG_SHA1:
-			do_shash("sha1", ctx->ipad, key, keylen, NULL, 0);
+			do_shash("sha1", ctx->authkey, key, keylen, NULL, 0);
 			break;
 		case HASH_ALG_SHA224:
-			do_shash("sha224", ctx->ipad, key, keylen, NULL, 0);
+			do_shash("sha224", ctx->authkey, key, keylen, NULL, 0);
 			break;
 		case HASH_ALG_SHA256:
-			do_shash("sha256", ctx->ipad, key, keylen, NULL, 0);
+			do_shash("sha256", ctx->authkey, key, keylen, NULL, 0);
 			break;
 		case HASH_ALG_SHA3_224:
 			do_shash("sha3-224", ctx->authkey, key, keylen,
@@ -1991,31 +1991,37 @@ static int ahash_hmac_setkey(struct crypto_ahash *ahash, const u8 *key,
 			pr_err("%s() Error: unknown hash alg\n", __func__);
 			return -EINVAL;
 		}
-
-		keylen = digestsize;
+		ctx->authkeylen = digestsize;
 
 		flow_log("  keylen > digestsize... hashed\n");
-		flow_dump("  newkey: ", ctx->ipad, keylen);
+		flow_dump("  newkey: ", ctx->authkey, ctx->authkeylen);
 	} else {
-		memcpy(ctx->ipad, key, keylen);
+		memcpy(ctx->authkey, key, keylen);
+		ctx->authkeylen = keylen;
 	}
 
+	/*
+	 * Full HMAC operation in SPUM is not verified,
+	 * So keeping the generation of IPAD, OPAD and
+	 * outer hashing in software.
+	 */
+	if (iproc_priv.spu.spu_type == SPU_TYPE_SPUM) {
+		memcpy(ctx->ipad, ctx->authkey, ctx->authkeylen);
+		memset(ctx->ipad + ctx->authkeylen, 0,
+			blocksize - ctx->authkeylen);
+		ctx->authkeylen = 0;
+		memcpy(ctx->opad, ctx->ipad, blocksize);
+
+		for (index = 0; index < blocksize; index++) {
+			ctx->ipad[index] ^= 0x36;
+			ctx->opad[index] ^= 0x5c;
+		}
+
+		flow_dump("  ipad: ", ctx->ipad, blocksize);
+		flow_dump("  opad: ", ctx->opad, blocksize);
+	}
 	ctx->digestsize = digestsize;
-	/* not "keylen" since we are using hash only operation */
-	ctx->authkeylen = 0;
-
-	memset(ctx->ipad + keylen, 0, blocksize - keylen);
-	memcpy(ctx->opad, ctx->ipad, blocksize);
-
-	for (index = 0; index < blocksize; index++) {
-		ctx->ipad[index] ^= 0x36;
-		ctx->opad[index] ^= 0x5c;
-	}
-
 	atomic_inc(&iproc_priv.setkey_cnt[SPU_OP_HMAC]);
-
-	flow_dump("  ipad: ", ctx->ipad, HASH_BLOCK_SIZE);
-	flow_dump("  opad: ", ctx->opad, HASH_BLOCK_SIZE);
 
 	return 0;
 }
@@ -2025,20 +2031,34 @@ static int ahash_hmac_init(struct ahash_request *req)
 	struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct iproc_ctx_s *ctx = crypto_ahash_ctx(tfm);
+	unsigned int blocksize =
+			crypto_tfm_alg_blocksize(crypto_ahash_tfm(tfm));
 
 	flow_log("ahash_hmac_init() req:%p\n", req);
 
-	/* init the context as a hash, but */
+	/* init the context as a hash */
 	ahash_init(req);
 
-	/* start with a prepended ipad */
-	memcpy(rctx->hash_carry, ctx->ipad, HASH_BLOCK_SIZE);
-	rctx->hash_carry_len = HASH_BLOCK_SIZE;
-	rctx->total_todo += HASH_BLOCK_SIZE;
-
-	ctx->auth.mode = HASH_MODE_HASH;
-
-	rctx->is_sw_hmac = true;
+	if (((iproc_priv.spu.spu_type == SPU_TYPE_SPU2) ||
+	    (iproc_priv.spu.spu_type == SPU_TYPE_SPU2_V2))) {
+		/*
+		 * SPU2 supports full HMAC implementation in the
+		 * hardware, need not to generate IPAD, OPAD and
+		 * outer hash in software.
+		 * Only for hash key len > hash block size, SPU2
+		 * expects to perform hashing on the key, shorten
+		 * it to digest size and feed it as hash key.
+		 */
+		rctx->is_sw_hmac = false;
+		ctx->auth.mode = HASH_MODE_HMAC;
+	} else {
+		rctx->is_sw_hmac = true;
+		ctx->auth.mode = HASH_MODE_HASH;
+		/* start with a prepended ipad */
+		memcpy(rctx->hash_carry, ctx->ipad, blocksize);
+		rctx->hash_carry_len = blocksize;
+		rctx->total_todo += blocksize;
+	}
 
 	return 0;
 }
