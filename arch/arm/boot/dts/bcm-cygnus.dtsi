@@ -162,7 +162,6 @@
 			gphy0: eth-gphy@0 {
 				reg = <0>;
 				max-speed = <1000>;
-				phy-mode = "mii";
 			};
 		};
 
@@ -330,6 +329,7 @@
 						"switch_global_base",
 						"crmu_io_pad_ctrl";
 			interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+			phy-mode = "mii";
 			max-speed = <1000>;
 			phy-handle = <&gphy0>;
 			brcm,enet-pause-disable;
