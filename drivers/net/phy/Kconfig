@@ -285,6 +285,15 @@ config MDIO_BCM_IPROC
 	  This module provides a driver for the MDIO busses found in the
 	  Broadcom iProc SoC's.
 
+config MDIO_BUS_MUX_BCM_NSP
+	tristate "Broadcom NSP MDIO bus controller"
+	depends on ARCH_BCM_NSP || COMPILE_TEST
+	depends on HAS_IOMEM && OF_MDIO
+	default ARCH_BCM_NSP
+	help
+	  This module provides a driver MDIO multiplexing the busses available
+	  in the Broadcom NSP SoC.
+
 endif # PHYLIB
 
 config MICREL_KS8995MA
