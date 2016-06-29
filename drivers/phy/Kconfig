@@ -467,4 +467,13 @@ config PHY_STINGRAY_USB
 	  Enable this to support the Broadcom Stingray USB PHY for DRDU3,
 	  DRDU2 and USB3H.
 	  If unsure, say N.
+
+config PHY_NSP_USB3
+	tristate "Broadcom NorthStar plus USB3 PHY driver"
+	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Northstar plus USB3 PHY.
+	  If unsure, say N.
 endmenu

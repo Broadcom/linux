@@ -57,3 +57,4 @@ obj-$(CONFIG_PHY_NS2_PCIE)		+= phy-bcm-ns2-pcie.o
 obj-$(CONFIG_PHY_NS2_USB3)		+= phy-bcm-ns2-usb3.o
 obj-$(CONFIG_PHY_STINGRAY_PCIE_PRBS)	+= phy-bcm-stingray-pcie-prbs.o
 obj-$(CONFIG_PHY_STINGRAY_USB)		+= phy-bcm-stingray-usb.o
+obj-$(CONFIG_PHY_NSP_USB3)		+= phy-bcm-nsp-usb3.o
