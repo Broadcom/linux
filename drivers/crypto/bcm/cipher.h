@@ -167,7 +167,7 @@ struct iproc_ctx_s {
 
 	struct auth_op auth;
 	bool auth_first;
-	unsigned max_payload;
+	unsigned int max_payload;
 
 	struct crypto_aead *fallback_cipher;
 
@@ -203,14 +203,14 @@ struct iproc_reqctx_s {
 	u8 chan_idx;   /* Mailbox channel to be used to submit this request */
 
 	/* total todo, rx'd, and sent for this request */
-	unsigned total_todo;
-	unsigned total_received;	/* only valid for ablkcipher */
-	unsigned total_sent;
+	unsigned int total_todo;
+	unsigned int total_received;	/* only valid for ablkcipher */
+	unsigned int total_sent;
 
 	/* this can differ from total_sent for hashes due to nbuf carried */
 	/* from the previous req if the src wasn't % BLOCK_SIZE */
-	unsigned src_sent;
-	unsigned hmac_offset;
+	unsigned int src_sent;
+	unsigned int hmac_offset;
 
 	/* For AEAD requests, start of associated data. This will typically
 	 * point to the beginning of the src scatterlist from the request,
@@ -248,7 +248,7 @@ struct iproc_reqctx_s {
 	 */
 	u8 *iv_ctr;
 	/* = block_size if either an IV or CTR is present, else 0 */
-	unsigned iv_ctr_len;
+	unsigned int iv_ctr_len;
 
 	/* Hash requests can be of any size, whether initial, update, or final.
 	 * A non-final request must be submitted to the SPU as an integral
@@ -262,8 +262,8 @@ struct iproc_reqctx_s {
 	 * only used for ahash requests.
 	 */
 	u8 hash_carry[HASH_CARRY_MAX];
-	unsigned hash_carry_len;
-	unsigned is_final;	/* is this the final for the hash op? */
+	unsigned int hash_carry_len;
+	unsigned int is_final;	/* is this the final for the hash op? */
 
 	/* hmac context */
 	bool is_sw_hmac;
@@ -283,16 +283,16 @@ struct iproc_reqctx_s {
  * values read from device tree.
  */
 struct spu_hw {
-	void (*spu_dump_msg_hdr)(u8 *buf, unsigned buf_len);
+	void (*spu_dump_msg_hdr)(u8 *buf, unsigned int buf_len);
 	u32 (*spu_payload_length)(u8 *spu_hdr);
 	u16 (*spu_response_hdr_len)(u16 auth_key_len, u16 enc_key_len,
 				    bool is_hash);
 	u16 (*spu_hash_pad_len)(u32 chunksize, u16 hash_block_size);
 	u32 (*spu_gcm_pad_len)(enum spu_cipher_mode cipher_mode,
-			       unsigned data_size);
+			       unsigned int data_size);
 	u32 (*spu_assoc_resp_len)(enum spu_cipher_mode cipher_mode,
-				  bool dtls_hmac, unsigned assoc_len,
-				  unsigned iv_len);
+				  bool dtls_hmac, unsigned int assoc_len,
+				  unsigned int iv_len);
 	u8 (*spu_aead_ivlen)(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
 			     u16 iv_len);
 	enum hash_type (*spu_hash_type)(u32 src_sent);
@@ -303,18 +303,18 @@ struct spu_hw {
 				  struct spu_cipher_parms *cipher_parms,
 				  struct spu_hash_parms *hash_parms,
 				  struct spu_aead_parms *aead_parms,
-				  unsigned data_size);
+				  unsigned int data_size);
 	u16 (*spu_cipher_req_init)(u8 *spu_hdr,
 				   struct spu_cipher_parms *cipher_parms);
 	void (*spu_cipher_req_finish)(u8 *spu_hdr,
 				      u16 spu_req_hdr_len,
-				      unsigned is_inbound,
+				      unsigned int is_inbound,
 				      struct spu_cipher_parms *cipher_parms,
 				      bool update_key,
-				      unsigned data_size);
+				      unsigned int data_size);
 	void (*spu_request_pad)(u8 *pad_start, u32 gcm_padding,
 				u32 hash_pad_len,
-				enum hash_alg auth_alg, unsigned total_sent,
+				enum hash_alg auth_alg, unsigned int total_sent,
 				u32 status_padding);
 	u8 (*spu_tx_status_len)(void);
 	u8 (*spu_rx_status_len)(void);

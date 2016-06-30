@@ -27,14 +27,14 @@
 char *tag_to_hash_idx[] = { "none", "md5", "sha1", "sha224", "sha256" };
 
 /* Assumes SPU-M messages are in big endian */
-void spum_dump_msg_hdr(u8 *buf, unsigned buf_len)
+void spum_dump_msg_hdr(u8 *buf, unsigned int buf_len)
 {
 	u8 *ptr = buf;
 	struct SPUHEADER *spuh = (struct SPUHEADER *)buf;
-	unsigned hash_key_len = 0;
-	unsigned hash_state_len = 0;
-	unsigned cipher_key_len = 0;
-	unsigned iv_len;
+	unsigned int hash_key_len = 0;
+	unsigned int hash_state_len = 0;
+	unsigned int cipher_key_len = 0;
+	unsigned int iv_len;
 	u32 pflags;
 	u32 cflags;
 	u32 ecf;
@@ -317,7 +317,7 @@ u16 spum_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash)
  */
 u16 spum_hash_pad_len(u32 chunksize, u16 hash_block_size)
 {
-	unsigned used_space_last_block;
+	unsigned int used_space_last_block;
 	int hash_pad_len;
 
 	used_space_last_block = chunksize % hash_block_size + 1 + sizeof(u64);
@@ -330,7 +330,7 @@ u16 spum_hash_pad_len(u32 chunksize, u16 hash_block_size)
 }
 
 /* Determine the length of GCM padding required. */
-u32 spum_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned data_size)
+u32 spum_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size)
 {
 	u32 gcm_pad_len = 0;
 	u32 m1 = SPU_GCM_ALIGN - 1;
@@ -344,7 +344,7 @@ u32 spum_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned data_size)
 /* Determine the size of the receive buffer required to catch associated data.
  */
 u32 spum_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
-			unsigned assoc_len, unsigned iv_len)
+			unsigned int assoc_len, unsigned int iv_len)
 {
 	u32 buflen = 0;
 	u32 pad;
@@ -427,7 +427,7 @@ u32 spum_create_request(u8 *spu_hdr,
 			struct spu_cipher_parms *cipher_parms,
 			struct spu_hash_parms *hash_parms,
 			struct spu_aead_parms *aead_parms,
-			unsigned data_size)
+			unsigned int data_size)
 {
 	struct SPUHEADER *spuh;
 	struct BDESC_HEADER *bdesc;
@@ -438,19 +438,19 @@ u32 spum_create_request(u8 *spu_hdr,
 	u32 cipher_bits = 0;
 	u32 ecf_bits = 0;
 	u8 sctx_words = 0;
-	unsigned buf_len = 0;
+	unsigned int buf_len = 0;
 
 	/* size of the cipher payload */
-	unsigned cipher_len = hash_parms->prebuf_len + data_size +
+	unsigned int cipher_len = hash_parms->prebuf_len + data_size +
 				hash_parms->pad_len;
 
 	/* offset of prebuf or data from end of BD header */
-	unsigned cipher_offset = aead_parms->assoc_size +
+	unsigned int cipher_offset = aead_parms->assoc_size +
 		(req_opts->dtls_aead ? 0 : aead_parms->iv_len) +
 		aead_parms->aad_pad_len;
 
 	/* total size of the DB data (without STAT word padding) */
-	unsigned real_db_size = spu_real_db_size(aead_parms->assoc_size,
+	unsigned int real_db_size = spu_real_db_size(aead_parms->assoc_size,
 						 aead_parms->iv_len,
 						 hash_parms->prebuf_len,
 						 data_size,
@@ -458,11 +458,11 @@ u32 spum_create_request(u8 *spu_hdr,
 						 aead_parms->gcm_pad_len,
 						 hash_parms->pad_len);
 
-	unsigned auth_offset = 0;
-	unsigned offset_iv = 0;
+	unsigned int auth_offset = 0;
+	unsigned int offset_iv = 0;
 
 	/* size/offset of the auth payload */
-	unsigned auth_len = real_db_size;
+	unsigned int auth_len = real_db_size;
 
 	if (req_opts->dtls_aead)
 		cipher_len += aead_parms->iv_len;
@@ -738,10 +738,10 @@ u16 spum_cipher_req_init(u8 *spu_hdr, struct spu_cipher_parms *cipher_parms)
  */
 void spum_cipher_req_finish(u8 *spu_hdr,
 			    u16 spu_req_hdr_len,
-			    unsigned isInbound,
+			    unsigned int is_inbound,
 			    struct spu_cipher_parms *cipher_parms,
 			    bool update_key,
-			    unsigned data_size)
+			    unsigned int data_size)
 {
 	struct SPUHEADER *spuh;
 	struct BDESC_HEADER *bdesc;
@@ -752,7 +752,7 @@ void spum_cipher_req_finish(u8 *spu_hdr,
 	u32 cipher_bits;
 
 	flow_log("%s()\n", __func__);
-	flow_log(" in: %u\n", isInbound);
+	flow_log(" in: %u\n", is_inbound);
 	flow_log(" cipher alg: %u, cipher_type: %u\n", cipher_parms->alg,
 		 cipher_parms->type);
 	if (update_key) {
@@ -772,7 +772,7 @@ void spum_cipher_req_finish(u8 *spu_hdr,
 	cipher_bits = be32_to_cpu(spuh->sa.cipher_flags);
 
 	/* Format sctx word 1 (cipher_bits) */
-	if (isInbound)
+	if (is_inbound)
 		cipher_bits |= CIPHER_INBOUND;
 	else
 		cipher_bits &= ~CIPHER_INBOUND;
@@ -831,7 +831,7 @@ void spum_request_pad(u8 *pad_start,
 		      u32 gcm_padding,
 		      u32 hash_pad_len,
 		      enum hash_alg auth_alg,
-		      unsigned total_sent, u32 status_padding)
+		      unsigned int total_sent, u32 status_padding)
 {
 	u8 *ptr = pad_start;
 

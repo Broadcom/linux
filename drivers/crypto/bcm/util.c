@@ -35,13 +35,13 @@
  * Return: 0 if entry found at requested distance
  *         < 0 otherwise
  */
-int spu_sg_at_offset(struct scatterlist *sg, unsigned skip,
-		     struct scatterlist **sge, unsigned *sge_offset)
+int spu_sg_at_offset(struct scatterlist *sg, unsigned int skip,
+		     struct scatterlist **sge, unsigned int *sge_offset)
 {
 	/* byte index from start of sg to the end of the previous entry */
-	unsigned index = 0;
+	unsigned int index = 0;
 	/* byte index from start of sg to the end of the current entry */
-	unsigned next_index;
+	unsigned int next_index;
 
 	next_index = sg->length;
 	while (next_index <= skip) {
@@ -59,7 +59,7 @@ int spu_sg_at_offset(struct scatterlist *sg, unsigned skip,
 
 /* Copy len bytes of sg data, starting at offset skip, to a dest buffer */
 void sg_copy_part_to_buf(struct scatterlist *src, u8 *dest,
-			 unsigned int len, unsigned skip)
+			 unsigned int len, unsigned int skip)
 {
 	size_t copied;
 	unsigned int nents = sg_nents(src);
@@ -78,7 +78,7 @@ void sg_copy_part_to_buf(struct scatterlist *src, u8 *dest,
  * into the scatterlist dest, starting skip bytes into the scatterlist.
  */
 void sg_copy_part_from_buf(struct scatterlist *dest, u8 *src,
-			   unsigned len, unsigned skip)
+			   unsigned int len, unsigned int skip)
 {
 	size_t copied;
 	unsigned int nents = sg_nents(dest);
@@ -101,11 +101,11 @@ void sg_copy_part_from_buf(struct scatterlist *dest, u8 *src,
  *
  * Return: the number of sg entries contributing to nbytes of data
  */
-int spu_sg_count(struct scatterlist *sg_list, unsigned skip, int nbytes)
+int spu_sg_count(struct scatterlist *sg_list, unsigned int skip, int nbytes)
 {
 	struct scatterlist *sg;
 	int sg_nents = 0;
-	unsigned offset;
+	unsigned int offset;
 
 	if (spu_sg_at_offset(sg_list, skip, &sg, &offset) < 0)
 		return 0;
@@ -180,7 +180,7 @@ u32 spu_msg_sg_add(struct scatterlist **to_sg,
 	return copied;
 }
 
-void add_to_ctr(u8 *ctr_pos, unsigned increment)
+void add_to_ctr(u8 *ctr_pos, unsigned int increment)
 {
 	__be64 *high_be = (__be64 *) ctr_pos;
 	__be64 *low_be = high_be + 1;
@@ -200,8 +200,9 @@ struct sdesc {
 
 /* do a synchronous decrypt operation */
 int do_decrypt(char *alg_name,
-	       void *key_ptr, unsigned key_len,
-	       void *iv_ptr, void *src_ptr, void *dst_ptr, unsigned block_len)
+	       void *key_ptr, unsigned int key_len,
+	       void *iv_ptr, void *src_ptr, void *dst_ptr,
+	       unsigned int block_len)
 {
 	struct scatterlist sg_in[1], sg_out[1];
 	struct crypto_blkcipher *tfm =
@@ -239,11 +240,11 @@ int do_decrypt(char *alg_name,
 
 /* produce a message digest from data of length n bytes */
 int do_shash(unsigned char *name, unsigned char *result,
-	     const u8 *data1, unsigned data1_len,
-	     const u8 *data2, unsigned data2_len)
+	     const u8 *data1, unsigned int data1_len,
+	     const u8 *data2, unsigned int data2_len)
 {
 	int rc;
-	unsigned size;
+	unsigned int size;
 	struct crypto_shash *hash;
 	struct sdesc *sdesc;
 
@@ -293,12 +294,12 @@ do_shash_err:
 }
 
 /* Dump len bytes of a scatterlist starting at skip bytes into the sg */
-void __dump_sg(struct scatterlist *sg, unsigned skip, unsigned len)
+void __dump_sg(struct scatterlist *sg, unsigned int skip, unsigned int len)
 {
 	u8 dbuf[16];
-	unsigned idx = skip;
-	unsigned num_out = 0;	/* number of bytes dumped so far */
-	unsigned count;
+	unsigned int idx = skip;
+	unsigned int num_out = 0;	/* number of bytes dumped so far */
+	unsigned int count;
 
 	if (packet_debug_logging) {
 		while (num_out < len) {

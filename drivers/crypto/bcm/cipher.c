@@ -141,7 +141,7 @@ static int
 spu_ablkcipher_rx_sg_create(struct brcm_message *mssg,
 			    struct iproc_reqctx_s *rctx,
 			    u8 rx_frag_num,
-			    unsigned chunksize, u32 stat_pad_len)
+			    unsigned int chunksize, u32 stat_pad_len)
 {
 	struct device *dev = &iproc_priv.pdev->dev;
 	struct spu_hw *spu = &iproc_priv.spu;
@@ -199,7 +199,7 @@ spu_ablkcipher_rx_sg_create(struct brcm_message *mssg,
 static int
 spu_ablkcipher_tx_sg_create(struct brcm_message *mssg,
 			    struct iproc_reqctx_s *rctx,
-			    u8 tx_frag_num, unsigned chunksize, u32 pad_len)
+			    u8 tx_frag_num, unsigned int chunksize, u32 pad_len)
 {
 	struct device *dev = &iproc_priv.pdev->dev;
 	struct spu_hw *spu = &iproc_priv.spu;
@@ -271,7 +271,7 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 	struct iproc_ctx_s *ctx = rctx->ctx;
 	struct spu_cipher_parms cipher_parms;
 	int err = 0;
-	unsigned chunksize = 0;	/* Number of bytes of request to submit */
+	unsigned int chunksize = 0;	/* Num bytes of request to submit */
 	int remaining = 0;	/* Bytes of request still to process */
 	int chunk_start;	/* Beginning of data for current SPU msg */
 
@@ -530,8 +530,8 @@ spu_ahash_tx_sg_create(struct brcm_message *mssg,
 		       struct iproc_reqctx_s *rctx,
 		       u8 tx_frag_num,
 		       u32 spu_hdr_len,
-		       unsigned hash_carry_len,
-		       unsigned new_data_len, u32 pad_len)
+		       unsigned int hash_carry_len,
+		       unsigned int new_data_len, u32 pad_len)
 {
 	struct device *dev = &iproc_priv.pdev->dev;
 	struct spu_hw *spu = &iproc_priv.spu;
@@ -619,10 +619,10 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	struct iproc_ctx_s *ctx = rctx->ctx;
 
 	/* number of bytes still to be hashed in this req */
-	unsigned nbytes_to_hash = 0;
+	unsigned int nbytes_to_hash = 0;
 	int err = 0;
-	unsigned chunksize = 0;	/* length of hash carry + new data */
-	unsigned chunk_start = 0;
+	unsigned int chunksize = 0;	/* length of hash carry + new data */
+	unsigned int chunk_start = 0;
 	u32 db_size;	 /* Length of data field, incl gcm and hash padding */
 	int pad_len = 0; /* total pad len, including gcm, hash, stat padding */
 	u32 gcm_pad_len = 0;	/* length of GCM padding */
@@ -632,7 +632,7 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	struct spu_cipher_parms cipher_parms;
 	struct spu_hash_parms hash_parms;
 	struct spu_aead_parms aead_parms;
-	unsigned local_nbuf;
+	unsigned int local_nbuf;
 	u32 spu_hdr_len;
 	unsigned int digestsize;
 
@@ -695,7 +695,6 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	/* Count number of sg entries to be used in this request */
 	rctx->src_nents = spu_sg_count(rctx->src_sg, rctx->src_skip,
 				       chunksize - local_nbuf);
-
 
 	hash_parms.type = spu->spu_hash_type(rctx->src_sent);
 	digestsize = spu->spu_digest_size(ctx->digestsize, ctx->auth.alg,
@@ -814,7 +813,8 @@ static void handle_ahash_resp(struct iproc_reqctx_s *rctx)
 	struct crypto_async_request *areq = rctx->parent;
 	struct ahash_request *req = ahash_request_cast(areq);
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
-	unsigned blocksize = crypto_tfm_alg_blocksize(crypto_ahash_tfm(ahash));
+	unsigned int blocksize =
+		crypto_tfm_alg_blocksize(crypto_ahash_tfm(ahash));
 #endif
 
 	flow_log("%s() req:%p blocksize:%u digestsize:%u\n",
@@ -830,7 +830,8 @@ static int spu_hmac_outer_hash(struct ahash_request *req,
 				struct iproc_ctx_s *ctx)
 {
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
-	unsigned blocksize = crypto_tfm_alg_blocksize(crypto_ahash_tfm(ahash));
+	unsigned int blocksize =
+		crypto_tfm_alg_blocksize(crypto_ahash_tfm(ahash));
 
 	switch (ctx->auth.alg) {
 	case HASH_ALG_MD5:
@@ -905,22 +906,22 @@ static int ahash_req_done(struct iproc_reqctx_s *rctx)
 }
 
 /* A helper function for AEAD requests */
-static unsigned spu_dtls_hmac_offset(struct aead_request *req,
-				     struct iproc_reqctx_s *rctx,
-				     unsigned chunksize)
+static unsigned int spu_dtls_hmac_offset(struct aead_request *req,
+					 struct iproc_reqctx_s *rctx,
+					 unsigned int chunksize)
 {
 	struct iproc_ctx_s *ctx = rctx->ctx;
-	unsigned block_size =
+	unsigned int block_size =
 	    crypto_tfm_alg_blocksize(crypto_aead_tfm(crypto_aead_reqtfm(req)));
 
-	unsigned hmac_offset;
+	unsigned int hmac_offset;
 	u16 swap_hmac_offset = 0;
 
 	if (!rctx->is_encrypt) {
 		char iv_buf[MAX_IV_SIZE];
 		char src_buf[MAX_IV_SIZE];
 		char dest_buf[MAX_IV_SIZE];
-		unsigned i;
+		unsigned int i;
 		char *alg_name = spu_alg_name(ctx->cipher.alg,
 					      ctx->cipher.mode);
 
@@ -996,8 +997,8 @@ spu_aead_rx_sg_create(struct brcm_message *mssg,
 		      struct aead_request *req,
 		      struct iproc_reqctx_s *rctx,
 		      u8 rx_frag_num,
-		      unsigned assoc_len, unsigned resp_len,
-		      unsigned digestsize, u32 stat_pad_len)
+		      unsigned int assoc_len, unsigned int resp_len,
+		      unsigned int digestsize, u32 stat_pad_len)
 {
 	struct device *dev = &iproc_priv.pdev->dev;
 	struct spu_hw *spu = &iproc_priv.spu;
@@ -1091,10 +1092,10 @@ spu_aead_tx_sg_create(struct brcm_message *mssg,
 		      u8 tx_frag_num,
 		      u32 spu_hdr_len,
 		      struct scatterlist *assoc,
-		      unsigned assoc_len,
+		      unsigned int assoc_len,
 		      int assoc_nents,
-		      unsigned aead_iv_len,
-		      unsigned chunksize,
+		      unsigned int aead_iv_len,
+		      unsigned int chunksize,
 		      u32 aad_pad_len, u32 pad_len, bool incl_icv)
 {
 	struct device *dev = &iproc_priv.pdev->dev;
@@ -1198,8 +1199,8 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 						struct aead_request, base);
 	struct iproc_ctx_s *ctx = rctx->ctx;
 	int err;
-	unsigned chunksize;
-	unsigned resp_len;
+	unsigned int chunksize;
+	unsigned int resp_len;
 	u32 spu_hdr_len;
 	u32 db_size;
 	u32 stat_pad_len;
@@ -1401,7 +1402,7 @@ static void handle_aead_resp(struct iproc_reqctx_s *rctx)
 						struct aead_request, base);
 	struct iproc_ctx_s *ctx = rctx->ctx;
 	u32 payload_len;
-	unsigned icv_offset;
+	unsigned int icv_offset;
 	u32 result_len;
 
 	/* See how much data was returned */
@@ -1567,7 +1568,8 @@ static int ablkcipher_enqueue(struct ablkcipher_request *req, bool encrypt)
 	rctx->is_encrypt = encrypt;
 	rctx->bd_suppress = false;
 	rctx->total_todo = req->nbytes;
-	rctx->src_sent = rctx->total_sent = 0;
+	rctx->src_sent = 0;
+	rctx->total_sent = 0;
 	rctx->total_received = 0;
 	rctx->ctx = ctx;
 	memset(&rctx->mb_mssg, 0, sizeof(struct brcm_message));
@@ -1581,7 +1583,7 @@ static int ablkcipher_enqueue(struct ablkcipher_request *req, bool encrypt)
 	rctx->dst_skip = 0;
 
 	/* Allocate a set of buffers to be used as SPU message fragments */
-	rctx->msg_buf = kzalloc(sizeof(struct spu_msg_buf), GFP_KERNEL);
+	rctx->msg_buf = kzalloc(sizeof(*rctx->msg_buf), GFP_KERNEL);
 	if (rctx->msg_buf == NULL)
 		return -ENOMEM;
 
@@ -1610,7 +1612,7 @@ static int ablkcipher_enqueue(struct ablkcipher_request *req, bool encrypt)
 }
 
 static int des_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
-		      unsigned keylen)
+		      unsigned int keylen)
 {
 	struct iproc_ctx_s *ctx = crypto_ablkcipher_ctx(cipher);
 	u32 tmp[DES_EXPKEY_WORDS];
@@ -1634,7 +1636,7 @@ static int des_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
 }
 
 static int threedes_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
-			   unsigned keylen)
+			   unsigned int keylen)
 {
 	struct iproc_ctx_s *ctx = crypto_ablkcipher_ctx(cipher);
 
@@ -1657,7 +1659,7 @@ static int threedes_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
 }
 
 static int aes_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
-		      unsigned keylen)
+		      unsigned int keylen)
 {
 	struct iproc_ctx_s *ctx = crypto_ablkcipher_ctx(cipher);
 
@@ -1686,7 +1688,7 @@ static int aes_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
 }
 
 static int rc4_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
-		      unsigned keylen)
+		      unsigned int keylen)
 {
 	struct iproc_ctx_s *ctx = crypto_ablkcipher_ctx(cipher);
 	int i;
@@ -1706,7 +1708,7 @@ static int rc4_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
 }
 
 static int ablkcipher_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
-			     unsigned keylen)
+			     unsigned int keylen)
 {
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct iproc_ctx_s *ctx = crypto_ablkcipher_ctx(cipher);
@@ -1829,7 +1831,7 @@ static int ahash_enqueue(struct ahash_request *req)
 	}
 
 	/* Allocate a set of buffers to be used as SPU message fragments */
-	rctx->msg_buf = kzalloc(sizeof(struct spu_msg_buf), GFP_KERNEL);
+	rctx->msg_buf = kzalloc(sizeof(*rctx->msg_buf), GFP_KERNEL);
 	if (rctx->msg_buf == NULL)
 		return -ENOMEM;
 
@@ -1870,7 +1872,8 @@ static int ahash_init(struct ahash_request *req)
 	rctx->is_final = 0;
 
 	rctx->total_todo = 0;
-	rctx->src_sent = rctx->total_sent = 0;
+	rctx->src_sent = 0;
+	rctx->total_sent = 0;
 	rctx->total_received = 0;
 
 	ctx->digestsize = crypto_ahash_digestsize(tfm);
@@ -1942,12 +1945,13 @@ static int ahash_digest(struct ahash_request *req)
 /*  HMAC ahash functions */
 
 static int ahash_hmac_setkey(struct crypto_ahash *ahash, const u8 *key,
-			     unsigned keylen)
+			     unsigned int keylen)
 {
 	struct iproc_ctx_s *ctx = crypto_ahash_ctx(ahash);
-	unsigned blocksize = crypto_tfm_alg_blocksize(crypto_ahash_tfm(ahash));
-	unsigned digestsize = crypto_ahash_digestsize(ahash);
-	unsigned index;
+	unsigned int blocksize =
+		crypto_tfm_alg_blocksize(crypto_ahash_tfm(ahash));
+	unsigned int digestsize = crypto_ahash_digestsize(ahash);
+	unsigned int index;
 
 	flow_log("%s() ahash:%p key:%p keylen:%u blksz:%u digestsz:%u\n",
 		 __func__, ahash, key, keylen, blocksize, digestsize);
@@ -2074,7 +2078,7 @@ static int aead_need_fallback(struct aead_request *req)
 	struct crypto_aead *aead = crypto_aead_reqtfm(req);
 	struct iproc_ctx_s *ctx = crypto_aead_ctx(aead);
 
-	unsigned packetlen =
+	unsigned int packetlen =
 	    (ctx->authkeylen + ctx->enckeylen + rctx->iv_ctr_len +
 	     req->assoclen + (req->cryptlen & 0xffff) + 40);
 
@@ -2161,7 +2165,8 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	rctx->is_encrypt = is_encrypt;
 	rctx->bd_suppress = false;
 	rctx->total_todo = req->cryptlen;
-	rctx->src_sent = rctx->total_sent = 0;
+	rctx->src_sent = 0;
+	rctx->total_sent = 0;
 	rctx->total_received = 0;
 	rctx->is_sw_hmac = false;
 	rctx->ctx = ctx;
@@ -2171,7 +2176,7 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	rctx->assoc = req->src;
 
 	/* Allocate a set of buffers to be used as SPU message fragments */
-	rctx->msg_buf = kzalloc(sizeof(struct spu_msg_buf), GFP_KERNEL);
+	rctx->msg_buf = kzalloc(sizeof(*rctx->msg_buf), GFP_KERNEL);
 	if (rctx->msg_buf == NULL)
 		return -ENOMEM;
 
@@ -2249,7 +2254,7 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 }
 
 static int aead_authenc_setkey(struct crypto_aead *cipher,
-			       const u8 *key, unsigned keylen)
+			       const u8 *key, unsigned int keylen)
 {
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct iproc_ctx_s *ctx = crypto_aead_ctx(cipher);
@@ -2257,7 +2262,7 @@ static int aead_authenc_setkey(struct crypto_aead *cipher,
 	struct rtattr *rta = (void *)key;
 	struct crypto_authenc_key_param *param;
 	const u8 *origkey = key;
-	const unsigned origkeylen = keylen;
+	const unsigned int origkeylen = keylen;
 
 	int ret = 0;
 
@@ -2395,13 +2400,13 @@ badkey:
 }
 
 static int aead_gcm_setkey(struct crypto_aead *cipher,
-			   const u8 *key, unsigned keylen)
+			   const u8 *key, unsigned int keylen)
 {
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct iproc_ctx_s *ctx = crypto_aead_ctx(cipher);
 	struct crypto_tfm *tfm = crypto_aead_tfm(cipher);
 	const u8 *origkey = key;
-	const unsigned origkeylen = keylen;
+	const unsigned int origkeylen = keylen;
 
 	int ret = 0;
 
@@ -2474,7 +2479,7 @@ badkey:
 	return -EINVAL;
 }
 
-static int aead_setauthsize(struct crypto_aead *cipher, unsigned authsize)
+static int aead_setauthsize(struct crypto_aead *cipher, unsigned int authsize)
 {
 	struct iproc_ctx_s *ctx = crypto_aead_ctx(cipher);
 	int ret = 0;
@@ -3319,7 +3324,7 @@ static int generic_cra_init(struct crypto_tfm *tfm,
 	ctx->cipher = cipher_alg->cipher_info;
 	ctx->auth = cipher_alg->auth_info;
 	ctx->auth_first = cipher_alg->auth_first;
-	ctx->max_payload = (unsigned) cipher_alg->max_payload;
+	ctx->max_payload = (unsigned int)cipher_alg->max_payload;
 	ctx->fallback_cipher = NULL;
 
 	ctx->enckeylen = 0;

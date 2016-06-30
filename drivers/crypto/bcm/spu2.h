@@ -196,13 +196,13 @@ struct SPU2_FMD {
 /* Error values returned in STATUS field of response messages */
 #define SPU2_INVALID_ICV  1
 
-void spu2_dump_msg_hdr(u8 *buf, unsigned buf_len);
+void spu2_dump_msg_hdr(u8 *buf, unsigned int buf_len);
 u32 spu2_payload_length(u8 *spu_hdr);
 u16 spu2_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash);
 u16 spu2_hash_pad_len(u32 chunksize, u16 hash_block_size);
-u32 spu2_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned data_size);
+u32 spu2_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size);
 u32 spu2_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
-			unsigned assoc_len, unsigned iv_len);
+			unsigned int assoc_len, unsigned int iv_len);
 u8 spu2_aead_ivlen(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
 		   u16 iv_len);
 enum hash_type spu2_hash_type(u32 src_sent);
@@ -213,16 +213,16 @@ u32 spu2_create_request(u8 *spu_hdr,
 			struct spu_cipher_parms *cipher_parms,
 			struct spu_hash_parms *hash_parms,
 			struct spu_aead_parms *aead_parms,
-			unsigned data_size);
+			unsigned int data_size);
 u16 spu2_cipher_req_init(u8 *spu_hdr, struct spu_cipher_parms *cipher_parms);
 void spu2_cipher_req_finish(u8 *spu_hdr,
 			    u16 spu_req_hdr_len,
-			    unsigned isInbound,
+			    unsigned int is_inbound,
 			    struct spu_cipher_parms *cipher_parms,
 			    bool update_key,
-			    unsigned data_size);
+			    unsigned int data_size);
 void spu2_request_pad(u8 *pad_start, u32 gcm_padding, u32 hash_pad_len,
-		      enum hash_alg auth_alg, unsigned total_sent,
+		      enum hash_alg auth_alg, unsigned int total_sent,
 		      u32 status_padding);
 u8 spu2_tx_status_len(void);
 u8 spu2_rx_status_len(void);

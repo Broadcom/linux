@@ -63,7 +63,7 @@ extern int debug_logging_sleep;
 		}                                    \
 	} while (0)
 
-void __dump_sg(struct scatterlist *sg, unsigned skip, unsigned len);
+void __dump_sg(struct scatterlist *sg, unsigned int skip, unsigned int len);
 
 #define dump_sg(sg, skip, len)     __dump_sg(sg, skip, len)
 
@@ -78,32 +78,33 @@ void __dump_sg(struct scatterlist *sg, unsigned skip, unsigned len);
 
 #endif /* DEBUG_ON */
 
-int spu_sg_at_offset(struct scatterlist *sg, unsigned skip,
-		     struct scatterlist **sge, unsigned *sge_offset);
+int spu_sg_at_offset(struct scatterlist *sg, unsigned int skip,
+		     struct scatterlist **sge, unsigned int *sge_offset);
 
 /* Copy sg data, from skip, length len, to dest */
 void sg_copy_part_to_buf(struct scatterlist *src, u8 *dest,
-			 unsigned int len, unsigned skip);
+			 unsigned int len, unsigned int skip);
 /* Copy src into scatterlist from offset, length len */
 void sg_copy_part_from_buf(struct scatterlist *dest, u8 *src,
-			   unsigned len, unsigned skip);
+			   unsigned int len, unsigned int skip);
 
-int spu_sg_count(struct scatterlist *sg_list, unsigned skip, int nbytes);
+int spu_sg_count(struct scatterlist *sg_list, unsigned int skip, int nbytes);
 u32 spu_msg_sg_add(struct scatterlist **to_sg,
 		   struct scatterlist **from_sg, u32 *skip,
 		   u8 from_nents, u32 tot_len);
 
-void add_to_ctr(u8 *ctr_pos, unsigned increment);
+void add_to_ctr(u8 *ctr_pos, unsigned int increment);
 
 /* do a synchronous decrypt operation */
 int do_decrypt(char *alg_name,
-	       void *key_ptr, unsigned key_len,
-	       void *iv_ptr, void *src_ptr, void *dst_ptr, unsigned block_len);
+	       void *key_ptr, unsigned int key_len,
+	       void *iv_ptr, void *src_ptr, void *dst_ptr,
+	       unsigned int block_len);
 
 /* produce a message digest from data of length n bytes */
 int do_shash(unsigned char *name, unsigned char *result,
-	     const u8 *data1, unsigned data1_len,
-	     const u8 *data2, unsigned data2_len);
+	     const u8 *data1, unsigned int data1_len,
+	     const u8 *data2, unsigned int data2_len);
 
 char *spu_alg_name(enum spu_cipher_alg alg, enum spu_cipher_mode mode);
 

@@ -504,7 +504,7 @@ static void spu2_dump_omd(u8 *omd, u16 hash_key_len, u16 ciph_key_len,
 }
 
 /* Dump a SPU2 header for debug */
-void spu2_dump_msg_hdr(u8 *buf, unsigned buf_len)
+void spu2_dump_msg_hdr(u8 *buf, unsigned int buf_len)
 {
 	struct SPU2_FMD *fmd = (struct SPU2_FMD *)buf;
 	u8 *omd;
@@ -811,7 +811,7 @@ u16 spu2_hash_pad_len(u32 chunksize, u16 hash_block_size)
  *
  * Return:  0. Unlike SPU-M, SPU2 hardware does any GCM padding required.
  */
-u32 spu2_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned data_size)
+u32 spu2_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size)
 {
 	return 0;
 }
@@ -830,7 +830,7 @@ u32 spu2_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned data_size)
  * Return: 0
  */
 u32 spu2_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
-			unsigned assoc_len, unsigned iv_len)
+			unsigned int assoc_len, unsigned int iv_len)
 {
 	return 0;
 }
@@ -900,11 +900,11 @@ u32 spu2_create_request(u8 *spu_hdr,
 			struct spu_cipher_parms *cipher_parms,
 			struct spu_hash_parms *hash_parms,
 			struct spu_aead_parms *aead_parms,
-			unsigned data_size)
+			unsigned int data_size)
 {
 	struct SPU2_FMD *fmd;
 	u8 *ptr;
-	unsigned buf_len;
+	unsigned int buf_len;
 	int err;
 	enum spu2_cipher_type spu2_ciph_type = SPU2_CIPHER_TYPE_NONE;
 	enum spu2_cipher_mode spu2_ciph_mode;
@@ -913,19 +913,19 @@ u32 spu2_create_request(u8 *spu_hdr,
 	bool return_md = true;
 
 	/* size of the payload */
-	unsigned payload_len =
+	unsigned int payload_len =
 	    (req_opts->dtls_aead ? aead_parms->iv_len : 0) +
 	    hash_parms->prebuf_len + data_size + hash_parms->pad_len -
 	    ((req_opts->is_aead && req_opts->is_inbound &&
 	      !req_opts->dtls_aead) ? hash_parms->digestsize : 0);
 
 	/* offset of prebuf or data from start of AAD2 */
-	unsigned cipher_offset = aead_parms->assoc_size +
+	unsigned int cipher_offset = aead_parms->assoc_size +
 			aead_parms->aad_pad_len +
 			(req_opts->dtls_aead ? 0 : aead_parms->iv_len);
 
 	/* total size of the data following OMD (without STAT word padding) */
-	unsigned real_db_size = spu_real_db_size(aead_parms->assoc_size,
+	unsigned int real_db_size = spu_real_db_size(aead_parms->assoc_size,
 						 aead_parms->iv_len,
 						 hash_parms->prebuf_len,
 						 data_size,
@@ -934,7 +934,7 @@ u32 spu2_create_request(u8 *spu_hdr,
 						 hash_parms->pad_len);
 
 	/* size/offset of the auth payload */
-	unsigned auth_len = real_db_size;
+	unsigned int auth_len = real_db_size;
 
 	if (req_opts->is_aead) {
 		if (req_opts->dtls_aead)
@@ -1121,10 +1121,10 @@ u16 spu2_cipher_req_init(u8 *spu_hdr, struct spu_cipher_parms *cipher_parms)
  */
 void spu2_cipher_req_finish(u8 *spu_hdr,
 			    u16 spu_req_hdr_len,
-			    unsigned isInbound,
+			    unsigned int is_inbound,
 			    struct spu_cipher_parms *cipher_parms,
 			    bool update_key,
-			    unsigned data_size)
+			    unsigned int data_size)
 {
 	struct SPU2_FMD *fmd;
 	u8 *omd;		/* start of optional metadata */
@@ -1132,7 +1132,7 @@ void spu2_cipher_req_finish(u8 *spu_hdr,
 	u64 ctrl3;
 
 	flow_log("%s()\n", __func__);
-	flow_log(" in: %u\n", isInbound);
+	flow_log(" in: %u\n", is_inbound);
 	flow_log(" cipher alg: %u, cipher_type: %u\n", cipher_parms->alg,
 		 cipher_parms->type);
 	if (update_key) {
@@ -1151,7 +1151,7 @@ void spu2_cipher_req_finish(u8 *spu_hdr,
 	 * whether we are encrypting or decrypting.
 	 */
 	ctrl0 = le64_to_cpu(fmd->ctrl0);
-	if (isInbound)
+	if (is_inbound)
 		ctrl0 &= ~SPU2_CIPH_ENCRYPT_EN;	/* decrypt */
 	else
 		ctrl0 |= SPU2_CIPH_ENCRYPT_EN;	/* encrypt */
@@ -1187,7 +1187,7 @@ void spu2_cipher_req_finish(u8 *spu_hdr,
  *  3. STAT pad - to ensure the STAT field is 4-byte aligned
  */
 void spu2_request_pad(u8 *pad_start, u32 gcm_padding, u32 hash_pad_len,
-		      enum hash_alg auth_alg, unsigned total_sent,
+		      enum hash_alg auth_alg, unsigned int total_sent,
 		      u32 status_padding)
 {
 	u8 *ptr = pad_start;
