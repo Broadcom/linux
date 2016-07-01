@@ -179,6 +179,17 @@
 			clock-names = "wdogclk", "apb_pclk";
 		};
 
+		gpio_ccg: gpio@002a0000 {
+			compatible = "brcm,iproc-gpio-only";
+			reg = <0x002a0000 0x50>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			ngpios = <32>;
+			interrupt-controller;
+			interrupts = <GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
 		i2c1: i2c@0x002b0000 {
 			compatible = "brcm,iproc-i2c";
 			reg = <0x2b0000 0x100>;
