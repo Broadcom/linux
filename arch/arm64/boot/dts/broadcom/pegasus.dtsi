@@ -310,6 +310,13 @@
 			brcm,max_pkt_size = <4294967232>;  /* 2^32 - 64 */
 		};
 
+		xhci0: usb@28330000 {
+			compatible = "generic-xhci";
+			reg = <0x28330000 0x1000>;
+			interrupts = <GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
 		gic: interrupt-controller@2a000000 {
 			compatible = "arm,gic-400";
 			#interrupt-cells = <3>;
