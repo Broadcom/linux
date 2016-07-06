@@ -2082,6 +2082,17 @@ static int aead_need_fallback(struct aead_request *req)
 	    (ctx->authkeylen + ctx->enckeylen + rctx->iv_ctr_len +
 	     req->assoclen + (req->cryptlen & 0xffff) + 40);
 
+	/*
+	 * SPU hardware cannot handle the AES-GCM case where plaintext and AAD
+	 * are both 0 bytes long. So use fallback in this case.
+	 */
+	if ((ctx->cipher.mode == CIPHER_MODE_GCM) &&
+	    (req->cryptlen + req->assoclen) == 0) {
+		flow_log("%s() AES GCM needs fallback for zero len request\n",
+			 __func__);
+		return 1;
+	}
+
 	flow_log("%s() packetlen:%u\n", __func__, packetlen);
 
 	return packetlen > ctx->max_payload;
@@ -2106,10 +2117,12 @@ static void aead_complete(struct crypto_async_request *areq, int err)
 
 static int aead_do_fallback(struct aead_request *req, bool is_encrypt)
 {
-	struct crypto_tfm *tfm = crypto_aead_tfm(crypto_aead_reqtfm(req));
+	struct crypto_aead *aead = crypto_aead_reqtfm(req);
+	struct crypto_tfm *tfm = crypto_aead_tfm(aead);
 	struct iproc_reqctx_s *rctx = aead_request_ctx(req);
 	struct iproc_ctx_s *ctx = crypto_tfm_ctx(tfm);
 	int err;
+	u32 req_flags;
 
 	flow_log("%s() req:%p enc:%u\n", __func__, req, is_encrypt);
 
@@ -2122,12 +2135,23 @@ static int aead_do_fallback(struct aead_request *req, bool is_encrypt)
 		 */
 		rctx->old_complete = req->base.complete;
 		rctx->old_data = req->base.data;
-		aead_request_set_callback(req, aead_request_flags(req),
-					  aead_complete, req);
-
-		err =
-		    is_encrypt ? crypto_aead_encrypt(req) :
+		req_flags = aead_request_flags(req);
+		aead_request_set_callback(req, req_flags, aead_complete, req);
+		err = is_encrypt ? crypto_aead_encrypt(req) :
 		    crypto_aead_decrypt(req);
+
+		if (err == 0) {
+			/*
+			 * fallback was synchronous (did not return
+			 * -EINPROGRESS). So restore request state here.
+			 */
+			aead_request_set_callback(req, req_flags,
+						  rctx->old_complete, req);
+			req->base.data = rctx->old_data;
+			aead_request_set_tfm(req, aead);
+			flow_log("%s() fallback completed successfully\n\n",
+				 __func__);
+		}
 	} else
 		err = -EINVAL;
 
@@ -2151,16 +2175,6 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 		return -EINVAL;
 	}
 
-	/* SPU cannot handle the trivial AES-GCM case where Plaintext and AAD
-	 * are both 0 bytes long
-	 */
-	if ((ctx->cipher.mode == CIPHER_MODE_GCM) &&
-	    (req->cryptlen + req->assoclen) == 0) {
-		pr_err("%s() Error: For GCM mode, SPU requires either associated data or text\n",
-		     __func__);
-		return -EINVAL;
-	}
-
 	rctx->parent = &req->base;
 	rctx->is_encrypt = is_encrypt;
 	rctx->bd_suppress = false;
@@ -2174,11 +2188,6 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 
 	/* assoc data is at start of src sg */
 	rctx->assoc = req->src;
-
-	/* Allocate a set of buffers to be used as SPU message fragments */
-	rctx->msg_buf = kzalloc(sizeof(*rctx->msg_buf), GFP_KERNEL);
-	if (rctx->msg_buf == NULL)
-		return -ENOMEM;
 
 	/*
 	 * Init current position in src scatterlist to be after assoc data.
@@ -2234,16 +2243,25 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	flow_log("  ctx:%p\n", ctx);
 	flow_log("  max_payload: %u\n", ctx->max_payload);
 
+	if (unlikely(aead_need_fallback(req)))
+		return aead_do_fallback(req, is_encrypt);
+
+	/*
+	 * Do memory allocations for request after fallback check, because if we
+	 * do fallback, we won't call finish_req() to dealloc.
+	 */
+
+	/* Allocate a set of buffers to be used as SPU message fragments */
+	rctx->msg_buf = kzalloc(sizeof(struct spu_msg_buf), GFP_KERNEL);
+	if (rctx->msg_buf == NULL)
+		return -ENOMEM;
+
 	if (rctx->iv_ctr_len) {
 		rctx->iv_ctr = kmalloc(rctx->iv_ctr_len, GFP_KERNEL);
 		if (rctx->iv_ctr == NULL)
 			return -ENOMEM;
 		memcpy(rctx->iv_ctr, req->iv, rctx->iv_ctr_len);
 	}
-
-	/* If we need authenc.c to handle the request then do it... */
-	if (unlikely(aead_need_fallback(req)))
-		return aead_do_fallback(req, is_encrypt);
 
 	rctx->chan_idx = select_channel();
 	err = handle_aead_req(rctx);
