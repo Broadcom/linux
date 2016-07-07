@@ -613,12 +613,21 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct crypto_async_request *areq = rctx->parent;
 	struct ahash_request *req = ahash_request_cast(areq);
+	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
+	struct crypto_tfm *tfm = crypto_ahash_tfm(ahash);
+	unsigned int blocksize = crypto_tfm_alg_blocksize(tfm);
 	struct iproc_ctx_s *ctx = rctx->ctx;
 
 	/* number of bytes still to be hashed in this req */
 	unsigned int nbytes_to_hash = 0;
 	int err = 0;
 	unsigned int chunksize = 0;	/* length of hash carry + new data */
+	/*
+	 * length of new data, not from hash carry, to be submitted in
+	 * this hw request
+	 */
+	unsigned int new_data_len;
+
 	unsigned int chunk_start = 0;
 	u32 db_size;	 /* Length of data field, incl gcm and hash padding */
 	int pad_len = 0; /* total pad len, including gcm, hash, stat padding */
@@ -632,6 +641,7 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	unsigned int local_nbuf;
 	u32 spu_hdr_len;
 	unsigned int digestsize;
+	u16 rem = 0;
 
 	/* number of entries in src and dst sg. Always includes SPU msg header.
 	 * rx always includes a buffer to catch digest and STATUS.
@@ -657,7 +667,8 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	mssg = &rctx->mb_mssg;
 	chunk_start = rctx->src_sent;
 
-	/* compute the amount remaining to hash. This may include data
+	/*
+	 * Compute the amount remaining to hash. This may include data
 	 * carried over from previous requests.
 	 */
 	nbytes_to_hash = rctx->total_todo - rctx->total_sent;
@@ -665,22 +676,33 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	if (unlikely(chunksize > ctx->max_payload))
 		chunksize = ctx->max_payload;
 
-	/* If this is not a final request and the request data is less than
-	 * the amount we want to submit in a SPU message for efficiency
-	 * reasons, then simply park the data and prefix it to the data
-	 * for the next request.
+	/*
+	 * If this is not a final request and the request data is not a multiple
+	 * of a full block, then simply park the extra data and prefix it to the
+	 * data for the next request.
 	 */
-	if ((!rctx->is_final) && (chunksize < HASH_CARRY_MAX)) {
-		sg_copy_part_to_buf(req->src,
-				    rctx->hash_carry + rctx->hash_carry_len,
-				    nbytes_to_hash - rctx->hash_carry_len,
-				    rctx->src_sent);
+	if (!rctx->is_final) {
+		u8 *dest = rctx->hash_carry + rctx->hash_carry_len;
+		u16 new_len;  /* len of data to add to hash carry */
 
-		rctx->hash_carry_len = nbytes_to_hash;
-		flow_log("  Exiting with stored remnant. hash_carry_len: %u\n",
-			 rctx->hash_carry_len);
-		packet_dump("  buf: ", rctx->hash_carry, rctx->hash_carry_len);
-		return -EAGAIN;
+		rem = chunksize % blocksize;   /* remainder */
+		if (rem) {
+			/* chunksize not a multiple of blocksize */
+			chunksize -= rem;
+			if (chunksize == 0) {
+				/* Don't have a full block to submit to hw */
+				new_len = rem - rctx->hash_carry_len;
+				sg_copy_part_to_buf(req->src, dest, new_len,
+						    rctx->src_sent);
+				rctx->hash_carry_len = rem;
+				flow_log("Exiting with hash carry len: %u\n",
+					 rctx->hash_carry_len);
+				packet_dump("  buf: ",
+					    rctx->hash_carry,
+					    rctx->hash_carry_len);
+				return -EAGAIN;
+			}
+		}
 	}
 
 	/* if we have hash carry, then prefix it to the data in this request */
@@ -688,20 +710,21 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	rctx->hash_carry_len = 0;
 	if (local_nbuf)
 		tx_frag_num++;
+	new_data_len = chunksize - local_nbuf;
 
 	/* Count number of sg entries to be used in this request */
 	rctx->src_nents = spu_sg_count(rctx->src_sg, rctx->src_skip,
-				       chunksize - local_nbuf);
+				       new_data_len);
 
-	hash_parms.type = spu->spu_hash_type(rctx->src_sent);
+	hash_parms.type = spu->spu_hash_type(rctx->total_sent);
 	digestsize = spu->spu_digest_size(ctx->digestsize, ctx->auth.alg,
-				     hash_parms.type);
+					  hash_parms.type);
 	hash_parms.digestsize =	digestsize;
 
 	/* update the indexes */
 	rctx->total_sent += chunksize;
 	/* if you sent a prebuf then that wasn't from this req->src */
-	rctx->src_sent += chunksize - local_nbuf;
+	rctx->src_sent += new_data_len;
 
 	if ((rctx->total_sent == rctx->total_todo) && rctx->is_final)
 		hash_parms.pad_len = spu->spu_hash_pad_len(chunksize,
@@ -711,7 +734,7 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	 * previous chunk so that hw can add to it.
 	 */
 	if (hash_parms.type == HASH_TYPE_UPDT) {
-		hash_parms.key_buf = rctx->msg_buf->digest;
+		hash_parms.key_buf = rctx->incr_hash;
 		hash_parms.key_len = digestsize;
 	}
 
@@ -729,7 +752,7 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 					      BCM_HDR_LEN,
 					      &req_opts, &cipher_parms,
 					      &hash_parms, &aead_parms,
-					      chunksize - local_nbuf);
+					      new_data_len);
 
 	if (spu_hdr_len == 0) {
 		pr_err("Failed to create SPU request header\n");
@@ -740,7 +763,7 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	 * buffer.
 	 */
 	gcm_pad_len = spu->spu_gcm_pad_len(ctx->cipher.mode, chunksize);
-	db_size = spu_real_db_size(0, 0, local_nbuf, chunksize - local_nbuf,
+	db_size = spu_real_db_size(0, 0, local_nbuf, new_data_len,
 				   0, 0, hash_parms.pad_len);
 	if (spu->spu_tx_status_len())
 		stat_pad_len = spu_status_padlen(db_size);
@@ -758,7 +781,7 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 			      spu_hdr_len);
 	packet_dump("    prebuf: ", rctx->hash_carry, local_nbuf);
 	flow_log("Data:\n");
-	dump_sg(rctx->src_sg, rctx->src_skip, chunksize - local_nbuf);
+	dump_sg(rctx->src_sg, rctx->src_skip, new_data_len);
 	packet_dump("   pad: ", rctx->msg_buf->spu_req_pad, pad_len);
 
 	/* Build mailbox message containing SPU request msg and rx buffers
@@ -779,8 +802,7 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	if (spu->spu_tx_status_len())
 		tx_frag_num++;
 	err = spu_ahash_tx_sg_create(mssg, rctx, tx_frag_num, spu_hdr_len,
-				     local_nbuf, chunksize - local_nbuf,
-				     pad_len);
+				     local_nbuf, new_data_len, pad_len);
 	if (err)
 		return err;
 
@@ -791,7 +813,6 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 			__func__, err);
 		return err;
 	}
-
 	return -EINPROGRESS;
 }
 
@@ -806,13 +827,19 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 static void handle_ahash_resp(struct iproc_reqctx_s *rctx)
 {
 	struct iproc_ctx_s *ctx = rctx->ctx;
-#ifdef DEBUG
 	struct crypto_async_request *areq = rctx->parent;
 	struct ahash_request *req = ahash_request_cast(areq);
+#ifdef DEBUG
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
 	unsigned int blocksize =
 		crypto_tfm_alg_blocksize(crypto_ahash_tfm(ahash));
 #endif
+
+	/*
+	 * Save hash to use as input to next op if incremental. Might be copying
+	 * too much, but that's easier than figuring out actual digest size here
+	 */
+	memcpy(rctx->incr_hash, rctx->msg_buf->digest, MAX_DIGEST_SIZE);
 
 	flow_log("%s() req:%p blocksize:%u digestsize:%u\n",
 		 __func__, req, blocksize, ctx->digestsize);
@@ -865,10 +892,6 @@ static int ahash_req_done(struct iproc_reqctx_s *rctx)
 	struct iproc_ctx_s *ctx = rctx->ctx;
 	int err;
 
-	/* tcrypt ahash speed tests provide a stack-allocated result buffer
-	 * that causes the DMA mapping to crash. So we have to copy the
-	 * result here.
-	 */
 	memcpy(req->result, rctx->msg_buf->digest, ctx->digestsize);
 
 	if (spu->spu_type == SPU_TYPE_SPUM) {
@@ -1562,6 +1585,12 @@ static void spu_rx_callback(struct mbox_client *cl, void *msg)
 			break;
 		case CRYPTO_ALG_TYPE_AHASH:
 			err = handle_ahash_req(rctx);
+			if (err == -EAGAIN)
+				/*
+				 * we saved data in hash carry, but tell crypto
+				 * API we successfully completed request.
+				 */
+				err = 0;
 			break;
 		case CRYPTO_ALG_TYPE_AEAD:
 			err = handle_aead_req(rctx);
@@ -1833,6 +1862,7 @@ static int ahash_enqueue(struct ahash_request *req)
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct iproc_ctx_s *ctx = crypto_ahash_ctx(tfm);
 	int err = 0;
+	const char *alg_name;
 
 	flow_log("ahash_enqueue() req:%p base:%p nbytes:%u\n", req, &req->base,
 		 req->nbytes);
@@ -1856,22 +1886,20 @@ static int ahash_enqueue(struct ahash_request *req)
 	if ((rctx->is_final == 1) && (rctx->total_todo == 0) &&
 	    ((iproc_priv.spu.spu_type == SPU_TYPE_SPU2) ||
 	    (iproc_priv.spu.spu_type == SPU_TYPE_SPU2_V2))) {
-		pr_err("%s() Error: hash of zero length data\n",
-		     __func__);
-		return -EINVAL;
+		alg_name = crypto_tfm_alg_name(crypto_ahash_tfm(tfm));
+		flow_log("Doing %sfinal %s zero-len hash request in software\n",
+			 rctx->is_final ? "" : "non-", alg_name);
+		err = do_shash((unsigned char *) alg_name, req->result, NULL, 0,
+			       NULL, 0);
+		if (err < 0)
+			flow_log("Hash request failed with error %d\n", err);
+		return err;
 	}
 
 	/* Allocate a set of buffers to be used as SPU message fragments */
 	rctx->msg_buf = kzalloc(sizeof(*rctx->msg_buf), GFP_KERNEL);
 	if (rctx->msg_buf == NULL)
 		return -ENOMEM;
-
-	/* tcrypt points result to stack allocated buffer, which dma mapping
-	 * code doesn't like. So work with local buffer, and copy to result
-	 * when we're all done. Not sure if this copy is required, but
-	 * likely doesn't hurt.
-	 */
-	memcpy(rctx->msg_buf->digest, req->result, ctx->digestsize);
 
 	/* Choose a SPU to process this request */
 	rctx->chan_idx = select_channel();
@@ -1930,6 +1958,7 @@ static int ahash_update(struct ahash_request *req)
 	if (!req->nbytes)
 		return 0;
 	rctx->total_todo += req->nbytes;
+	rctx->src_sent = 0;
 
 	return ahash_enqueue(req);
 }
@@ -1954,6 +1983,7 @@ static int ahash_finup(struct ahash_request *req)
 	/* dump_sg(req->src, req->nbytes); */
 
 	rctx->total_todo += req->nbytes;
+	rctx->src_sent = 0;
 	rctx->is_final = 1;
 
 	return ahash_enqueue(req);
@@ -1972,6 +2002,22 @@ static int ahash_digest(struct ahash_request *req)
 		err = ahash->finup(req);
 
 	return err;
+}
+
+static int ahash_export(struct ahash_request *req, void *out)
+{
+	const struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
+
+	memcpy(out, rctx, sizeof(*rctx));
+	return 0;
+}
+
+static int ahash_import(struct ahash_request *req, const void *in)
+{
+	struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
+
+	memcpy(rctx, in, sizeof(*rctx));
+	return 0;
 }
 
 /*  HMAC ahash functions */
@@ -4167,8 +4213,7 @@ static int spu_register_ahash(struct iproc_alg_s *driver_alg)
 	hash->halg.base.cra_exit = generic_cra_exit;
 	hash->halg.base.cra_type = &crypto_ahash_type;
 	hash->halg.base.cra_flags = CRYPTO_ALG_TYPE_AHASH | CRYPTO_ALG_ASYNC;
-	/* Must be non-zero even though we don't use export()/import() */
-	hash->halg.statesize = 1;
+	hash->halg.statesize = sizeof(struct iproc_reqctx_s);
 
 	if (driver_alg->auth_info.mode != HASH_MODE_HMAC) {
 		hash->init = ahash_init;
@@ -4184,6 +4229,8 @@ static int spu_register_ahash(struct iproc_alg_s *driver_alg)
 		hash->finup = ahash_hmac_finup;
 		hash->digest = ahash_hmac_digest;
 	}
+	hash->export = ahash_export;
+	hash->import = ahash_import;
 
 	err = crypto_register_ahash(hash);
 	pr_info("  registered ahash %s\n", hash->halg.base.cra_driver_name);

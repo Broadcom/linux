@@ -43,11 +43,13 @@
 
 /* MD5, SHA1, SHA224, SHA256 all have the same block size of 64 bytes */
 #define HASH_BLOCK_SIZE 64
+#define MAX_HASH_BLOCK_SIZE SHA512_BLOCK_SIZE
 
 /* Maximum number of bytes from a non-final hash request that can
- * be deferred until more data is available.
+ * be deferred until more data is available. With new crypto API framework, this
+ * can be no more than one block of data.
  */
-#define HASH_CARRY_MAX  2048
+#define HASH_CARRY_MAX  MAX_HASH_BLOCK_SIZE
 
 /* Force at least 4-byte alignment of all SPU message fields */
 #define SPU_MSG_ALIGN  4
@@ -207,8 +209,11 @@ struct iproc_reqctx_s {
 	unsigned int total_received;	/* only valid for ablkcipher */
 	unsigned int total_sent;
 
-	/* this can differ from total_sent for hashes due to nbuf carried */
-	/* from the previous req if the src wasn't % BLOCK_SIZE */
+	/*
+	 * num bytes sent to hw from the src sg in this request. This can differ
+	 * from total_sent for incremental hashing. total_sent includes previous
+	 * init() and update() data. src_sent does not.
+	 */
 	unsigned int src_sent;
 	unsigned int hmac_offset;
 
@@ -253,17 +258,25 @@ struct iproc_reqctx_s {
 	/* Hash requests can be of any size, whether initial, update, or final.
 	 * A non-final request must be submitted to the SPU as an integral
 	 * number of blocks. This may leave data at the end of the request
-	 * that is not a full block. We could submit this remainder as its
-	 * own small SPU request message, but doing so would be inefficient.
-	 * So, we write the remainder to this hash_carry buffer and hold it
-	 * until the next request arrives. The carry data is then submitted
-	 * at the beginning of the data in the next SPU msg. hash_carry_len
-	 * is the number of bytes currently in hash_carry. These fields are
-	 * only used for ahash requests.
+	 * that is not a full block. Since the request is non-final, it cannot
+	 * be padded. So, we write the remainder to this hash_carry buffer and
+	 * hold it until the next request arrives. The carry data is then
+	 * submitted at the beginning of the data in the next SPU msg.
+	 * hash_carry_len is the number of bytes currently in hash_carry. These
+	 * fields are only used for ahash requests.
 	 */
 	u8 hash_carry[HASH_CARRY_MAX];
 	unsigned int hash_carry_len;
 	unsigned int is_final;	/* is this the final for the hash op? */
+
+	/*
+	 * Digest from incremental hash is saved here to include in next hash
+	 * operation. Cannot be stored in req->result for truncated hashes,
+	 * since result may be sized for final digest. Cannot be saved in
+	 * msg_buf because that gets deleted between incremental hash ops
+	 * and is not saved as part of export().
+	 */
+	u8 incr_hash[MAX_DIGEST_SIZE];
 
 	/* hmac context */
 	bool is_sw_hmac;

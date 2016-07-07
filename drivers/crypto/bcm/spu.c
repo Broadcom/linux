@@ -159,7 +159,7 @@ void spum_dump_msg_hdr(u8 *buf, unsigned int buf_len)
 				name = "SHA1";
 				break;
 			case HASH_ALG_SHA224:
-				hash_state_len = 28;
+				hash_state_len = 32;
 				name = "SHA224";
 				break;
 			case HASH_ALG_SHA256:
