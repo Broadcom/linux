@@ -559,17 +559,21 @@ static bool flexdma_sba_sanity_check(struct brcm_message *msg)
 		return false;
 
 	for (i = 0; i < msg->sba.cmds_count; i++) {
+		if (((msg->sba.cmds[i].flags & BRCM_SBA_CMD_TYPE_B) ||
+		     (msg->sba.cmds[i].flags & BRCM_SBA_CMD_TYPE_C)) &&
+		    (msg->sba.cmds[i].flags & BRCM_SBA_CMD_HAS_OUTPUT))
+			return false;
 		if ((msg->sba.cmds[i].flags & BRCM_SBA_CMD_TYPE_B) &&
-		    (msg->sba.cmds[i].input_len > SRCT_LENGTH_MASK))
+		    (msg->sba.cmds[i].data_len > SRCT_LENGTH_MASK))
 			return false;
 		if ((msg->sba.cmds[i].flags & BRCM_SBA_CMD_TYPE_C) &&
-		    (msg->sba.cmds[i].input_len > SRCT_LENGTH_MASK))
+		    (msg->sba.cmds[i].data_len > SRCT_LENGTH_MASK))
 			return false;
 		if ((msg->sba.cmds[i].flags & BRCM_SBA_CMD_HAS_RESP) &&
 		    (msg->sba.cmds[i].resp_len > DSTT_LENGTH_MASK))
 			return false;
 		if ((msg->sba.cmds[i].flags & BRCM_SBA_CMD_HAS_OUTPUT) &&
-		    (msg->sba.cmds[i].output_len > DSTT_LENGTH_MASK))
+		    (msg->sba.cmds[i].data_len > DSTT_LENGTH_MASK))
 			return false;
 	}
 
@@ -630,7 +634,7 @@ static void *flexdma_sba_write_descs(struct brcm_message *msg, u32 nhcnt,
 
 		if (c->flags & BRCM_SBA_CMD_HAS_OUTPUT) {
 			/* Destination with tlast descriptor */
-			d = flexdma_dstt_desc(c->output, c->output_len);
+			d = flexdma_dstt_desc(c->data, c->data_len);
 			flexdma_enqueue_desc(nhpos, nhcnt, reqid,
 					     d, &desc_ptr, &toggle,
 					     start_desc, end_desc);
@@ -656,7 +660,7 @@ static void *flexdma_sba_write_descs(struct brcm_message *msg, u32 nhcnt,
 		if ((c->flags & BRCM_SBA_CMD_TYPE_B) ||
 		    (c->flags & BRCM_SBA_CMD_TYPE_C)) {
 			/* Source with tlast descriptor */
-			d = flexdma_srct_desc(c->input, c->input_len);
+			d = flexdma_srct_desc(c->data, c->data_len);
 			flexdma_enqueue_desc(nhpos, nhcnt, reqid,
 					     d, &desc_ptr, &toggle,
 					     start_desc, end_desc);

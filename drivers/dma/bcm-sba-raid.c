@@ -477,8 +477,8 @@ static void sba_fillup_memcpy_chunk(struct sba_request_chunk *chunk,
 		SBA_CMD_SHIFT, SBA_CMD_MASK);
 	chunk->cmds[cmds_count].cmd = cmd;
 	chunk->cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-	chunk->cmds[cmds_count].input = src + chunk_offset;
-	chunk->cmds[cmds_count].input_len = chunk_len;
+	chunk->cmds[cmds_count].data = src + chunk_offset;
+	chunk->cmds[cmds_count].data_len = chunk_len;
 	cmds_count++;
 
 	/* Type-A command to write buf0 */
@@ -498,8 +498,8 @@ static void sba_fillup_memcpy_chunk(struct sba_request_chunk *chunk,
 	chunk->cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
 	chunk->cmds[cmds_count].resp = chunk->resp_dma;
 	chunk->cmds[cmds_count].resp_len = SBA_HW_RESP_SIZE;
-	chunk->cmds[cmds_count].output = dst + chunk_offset;
-	chunk->cmds[cmds_count].output_len = chunk_len;
+	chunk->cmds[cmds_count].data = dst + chunk_offset;
+	chunk->cmds[cmds_count].data_len = chunk_len;
 	cmds_count++;
 
 	/* Fillup brcm_message */
@@ -566,8 +566,8 @@ static void sba_fillup_xor_chunk(struct sba_request_chunk *chunk,
 		SBA_CMD_SHIFT, SBA_CMD_MASK);
 	chunk->cmds[cmds_count].cmd = cmd;
 	chunk->cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-	chunk->cmds[cmds_count].input = src[0] + chunk_offset;
-	chunk->cmds[cmds_count].input_len = chunk_len;
+	chunk->cmds[cmds_count].data = src[0] + chunk_offset;
+	chunk->cmds[cmds_count].data_len = chunk_len;
 	cmds_count++;
 
 	/* Type-B commands to xor data with buf0 and put it back in buf0 */
@@ -582,8 +582,8 @@ static void sba_fillup_xor_chunk(struct sba_request_chunk *chunk,
 		SBA_ENC(cmd, SBA_CMD_XOR, SBA_CMD_SHIFT, SBA_CMD_MASK);
 		chunk->cmds[cmds_count].cmd = cmd;
 		chunk->cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-		chunk->cmds[cmds_count].input = src[i] + chunk_offset;
-		chunk->cmds[cmds_count].input_len = chunk_len;
+		chunk->cmds[cmds_count].data = src[i] + chunk_offset;
+		chunk->cmds[cmds_count].data_len = chunk_len;
 		cmds_count++;
 	}
 
@@ -604,8 +604,8 @@ static void sba_fillup_xor_chunk(struct sba_request_chunk *chunk,
 	chunk->cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
 	chunk->cmds[cmds_count].resp = chunk->resp_dma;
 	chunk->cmds[cmds_count].resp_len = SBA_HW_RESP_SIZE;
-	chunk->cmds[cmds_count].output = dst + chunk_offset;
-	chunk->cmds[cmds_count].output_len = chunk_len;
+	chunk->cmds[cmds_count].data = dst + chunk_offset;
+	chunk->cmds[cmds_count].data_len = chunk_len;
 	cmds_count++;
 
 	/* Fillup brcm_message */
@@ -690,8 +690,8 @@ static void sba_fillup_pq_chunk(struct sba_request_chunk *chunk,
 			SBA_CMD_SHIFT, SBA_CMD_MASK);
 		chunk->cmds[cmds_count].cmd = cmd;
 		chunk->cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-		chunk->cmds[cmds_count].input = src[i] + chunk_offset;
-		chunk->cmds[cmds_count].input_len = chunk_len;
+		chunk->cmds[cmds_count].data = src[i] + chunk_offset;
+		chunk->cmds[cmds_count].data_len = chunk_len;
 		cmds_count++;
 	}
 
@@ -713,8 +713,8 @@ static void sba_fillup_pq_chunk(struct sba_request_chunk *chunk,
 		chunk->cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
 		chunk->cmds[cmds_count].resp = chunk->resp_dma;
 		chunk->cmds[cmds_count].resp_len = SBA_HW_RESP_SIZE;
-		chunk->cmds[cmds_count].output = *dst_p + chunk_offset;
-		chunk->cmds[cmds_count].output_len = chunk_len;
+		chunk->cmds[cmds_count].data = *dst_p + chunk_offset;
+		chunk->cmds[cmds_count].data_len = chunk_len;
 		cmds_count++;
 	}
 
@@ -736,8 +736,8 @@ static void sba_fillup_pq_chunk(struct sba_request_chunk *chunk,
 		chunk->cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
 		chunk->cmds[cmds_count].resp = chunk->resp_dma;
 		chunk->cmds[cmds_count].resp_len = SBA_HW_RESP_SIZE;
-		chunk->cmds[cmds_count].output = *dst_q + chunk_offset;
-		chunk->cmds[cmds_count].output_len = chunk_len;
+		chunk->cmds[cmds_count].data = *dst_q + chunk_offset;
+		chunk->cmds[cmds_count].data_len = chunk_len;
 		cmds_count++;
 	}
 

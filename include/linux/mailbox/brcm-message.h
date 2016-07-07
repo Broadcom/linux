@@ -30,12 +30,10 @@ struct brcm_sba_command {
 #define BRCM_SBA_CMD_HAS_RESP		(1 << 3)
 #define BRCM_SBA_CMD_HAS_OUTPUT		(1 << 4)
 	u64 flags;
-	dma_addr_t input;
-	size_t input_len;
 	dma_addr_t resp;
 	size_t resp_len;
-	dma_addr_t output;
-	size_t output_len;
+	dma_addr_t data;
+	size_t data_len;
 };
 
 struct brcm_message {

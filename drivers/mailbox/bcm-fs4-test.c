@@ -502,10 +502,10 @@ static unsigned int __sba_memcpy_split_cmds(struct fs4_test *test,
 				SBA_CMD_SHIFT, SBA_CMD_MASK);
 			cmds[cmds_count].cmd = cmd;
 			cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-			cmds[cmds_count].input =
+			cmds[cmds_count].data =
 					src_dma_base + s * test->src_size +
 					split * split_size + cpos;
-			cmds[cmds_count].input_len = csize;
+			cmds[cmds_count].data_len = csize;
 			cmds_count++;
 
 			/* Type-A command to write buf0 */
@@ -526,10 +526,10 @@ static unsigned int __sba_memcpy_split_cmds(struct fs4_test *test,
 			cmds[cmds_count].resp =
 				dst_resp_dma_base + split * SBA_RESP_SIZE;
 			cmds[cmds_count].resp_len = SBA_RESP_SIZE;
-			cmds[cmds_count].output =
+			cmds[cmds_count].data =
 				dst_dma_base + s * test->src_size +
 				split * split_size + cpos;
-			cmds[cmds_count].output_len = csize;
+			cmds[cmds_count].data_len = csize;
 			cmds_count++;
 		}
 
@@ -1016,9 +1016,9 @@ static unsigned int __sba_xor_split_cmds(struct fs4_test *test,
 			SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmds[cmds_count].cmd = cmd;
 		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-		cmds[cmds_count].input =
+		cmds[cmds_count].data =
 			src_dma_base + split * split_size + cpos;
-		cmds[cmds_count].input_len = csize;
+		cmds[cmds_count].data_len = csize;
 		cmds_count++;
 
 		/* Type-B command to xor data onto buf0 */
@@ -1035,10 +1035,10 @@ static unsigned int __sba_xor_split_cmds(struct fs4_test *test,
 				SBA_CMD_SHIFT, SBA_CMD_MASK);
 			cmds[cmds_count].cmd = cmd;
 			cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-			cmds[cmds_count].input =
+			cmds[cmds_count].data =
 				src_dma_base + s * test->src_size +
 				split * split_size + cpos;
-			cmds[cmds_count].input_len = csize;
+			cmds[cmds_count].data_len = csize;
 			cmds_count++;
 		}
 
@@ -1060,9 +1060,9 @@ static unsigned int __sba_xor_split_cmds(struct fs4_test *test,
 		cmds[cmds_count].resp =
 				dst_resp_dma_base + split * SBA_RESP_SIZE;
 		cmds[cmds_count].resp_len = SBA_RESP_SIZE;
-		cmds[cmds_count].output =
+		cmds[cmds_count].data =
 				dst_dma_base + split * split_size + cpos;
-		cmds[cmds_count].output_len = csize;
+		cmds[cmds_count].data_len = csize;
 		cmds_count++;
 
 		cpos += csize;
