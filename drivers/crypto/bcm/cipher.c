@@ -104,9 +104,6 @@ static int ahash_req_done(struct iproc_reqctx_s *rctx);
 static int handle_aead_req(struct iproc_reqctx_s *rctx);
 static void handle_aead_resp(struct iproc_reqctx_s *rctx);
 
-/* finish_req() is used to notify that the current request has been completed */
-static void finish_req(struct iproc_reqctx_s *rctx, int err);
-
 /*
  * Select a SPU channel to handle a crypto request. Selects channel in round
  * robin order.
@@ -1441,23 +1438,52 @@ static void handle_aead_resp(struct iproc_reqctx_s *rctx)
 	atomic_inc(&iproc_priv.op_counts[SPU_OP_AEAD]);
 }
 
-/* finish_req() is used to notify that the current request has been completed */
-static void finish_req(struct iproc_reqctx_s *rctx, int err)
+/**
+ * spu_chunk_cleanup() - Do cleanup after processing one chunk of a request
+ * @rctx:  request context
+ *
+ * Mailbox scatterlists are allocated for each chunk. So free them after
+ * processing each chunk.
+ */
+static void spu_chunk_cleanup(struct iproc_reqctx_s *rctx)
 {
-	struct crypto_async_request *areq = rctx->parent;
 	/* mailbox message used to tx request */
 	struct brcm_message *mssg = &rctx->mb_mssg;
-
-	flow_log("%s() rctx:%p err:%d\n\n", __func__, rctx, err);
 
 	kfree(mssg->spu.src);
 	kfree(mssg->spu.dst);
 	memset(mssg, 0, sizeof(struct brcm_message));
+}
 
+/**
+ * spu_req_cleanup() - Do cleanup after a SPU request is complete
+ * @rctx:  request context
+ */
+static void spu_req_cleanup(struct iproc_reqctx_s *rctx)
+{
 	kfree(rctx->msg_buf);
 	rctx->msg_buf = NULL;
 	kfree(rctx->iv_ctr);
 	rctx->iv_ctr = NULL;
+}
+
+/**
+ * finish_req() - Used to invoke the complete callback from the requester when
+ * a request has been handled asynchronously.
+ * @rctx:  Request context
+ * @err:   Indicates whether the request was successful or not
+ *
+ * Ensures that cleanup has been done for request
+ */
+static void finish_req(struct iproc_reqctx_s *rctx, int err)
+{
+	struct crypto_async_request *areq = rctx->parent;
+
+	flow_log("%s() rctx:%p err:%d\n\n", __func__, rctx, err);
+
+	/* No harm done if these were already called */
+	spu_chunk_cleanup(rctx);
+	spu_req_cleanup(rctx);
 
 	if (areq)
 		areq->complete(areq, err);
@@ -1527,6 +1553,9 @@ static void spu_rx_callback(struct mbox_client *cl, void *msg)
 	 * request chunk.
 	 */
 	if (rctx->total_sent < rctx->total_todo) {
+		/* Deallocate anything specific to previous chunk */
+		spu_chunk_cleanup(rctx);
+
 		switch (rctx->ctx->alg->type) {
 		case CRYPTO_ALG_TYPE_ABLKCIPHER:
 			err = handle_ablkcipher_req(rctx);
@@ -1605,10 +1634,12 @@ static int ablkcipher_enqueue(struct ablkcipher_request *req, bool encrypt)
 	/* Choose a SPU to process this request */
 	rctx->chan_idx = select_channel();
 	err = handle_ablkcipher_req(rctx);
-	if (err != -EINPROGRESS)
-		finish_req(rctx, err);
-
-	return -EINPROGRESS;
+	if (err != -EINPROGRESS) {
+		/* synchronous result */
+		spu_chunk_cleanup(rctx);
+		spu_req_cleanup(rctx);
+	}
+	return err;
 }
 
 static int des_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
@@ -1847,15 +1878,16 @@ static int ahash_enqueue(struct ahash_request *req)
 
 	err = handle_ahash_req(rctx);
 	if (err != -EINPROGRESS) {
+		/* synchronous result */
+		spu_chunk_cleanup(rctx);
+		spu_req_cleanup(rctx);
 		if (err == -EAGAIN)
 			/* we saved data in hash carry, but tell crypto API
 			 * we successfully completed request.
 			 */
 			err = 0;
-		finish_req(rctx, err);
 	}
-
-	return -EINPROGRESS;
+	return err;
 }
 
 static int ahash_init(struct ahash_request *req)
@@ -2301,10 +2333,12 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 
 	rctx->chan_idx = select_channel();
 	err = handle_aead_req(rctx);
-	if (err != -EINPROGRESS)
-		finish_req(rctx, err);
-
-	return -EINPROGRESS;
+	if (err != -EINPROGRESS) {
+		/* synchronous result */
+		spu_chunk_cleanup(rctx);
+		spu_req_cleanup(rctx);
+	}
+	return err;
 }
 
 static int aead_authenc_setkey(struct crypto_aead *cipher,
