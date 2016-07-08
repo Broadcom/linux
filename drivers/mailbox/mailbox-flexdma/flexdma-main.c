@@ -157,6 +157,7 @@ struct flexdma_mbox {
 };
 
 static int flexdma_new_request(struct flexdma_ring *ring,
+				struct brcm_message *batch_msg,
 				struct brcm_message *msg)
 {
 	void *next;
@@ -176,7 +177,10 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 				RING_MAX_REQ_COUNT, GFP_KERNEL);
 	if (reqid < 0) {
 		spin_lock_irqsave(&ring->lock, flags);
-		ring->last_pending_msg = msg;
+		if (batch_msg)
+			ring->last_pending_msg = batch_msg;
+		else
+			ring->last_pending_msg = msg;
 		spin_unlock_irqrestore(&ring->lock, flags);
 		return 0;
 	}
@@ -228,7 +232,10 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 	}
 	if (count) {
 		spin_lock_irqsave(&ring->lock, flags);
-		ring->last_pending_msg = msg;
+		if (batch_msg)
+			ring->last_pending_msg = batch_msg;
+		else
+			ring->last_pending_msg = msg;
 		spin_unlock_irqrestore(&ring->lock, flags);
 		ret = 0;
 		exit_cleanup = true;
@@ -366,21 +373,15 @@ static irqreturn_t flexdma_irq_thread(int irq, void *dev_id)
 static int flexdma_send_data(struct mbox_chan *chan, void *data)
 {
 	int i, rc;
-	unsigned long flags;
 	struct flexdma_ring *ring = chan->con_priv;
 	struct brcm_message *msg = data;
 
 	if (msg->type == BRCM_MESSAGE_BATCH) {
 		for (i = msg->batch.msgs_queued;
 		     i < msg->batch.msgs_count; i++) {
-			rc = flexdma_new_request(ring,
+			rc = flexdma_new_request(ring, msg,
 						 &msg->batch.msgs[i]);
 			if (rc) {
-				spin_lock_irqsave(&ring->lock, flags);
-				if (ring->last_pending_msg ==
-							&msg->batch.msgs[i])
-					ring->last_pending_msg = msg;
-				spin_unlock_irqrestore(&ring->lock, flags);
 				msg->error = rc;
 				return rc;
 			}
@@ -389,7 +390,7 @@ static int flexdma_send_data(struct mbox_chan *chan, void *data)
 		return 0;
 	}
 
-	return flexdma_new_request(ring, data);
+	return flexdma_new_request(ring, NULL, data);
 }
 
 static bool flexdma_peek_data(struct mbox_chan *chan)
