@@ -346,5 +346,21 @@
 				      <&sdio0 0x6001>;
 			#iommu-cells = <0>;
 		};
+
+		sata_0: ahci@50242000 {
+			compatible = "generic-ahci";
+			reg = <0x50242000 0x1000>;
+			reg-names = "ahci";
+			interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		sata_1: ahci@50262000 {
+			compatible = "generic-ahci";
+			reg = <0x50262000 0x1000>;
+			reg-names = "ahci";
+			interrupts = <GIC_SPI 139 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
 	};
 };
