@@ -798,6 +798,43 @@
 		};
 	};
 
+	sata {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		sata0: ahci@67d00000 {
+			compatible = "brcm,iproc-ahci", "generic-ahci";
+			reg = <0x67d00000 0x1000>;
+			reg-names = "ahci";
+			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			sata0_port0: sata-port@0 {
+				reg = <0>;
+				phys = <&sata0_phy0>;
+				phy-names = "sata-phy";
+			};
+		};
+
+		sata_phy0: sata_phy@67d02100 {
+			compatible = "brcm,iproc-sr-sata-phy";
+			reg = <0x67d02100 0x1000>;
+			reg-names = "phy";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			sata0_phy0: sata-phy@0 {
+				reg = <0>;
+				#phy-cells = <0>;
+				status = "disabled";
+			};
+		};
+	};
+
 	usb {
 		compatible = "simple-bus";
 		#address-cells = <1>;
