@@ -664,6 +664,14 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	hash_parms.key_buf = (u8 *) ctx->authkey;
 	hash_parms.key_len = ctx->authkeylen;
 
+	/* For hash algorithms below assignment looks bit odd but
+	 * it's needed for AES-XCBC and AES-CMAC hash algorithms
+	 * to differentiate between 128, 192, 256 bit key values.
+	 * Based on the key values, hash algorithm is selected.
+	 * For example for 128 bit key, hash algorithm is AES-128.
+	 */
+	cipher_parms.type = ctx->cipher_type;
+
 	mssg = &rctx->mb_mssg;
 	chunk_start = rctx->src_sent;
 
@@ -2021,6 +2029,40 @@ static int ahash_digest(struct ahash_request *req)
 		err = ahash->finup(req);
 
 	return err;
+}
+
+static int ahash_setkey(struct crypto_ahash *ahash, const u8 *key,
+			     unsigned int keylen)
+{
+	struct iproc_ctx_s *ctx = crypto_ahash_ctx(ahash);
+
+	flow_log("%s() ahash:%p key:%p keylen:%u\n",
+		 __func__, ahash, key, keylen);
+	flow_dump("  key: ", key, keylen);
+
+	if (ctx->auth.alg == HASH_ALG_AES) {
+		switch (keylen) {
+		case AES_KEYSIZE_128:
+			ctx->cipher_type = CIPHER_TYPE_AES128;
+			break;
+		case AES_KEYSIZE_192:
+			ctx->cipher_type = CIPHER_TYPE_AES192;
+			break;
+		case AES_KEYSIZE_256:
+			ctx->cipher_type = CIPHER_TYPE_AES256;
+			break;
+		default:
+			pr_err("%s() Error: Invalid key length\n", __func__);
+			return -EINVAL;
+		}
+	} else {
+		pr_err("%s() Error: unknown hash alg\n", __func__);
+		return -EINVAL;
+	}
+	memcpy(ctx->authkey, key, keylen);
+	ctx->authkeylen = keylen;
+
+	return 0;
 }
 
 static int ahash_export(struct ahash_request *req, void *out)
@@ -3608,6 +3650,44 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 },
+	 {
+	 .type = CRYPTO_ALG_TYPE_AHASH,
+	 .alg.hash = {
+		      .halg.digestsize = AES_BLOCK_SIZE,
+		      .halg.base = {
+				    .cra_name = "xcbc(aes)",
+				    .cra_driver_name = "xcbc-aes-iproc",
+				    .cra_blocksize = AES_BLOCK_SIZE,
+				    }
+		      },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_NONE,
+			 .mode = CIPHER_MODE_NONE,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_AES,
+		       .mode = HASH_MODE_XCBC,
+		       },
+	 },
+	 {
+	 .type = CRYPTO_ALG_TYPE_AHASH,
+	 .alg.hash = {
+		      .halg.digestsize = AES_BLOCK_SIZE,
+		      .halg.base = {
+				    .cra_name = "cmac(aes)",
+				    .cra_driver_name = "cmac-aes-iproc",
+				    .cra_blocksize = AES_BLOCK_SIZE,
+				    }
+		      },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_NONE,
+			 .mode = CIPHER_MODE_NONE,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_AES,
+		       .mode = HASH_MODE_CMAC,
+		       },
+	 },
 };
 
 static int generic_cra_init(struct crypto_tfm *tfm,
@@ -4286,12 +4366,13 @@ static int spu_register_ahash(struct iproc_alg_s *driver_alg)
 	int err;
 
 	/*
-	 * Only SPU2_V2 supports SHA3 algorithm variants,
-	 * So don't register for SPU2 and SPUM engines.
+	 * AES-XCBC, AES-CMAC, SHA3 variants are not registered for SPU-M.
+	 * SHA3 algorithm variants are not registered for SPU2.
 	 */
-	if ((driver_alg->auth_info.alg >= HASH_ALG_SHA3_224) &&
-	     ((spu->spu_type == SPU_TYPE_SPU2) ||
-	     (spu->spu_type == SPU_TYPE_SPUM)))
+	if (((driver_alg->auth_info.alg >= HASH_ALG_AES) &&
+		(spu->spu_type == SPU_TYPE_SPUM)) ||
+		((driver_alg->auth_info.alg >= HASH_ALG_SHA3_224) &&
+		(spu->spu_type == SPU_TYPE_SPU2)))
 		return 0;
 
 	hash->halg.base.cra_module = THIS_MODULE;
@@ -4305,6 +4386,7 @@ static int spu_register_ahash(struct iproc_alg_s *driver_alg)
 	hash->halg.statesize = sizeof(struct iproc_reqctx_s);
 
 	if (driver_alg->auth_info.mode != HASH_MODE_HMAC) {
+		hash->setkey = ahash_setkey;
 		hash->init = ahash_init;
 		hash->update = ahash_update;
 		hash->final = ahash_final;
