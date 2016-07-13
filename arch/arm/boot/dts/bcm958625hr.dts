@@ -113,3 +113,15 @@
 		groups = "nand_grp";
 	};
 };
+
+&sata_phy0 {
+	status = "okay";
+};
+
+&sata_phy1 {
+	status = "okay";
+};
+
+&sata {
+	status = "okay";
+};
