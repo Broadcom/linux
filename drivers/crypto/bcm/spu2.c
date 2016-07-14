@@ -621,7 +621,7 @@ static void spu2_fmd_ctrl0_write(struct SPU2_FMD *fmd,
 	    ((u64) cipher_mode << SPU2_CIPH_MODE_SHIFT);
 
 	if (protocol)
-		ctrl0 |= ((protocol << SPU2_PROTO_SEL_SHIFT) && SPU2_PROTO_SEL);
+		ctrl0 |= (u64) protocol << SPU2_PROTO_SEL_SHIFT;
 
 	if (authFirst)
 		ctrl0 |= SPU2_HASH_FIRST;
@@ -645,7 +645,9 @@ static void spu2_fmd_ctrl0_write(struct SPU2_FMD *fmd,
  * @gen_iv:         If true, hw generates IV and returns in response
  * @hash_iv:        IV participates in hash. Used for IPSEC and TLS.
  * @return_iv:      Return IV in output packet before payload
- * @cipher_iv_len:  Length of cipher IV, in bytes
+ * @ret_iv_len:     Length of IV returned from SPU, in bytes
+ * @ret_iv_offset:  Offset into full IV of start of returned IV
+ * @cipher_iv_len:  Length of input cipher IV, in bytes
  * @digest_size:    Length of digest (aka, hash tag or ICV), in bytes
  * @return_payload: Return payload in SPU response
  * @return_md : return metadata in SPU response
@@ -657,17 +659,19 @@ static void spu2_fmd_ctrl1_write(struct SPU2_FMD *fmd, bool is_inbound,
 				 u64 assoc_size,
 				 u64 auth_key_len, u64 cipher_key_len,
 				 bool gen_iv, bool hash_iv, bool return_iv,
+				 u64 ret_iv_len, u64 ret_iv_offset,
 				 u64 cipher_iv_len, u64 digest_size,
-				 bool return_payload,
-				 bool return_md)
+				 bool return_payload, bool return_md)
 {
 	u64 ctrl1 = 0;
 
 	if (is_inbound && digest_size)
 		ctrl1 |= SPU2_TAG_LOC;
 
-	if (assoc_size)
+	if (assoc_size) {
 		ctrl1 |= SPU2_HAS_AAD2;
+		ctrl1 |= SPU2_RETURN_AAD2;  /* need aad2 for gcm aes esp */
+	}
 
 	if (auth_key_len)
 		ctrl1 |= ((auth_key_len << SPU2_HASH_KEY_LEN_SHIFT) &
@@ -683,8 +687,11 @@ static void spu2_fmd_ctrl1_write(struct SPU2_FMD *fmd, bool is_inbound,
 	if (hash_iv)
 		ctrl1 |= SPU2_HASH_IV;
 
-	if (return_iv)
+	if (return_iv) {
 		ctrl1 |= SPU2_RET_IV;
+		ctrl1 |= ret_iv_len << SPU2_RET_IV_LEN_SHIFT;
+		ctrl1 |= ret_iv_offset << SPU2_IV_OFFSET_SHIFT;
+	}
 
 	ctrl1 |= ((cipher_iv_len << SPU2_IV_LEN_SHIFT) & SPU2_IV_LEN);
 
@@ -823,16 +830,20 @@ u32 spu2_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size)
  * @dtls_hmac:     true if this is a DTLS algo with HMAC
  * @assoc_len:     length of additional associated data, in bytes
  * @iv_len:        length of initialization vector, in bytes
+ * @is_encrypt:    true if encrypting. false if decrypt.
  *
- * For SPU2, always returns 0. This data is not returned to the crypto API; so
- * there is no reason for the SPU to give it back to the SPU driver.
- *
- * Return: 0
+ * Return: Length of buffer to catch associated data in response
  */
 u32 spu2_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
-			unsigned int assoc_len, unsigned int iv_len)
+			unsigned int assoc_len, unsigned int iv_len,
+			bool is_encrypt)
 {
-	return 0;
+	u32 resp_len = assoc_len;
+
+	if (is_encrypt)
+		/* gcm aes esp has to write 8-byte IV in response */
+		resp_len += iv_len;
+	return resp_len;
 }
 
 /*
@@ -911,6 +922,7 @@ u32 spu2_create_request(u8 *spu_hdr,
 	enum spu2_hash_type spu2_auth_type = SPU2_HASH_TYPE_NONE;
 	enum spu2_hash_mode spu2_auth_mode;
 	bool return_md = true;
+	enum spu2_proto_sel proto = SPU2_PROTO_RESV;
 
 	/* size of the payload */
 	unsigned int payload_len =
@@ -936,21 +948,14 @@ u32 spu2_create_request(u8 *spu_hdr,
 	/* size/offset of the auth payload */
 	unsigned int auth_len = real_db_size;
 
-	if (req_opts->is_aead) {
-		if (req_opts->dtls_aead)
-			auth_len = aead_parms->assoc_size +
-				   aead_parms->iv_len +
-				   hash_parms->hmac_offset;
-		else if (req_opts->is_inbound)
-			auth_len -= hash_parms->digestsize;
-
-		if ((cipher_parms->alg == CIPHER_ALG_AES) &&
-		    (cipher_parms->mode == CIPHER_MODE_GCM))
-			/* On SPU 2, aes gcm cipher first on encrypt,
-			 * auth first on decrypt
-			 */
-			req_opts->auth_first = req_opts->is_inbound;
-	}
+	if (req_opts->is_aead &&
+	    (cipher_parms->alg == CIPHER_ALG_AES) &&
+	    (cipher_parms->mode == CIPHER_MODE_GCM))
+		/*
+		 * On SPU 2, aes gcm cipher first on encrypt, auth first on
+		 * decrypt
+		 */
+		req_opts->auth_first = req_opts->is_inbound;
 
 	if (hash_parms->mode == HASH_MODE_RABIN)
 		return_md = false;
@@ -960,6 +965,7 @@ u32 spu2_create_request(u8 *spu_hdr,
 		 req_opts->is_inbound, req_opts->auth_first);
 	flow_log("  cipher alg:%u mode:%u type %u\n", cipher_parms->alg,
 		 cipher_parms->mode, cipher_parms->type);
+	flow_log("  is_esp: %s\n", req_opts->is_esp ? "yes" : "no");
 	flow_log("    key: %d\n", cipher_parms->key_len);
 	flow_dump("    key: ", cipher_parms->key_buf, cipher_parms->key_len);
 	flow_log("    iv: %d\n", cipher_parms->iv_len);
@@ -1005,15 +1011,16 @@ u32 spu2_create_request(u8 *spu_hdr,
 	fmd = (struct SPU2_FMD *)spu_hdr;
 
 	spu2_fmd_ctrl0_write(fmd, req_opts->is_inbound, req_opts->auth_first,
-			     SPU2_PROTO_RESV,
-			     spu2_ciph_type, spu2_ciph_mode,
+			     proto, spu2_ciph_type, spu2_ciph_mode,
 			     spu2_auth_type, spu2_auth_mode);
 
 	spu2_fmd_ctrl1_write(fmd, req_opts->is_inbound, aead_parms->assoc_size,
 			     hash_parms->key_len, cipher_parms->key_len,
-			     false, false, false, cipher_parms->iv_len,
-			     hash_parms->digestsize, !req_opts->bd_suppress,
-			     return_md);
+			     false, false,
+			     aead_parms->return_iv, aead_parms->ret_iv_len,
+			     aead_parms->ret_iv_off,
+			     cipher_parms->iv_len, hash_parms->digestsize,
+			     !req_opts->bd_suppress, return_md);
 
 	spu2_fmd_ctrl2_write(fmd, cipher_offset, hash_parms->key_len, 0,
 			     cipher_parms->key_len, cipher_parms->iv_len);

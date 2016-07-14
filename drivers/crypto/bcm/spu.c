@@ -344,13 +344,17 @@ u32 spum_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size)
 /* Determine the size of the receive buffer required to catch associated data.
  */
 u32 spum_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
-			unsigned int assoc_len, unsigned int iv_len)
+			unsigned int assoc_len, unsigned int iv_len,
+			bool is_encrypt)
 {
 	u32 buflen = 0;
 	u32 pad;
 
-	if ((assoc_len || !dtls_hmac))
+	if ((assoc_len || !dtls_hmac)) {
 		buflen = assoc_len;
+		if ((cipher_mode != CIPHER_MODE_GCM) && !dtls_hmac)
+			buflen += iv_len;
+	}
 
 	if (cipher_mode == CIPHER_MODE_GCM) {
 		/* AAD needs to be padded in responses too */
@@ -372,6 +376,8 @@ u32 spum_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
  */
 u8 spum_aead_ivlen(enum spu_cipher_mode cipher_mode, bool dtls_hmac, u16 iv_len)
 {
+	if ((cipher_mode != CIPHER_MODE_GCM) && !dtls_hmac)
+		return iv_len;
 	return 0;
 }
 

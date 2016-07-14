@@ -36,10 +36,20 @@
 #define ARC4_BLOCK_SIZE     1
 #define ARC4_STATE_SIZE     4
 
+#define GCM_AES_IV_SIZE    12
+#define GCM_ESP_IV_SIZE     8
+#define RFC4543_ICV_SIZE   16
+
 #define MAX_KEY_SIZE	ARC4_MAX_KEY_SIZE
 #define MAX_IV_SIZE	AES_BLOCK_SIZE
 #define MAX_DIGEST_SIZE	SHA3_512_DIGEST_SIZE
 #define MAX_ASSOC_SIZE	512
+
+/* size of salt value for AES-GCM-ESP */
+#define GCM_ESP_SALT_SIZE   4
+#define MAX_SALT_SIZE       GCM_ESP_SALT_SIZE
+
+#define GCM_ESP_DIGESTSIZE 16
 
 /* MD5, SHA1, SHA224, SHA256 all have the same block size of 64 bytes */
 #define HASH_BLOCK_SIZE 64
@@ -158,11 +168,14 @@ struct iproc_ctx_s {
 	u8 authkey[MAX_KEY_SIZE + ARC4_STATE_SIZE];
 	unsigned int authkeylen;
 
+	u8 salt[MAX_SALT_SIZE];
+	unsigned int salt_len;
 	u8 iv[MAX_IV_SIZE];
 
 	unsigned int digestsize;
 
 	struct iproc_alg_s *alg;
+	bool is_esp;
 
 	struct cipher_op cipher;
 	enum spu_cipher_type cipher_type;
@@ -248,11 +261,13 @@ struct iproc_reqctx_s {
 	/* cipher context */
 	bool is_encrypt;
 
-	/* CBC mode: IV.  CTR mode: counter.  Else empty. Used as a DMA
-	 * buffer for AEAD requests. So allocate as DMAable memory.
+	/*
+	 * CBC mode: IV.  CTR mode: counter.  Else empty. Used as a DMA
+	 * buffer for AEAD requests. So allocate as DMAable memory. If IV
+	 * concatenated with salt, includes the salt.
 	 */
 	u8 *iv_ctr;
-	/* = block_size if either an IV or CTR is present, else 0 */
+	/* Length of IV or counter, in bytes */
 	unsigned int iv_ctr_len;
 
 	/* Hash requests can be of any size, whether initial, update, or final.
@@ -305,7 +320,7 @@ struct spu_hw {
 			       unsigned int data_size);
 	u32 (*spu_assoc_resp_len)(enum spu_cipher_mode cipher_mode,
 				  bool dtls_hmac, unsigned int assoc_len,
-				  unsigned int iv_len);
+				  unsigned int iv_len, bool is_encrypt);
 	u8 (*spu_aead_ivlen)(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
 			     u16 iv_len);
 	enum hash_type (*spu_hash_type)(u32 src_sent);

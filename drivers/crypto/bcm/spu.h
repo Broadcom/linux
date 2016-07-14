@@ -103,6 +103,7 @@ struct spu_request_opts {
 	bool is_inbound;
 	bool auth_first;
 	bool is_aead;
+	bool is_esp;
 	bool dtls_aead;
 	bool bd_suppress;
 };
@@ -113,6 +114,7 @@ struct spu_cipher_parms {
 	enum spu_cipher_type type;
 	u8                  *key_buf;
 	u16                  key_len;
+	/* iv_buf and iv_len include salt, if applicable */
 	u8                  *iv_buf;
 	u16                  iv_len;
 };
@@ -135,6 +137,9 @@ struct spu_aead_parms {
 	u16 iv_len;      /* length of IV field between assoc data and data */
 	u8  aad_pad_len; /* For AES GCM, length of padding after AAD */
 	u8  gcm_pad_len; /* For AES GCM, length of padding after data */
+	bool return_iv;  /* True if SPU should return an IV */
+	u32 ret_iv_len;  /* Length in bytes of returned IV */
+	u32 ret_iv_off;  /* Offset into full IV if partial IV returned */
 };
 
 /************** SPU sizes ***************/
@@ -202,14 +207,15 @@ static __always_inline u32 spu_status_padlen(u32 db_size)
 
 /************** SPU Functions Prototypes **************/
 
-void spum_dump_msg_hdr(u8 *buf, unsigned buf_len);
+void spum_dump_msg_hdr(u8 *buf, unsigned int buf_len);
 
 u32 spum_payload_length(u8 *spu_hdr);
 u16 spum_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash);
 u16 spum_hash_pad_len(u32 chunksize, u16 hash_block_size);
-u32 spum_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned data_size);
+u32 spum_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size);
 u32 spum_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
-			unsigned assoc_len, unsigned iv_len);
+			unsigned int assoc_len, unsigned int iv_len,
+			bool is_encrypt);
 u8 spum_aead_ivlen(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
 		   u16 iv_len);
 bool spu_req_incl_icv(enum spu_cipher_mode cipher_mode, bool is_encrypt);
@@ -222,22 +228,22 @@ u32 spum_create_request(u8 *spu_hdr,
 			struct spu_cipher_parms *cipher_parms,
 			struct spu_hash_parms *hash_parms,
 			struct spu_aead_parms *aead_parms,
-			unsigned data_size);
+			unsigned int data_size);
 
 u16 spum_cipher_req_init(u8 *spu_hdr, struct spu_cipher_parms *cipher_parms);
 
 void spum_cipher_req_finish(u8 *spu_hdr,
 			    u16 spu_req_hdr_len,
-			    unsigned isInbound,
+			    unsigned int is_inbound,
 			    struct spu_cipher_parms *cipher_parms,
 			    bool update_key,
-			    unsigned data_size);
+			    unsigned int data_size);
 
 void spum_request_pad(u8 *pad_start,
 		      u32 gcm_padding,
 		      u32 hash_pad_len,
 		      enum hash_alg auth_alg,
-		      unsigned total_sent, u32 status_padding);
+		      unsigned int total_sent, u32 status_padding);
 
 u8 spum_tx_status_len(void);
 u8 spum_rx_status_len(void);

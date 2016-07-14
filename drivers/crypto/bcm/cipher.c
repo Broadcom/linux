@@ -1003,6 +1003,7 @@ static unsigned int spu_dtls_hmac_offset(struct aead_request *req,
  *   rx_frag_num - number of scatterlist elements required to hold the
  *		   SPU response message
  *   assoc_len - Length of associated data included in the crypto request
+ *   ret_iv_len - Length of IV returned in response
  *   resp_len - Number of bytes of response data expected to be written to
  *              dst buffer from crypto API
  *   digestsize - length of hash digest, in bytes
@@ -1017,7 +1018,8 @@ spu_aead_rx_sg_create(struct brcm_message *mssg,
 		      struct aead_request *req,
 		      struct iproc_reqctx_s *rctx,
 		      u8 rx_frag_num,
-		      unsigned int assoc_len, unsigned int resp_len,
+		      unsigned int assoc_len,
+		      u32 ret_iv_len, unsigned int resp_len,
 		      unsigned int digestsize, u32 stat_pad_len)
 {
 	struct device *dev = &iproc_priv.pdev->dev;
@@ -1048,7 +1050,8 @@ spu_aead_rx_sg_create(struct brcm_message *mssg,
 
 	assoc_buf_len = spu->spu_assoc_resp_len(ctx->cipher.mode,
 						ctx->alg->dtls_hmac, assoc_len,
-						rctx->iv_ctr_len);
+						ret_iv_len,
+						rctx->is_encrypt);
 	if (assoc_buf_len)
 		/* Don't write directly to req->dst, because SPU may pad the
 		 * assoc data in the response
@@ -1150,6 +1153,7 @@ spu_aead_tx_sg_create(struct brcm_message *mssg,
 				__func__);
 			return -EFAULT;
 		}
+		msg_len += assoc_len;
 	}
 
 	if (aead_iv_len) {
@@ -1251,6 +1255,7 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 	req_opts.is_inbound = !(rctx->is_encrypt);
 	req_opts.auth_first = ctx->auth_first;
 	req_opts.is_aead = true;
+	req_opts.is_esp = ctx->is_esp;
 	req_opts.dtls_aead = ctx->alg->dtls_hmac;
 
 	cipher_parms.alg = ctx->cipher.alg;
@@ -1273,6 +1278,20 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 		hash_parms.key_len = SHA224_DIGEST_SIZE;
 
 	aead_parms.assoc_size = req->assoclen;
+	if (ctx->is_esp) {
+		/*
+		 * 8-byte IV is included assoc data in request. SPU2 expects
+		 * AAD to include just SPI and seqno. So subtract off the
+		 * IV len.
+		 */
+		aead_parms.assoc_size -= GCM_ESP_IV_SIZE;
+
+		if (rctx->is_encrypt) {
+			aead_parms.return_iv = true;
+			aead_parms.ret_iv_len = GCM_ESP_IV_SIZE;
+			aead_parms.ret_iv_off = GCM_ESP_SALT_SIZE;
+		}
+	}
 
 	/* Count number of sg entries from the crypto API request that are to
 	 * be included in this mailbox message. For dst sg, don't count space
@@ -1281,8 +1300,9 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 	 */
 	rctx->src_nents = spu_sg_count(rctx->src_sg, rctx->src_skip, chunksize);
 	rctx->dst_nents = spu_sg_count(rctx->dst_sg, rctx->dst_skip, chunksize);
-	if (req->assoclen)
-		assoc_nents = spu_sg_count(rctx->assoc, 0, req->assoclen);
+	if (aead_parms.assoc_size)
+		assoc_nents = spu_sg_count(rctx->assoc, 0,
+					   aead_parms.assoc_size);
 
 	mssg = &rctx->mb_mssg;
 
@@ -1293,7 +1313,9 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 	rctx->total_sent = chunksize;
 	rctx->src_sent = chunksize;
 	if (spu->spu_assoc_resp_len(ctx->cipher.mode, ctx->alg->dtls_hmac,
-				    req->assoclen, rctx->iv_ctr_len))
+				    aead_parms.assoc_size,
+				    aead_parms.ret_iv_len,
+				    rctx->is_encrypt))
 		rx_frag_num++;
 
 	aead_parms.iv_len = spu->spu_aead_ivlen(ctx->cipher.mode,
@@ -1304,7 +1326,7 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 		hash_parms.type = ctx->cipher_type;
 
 	aead_parms.aad_pad_len = spu->spu_gcm_pad_len(ctx->cipher.mode,
-						      req->assoclen);
+						      aead_parms.assoc_size);
 	flow_log("gcm AAD padding: %u bytes\n", aead_parms.aad_pad_len);
 	aead_parms.gcm_pad_len = spu->spu_gcm_pad_len(ctx->cipher.mode,
 						      chunksize);
@@ -1333,7 +1355,7 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 					      &aead_parms, chunksize);
 
 	/* Determine total length of padding. Put all padding in one buffer. */
-	db_size = spu_real_db_size(req->assoclen, aead_parms.iv_len, 0,
+	db_size = spu_real_db_size(aead_parms.assoc_size, aead_parms.iv_len, 0,
 				   chunksize, aead_parms.aad_pad_len,
 				   aead_parms.gcm_pad_len, 0);
 	stat_pad_len = spu_status_padlen(db_size + aead_parms.gcm_pad_len);
@@ -1350,7 +1372,7 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 
 	spu->spu_dump_msg_hdr(rctx->msg_buf->bcm_spu_req_hdr + BCM_HDR_LEN,
 			      spu_hdr_len);
-	dump_sg(rctx->assoc, 0, req->assoclen);
+	dump_sg(rctx->assoc, 0, aead_parms.assoc_size);
 	packet_dump("    aead iv: ", rctx->iv_ctr, aead_parms.iv_len);
 	packet_log("BD:\n");
 	dump_sg(rctx->src_sg, rctx->src_skip, chunksize);
@@ -1379,8 +1401,10 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 		 */
 		resp_len -= ctx->digestsize;
 
-	err = spu_aead_rx_sg_create(mssg, req, rctx, rx_frag_num, req->assoclen,
-				    resp_len, digestsize, stat_pad_len);
+	err = spu_aead_rx_sg_create(mssg, req, rctx, rx_frag_num,
+				    aead_parms.assoc_size,
+				    aead_parms.ret_iv_len, resp_len, digestsize,
+				    stat_pad_len);
 	if (err)
 		return err;
 
@@ -1394,8 +1418,8 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 	if (spu->spu_tx_status_len())
 		tx_frag_num++;
 	err = spu_aead_tx_sg_create(mssg, rctx, tx_frag_num, spu_hdr_len,
-				    rctx->assoc, req->assoclen, assoc_nents,
-				    aead_parms.iv_len, chunksize,
+				    rctx->assoc, aead_parms.assoc_size,
+				    assoc_nents, aead_parms.iv_len, chunksize,
 				    aead_parms.aad_pad_len, pad_len, incl_icv);
 	if (err)
 		return err;
@@ -1452,11 +1476,6 @@ static void handle_aead_resp(struct iproc_reqctx_s *rctx)
 
 	packet_log("response data:  ");
 	dump_sg(req->dst, req->assoclen, result_len);
-
-	if (rctx->is_encrypt) {
-		packet_log("digest:  ");
-		dump_sg(req->dst, req->assoclen + result_len, ctx->digestsize);
-	}
 
 	atomic_inc(&iproc_priv.op_counts[SPU_OP_AEAD]);
 }
@@ -2194,7 +2213,7 @@ static int aead_need_fallback(struct aead_request *req)
 
 	unsigned int packetlen =
 	    (ctx->authkeylen + ctx->enckeylen + rctx->iv_ctr_len +
-	     req->assoclen + (req->cryptlen & 0xffff) + 40);
+	     req->assoclen + rctx->iv_ctr_len + (req->cryptlen & 0xffff) + 40);
 
 	/*
 	 * SPU hardware cannot handle the AES-GCM case where plaintext and AAD
@@ -2299,6 +2318,7 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	rctx->is_sw_hmac = false;
 	rctx->ctx = ctx;
 	memset(&rctx->mb_mssg, 0, sizeof(struct brcm_message));
+	rctx->iv_ctr = NULL;
 
 	/* assoc data is at start of src sg */
 	rctx->assoc = req->src;
@@ -2337,7 +2357,9 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	    ctx->cipher.mode == CIPHER_MODE_CTR ||
 	    ctx->cipher.mode == CIPHER_MODE_OFB ||
 	    ctx->cipher.mode == CIPHER_MODE_GCM) {
-		rctx->iv_ctr_len = crypto_aead_ivsize(crypto_aead_reqtfm(req));
+		rctx->iv_ctr_len =
+			ctx->salt_len +
+			crypto_aead_ivsize(crypto_aead_reqtfm(req));
 	} else {
 		rctx->iv_ctr_len = 0;
 	}
@@ -2356,6 +2378,7 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	flow_log("  authkeylen:%u\n", ctx->authkeylen);
 	flow_log("  ctx:%p\n", ctx);
 	flow_log("  max_payload: %u\n", ctx->max_payload);
+	flow_log("  is_esp: %s\n", ctx->is_esp ? "yes" : "no");
 
 	if (unlikely(aead_need_fallback(req)))
 		return aead_do_fallback(req, is_encrypt);
@@ -2374,7 +2397,10 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 		rctx->iv_ctr = kmalloc(rctx->iv_ctr_len, GFP_KERNEL);
 		if (rctx->iv_ctr == NULL)
 			return -ENOMEM;
-		memcpy(rctx->iv_ctr, req->iv, rctx->iv_ctr_len);
+		if (ctx->salt_len)
+			memcpy(rctx->iv_ctr, ctx->salt, ctx->salt_len);
+		memcpy(rctx->iv_ctr + ctx->salt_len, req->iv,
+		       rctx->iv_ctr_len - ctx->salt_len);
 	}
 
 	rctx->chan_idx = select_channel();
@@ -2539,8 +2565,6 @@ static int aead_gcm_setkey(struct crypto_aead *cipher,
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct iproc_ctx_s *ctx = crypto_aead_ctx(cipher);
 	struct crypto_tfm *tfm = crypto_aead_tfm(cipher);
-	const u8 *origkey = key;
-	const unsigned int origkeylen = keylen;
 
 	int ret = 0;
 
@@ -2548,10 +2572,11 @@ static int aead_gcm_setkey(struct crypto_aead *cipher,
 		 keylen);
 	flow_dump("  key: ", key, keylen);
 
-	ctx->enckeylen = keylen;
-	ctx->digestsize = keylen;
-	ctx->authkeylen = 0;
+	if (!ctx->is_esp)
+		ctx->digestsize = keylen;
 
+	ctx->enckeylen = keylen;
+	ctx->authkeylen = 0;
 	memcpy(ctx->enckey, key, ctx->enckeylen);
 
 	switch (ctx->enckeylen) {
@@ -2580,9 +2605,8 @@ static int aead_gcm_setkey(struct crypto_aead *cipher,
 		ctx->fallback_cipher->base.crt_flags &= ~CRYPTO_TFM_REQ_MASK;
 		ctx->fallback_cipher->base.crt_flags |=
 		    tfm->crt_flags & CRYPTO_TFM_REQ_MASK;
-		ret =
-		    crypto_aead_setkey(ctx->fallback_cipher, origkey,
-				       origkeylen);
+		ret = crypto_aead_setkey(ctx->fallback_cipher, key,
+					 keylen + ctx->salt_len);
 		if (ret) {
 			flow_log("  fallback setkey() returned:%d\n", ret);
 			tfm->crt_flags &= ~CRYPTO_TFM_RES_MASK;
@@ -2611,6 +2635,33 @@ badkey:
 
 	crypto_aead_set_flags(cipher, CRYPTO_TFM_RES_BAD_KEY_LEN);
 	return -EINVAL;
+}
+
+/**
+ * aead_gcm_esp_setkey() - setkey() operation for ESP variant of GCM AES.
+ * cipher: AEAD structure
+ * key:    Key followed by 4 bytes of salt
+ * keylen: Length of key plus salt, in bytes
+ *
+ * Extracts salt from key and stores it to be prepended to IV on each request.
+ * Digest is always 16 bytes
+ *
+ * Return: Value from generic gcm setkey.
+ */
+static int aead_gcm_esp_setkey(struct crypto_aead *cipher,
+			       const u8 *key, unsigned int keylen)
+{
+	struct iproc_ctx_s *ctx = crypto_aead_ctx(cipher);
+
+	flow_log("%s\n", __func__);
+	ctx->salt_len = GCM_ESP_SALT_SIZE;
+	memcpy(ctx->salt, key + keylen - GCM_ESP_SALT_SIZE, GCM_ESP_SALT_SIZE);
+	keylen -= GCM_ESP_SALT_SIZE;
+	ctx->digestsize = GCM_ESP_DIGESTSIZE;
+	ctx->is_esp = true;
+	flow_dump("salt: ", ctx->salt, GCM_ESP_SALT_SIZE);
+
+	return aead_gcm_setkey(cipher, key, keylen);
 }
 
 static int aead_setauthsize(struct crypto_aead *cipher, unsigned int authsize)
@@ -2682,7 +2733,8 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = AES_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK
 		 },
-		.ivsize = 12,
+		 .setkey = aead_gcm_setkey,
+		 .ivsize = GCM_AES_IV_SIZE,
 		.maxauthsize = AES_BLOCK_SIZE,
 	 },
 	 .cipher_info = {
@@ -2704,11 +2756,36 @@ static struct iproc_alg_s driver_algs[] = {
 	 .type = CRYPTO_ALG_TYPE_AEAD,
 	 .alg.aead = {
 		 .base = {
+			.cra_name = "rfc4106(gcm(aes))",
+			.cra_driver_name = "gcm-aes-esp-iproc",
+			.cra_blocksize = AES_BLOCK_SIZE,
+			.cra_flags = CRYPTO_ALG_NEED_FALLBACK
+		 },
+		 .setkey = aead_gcm_esp_setkey,
+		 .ivsize = GCM_ESP_IV_SIZE,
+		 .maxauthsize = AES_BLOCK_SIZE,
+	 },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_AES,
+			 .mode = CIPHER_MODE_GCM,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_AES,
+		       .mode = HASH_MODE_GCM,
+		       },
+	 .auth_first = 0,
+	 .dtls_hmac = 0,
+	 },
+	{
+	 .type = CRYPTO_ALG_TYPE_AEAD,
+	 .alg.aead = {
+		 .base = {
 			.cra_name = "authenc(hmac(md5),cbc(aes))",
 			.cra_driver_name = "authenc-hmac-md5-cbc-aes-iproc",
 			.cra_blocksize = AES_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
 		 },
+		 .setkey = aead_authenc_setkey,
 		.ivsize = AES_BLOCK_SIZE,
 		.maxauthsize = MD5_DIGEST_SIZE,
 	 },
@@ -2733,6 +2810,7 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = AES_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
 		 },
+		 .setkey = aead_authenc_setkey,
 		 .ivsize = AES_BLOCK_SIZE,
 		 .maxauthsize = SHA1_DIGEST_SIZE,
 	 },
@@ -2757,6 +2835,7 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = AES_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
 		 },
+		 .setkey = aead_authenc_setkey,
 		 .ivsize = AES_BLOCK_SIZE,
 		 .maxauthsize = SHA256_DIGEST_SIZE,
 	 },
@@ -2782,6 +2861,7 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = DES_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
 		 },
+		 .setkey = aead_authenc_setkey,
 		 .ivsize = DES_BLOCK_SIZE,
 		 .maxauthsize = MD5_DIGEST_SIZE,
 	 },
@@ -2806,6 +2886,7 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = DES_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
 		 },
+		 .setkey = aead_authenc_setkey,
 		 .ivsize = DES_BLOCK_SIZE,
 		 .maxauthsize = SHA1_DIGEST_SIZE,
 	 },
@@ -2830,6 +2911,7 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = DES_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
 		 },
+		 .setkey = aead_authenc_setkey,
 		 .ivsize = DES_BLOCK_SIZE,
 		 .maxauthsize = SHA224_DIGEST_SIZE,
 	 },
@@ -2854,6 +2936,7 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = DES_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
 		 },
+		 .setkey = aead_authenc_setkey,
 		 .ivsize = DES_BLOCK_SIZE,
 		 .maxauthsize = SHA256_DIGEST_SIZE,
 	 },
@@ -2879,6 +2962,7 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = DES3_EDE_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
 		 },
+		 .setkey = aead_authenc_setkey,
 		 .ivsize = DES3_EDE_BLOCK_SIZE,
 		 .maxauthsize = MD5_DIGEST_SIZE,
 	 },
@@ -2903,6 +2987,7 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = DES3_EDE_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
 		 },
+		 .setkey = aead_authenc_setkey,
 		 .ivsize = DES3_EDE_BLOCK_SIZE,
 		 .maxauthsize = SHA1_DIGEST_SIZE,
 	 },
@@ -2927,6 +3012,7 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = DES3_EDE_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
 		 },
+		 .setkey = aead_authenc_setkey,
 		 .ivsize = DES3_EDE_BLOCK_SIZE,
 		 .maxauthsize = SHA224_DIGEST_SIZE,
 	 },
@@ -2951,6 +3037,7 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = DES3_EDE_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
 		 },
+		 .setkey = aead_authenc_setkey,
 		 .ivsize = DES3_EDE_BLOCK_SIZE,
 		 .maxauthsize = SHA256_DIGEST_SIZE,
 	 },
@@ -3608,6 +3695,8 @@ static int aead_cra_init(struct crypto_aead *aead)
 	flow_log("%s() tfm:%p\n", __func__, tfm);
 
 	crypto_aead_set_reqsize(aead, sizeof(struct iproc_reqctx_s));
+	ctx->is_esp = false;
+	ctx->salt_len = 0;
 
 	/* random first IV */
 	get_random_bytes(ctx->iv, MAX_IV_SIZE);
@@ -4249,10 +4338,7 @@ static int spu_register_aead(struct iproc_alg_s *driver_alg)
 	INIT_LIST_HEAD(&aead->base.cra_list);
 
 	aead->base.cra_flags |= CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC;
-	if (driver_alg->cipher_info.mode == CIPHER_MODE_GCM)
-		aead->setkey = aead_gcm_setkey;
-	else
-		aead->setkey = aead_authenc_setkey;
+	/* setkey set in alg initialization */
 	aead->setauthsize = aead_setauthsize;
 	aead->encrypt = aead_encrypt;
 	aead->decrypt = aead_decrypt;

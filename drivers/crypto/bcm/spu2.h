@@ -202,7 +202,8 @@ u16 spu2_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash);
 u16 spu2_hash_pad_len(u32 chunksize, u16 hash_block_size);
 u32 spu2_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size);
 u32 spu2_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
-			unsigned int assoc_len, unsigned int iv_len);
+			unsigned int assoc_len, unsigned int iv_len,
+			bool is_encrypt);
 u8 spu2_aead_ivlen(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
 		   u16 iv_len);
 enum hash_type spu2_hash_type(u32 src_sent);
