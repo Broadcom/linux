@@ -76,6 +76,7 @@
 #define IB_IMAP_VALID                0x1
 #define IB_IMAP_MAX                  8
 
+#define IARR_0_WINDOW_MASK           0xfffff000
 #define IARR_SIZE_CFG_SHIFT          0
 #define IARR_SIZE_CFG                BIT(IARR_SIZE_CFG_SHIFT)
 
@@ -148,6 +149,12 @@ enum iproc_pcie_reg {
 	IPROC_PCIE_OMAP_LO,
 	IPROC_PCIE_OMAP_HI,
 
+	/* gic_its mapping. */
+	IPROC_PCIE_IARR0_LO,
+	IPROC_PCIE_IARR0_HI,
+	IPROC_PCIE_IMAP0_LO,
+	IPROC_PCIE_IMAP0_HI,
+
 	/* inbound address mapping */
 	IPROC_PCIE_IARR_LO,
 	IPROC_PCIE_IARR_HI,
@@ -176,6 +183,10 @@ static const u16 iproc_pcie_reg_paxb[] = {
 	[IPROC_PCIE_OARR_HI]          = 0xd24,
 	[IPROC_PCIE_OMAP_LO]          = 0xd40,
 	[IPROC_PCIE_OMAP_HI]          = 0xd44,
+	[IPROC_PCIE_IARR0_LO]         = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IARR0_HI]         = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP0_LO]         = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP0_HI]         = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IARR_LO]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IARR_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IMAP_LO]          = IPROC_PCIE_REG_INVALID,
@@ -201,6 +212,10 @@ static const u16 iproc_pcie_reg_paxb_v2[] = {
 	[IPROC_PCIE_OARR_HI]          = 0xd64,
 	[IPROC_PCIE_OMAP_LO]          = 0xd68,
 	[IPROC_PCIE_OMAP_HI]          = 0xd6c,
+	[IPROC_PCIE_IARR0_LO]         = 0xd00,
+	[IPROC_PCIE_IARR0_HI]         = 0xd04,
+	[IPROC_PCIE_IMAP0_LO]         = 0xc00,
+	[IPROC_PCIE_IMAP0_HI]         = 0xc04,
 	[IPROC_PCIE_IARR_LO]          = 0xd10,
 	[IPROC_PCIE_IARR_HI]          = 0xd14,
 	[IPROC_PCIE_IMAP_LO]          = 0xcc0,
@@ -226,6 +241,10 @@ static const u16 iproc_pcie_reg_paxc[] = {
 	[IPROC_PCIE_OARR_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_OMAP_LO]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_OMAP_HI]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IARR0_LO]         = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IARR0_HI]         = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP0_LO]         = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP0_HI]         = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IARR_LO]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IARR_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IMAP_LO]          = IPROC_PCIE_REG_INVALID,
@@ -251,6 +270,10 @@ static const u16 iproc_pcie_reg_paxc_v2[] = {
 	[IPROC_PCIE_OARR_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_OMAP_LO]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_OMAP_HI]          = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IARR0_LO]         = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IARR0_HI]         = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP0_LO]         = IPROC_PCIE_REG_INVALID,
+	[IPROC_PCIE_IMAP0_HI]         = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IARR_LO]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IARR_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IMAP_LO]          = IPROC_PCIE_REG_INVALID,
@@ -664,29 +687,17 @@ static int iproc_pcie_map_ranges(struct iproc_pcie *pcie,
 	return 0;
 }
 
-static int iproc_pcie_paxc_msi_steer(struct iproc_pcie *pcie,
-				     struct device_node *msi_node)
+static int iproce_pcie_get_msi(struct iproc_pcie *pcie,
+				struct device_node *msi_node,
+				u64 *msi_addr)
 {
 	int ret;
 	struct resource res;
-	u64 msi_addr;
-	u32 val;
-
-	/* if PAXC v2 event queue based MSI controller is detected, use it */
-	if (of_device_is_compatible(msi_node, "brcm,iproc-msi-paxc-v2"))
-		return iproc_msi_paxc_v2_init(pcie, msi_node);
 
 	/*
-	 * Check if 'msi-parent' points to ARM GICv3 ITS, which is the only MSI
-	 * controller hooked up with PAXC v2
-	 *
-	 * Ideally we should not need such knowledge in the iProc PCIe driver,
-	 * and the iProc PCIe driver should not even care about which MSI
-	 * controller is used in the system. Unfortunately the ASIC is done
-	 * this way that requires us to program the address of the
-	 * GITS_TRANSLATER register from GICv3 into the iProc PCIe MSI base
-	 * address register, to allow all MSI messages to be steered towards
-	 * GICv3 ITS
+	 * Check if 'msi-map' points to ARM GICv3 ITS,
+	 * which is the only MSI-controller hooked up with both
+	 * PAXC v2 and PAXB v2
 	 */
 	if (!of_device_is_compatible(msi_node, "arm,gic-v3-its")) {
 		dev_err(pcie->dev,
@@ -702,7 +713,53 @@ static int iproc_pcie_paxc_msi_steer(struct iproc_pcie *pcie,
 		return ret;
 	}
 
-	msi_addr = res.start + GITS_TRANSLATER;
+	*msi_addr = res.start + GITS_TRANSLATER;
+	return 0;
+}
+
+static int iproc_pcie_paxb_msi_steer(struct iproc_pcie *pcie,
+				     struct device_node *msi_node)
+{
+	int ret;
+	u64 msi_addr;
+	u32 val;
+
+	ret = iproce_pcie_get_msi(pcie, msi_node, &msi_addr);
+	if (ret < 0) {
+		dev_err(pcie->dev,
+			"paxb msi steering failed\n");
+		return ret;
+	}
+
+	/* program incoming pci address to iarr0. */
+	val = (lower_32_bits(msi_addr) & IARR_0_WINDOW_MASK) | IB_IMAP_VALID;
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_IARR0_LO, val);
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_IARR0_HI,
+		upper_32_bits(msi_addr));
+	/* program translation register to point it to GICv3 ITS. */
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP0_LO, val);
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP0_HI,
+		upper_32_bits(msi_addr));
+	return 0;
+}
+
+static int iproc_pcie_paxc_msi_steer(struct iproc_pcie *pcie,
+				     struct device_node *msi_node)
+{
+	int ret;
+	u64 msi_addr;
+	u32 val;
+
+	/* if PAXC v2 event queue based MSI controller is detected, use it */
+	if (of_device_is_compatible(msi_node, "brcm,iproc-msi-paxc-v2"))
+		return iproc_msi_paxc_v2_init(pcie, msi_node);
+
+	ret = iproce_pcie_get_msi(pcie, msi_node, &msi_addr);
+	if (ret < 0) {
+		dev_err(pcie->dev,
+			"paxc msi steering failed\n");
+		return ret;
+	}
 
 	/*
 	 * Program bits [43:13] of address of GITS_TRANSLATER register into
@@ -762,6 +819,16 @@ static int iproc_pcie_msi_enable(struct iproc_pcie *pcie)
 		msi_node = of_find_node_by_phandle(phandle);
 		if (!msi_node)
 			return -ENODEV;
+	}
+
+	/*
+	 * PAXB v2 requires additional configurations to steer MSI to another
+	 * MSI controller
+	 */
+	if (pcie->type == IPROC_PCIE_PAXB_V2) {
+		ret = iproc_pcie_paxb_msi_steer(pcie, msi_node);
+		if (ret)
+			return ret;
 	}
 
 	/*
