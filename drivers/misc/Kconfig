@@ -804,6 +804,17 @@ config PANEL_BOOT_MESSAGE
 	  An empty message will only clear the display at driver init time. Any other
 	  printf()-formatted message is valid with newline and escape codes.
 
+config BCM_IPROC_DTE
+        tristate "DTE support"
+        depends on ARCH_BCM_IPROC || COMPILE_TEST
+        default ARCH_BCM_IPROC
+        help
+          Enable support for a Digital Timing Engine (DTE) that allows for hardware
+          time stamping of network packets, audio/video samples and/or GPIO inputs
+          in a common adjustable time base.
+
+          If unsure, say N.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
