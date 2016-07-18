@@ -280,26 +280,13 @@ static int brcm_ns2_sata_init(struct brcm_sata_port *port)
 	return 0;
 }
 
-#define NSP_TOP_CTRL_BUS_REG			0x024
-#define NSP_DMA_BIT_CTRL_MASK			0x003
-#define NSP_DMA_DESCR_ENDIAN_BIT_SHIFT		0x002
-#define NSP_DMA_DATA_ENDIAN_BIT_SHIFT		0x004
-
 static int brcm_nsp_sata_init(struct brcm_sata_port *port)
 {
 	struct brcm_sata_phy *priv = port->phy_priv;
-	void __iomem *ctrl_base = priv->ctrl_base;
 	struct device *dev = port->phy_priv->dev;
 	void __iomem *base = priv->phy_base;
 	unsigned int oob_bank;
 	unsigned int val, try;
-
-	val = readl(ctrl_base + NSP_TOP_CTRL_BUS_REG);
-	val &= ~((NSP_DMA_BIT_CTRL_MASK << NSP_DMA_DESCR_ENDIAN_BIT_SHIFT) |
-		(NSP_DMA_BIT_CTRL_MASK << NSP_DMA_DATA_ENDIAN_BIT_SHIFT));
-	val |= ((2 << NSP_DMA_DESCR_ENDIAN_BIT_SHIFT) |
-			(2 << NSP_DMA_DATA_ENDIAN_BIT_SHIFT));
-	writel(val, ctrl_base + NSP_TOP_CTRL_BUS_REG);
 
 	/* Configure OOB control */
 	if (port->portnum == 0)
@@ -431,8 +418,7 @@ static int brcm_sata_phy_probe(struct platform_device *pdev)
 	else
 		priv->version = BRCM_SATA_PHY_STB_28NM;
 
-	if ((priv->version == BRCM_SATA_PHY_IPROC_NS2) ||
-		(priv->version == BRCM_SATA_PHY_IPROC_NSP)) {
+	if (priv->version == BRCM_SATA_PHY_IPROC_NS2) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   "phy-ctrl");
 		priv->ctrl_base = devm_ioremap_resource(dev, res);

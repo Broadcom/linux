@@ -337,9 +337,8 @@
 
 		sata_phy: sata_phy@40100 {
 			compatible = "brcm,iproc-nsp-sata-phy";
-			reg = <0x40100 0x340>,
-			      <0x40000 0x100>;
-			reg-names = "phy", "phy-ctrl";
+			reg = <0x40100 0x340>;
+			reg-names = "phy";
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -357,9 +356,9 @@
 		};
 
 		sata: ahci@41000 {
-			compatible = "brcm,iproc-ahci", "generic-ahci";
-			reg = <0x41000 0x1000>;
-			reg-names = "ahci";
+			compatible = "brcm,bcm-nsp-ahci";
+			reg-names = "ahci", "top-ctrl";
+			reg = <0x41000 0x1000>, <0x40020 0x1c>;
 			interrupts = <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
