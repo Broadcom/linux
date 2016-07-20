@@ -1,0 +1,20 @@
+Broadcom USB device controller
+
+Required properties:
+  - compatible: "brcm,bdc-usb3"
+  - reg: Base address and length of the BDC register
+  - interrupts: Interrupt line of BDC
+
+Optional properties:
+  - phys: list of phandles to PHY nodes.
+  - phy-names: list of phy phandle names.
+	phy-names has to be "bdc-phy".
+
+Example:
+	bdc0: usb@68521000{
+			compatible = "brcm,bdc-usb3";
+			reg = <0x68521000 0x1000>;
+			interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb1_phy1 1>;
+			phy-names = "bdc-phy";
+		};
