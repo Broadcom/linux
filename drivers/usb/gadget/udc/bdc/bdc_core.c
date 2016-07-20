@@ -24,6 +24,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 #include <linux/of.h>
+#include <linux/phy/phy.h>
 #include <linux/moduleparam.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -421,6 +422,26 @@ static void bdc_hw_exit(struct bdc *bdc)
 	bdc_mem_free(bdc);
 }
 
+static int bdc_phy_init(struct bdc *bdc)
+{
+	int ret;
+
+	ret = phy_init(bdc->phy);
+	if (ret)
+		return ret;
+
+	ret = phy_power_on(bdc->phy);
+	if (ret)
+		phy_exit(bdc->phy);
+
+	return ret;
+}
+
+static void bdc_phy_exit(struct bdc *bdc)
+{
+	phy_power_off(bdc->phy);
+	phy_exit(bdc->phy);
+}
 /* Initialize the bdc HW and memory */
 static int bdc_hw_init(struct bdc *bdc)
 {
@@ -469,6 +490,13 @@ static int bdc_probe(struct platform_device *pdev)
 		dev_err(dev, "platform_get_irq failed:%d\n", irq);
 		return irq;
 	}
+
+	bdc->phy = devm_phy_get(dev, "bdc-phy");
+	if (IS_ERR(bdc->phy)) {
+		dev_warn(dev, "no bdc usb3 phy configured\n");
+		bdc->phy = NULL;
+	}
+
 	spin_lock_init(&bdc->lock);
 	platform_set_drvdata(pdev, bdc);
 	bdc->irq = irq;
@@ -487,10 +515,17 @@ static int bdc_probe(struct platform_device *pdev)
 		}
 		dev_dbg(bdc->dev, "Using 32-bit address\n");
 	}
+
+	ret = bdc_phy_init(bdc);
+	if (ret) {
+		dev_err(bdc->dev, "BDC phy init failure:%d\n", ret);
+		return ret;
+	}
+
 	ret = bdc_hw_init(bdc);
 	if (ret) {
 		dev_err(bdc->dev, "BDC init failure:%d\n", ret);
-		return ret;
+		goto phycleanup;
 	}
 	ret = bdc_udc_init(bdc);
 	if (ret) {
@@ -501,7 +536,8 @@ static int bdc_probe(struct platform_device *pdev)
 
 cleanup:
 	bdc_hw_exit(bdc);
-
+phycleanup:
+	bdc_phy_exit(bdc);
 	return ret;
 }
 
@@ -513,13 +549,22 @@ static int bdc_remove(struct platform_device *pdev)
 	dev_dbg(bdc->dev, "%s ()\n", __func__);
 	bdc_udc_exit(bdc);
 	bdc_hw_exit(bdc);
+	bdc_phy_exit(bdc);
 
 	return 0;
 }
+static const struct of_device_id bdc_of_match[] = {
+	{
+		.compatible = "brcm,bdc-usb3",
+	},
+	{ /* sentinel */ },
+};
+MODULE_DEVICE_TABLE(of, bdc_of_match);
 
 static struct platform_driver bdc_driver = {
 	.driver		= {
 		.name	= BRCM_BDC_NAME,
+		.of_match_table = bdc_of_match,
 	},
 	.probe		= bdc_probe,
 	.remove		= bdc_remove,
