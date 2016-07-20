@@ -70,7 +70,7 @@ const struct paxb_ib_map paxb_v2_ib_map[] = {
 				IB_SENTINEL_SZ, 0, 0, 0, 0},
 		.axi_mask = 0x8000000000,
 		.divider = 32,
-		.wmask = ~(0x0),
+		.wmask = 0x0,
 	}
 };
 

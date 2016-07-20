@@ -602,7 +602,8 @@ static inline void iproc_pcie_ib_write_imapx(struct iproc_pcie *pcie,
 
 	if (window == 0) {
 		/* IARR_2 does not have windows. */
-		val = (lower_32_bits(axi_addr) & wmask) | IB_IMAP_VALID;
+		val = readl(pcie->base + offset);
+		val |= (lower_32_bits(axi_addr) & wmask) | IB_IMAP_VALID;
 		writel(val, pcie->base + offset);
 		val = upper_32_bits(axi_addr);
 		writel(val, pcie->base + offset + 4);
@@ -610,7 +611,9 @@ static inline void iproc_pcie_ib_write_imapx(struct iproc_pcie *pcie,
 	}
 	size = size / IB_IMAP_MAX;
 	for (imap = 0; imap < IB_IMAP_MAX; imap++) {
-		val = (lower_32_bits(axi_addr) & wmask) | IB_IMAP_VALID;
+		val = readl(pcie->base + offset +
+			PAXB_IMAP_LO_OFFSET(window, imap));
+		val |= (lower_32_bits(axi_addr) & wmask) | IB_IMAP_VALID;
 		writel(val, pcie->base + offset +
 			PAXB_IMAP_LO_OFFSET(window, imap));
 		val = upper_32_bits(axi_addr);
