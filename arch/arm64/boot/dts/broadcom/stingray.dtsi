@@ -868,6 +868,15 @@
 			};
 		};
 
+		xhci0: usb@68511000 {
+			compatible = "generic-xhci";
+			reg = <0x68511000 0x100>;
+			interrupts = <GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb1_phy0 1>, <&usb1_phy1 1>;
+			phy-names = "phy0","phy1";
+			status = "disabled";
+		};
+
 		usbphy1: usb-phy@68520000 {
 			compatible = "brcm,sr-u3h-u2drd-phy";
 			reg = <0x68510000 0x100>,
@@ -888,12 +897,12 @@
 			};
 		};
 
-		xhci0: usb@68511000{
-			compatible = "generic-xhci";
-			reg = <0x68511000 0x100>;
-			interrupts = <GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usb1_phy0 1>, <&usb1_phy1 1>;
-			phy-names = "phy0","phy1";
+		bdc0: usb@68521000 {
+			compatible = "brcm,bdc-usb3";
+			reg = <0x68521000 0x1000>;
+			interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb1_phy1 1>;
+			phy-names = "bdc-phy";
 			status = "disabled";
 		};
 	};
