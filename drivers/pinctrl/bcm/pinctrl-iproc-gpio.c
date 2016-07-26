@@ -100,7 +100,7 @@ struct iproc_gpio {
 	bool pinmux_is_supported;
 
 	enum pin_config_param *pinconf_disable;
-	unsigned nr_pinconf_disable;
+	unsigned int nr_pinconf_disable;
 
 	struct pinctrl_dev *pctl;
 	struct pinctrl_desc pctldesc;
@@ -382,7 +382,7 @@ static const enum pin_config_param iproc_pinconf_disable_map[] = {
 static bool iproc_pinconf_param_is_disabled(struct iproc_gpio *chip,
 					    enum pin_config_param param)
 {
-	unsigned i;
+	unsigned int i;
 
 	if (!chip->nr_pinconf_disable)
 		return false;
@@ -446,7 +446,7 @@ static const struct pinctrl_ops iproc_pctrl_ops = {
 	.get_groups_count = iproc_get_groups_count,
 	.get_group_name = iproc_get_group_name,
 	.dt_node_to_map = pinconf_generic_dt_node_to_map_pin,
-	.dt_free_map = pinctrl_utils_dt_free_map,
+	.dt_free_map = pinctrl_utils_free_map,
 };
 
 static int iproc_gpio_set_pull(struct iproc_gpio *chip, unsigned gpio,
@@ -697,18 +697,13 @@ static int iproc_gpio_register_pinconf(struct iproc_gpio *chip)
 	pctldesc->npins = gc->ngpio;
 	pctldesc->confops = &iproc_pconf_ops;
 
-	chip->pctl = pinctrl_register(pctldesc, chip->dev, chip);
+	chip->pctl = devm_pinctrl_register(chip->dev, pctldesc, chip);
 	if (IS_ERR(chip->pctl)) {
 		dev_err(chip->dev, "unable to register pinctrl device\n");
 		return PTR_ERR(chip->pctl);
 	}
 
 	return 0;
-}
-
-static void iproc_gpio_unregister_pinconf(struct iproc_gpio *chip)
-{
-	pinctrl_unregister(chip->pctl);
 }
 
 static const struct of_device_id iproc_gpio_of_match[] = {
@@ -802,7 +797,7 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 			if (ret) {
 				dev_err(dev,
 					"unable to create pinconf disable map\n");
-				goto err_unregister_pinconf;
+				goto err_rm_gpiochip;
 			}
 		}
 	}
@@ -814,7 +809,7 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 					   handle_simple_irq, IRQ_TYPE_NONE);
 		if (ret) {
 			dev_err(dev, "no GPIO irqchip\n");
-			goto err_unregister_pinconf;
+			goto err_rm_gpiochip;
 		}
 
 		gpiochip_set_chained_irqchip(gc, &iproc_gpio_irq_chip, irq,
@@ -822,9 +817,6 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 	}
 
 	return 0;
-
-err_unregister_pinconf:
-	iproc_gpio_unregister_pinconf(chip);
 
 err_rm_gpiochip:
 	gpiochip_remove(gc);

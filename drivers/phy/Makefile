@@ -3,6 +3,7 @@
 #
 
 obj-$(CONFIG_GENERIC_PHY)		+= phy-core.o
+obj-$(CONFIG_PHY_BCM_NS_USB2)		+= phy-bcm-ns-usb2.o
 obj-$(CONFIG_PHY_BERLIN_USB)		+= phy-berlin-usb.o
 obj-$(CONFIG_PHY_BERLIN_SATA)		+= phy-berlin-sata.o
 obj-$(CONFIG_PHY_DM816X_USB)		+= phy-dm816x-usb.o
@@ -52,9 +53,10 @@ obj-$(CONFIG_PHY_TUSB1210)		+= phy-tusb1210.o
 obj-$(CONFIG_PHY_BRCM_SATA)		+= phy-brcm-sata.o
 obj-$(CONFIG_PHY_PISTACHIO_USB)		+= phy-pistachio-usb.o
 obj-$(CONFIG_PHY_CYGNUS_PCIE)		+= phy-bcm-cygnus-pcie.o
-obj-$(CONFIG_PHY_NS2_SATA)		+= phy-bcm-ns2-sata.o
 obj-$(CONFIG_PHY_NS2_PCIE)		+= phy-bcm-ns2-pcie.o
 obj-$(CONFIG_PHY_NS2_USB3)		+= phy-bcm-ns2-usb3.o
 obj-$(CONFIG_PHY_STINGRAY_PCIE_PRBS)	+= phy-bcm-stingray-pcie-prbs.o
 obj-$(CONFIG_PHY_STINGRAY_USB)		+= phy-bcm-stingray-usb.o
 obj-$(CONFIG_PHY_NSP_USB3)		+= phy-bcm-nsp-usb3.o
+
+obj-$(CONFIG_ARCH_TEGRA) += tegra/

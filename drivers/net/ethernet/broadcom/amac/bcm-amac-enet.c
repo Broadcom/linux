@@ -513,7 +513,6 @@ static void bcm_amac_enet_tx_timeout(struct net_device *ndev)
 	netdev_warn(ndev, "tx timeout\n");
 
 	ndev->stats.tx_errors++;
-	ndev->trans_start = jiffies; /* prevent tx timeout */
 
 	netif_wake_queue(ndev);
 }

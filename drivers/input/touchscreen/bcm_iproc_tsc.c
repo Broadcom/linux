@@ -90,7 +90,11 @@
 #define TS_WIRE_MODE_BIT        BIT(1)
 
 #define dbg_reg(dev, priv, reg) \
-	dev_dbg(dev, "%20s= 0x%08x\n", #reg, iproc_reg_read(priv, reg))
+do { \
+	u32 val; \
+	regmap_read(priv->regmap, reg, &val); \
+	dev_dbg(dev, "%20s= 0x%08x\n", #reg, val); \
+} while (0)
 
 struct tsc_param {
 	/* Each step is 1024 us.  Valid 1-256 */
@@ -143,7 +147,6 @@ struct iproc_ts_priv {
 	struct platform_device *pdev;
 	struct input_dev *idev;
 
-	void __iomem *regs;
 	struct regmap *regmap;
 	struct clk *tsc_clk;
 
@@ -165,41 +168,6 @@ static const struct tsc_param iproc_default_config = {
 	.max_x            = X_MAX,
 	.max_y            = Y_MAX,
 };
-
-static int iproc_reg_update_bits(struct iproc_ts_priv *priv, u32 reg,
-			   u32 mask, u32 val)
-{
-	int ret = 0;
-	u32 tmp, orig;
-
-	if (priv->regs) {
-		orig = readl(priv->regs);
-		tmp = orig & ~mask;
-		tmp |= val & mask;
-		writel(tmp, priv->regs + reg);
-	} else
-		ret = regmap_update_bits(priv->regmap, reg, mask, val);
-	return ret;
-}
-
-static void iproc_reg_write(struct iproc_ts_priv *priv, u32 reg, u32 val)
-{
-	if (priv->regs)
-		writel(val, priv->regs + reg);
-	else
-		regmap_write(priv->regmap, reg, val);
-}
-
-static u32 iproc_reg_read(struct iproc_ts_priv *priv, u32 reg)
-{
-	u32 val;
-
-	if (priv->regs)
-		val = readl(priv->regs + reg);
-	else
-		regmap_read(priv->regmap, reg, &val);
-	return val;
-}
 
 static void ts_reg_dump(struct iproc_ts_priv *priv)
 {
@@ -234,16 +202,16 @@ static irqreturn_t iproc_touchscreen_interrupt(int irq, void *data)
 	int i;
 	bool needs_sync = false;
 
-	intr_status = iproc_reg_read(priv, INTERRUPT_STATUS);
-	intr_status &= (TS_PEN_INTR_MASK | TS_FIFO_INTR_MASK);
+	regmap_read(priv->regmap, INTERRUPT_STATUS, &intr_status);
+	intr_status &= TS_PEN_INTR_MASK | TS_FIFO_INTR_MASK;
 	if (intr_status == 0)
 		return IRQ_NONE;
 
 	/* Clear all interrupt status bits, write-1-clear */
-	iproc_reg_write(priv, INTERRUPT_STATUS, intr_status);
+	regmap_write(priv->regmap, INTERRUPT_STATUS, intr_status);
 	/* Pen up/down */
 	if (intr_status & TS_PEN_INTR_MASK) {
-		priv->pen_status = iproc_reg_read(priv, CONTROLLER_STATUS);
+		regmap_read(priv->regmap, CONTROLLER_STATUS, &priv->pen_status);
 		if (priv->pen_status & TS_PEN_DOWN)
 			priv->pen_status = PEN_DOWN_STATUS;
 		else
@@ -259,7 +227,7 @@ static irqreturn_t iproc_touchscreen_interrupt(int irq, void *data)
 	/* coordinates in FIFO exceed the theshold */
 	if (intr_status & TS_FIFO_INTR_MASK) {
 		for (i = 0; i < priv->cfg_params.fifo_threshold; i++) {
-			raw_coordinate = iproc_reg_read(priv, FIFO_DATA);
+			regmap_read(priv->regmap, FIFO_DATA, &raw_coordinate);
 			if (raw_coordinate == INVALID_COORD)
 				continue;
 
@@ -318,10 +286,10 @@ static int iproc_ts_start(struct input_dev *idev)
 	 *  FIFO reaches the int_th value, and pen event(up/down)
 	 */
 	val = TS_PEN_INTR_MASK | TS_FIFO_INTR_MASK;
-	iproc_reg_update_bits(priv, INTERRUPT_MASK, val, val);
+	regmap_update_bits(priv->regmap, INTERRUPT_MASK, val, val);
 
 	val = priv->cfg_params.fifo_threshold;
-	iproc_reg_write(priv, INTERRUPT_THRES, val);
+	regmap_write(priv->regmap, INTERRUPT_THRES, val);
 
 	/* Initialize control reg1 */
 	val = 0;
@@ -329,11 +297,11 @@ static int iproc_ts_start(struct input_dev *idev)
 	val |= priv->cfg_params.debounce_timeout << DEBOUNCE_TIMEOUT_SHIFT;
 	val |= priv->cfg_params.settling_timeout << SETTLING_TIMEOUT_SHIFT;
 	val |= priv->cfg_params.touch_timeout << TOUCH_TIMEOUT_SHIFT;
-	iproc_reg_write(priv, REGCTL1, val);
+	regmap_write(priv->regmap, REGCTL1, val);
 
 	/* Try to clear all interrupt status */
 	val = TS_FIFO_INTR_MASK | TS_PEN_INTR_MASK;
-	iproc_reg_update_bits(priv, INTERRUPT_STATUS, val, val);
+	regmap_update_bits(priv->regmap, INTERRUPT_STATUS, val, val);
 
 	/* Initialize control reg2 */
 	val = TS_CONTROLLER_EN_BIT | TS_WIRE_MODE_BIT;
@@ -345,7 +313,7 @@ static int iproc_ts_start(struct input_dev *idev)
 		   TS_CONTROLLER_PWR_BGP |	/* PWR up BGP */
 		   TS_CONTROLLER_PWR_TS);	/* PWR up TS */
 	mask |= val;
-	iproc_reg_update_bits(priv, REGCTL2, mask, val);
+	regmap_update_bits(priv->regmap, REGCTL2, mask, val);
 
 	ts_reg_dump(priv);
 
@@ -363,11 +331,11 @@ static void iproc_ts_stop(struct input_dev *dev)
 	 * flextimer.
 	 */
 	val = TS_PEN_INTR_MASK | TS_FIFO_INTR_MASK;
-	iproc_reg_update_bits(priv, INTERRUPT_MASK, val, 0);
+	regmap_update_bits(priv->regmap, INTERRUPT_MASK, val, 0);
 
 	/* Only power down touch screen controller */
 	val = TS_CONTROLLER_PWR_TS;
-	iproc_reg_update_bits(priv, REGCTL2, val, val);
+	regmap_update_bits(priv->regmap, REGCTL2, val, val);
 
 	clk_disable(priv->tsc_clk);
 }
@@ -456,7 +424,6 @@ static int iproc_ts_probe(struct platform_device *pdev)
 {
 	struct iproc_ts_priv *priv;
 	struct input_dev *idev;
-	struct resource *res;
 	int irq;
 	int error;
 
@@ -464,27 +431,13 @@ static int iproc_ts_probe(struct platform_device *pdev)
 	if (!priv)
 		return -ENOMEM;
 
-	/* touchscreen controller memory mapped regs if provided */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res) {
-		priv->regs = devm_ioremap_resource(&pdev->dev, res);
-		if (IS_ERR(priv->regs)) {
-			error = PTR_ERR(priv->regs);
-			dev_err(&pdev->dev, "unable to map I/O memory:%d\n",
-				error);
-			return error;
-		}
-	} else {
-		/* touchscreen controller memory mapped regs */
-		priv->regmap = syscon_regmap_lookup_by_phandle(
-							pdev->dev.of_node,
+	/* touchscreen controller memory mapped regs via syscon*/
+	priv->regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
 							"ts_syscon");
-		if (IS_ERR(priv->regmap)) {
-			error = PTR_ERR(priv->regs);
-			dev_err(&pdev->dev, "unable to map I/O memory:%d\n",
-				error);
-			return error;
-		}
+	if (IS_ERR(priv->regmap)) {
+		error = PTR_ERR(priv->regmap);
+		dev_err(&pdev->dev, "unable to map I/O memory:%d\n", error);
+		return error;
 	}
 
 	priv->tsc_clk = devm_clk_get(&pdev->dev, "tsc_clk");

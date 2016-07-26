@@ -355,7 +355,7 @@ static struct pinctrl_ops nsp_pinctrl_ops = {
 	.get_group_pins = nsp_get_group_pins,
 	.pin_dbg_show = nsp_pin_dbg_show,
 	.dt_node_to_map = pinconf_generic_dt_node_to_map_group,
-	.dt_free_map = pinctrl_utils_dt_free_map,
+	.dt_free_map = pinctrl_utils_free_map,
 };
 
 static int nsp_get_functions_count(struct pinctrl_dev *pctrl_dev)

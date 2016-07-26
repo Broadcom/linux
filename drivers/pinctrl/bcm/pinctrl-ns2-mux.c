@@ -1,4 +1,4 @@
-/* Copyright (C) 2015 Broadcom Corporation
+/* Copyright (C) 2016 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -14,10 +14,8 @@
  * corresponding mfio pin group is selected as gpio.
  */
 
-
 #include <linux/err.h>
 #include <linux/io.h>
-#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinconf-generic.h>
@@ -86,8 +84,8 @@ struct ns2_mux_log {
  */
 struct ns2_pin_group {
 	const char *name;
-	const unsigned *pins;
-	const unsigned num_pins;
+	const unsigned int *pins;
+	const unsigned int num_pins;
 	const struct ns2_mux mux;
 };
 
@@ -101,7 +99,7 @@ struct ns2_pin_group {
 struct ns2_pin_function {
 	const char *name;
 	const char * const *groups;
-	const unsigned num_groups;
+	const unsigned int num_groups;
 };
 
 /*
@@ -127,10 +125,10 @@ struct ns2_pinctrl {
 	void __iomem *pinconf_base;
 
 	const struct ns2_pin_group *groups;
-	unsigned num_groups;
+	unsigned int num_groups;
 
 	const struct ns2_pin_function *functions;
-	unsigned num_functions;
+	unsigned int num_functions;
 
 	struct ns2_mux_log *mux_log;
 
@@ -164,7 +162,7 @@ struct ns2_pinconf {
  * @pin_conf: pin configuration structure
  */
 struct ns2_pin {
-	unsigned pin;
+	unsigned int pin;
 	char *name;
 	struct ns2_pinconf pin_conf;
 };
@@ -312,64 +310,64 @@ static struct ns2_pin ns2_pins[] = {
  * List of groups of pins
  */
 
-static const unsigned nand_pins[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+static const unsigned int nand_pins[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 	11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23};
-static const unsigned nor_data_pins[] =  {0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-	10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23};
+static const unsigned int nor_data_pins[] =  {0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+	10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25};
 
-static const unsigned gpio_0_1_pins[] = {24, 25};
-static const unsigned pwm_0_pins[] = {24};
-static const unsigned pwm_1_pins[] = {25};
+static const unsigned int gpio_0_1_pins[] = {24, 25};
+static const unsigned int pwm_0_pins[] = {24};
+static const unsigned int pwm_1_pins[] = {25};
 
-static const unsigned uart1_ext_clk_pins[] = {26};
-static const unsigned nor_adv_pins[] = {26};
+static const unsigned int uart1_ext_clk_pins[] = {26};
+static const unsigned int nor_adv_pins[] = {26};
 
-static const unsigned gpio_2_5_pins[] = {27, 28, 29, 30};
-static const unsigned pcie_ab1_clk_wak_pins[] = {27, 28, 29, 30};
-static const unsigned nor_addr_0_3_pins[] = {27, 28, 29, 30};
-static const unsigned pwm_2_pins[] = {27};
-static const unsigned pwm_3_pins[] = {28};
+static const unsigned int gpio_2_5_pins[] = {27, 28, 29, 30};
+static const unsigned int pcie_ab1_clk_wak_pins[] = {27, 28, 29, 30};
+static const unsigned int nor_addr_0_3_pins[] = {27, 28, 29, 30};
+static const unsigned int pwm_2_pins[] = {27};
+static const unsigned int pwm_3_pins[] = {28};
 
-static const unsigned gpio_6_7_pins[] = {31, 32};
-static const unsigned pcie_a3_clk_wak_pins[] = {31, 32};
-static const unsigned nor_addr_4_5_pins[] = {31, 32};
+static const unsigned int gpio_6_7_pins[] = {31, 32};
+static const unsigned int pcie_a3_clk_wak_pins[] = {31, 32};
+static const unsigned int nor_addr_4_5_pins[] = {31, 32};
 
-static const unsigned gpio_8_9_pins[] = {33, 34};
-static const unsigned pcie_b3_clk_wak_pins[] = {33, 34};
-static const unsigned nor_addr_6_7_pins[] = {33, 34};
+static const unsigned int gpio_8_9_pins[] = {33, 34};
+static const unsigned int pcie_b3_clk_wak_pins[] = {33, 34};
+static const unsigned int nor_addr_6_7_pins[] = {33, 34};
 
-static const unsigned gpio_10_11_pins[] = {35, 36};
-static const unsigned pcie_b2_clk_wak_pins[] = {35, 36};
-static const unsigned nor_addr_8_9_pins[] = {35, 36};
+static const unsigned int gpio_10_11_pins[] = {35, 36};
+static const unsigned int pcie_b2_clk_wak_pins[] = {35, 36};
+static const unsigned int nor_addr_8_9_pins[] = {35, 36};
 
-static const unsigned gpio_12_13_pins[] = {37, 38};
-static const unsigned pcie_a2_clk_wak_pins[] = {37, 38};
-static const unsigned nor_addr_10_11_pins[] = {37, 38};
+static const unsigned int gpio_12_13_pins[] = {37, 38};
+static const unsigned int pcie_a2_clk_wak_pins[] = {37, 38};
+static const unsigned int nor_addr_10_11_pins[] = {37, 38};
 
-static const unsigned gpio_14_17_pins[] = {39, 40, 41, 42};
-static const unsigned uart0_modem_pins[] = {39, 40, 41, 42};
-static const unsigned nor_addr_12_15_pins[] = {39, 40, 41, 42};
+static const unsigned int gpio_14_17_pins[] = {39, 40, 41, 42};
+static const unsigned int uart0_modem_pins[] = {39, 40, 41, 42};
+static const unsigned int nor_addr_12_15_pins[] = {39, 40, 41, 42};
 
-static const unsigned gpio_18_19_pins[] = {43, 44};
-static const unsigned uart0_rts_cts_pins[] = {43, 44};
+static const unsigned int gpio_18_19_pins[] = {43, 44};
+static const unsigned int uart0_rts_cts_pins[] = {43, 44};
 
-static const unsigned gpio_20_21_pins[] = {45, 46};
-static const unsigned uart0_in_out_pins[] = {45, 46};
+static const unsigned int gpio_20_21_pins[] = {45, 46};
+static const unsigned int uart0_in_out_pins[] = {45, 46};
 
-static const unsigned gpio_22_23_pins[] = {47, 48};
-static const unsigned uart1_dcd_dsr_pins[] = {47, 48};
+static const unsigned int gpio_22_23_pins[] = {47, 48};
+static const unsigned int uart1_dcd_dsr_pins[] = {47, 48};
 
-static const unsigned gpio_24_25_pins[] = {49, 50};
-static const unsigned uart1_ri_dtr_pins[] = {49, 50};
+static const unsigned int gpio_24_25_pins[] = {49, 50};
+static const unsigned int uart1_ri_dtr_pins[] = {49, 50};
 
-static const unsigned gpio_26_27_pins[] = {51, 52};
-static const unsigned uart1_rts_cts_pins[] = {51, 52};
+static const unsigned int gpio_26_27_pins[] = {51, 52};
+static const unsigned int uart1_rts_cts_pins[] = {51, 52};
 
-static const unsigned gpio_28_29_pins[] = {53, 54};
-static const unsigned uart1_in_out_pins[] = {53, 54};
+static const unsigned int gpio_28_29_pins[] = {53, 54};
+static const unsigned int uart1_in_out_pins[] = {53, 54};
 
-static const unsigned gpio_30_31_pins[] = {55, 56};
-static const unsigned uart2_rts_cts_pins[] = {55, 56};
+static const unsigned int gpio_30_31_pins[] = {55, 56};
+static const unsigned int uart2_rts_cts_pins[] = {55, 56};
 
 #define NS2_PIN_GROUP(group_name, ba, off, sh, ma, al)	\
 {							\
@@ -508,7 +506,7 @@ static int ns2_get_groups_count(struct pinctrl_dev *pctrl_dev)
 }
 
 static const char *ns2_get_group_name(struct pinctrl_dev *pctrl_dev,
-				      unsigned selector)
+				      unsigned int selector)
 {
 	struct ns2_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 
@@ -516,8 +514,8 @@ static const char *ns2_get_group_name(struct pinctrl_dev *pctrl_dev,
 }
 
 static int ns2_get_group_pins(struct pinctrl_dev *pctrl_dev,
-			      unsigned selector, const unsigned **pins,
-			      unsigned *num_pins)
+			      unsigned int selector, const unsigned int **pins,
+			      unsigned int *num_pins)
 {
 	struct ns2_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 
@@ -528,7 +526,7 @@ static int ns2_get_group_pins(struct pinctrl_dev *pctrl_dev,
 }
 
 static void ns2_pin_dbg_show(struct pinctrl_dev *pctrl_dev,
-			     struct seq_file *s, unsigned offset)
+			     struct seq_file *s, unsigned int offset)
 {
 	seq_printf(s, " %s", dev_name(pctrl_dev->dev));
 }
@@ -539,7 +537,7 @@ static struct pinctrl_ops ns2_pinctrl_ops = {
 	.get_group_pins = ns2_get_group_pins,
 	.pin_dbg_show = ns2_pin_dbg_show,
 	.dt_node_to_map = pinconf_generic_dt_node_to_map_pin,
-	.dt_free_map = pinctrl_utils_dt_free_map,
+	.dt_free_map = pinctrl_utils_free_map,
 };
 
 static int ns2_get_functions_count(struct pinctrl_dev *pctrl_dev)
@@ -550,7 +548,7 @@ static int ns2_get_functions_count(struct pinctrl_dev *pctrl_dev)
 }
 
 static const char *ns2_get_function_name(struct pinctrl_dev *pctrl_dev,
-					 unsigned selector)
+					 unsigned int selector)
 {
 	struct ns2_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 
@@ -558,9 +556,9 @@ static const char *ns2_get_function_name(struct pinctrl_dev *pctrl_dev,
 }
 
 static int ns2_get_function_groups(struct pinctrl_dev *pctrl_dev,
-				   unsigned selector,
+				   unsigned int selector,
 				   const char * const **groups,
-				   unsigned * const num_groups)
+				   unsigned int * const num_groups)
 {
 	struct ns2_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 
@@ -636,7 +634,7 @@ static int ns2_pinmux_set(struct ns2_pinctrl *pinctrl,
 }
 
 static int ns2_pinmux_enable(struct pinctrl_dev *pctrl_dev,
-			     unsigned func_select, unsigned grp_select)
+			     unsigned int func_select, unsigned int grp_select)
 {
 	struct ns2_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 	const struct ns2_pin_function *func;
@@ -840,7 +838,7 @@ static int ns2_pin_get_strength(struct pinctrl_dev *pctrldev, unsigned int pin,
 	return 0;
 }
 
-static int ns2_pin_config_get(struct pinctrl_dev *pctldev, unsigned pin,
+static int ns2_pin_config_get(struct pinctrl_dev *pctldev, unsigned int pin,
 			      unsigned long *config)
 {
 	struct ns2_pin *pin_data = pctldev->desc->pins[pin].drv_data;
@@ -900,8 +898,8 @@ static int ns2_pin_config_get(struct pinctrl_dev *pctldev, unsigned pin,
 	}
 }
 
-static int ns2_pin_config_set(struct pinctrl_dev *pctrldev, unsigned pin,
-			      unsigned long *configs, unsigned num_configs)
+static int ns2_pin_config_set(struct pinctrl_dev *pctrldev, unsigned int pin,
+			      unsigned long *configs, unsigned int num_configs)
 {
 	struct ns2_pin *pin_data = pctrldev->desc->pins[pin].drv_data;
 	enum pin_config_param param;
@@ -1001,7 +999,8 @@ static int ns2_mux_log_init(struct ns2_pinctrl *pinctrl)
 	log->mux.shift = 31;
 	log->mux.alt = 0;
 
-	/* Groups 1 through 14 use two bits each in the
+	/*
+	 * Groups 1 through 14 use two bits each in the
 	 * IOMUX_PAD_FUNCTION_1 register starting with
 	 * bit position 30.
 	 */
@@ -1013,7 +1012,8 @@ static int ns2_mux_log_init(struct ns2_pinctrl *pinctrl)
 		log->mux.alt = 0;
 	}
 
-	/* Groups 15 through 18 use one bit each in the
+	/*
+	 * Groups 15 through 18 use one bit each in the
 	 * AUX_SEL register.
 	 */
 	for (i = 0; i < NS2_NUM_PWM_MUX; i++) {
@@ -1032,7 +1032,7 @@ static int ns2_pinmux_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i, ret;
 	struct pinctrl_pin_desc *pins;
-	unsigned num_pins = ARRAY_SIZE(ns2_pins);
+	unsigned int num_pins = ARRAY_SIZE(ns2_pins);
 
 	pinctrl = devm_kzalloc(&pdev->dev, sizeof(*pinctrl), GFP_KERNEL);
 	if (!pinctrl)
@@ -1115,6 +1115,3 @@ static int __init ns2_pinmux_init(void)
 	return platform_driver_register(&ns2_pinmux_driver);
 }
 arch_initcall(ns2_pinmux_init);
-
-MODULE_DESCRIPTION("Broadcom Northstar2 IOMUX driver");
-MODULE_LICENSE("GPL v2");
