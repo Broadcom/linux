@@ -936,6 +936,7 @@ u32 spu2_create_request(u8 *spu_hdr,
 			aead_parms->aad_pad_len +
 			(req_opts->dtls_aead ? 0 : aead_parms->iv_len);
 
+#ifdef DEBUG
 	/* total size of the data following OMD (without STAT word padding) */
 	unsigned int real_db_size = spu_real_db_size(aead_parms->assoc_size,
 						 aead_parms->iv_len,
@@ -944,9 +945,7 @@ u32 spu2_create_request(u8 *spu_hdr,
 						 aead_parms->aad_pad_len,
 						 aead_parms->gcm_pad_len,
 						 hash_parms->pad_len);
-
-	/* size/offset of the auth payload */
-	unsigned int auth_len = real_db_size;
+#endif
 
 	if (req_opts->is_aead &&
 	    (cipher_parms->alg == CIPHER_ALG_AES) &&
@@ -981,8 +980,8 @@ u32 spu2_create_request(u8 *spu_hdr,
 	flow_log("  dtls_aead:%u hash_pad_len:%u\n",
 		 req_opts->dtls_aead, hash_parms->pad_len);
 	flow_log("  real_db_size:%u\n", real_db_size);
-	flow_log("  auth_len:%u cipher_offset:%u payload_len:%u\n",
-		 auth_len, cipher_offset, payload_len);
+	flow_log("  cipher_offset:%u payload_len:%u\n",
+		 cipher_offset, payload_len);
 	flow_log("  hmac_offset:%u\n", hash_parms->hmac_offset);
 	flow_log("  aead_iv: %u\n", aead_parms->iv_len);
 
