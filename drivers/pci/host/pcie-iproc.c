@@ -73,32 +73,62 @@
 #define MAX_NUM_OB_WINDOWS           2
 #define MAX_NUM_PAXC_PF              4
 
-#define IB_IMAP_VALID                0x1
-#define IB_IMAP_MAX                  8
-
-#define IARR_0_WINDOW_MASK           0xfffff000
-#define IARR_SIZE_CFG_SHIFT          0
-#define IARR_SIZE_CFG                BIT(IARR_SIZE_CFG_SHIFT)
 
 #define IPROC_PCIE_REG_INVALID       0xffff
 
 #define PAXB_OARR_OFFSET             0x8
 #define PAXB_OARR_V2_OFFSET          0x90
-#define PAXB_IARR_V2_OFFSET          0x68
-#define PAXB_IARR3_OFFSET            0xf0
-#define PAXB_IMAP3_OFFSET            0x148
-#define PAXB_IARR_V2_OFFSET          0x68
-/*
- * get the offset to IMAP_LO and IMAP_HI
- * applicable to only IMAP_3 and IMAP_4.
- */
-#define PAXB_IMAP_LO_OFFSET(window, which_imap) \
-	(PAXB_IMAP3_OFFSET + ((window - 1) * \
-	PAXB_IARR_V2_OFFSET) + (which_imap * IB_IMAP_MAX))
 
-#define PAXB_IMAP_HI_OFFSET(window, which_imap) \
-	(PAXB_IMAP3_OFFSET + ((window - 1) * \
-	 PAXB_IARR_V2_OFFSET) + (which_imap * IB_IMAP_MAX) + 4)
+/* inbound memory. */
+#define MAX_IARR_WINDOWS             3
+#define IB_SENTINEL_SZ               0xffff
+#define IB_IMAP_VALID                0x1
+#define IB_IMAP_MAX                  8
+
+#define IB_WINDOW_OFFSET             8
+#define IB_HI_OFFSET                 4
+
+/* gic-itsv3 mapping. */
+#define IARR_0_WINDOW_MASK           0xfffff000
+#define IARR_SIZE_CFG_SHIFT          0
+#define IARR_SIZE_CFG                BIT(IARR_SIZE_CFG_SHIFT)
+
+
+const struct paxb_ib_map paxb_v2_ib_map[] = {
+	/* IARR_2. */
+	{
+		.iarr_size = {0, 64, 128, 256, 512, 1024,
+				2048, 4096, 8192, 16384,
+				IB_SENTINEL_SZ},
+		.axi_mask = 0x80000000,
+		.divider = 64,
+		.wmask = 0xfc000000,
+		.iarr_offset = 0xd10,
+		.imap_offset = 0xcc0,
+	},
+	/* IARR_3. */
+	{
+		.iarr_size = {0, 1, 2, 4, 8, 16, 32,
+				IB_SENTINEL_SZ, 0, 0, 0},
+		.axi_mask = 0x800000000,
+		.divider = 1,
+		.wmask = 0xf8000000,
+		.iarr_offset = 0xe00,
+		.imap_offset = 0xe08,
+	},
+	/* IARR_4. */
+	{
+		.iarr_size = {0, 32, 64, 128, 256, 512,
+				IB_SENTINEL_SZ, 0, 0, 0, 0},
+		.axi_mask = 0x8000000000,
+		.divider = 32,
+		.wmask = 0x0,
+		.iarr_offset = 0xe68,
+		.imap_offset = 0xe70,
+	}
+};
+
+
 /*
  * iProc PCIe host registers
  */
@@ -155,12 +185,6 @@ enum iproc_pcie_reg {
 	IPROC_PCIE_IMAP0_LO,
 	IPROC_PCIE_IMAP0_HI,
 
-	/* inbound address mapping */
-	IPROC_PCIE_IARR_LO,
-	IPROC_PCIE_IARR_HI,
-	IPROC_PCIE_IMAP_LO,
-	IPROC_PCIE_IMAP_HI,
-
 	/* link status. Only available in PAXB */
 	IPROC_PCIE_LINK_STATUS,
 };
@@ -187,10 +211,6 @@ static const u16 iproc_pcie_reg_paxb[] = {
 	[IPROC_PCIE_IARR0_HI]         = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IMAP0_LO]         = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IMAP0_HI]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IARR_LO]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IARR_HI]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP_LO]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_LINK_STATUS]      = 0xf0c,
 };
 
@@ -216,10 +236,6 @@ static const u16 iproc_pcie_reg_paxb_v2[] = {
 	[IPROC_PCIE_IARR0_HI]         = 0xd04,
 	[IPROC_PCIE_IMAP0_LO]         = 0xc00,
 	[IPROC_PCIE_IMAP0_HI]         = 0xc04,
-	[IPROC_PCIE_IARR_LO]          = 0xd10,
-	[IPROC_PCIE_IARR_HI]          = 0xd14,
-	[IPROC_PCIE_IMAP_LO]          = 0xcc0,
-	[IPROC_PCIE_IMAP_HI]          = 0xcc4,
 	[IPROC_PCIE_LINK_STATUS]      = 0xf0c,
 };
 
@@ -245,10 +261,6 @@ static const u16 iproc_pcie_reg_paxc[] = {
 	[IPROC_PCIE_IARR0_HI]         = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IMAP0_LO]         = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IMAP0_HI]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IARR_LO]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IARR_HI]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP_LO]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_LINK_STATUS]      = IPROC_PCIE_REG_INVALID,
 };
 
@@ -274,10 +286,6 @@ static const u16 iproc_pcie_reg_paxc_v2[] = {
 	[IPROC_PCIE_IARR0_HI]         = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IMAP0_LO]         = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_IMAP0_HI]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IARR_LO]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IARR_HI]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP_LO]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP_HI]          = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_LINK_STATUS]      = IPROC_PCIE_REG_INVALID,
 };
 
@@ -587,18 +595,13 @@ static int iproc_pcie_setup_ob(struct iproc_pcie *pcie, u64 axi_addr,
  * @wmask: window mask for particular iarr
  */
 static inline void iproc_pcie_ib_write_imapx(struct iproc_pcie *pcie,
-				enum iproc_pcie_reg reg,
-				unsigned int window,
+				u16 offset, unsigned int window,
 				unsigned long size,
 				resource_size_t axi_addr,
 				unsigned int wmask)
 {
 	int imap;
-	unsigned int val;
-	u16 offset = iproc_pcie_reg_offset(pcie, reg);
-
-	if (iproc_pcie_reg_is_invalid(offset))
-		return;
+	u32 val;
 
 	if (window == 0) {
 		/* IARR_2 does not have windows. */
@@ -606,56 +609,44 @@ static inline void iproc_pcie_ib_write_imapx(struct iproc_pcie *pcie,
 		val |= (lower_32_bits(axi_addr) & wmask) | IB_IMAP_VALID;
 		writel(val, pcie->base + offset);
 		val = upper_32_bits(axi_addr);
-		writel(val, pcie->base + offset + 4);
+		writel(val, pcie->base + offset + IB_HI_OFFSET);
 		return;
 	}
 	size = size / IB_IMAP_MAX;
 	for (imap = 0; imap < IB_IMAP_MAX; imap++) {
-		val = readl(pcie->base + offset +
-			PAXB_IMAP_LO_OFFSET(window, imap));
+		offset += imap * IB_WINDOW_OFFSET;
+		val = readl(pcie->base + offset);
 		val |= (lower_32_bits(axi_addr) & wmask) | IB_IMAP_VALID;
-		writel(val, pcie->base + offset +
-			PAXB_IMAP_LO_OFFSET(window, imap));
+		writel(val, pcie->base + offset);
+
 		val = upper_32_bits(axi_addr);
-		writel(val, pcie->base + offset +
-			PAXB_IMAP_HI_OFFSET(window, imap));
+		writel(val, pcie->base + offset + IB_HI_OFFSET);
+
 		axi_addr += size;
 	}
-}
-
-static inline void iproc_pcie_ib_write(struct iproc_pcie *pcie,
-				       enum iproc_pcie_reg reg,
-				       unsigned int window,
-				       u32 val)
-{
-	u16 offset = iproc_pcie_reg_offset(pcie, reg);
-
-	if (iproc_pcie_reg_is_invalid(offset))
-		return;
-
-	if (window == 0)
-		writel(val, pcie->base + offset);
-	else
-		writel(val, pcie->base + offset + PAXB_IARR3_OFFSET +
-			((window - 1) * PAXB_IARR_V2_OFFSET));
 }
 
 static int iproc_pcie_map_ib_ranges(struct iproc_pcie *pcie)
 {
 	int iarr;
+	u32 val;
 
 	for (iarr = 0; iarr < pcie->num_of_ib; iarr++) {
-		iproc_pcie_ib_write(pcie, IPROC_PCIE_IARR_LO, iarr,
-				(lower_32_bits(pcie->ib[iarr].pci_addr) &
-				pcie->ib[iarr].wmask) |
-				(pcie->ib[iarr].iarr_size_bits <<
-				IARR_SIZE_CFG_SHIFT));
-		iproc_pcie_ib_write(pcie, IPROC_PCIE_IARR_HI, iarr,
-					upper_32_bits(pcie->ib[iarr].pci_addr));
-		iproc_pcie_ib_write_imapx(pcie, IPROC_PCIE_IMAP_LO, iarr,
-					pcie->ib[iarr].window_size,
-					pcie->ib[iarr].axi_addr,
-					pcie->ib[iarr].wmask);
+		val = (lower_32_bits(pcie->ib[iarr].pci_addr) &
+			pcie->ib[iarr].wmask) |
+			(pcie->ib[iarr].iarr_size_bits <<
+			IARR_SIZE_CFG_SHIFT);
+		writel(val, pcie->base + paxb_v2_ib_map[iarr].iarr_offset);
+
+		val = upper_32_bits(pcie->ib[iarr].pci_addr);
+		writel(val, pcie->base +
+			paxb_v2_ib_map[iarr].iarr_offset + IB_HI_OFFSET);
+
+		iproc_pcie_ib_write_imapx(pcie,
+				paxb_v2_ib_map[iarr].imap_offset,
+				iarr, pcie->ib[iarr].window_size,
+				pcie->ib[iarr].axi_addr,
+				pcie->ib[iarr].wmask);
 	}
 	return 0;
 }
@@ -855,6 +846,29 @@ static void iproc_pcie_msi_disable(struct iproc_pcie *pcie)
 {
 	iproc_msi_exit(pcie);
 }
+
+int iproc_pcie_setup_ib_map(struct iproc_pcie *pcie)
+{
+	int ret;
+
+	switch (pcie->type) {
+	case IPROC_PCIE_PAXB:
+	case IPROC_PCIE_PAXC:
+	case IPROC_PCIE_PAXC_V2:
+		pcie->ib_map = NULL;
+		break;
+	case IPROC_PCIE_PAXB_V2:
+		pcie->ib_map = paxb_v2_ib_map;
+		break;
+	default:
+		dev_err(pcie->dev, "incompatible iProc PCIe interface\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(iproc_pcie_setup_ib_map);
 
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 {

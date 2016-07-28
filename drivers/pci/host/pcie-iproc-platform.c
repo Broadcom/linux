@@ -26,53 +26,11 @@
 
 #include "pcie-iproc.h"
 
-#define MAX_IARR_WINDOWS    3
-#define IB_SENTINEL_SZ      0xffff
-#define IARR2_INDEX         0
-#define IARR3_INDEX         1
-#define IARR4_INDEX         2
-
-/**
- * iProc PCIe inbound reg config
- * @iarr_size: supported iarr sizes
- * @axi_mask: axi mask based on which iarrs are selected.
- * @divider: size divider
- * @wmask: window mask
- */
-struct paxb_ib_map {
-	unsigned int iarr_size[11];
-	resource_size_t axi_mask;
-	unsigned int divider;
-	unsigned int wmask;
-};
-
-const struct paxb_ib_map paxb_v2_ib_map[] = {
-	/* IARR_2. */
-	{
-		.iarr_size = {0, 64, 128, 256, 512, 1024,
-				2048, 4096, 8192, 16384,
-				IB_SENTINEL_SZ},
-		.axi_mask = 0x80000000,
-		.divider = 64,
-		.wmask = 0xfc000000,
-	},
-	/* IARR_3. */
-	{
-		.iarr_size = {0, 1, 2, 4, 8, 16, 32,
-				IB_SENTINEL_SZ, 0, 0, 0},
-		.axi_mask = 0x800000000,
-		.divider = 1,
-		.wmask = 0xf8000000,
-	},
-	/* IARR_4. */
-	{
-		.iarr_size = {0, 32, 64, 128, 256, 512,
-				IB_SENTINEL_SZ, 0, 0, 0, 0},
-		.axi_mask = 0x8000000000,
-		.divider = 32,
-		.wmask = 0x0,
-	}
-};
+#define IARR2_INDEX                  0
+#define IARR3_INDEX                  1
+#define IARR4_INDEX                  2
+#define MAX_IARR_WINDOWS             3
+#define IB_SENTINEL_SZ               0xffff
 
 static const struct of_device_id iproc_pcie_of_match_table[] = {
 	{
@@ -115,7 +73,7 @@ static int iproc_pci_parse_map_dma_ranges(struct iproc_pcie *pcie,
 {
 	struct of_pci_range range;
 	struct of_pci_range_parser parser;
-	int iarr, index = 0, rc;
+	int iarr, index = 0, rc, ret;
 	const unsigned int *p_iarr_sz = NULL;
 	unsigned long wsize_gb, wsize_mb;
 
@@ -123,6 +81,12 @@ static int iproc_pci_parse_map_dma_ranges(struct iproc_pcie *pcie,
 	rc = pci_dma_range_parser_init(&parser, np);
 	if (rc)
 		return rc;
+
+	ret = iproc_pcie_setup_ib_map(pcie);
+	if (ret < 0) {
+		dev_err(pcie->dev, "could not find ib map\n");
+		return -EINVAL;
+	}
 
 	pcie->ib = devm_kzalloc(pcie->dev, sizeof(struct iproc_pcie_ib) *
 			MAX_IARR_WINDOWS, GFP_KERNEL);
@@ -155,21 +119,21 @@ static int iproc_pci_parse_map_dma_ranges(struct iproc_pcie *pcie,
 		wsize_gb = range.size / (unsigned int) (SZ_1G);
 
 		if ((range.cpu_addr &
-			paxb_v2_ib_map[IARR4_INDEX].axi_mask) &&
+			pcie->ib_map[IARR4_INDEX].axi_mask) &&
 			(IS_ALIGNED(range.size,
-			(paxb_v2_ib_map[IARR3_INDEX].iarr_size[1] * SZ_1G)))) {
+			(pcie->ib_map[IARR3_INDEX].iarr_size[1] * SZ_1G)))) {
 			iarr = 2;
 			range.size = wsize_gb;
 		} else if ((range.cpu_addr &
-			paxb_v2_ib_map[IARR3_INDEX].axi_mask) &&
+			pcie->ib_map[IARR3_INDEX].axi_mask) &&
 			(IS_ALIGNED(range.size,
-			(paxb_v2_ib_map[IARR3_INDEX].iarr_size[1] * SZ_1G)))) {
+			(pcie->ib_map[IARR3_INDEX].iarr_size[1] * SZ_1G)))) {
 			iarr = 1;
 			range.size = wsize_gb;
 		} else if ((range.cpu_addr &
-			paxb_v2_ib_map[IARR2_INDEX].axi_mask) &&
+			pcie->ib_map[IARR2_INDEX].axi_mask) &&
 			(IS_ALIGNED(range.size,
-			(paxb_v2_ib_map[IARR2_INDEX].iarr_size[1] * SZ_1M)))) {
+			(pcie->ib_map[IARR2_INDEX].iarr_size[1] * SZ_1M)))) {
 			iarr = 0;
 			range.size = wsize_mb;
 		} else {
@@ -180,14 +144,14 @@ static int iproc_pci_parse_map_dma_ranges(struct iproc_pcie *pcie,
 		pcie->ib[iarr].axi_addr = (unsigned long)range.cpu_addr;
 		pcie->ib[iarr].pci_addr = (unsigned long)range.pci_addr;
 		pcie->ib[iarr].window_size = (unsigned long)range.size;
-		pcie->ib[iarr].wmask = paxb_v2_ib_map[iarr].wmask;
-		p_iarr_sz = &paxb_v2_ib_map[iarr].iarr_size[0];
+		pcie->ib[iarr].wmask = pcie->ib_map[iarr].wmask;
+		p_iarr_sz = &pcie->ib_map[iarr].iarr_size[0];
 
 		while (*p_iarr_sz != IB_SENTINEL_SZ) {
 			if ((pcie->ib[iarr].window_size > *p_iarr_sz) &&
 			pcie->ib[iarr].window_size <= *(p_iarr_sz + 1)) {
 				pcie->ib[iarr].iarr_size_bits =
-				*(p_iarr_sz + 1) / paxb_v2_ib_map[iarr].divider;
+				*(p_iarr_sz + 1) / pcie->ib_map[iarr].divider;
 				pcie->ib[iarr].window_size = (iarr == 0) ?
 					(resource_size_t)
 					(p_iarr_sz + 1) * SZ_1M

@@ -15,6 +15,23 @@
 #define _PCIE_IPROC_H
 
 /**
+ * iProc PCIe inbound reg config
+ * @iarr_size: supported iarr sizes
+ * @axi_mask: axi mask based on which iarrs are selected.
+ * @divider: size divider
+ * @wmask: window mask
+ */
+struct paxb_ib_map {
+#define NR_IAAR_SIZES 11
+	unsigned int iarr_size[NR_IAAR_SIZES];
+	resource_size_t axi_mask;
+	unsigned int divider;
+	unsigned int wmask;
+	u16 iarr_offset;
+	u16 imap_offset;
+};
+
+/**
  * iProc PCIe interface type
  *
  * PAXB is the wrapper used in root complex that can be connected to an
@@ -85,6 +102,7 @@ struct iproc_msi;
  * @ob: outbound mapping parameters
  * @ib: inbound mapping parameters
  * @num_of_ib: number of inbound windows
+ * @ib_map: inbound register map
  * @msi: MSI data
  */
 struct iproc_pcie {
@@ -106,9 +124,11 @@ struct iproc_pcie {
 	struct iproc_pcie_ob ob;
 	struct iproc_pcie_ib *ib;
 	unsigned int num_of_ib;
+	const struct paxb_ib_map *ib_map;
 	struct iproc_msi *msi;
 };
 
+int iproc_pcie_setup_ib_map(struct iproc_pcie *pcie);
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res);
 int iproc_pcie_remove(struct iproc_pcie *pcie);
 
