@@ -117,3 +117,11 @@
 		};
 	};
 };
+
+&sata_phy0 {
+	compatible = "brcm,stingray-sata-phy-prbs";
+};
+
+&sata0_phy0 {
+	status = "okay";
+};
