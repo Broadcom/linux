@@ -149,8 +149,11 @@ static int m25p80_read(struct spi_nor *nor, loff_t from, size_t len,
 		msg.data_nbits = m25p80_rx_nbits(nor);
 
 		ret = spi_flash_read(spi, &msg);
-		*retlen = msg.retlen;
-		return ret;
+		/* some drivers might need to fallback to spi transfer */
+		if (ret != -EAGAIN) {
+			*retlen = msg.retlen;
+			return ret;
+		}
 	}
 
 	spi_message_init(&m);
