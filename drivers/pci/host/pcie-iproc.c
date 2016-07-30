@@ -94,7 +94,7 @@
 #define IARR_SIZE_CFG                BIT(IARR_SIZE_CFG_SHIFT)
 
 
-const struct paxb_ib_map paxb_v2_ib_map[] = {
+static const struct paxb_ib_map paxb_v2_ib_map[] = {
 	/* IARR_2. */
 	{
 		.iarr_size = {0, 64, 128, 256, 512, 1024,
@@ -849,13 +849,14 @@ static void iproc_pcie_msi_disable(struct iproc_pcie *pcie)
 
 int iproc_pcie_setup_ib_map(struct iproc_pcie *pcie)
 {
-	int ret;
+	int ret = 0;
 
 	switch (pcie->type) {
 	case IPROC_PCIE_PAXB:
 	case IPROC_PCIE_PAXC:
 	case IPROC_PCIE_PAXC_V2:
 		pcie->ib_map = NULL;
+		ret = -EINVAL;
 		break;
 	case IPROC_PCIE_PAXB_V2:
 		pcie->ib_map = paxb_v2_ib_map;
@@ -863,10 +864,9 @@ int iproc_pcie_setup_ib_map(struct iproc_pcie *pcie)
 	default:
 		dev_err(pcie->dev, "incompatible iProc PCIe interface\n");
 		ret = -EINVAL;
-		return ret;
 	}
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(iproc_pcie_setup_ib_map);
 
