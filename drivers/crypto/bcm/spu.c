@@ -350,11 +350,8 @@ u32 spum_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
 	u32 buflen = 0;
 	u32 pad;
 
-	if ((assoc_len || !dtls_hmac)) {
+	if ((assoc_len || !dtls_hmac))
 		buflen = assoc_len;
-		if ((cipher_mode != CIPHER_MODE_GCM) && !dtls_hmac)
-			buflen += iv_len;
-	}
 
 	if (cipher_mode == CIPHER_MODE_GCM) {
 		/* AAD needs to be padded in responses too */
@@ -372,12 +369,13 @@ u32 spum_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
  * @dtls_hmac:    true if the algorithm is DTLS with HMAC auth
  * @iv_ctr_len:   initialization vector length in bytes
  *
+ * In Linux ~4.2 and later, the assoc_data sg includes the IV. So no need
+ * to include the IV as a separate field in the SPU request msg.
+ *
  * Return: Length of AEAD IV in bytes
  */
 u8 spum_aead_ivlen(enum spu_cipher_mode cipher_mode, bool dtls_hmac, u16 iv_len)
 {
-	if ((cipher_mode != CIPHER_MODE_GCM) && !dtls_hmac)
-		return iv_len;
 	return 0;
 }
 

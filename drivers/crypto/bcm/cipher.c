@@ -1300,6 +1300,8 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 			aead_parms.ret_iv_len = GCM_ESP_IV_SIZE;
 			aead_parms.ret_iv_off = GCM_ESP_SALT_SIZE;
 		}
+	} else {
+		aead_parms.ret_iv_len = 0;
 	}
 
 	/* Count number of sg entries from the crypto API request that are to
@@ -3108,7 +3110,7 @@ static struct iproc_alg_s driver_algs[] = {
 					   .min_keysize = ARC4_MIN_KEY_SIZE,
 					   .max_keysize = ARC4_MAX_KEY_SIZE,
 					   .ivsize = 0,
-					   }
+					}
 			},
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_RC4,
@@ -3130,7 +3132,7 @@ static struct iproc_alg_s driver_algs[] = {
 					   .min_keysize = DES_KEY_SIZE,
 					   .max_keysize = DES_KEY_SIZE,
 					   .ivsize = DES_BLOCK_SIZE,
-					   }
+					}
 			},
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_DES,
@@ -3152,7 +3154,7 @@ static struct iproc_alg_s driver_algs[] = {
 					   .min_keysize = DES_KEY_SIZE,
 					   .max_keysize = DES_KEY_SIZE,
 					   .ivsize = DES_BLOCK_SIZE,
-					   }
+					}
 			},
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_DES,
@@ -3174,7 +3176,7 @@ static struct iproc_alg_s driver_algs[] = {
 					   .min_keysize = DES_KEY_SIZE,
 					   .max_keysize = DES_KEY_SIZE,
 					   .ivsize = 0,
-					   }
+					}
 			},
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_DES,
@@ -3196,7 +3198,7 @@ static struct iproc_alg_s driver_algs[] = {
 					   .min_keysize = DES3_EDE_KEY_SIZE,
 					   .max_keysize = DES3_EDE_KEY_SIZE,
 					   .ivsize = DES3_EDE_BLOCK_SIZE,
-					   }
+					}
 			},
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_3DES,
@@ -3218,7 +3220,7 @@ static struct iproc_alg_s driver_algs[] = {
 					   .min_keysize = DES3_EDE_KEY_SIZE,
 					   .max_keysize = DES3_EDE_KEY_SIZE,
 					   .ivsize = DES3_EDE_BLOCK_SIZE,
-					   }
+					}
 			},
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_3DES,
@@ -3240,7 +3242,7 @@ static struct iproc_alg_s driver_algs[] = {
 					   .min_keysize = DES3_EDE_KEY_SIZE,
 					   .max_keysize = DES3_EDE_KEY_SIZE,
 					   .ivsize = 0,
-					   }
+					}
 			},
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_3DES,
@@ -3262,7 +3264,7 @@ static struct iproc_alg_s driver_algs[] = {
 					   .min_keysize = AES_MIN_KEY_SIZE,
 					   .max_keysize = AES_MAX_KEY_SIZE,
 					   .ivsize = AES_BLOCK_SIZE,
-					   }
+					}
 			},
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_AES,
@@ -3284,7 +3286,7 @@ static struct iproc_alg_s driver_algs[] = {
 					   .min_keysize = AES_MIN_KEY_SIZE,
 					   .max_keysize = AES_MAX_KEY_SIZE,
 					   .ivsize = AES_BLOCK_SIZE,
-					   }
+					}
 			},
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_AES,
@@ -3306,7 +3308,7 @@ static struct iproc_alg_s driver_algs[] = {
 					   .min_keysize = AES_MIN_KEY_SIZE,
 					   .max_keysize = AES_MAX_KEY_SIZE,
 					   .ivsize = 0,
-					   }
+					}
 			},
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_AES,
@@ -3329,7 +3331,7 @@ static struct iproc_alg_s driver_algs[] = {
 					   .min_keysize = AES_MIN_KEY_SIZE,
 					   .max_keysize = AES_MAX_KEY_SIZE,
 					   .ivsize = AES_BLOCK_SIZE,
-					   }
+					}
 			},
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_AES,
@@ -3353,7 +3355,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_blocksize = MD5_BLOCK_WORDS * 4,
 				    .cra_flags = CRYPTO_ALG_TYPE_AHASH |
 					     CRYPTO_ALG_ASYNC,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3373,7 +3375,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "hmac(md5)",
 				    .cra_driver_name = "hmac-md5-iproc",
 				    .cra_blocksize = MD5_BLOCK_WORDS * 4,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3392,7 +3394,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "sha1",
 				    .cra_driver_name = "sha1-iproc",
 				    .cra_blocksize = SHA1_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3411,7 +3413,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "hmac(sha1)",
 				    .cra_driver_name = "hmac-sha1-iproc",
 				    .cra_blocksize = SHA1_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3430,7 +3432,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "sha224",
 				    .cra_driver_name = "sha224-iproc",
 				    .cra_blocksize = SHA224_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3449,7 +3451,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "hmac(sha224)",
 				    .cra_driver_name = "hmac-sha224-iproc",
 				    .cra_blocksize = SHA224_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3468,7 +3470,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "sha256",
 				    .cra_driver_name = "sha256-iproc",
 				    .cra_blocksize = SHA256_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3487,7 +3489,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "hmac(sha256)",
 				    .cra_driver_name = "hmac-sha256-iproc",
 				    .cra_blocksize = SHA256_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3499,7 +3501,7 @@ static struct iproc_alg_s driver_algs[] = {
 		       },
 	 .max_payload = -128,
 	 },
-	 {
+	{
 	 .type = CRYPTO_ALG_TYPE_AHASH,
 	 .alg.hash = {
 		      .halg.digestsize = SHA3_224_DIGEST_SIZE,
@@ -3507,7 +3509,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "sha3-224",
 				    .cra_driver_name = "sha3-224-iproc",
 				    .cra_blocksize = SHA3_224_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3526,7 +3528,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "hmac(sha3-224)",
 				    .cra_driver_name = "hmac-sha3-224-iproc",
 				    .cra_blocksize = SHA3_224_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3545,7 +3547,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "sha3-256",
 				    .cra_driver_name = "sha3-256-iproc",
 				    .cra_blocksize = SHA3_256_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3564,7 +3566,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "hmac(sha3-256)",
 				    .cra_driver_name = "hmac-sha3-256-iproc",
 				    .cra_blocksize = SHA3_256_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3583,7 +3585,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "sha3-384",
 				    .cra_driver_name = "sha3-384-iproc",
 				    .cra_blocksize = SHA3_224_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3602,7 +3604,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "hmac(sha3-384)",
 				    .cra_driver_name = "hmac-sha3-384-iproc",
 				    .cra_blocksize = SHA3_384_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3621,7 +3623,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "sha3-512",
 				    .cra_driver_name = "sha3-512-iproc",
 				    .cra_blocksize = SHA3_512_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3640,7 +3642,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "hmac(sha3-512)",
 				    .cra_driver_name = "hmac-sha3-512-iproc",
 				    .cra_blocksize = SHA3_512_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3651,7 +3653,7 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 },
-	 {
+	{
 	 .type = CRYPTO_ALG_TYPE_AHASH,
 	 .alg.hash = {
 		      .halg.digestsize = AES_BLOCK_SIZE,
@@ -3659,7 +3661,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "xcbc(aes)",
 				    .cra_driver_name = "xcbc-aes-iproc",
 				    .cra_blocksize = AES_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
@@ -3670,7 +3672,7 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_XCBC,
 		       },
 	 },
-	 {
+	{
 	 .type = CRYPTO_ALG_TYPE_AHASH,
 	 .alg.hash = {
 		      .halg.digestsize = AES_BLOCK_SIZE,
@@ -3678,7 +3680,7 @@ static struct iproc_alg_s driver_algs[] = {
 				    .cra_name = "cmac(aes)",
 				    .cra_driver_name = "cmac-aes-iproc",
 				    .cra_blocksize = AES_BLOCK_SIZE,
-				    }
+				}
 		      },
 	 .cipher_info = {
 			 .alg = CIPHER_ALG_NONE,
