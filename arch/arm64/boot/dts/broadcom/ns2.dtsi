@@ -233,7 +233,6 @@
 				<&pdc1 0>,
 				<&pdc2 0>,
 				<&pdc3 0>;
-			brcm,max-pkt-size = <65536>;
 		};
 
 		pdc1: iproc-pdc1@612e0000 {

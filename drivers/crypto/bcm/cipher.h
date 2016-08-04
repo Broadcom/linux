@@ -101,11 +101,6 @@ struct iproc_alg_s {
 	struct auth_op auth_info;
 	bool auth_first;
 	bool dtls_hmac;
-
-	/* Has to be signed, because alg initialization sets to negative value
-	 * the amount to reduce the device max packet size by.
-	 */
-	s32 max_payload;
 };
 
 /* Buffers for a SPU request/reply message pair. All part of one structure to
@@ -182,6 +177,14 @@ struct iproc_ctx_s {
 
 	struct auth_op auth;
 	bool auth_first;
+
+	/*
+	 * The maximum length in bytes of the payload in a SPU message for this
+	 * context. For SPU-M, the payload is the combination of AAD and data.
+	 * For SPU2, the payload is just data. A value of SPU_MAX_PAYLOAD_INF
+	 * indicates that there is no limit to the length of the SPU message
+	 * payload.
+	 */
 	unsigned int max_payload;
 
 	struct crypto_aead *fallback_cipher;
@@ -312,6 +315,9 @@ struct iproc_reqctx_s {
  */
 struct spu_hw {
 	void (*spu_dump_msg_hdr)(u8 *buf, unsigned int buf_len);
+	u32 (*spu_ctx_max_payload)(enum spu_cipher_alg cipher_alg,
+				   enum spu_cipher_mode cipher_mode,
+				   unsigned int blocksize);
 	u32 (*spu_payload_length)(u8 *spu_hdr);
 	u16 (*spu_response_hdr_len)(u16 auth_key_len, u16 enc_key_len,
 				    bool is_hash);
@@ -359,14 +365,6 @@ struct spu_hw {
 
 	/* The number of SPU channels on this platform */
 	u32 num_chan;
-
-	/*
-	 * The max pkt size must be a multiple of block size, so that when
-	 * we break a request into chunks, the chunks are a multiple
-	 * of block size. We always check that message sizes are strictly less
-	 * than the max pkt size.
-	 */
-	u32 max_pkt_size;
 };
 
 struct device_private {

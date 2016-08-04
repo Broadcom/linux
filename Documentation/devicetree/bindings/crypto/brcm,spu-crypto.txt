@@ -12,10 +12,6 @@ Required properties:
 - reg: Should contain SPU registers location and length.
 - mboxes: A list of mailbox channels to be used by the kernel driver. Mailbox
 channels correspond to DMA rings on the device.
-- brcm,max-pkt-size: Maximum payload length of a SPU message, in bytes. The max
-  pkt size must be a multiple of the hash and cipher block sizes, so that
-  when the driver breaks a request into chunks, the chunks are a multiple of
-  block size.
 
 Example:
 	spu-crypto@612d0000 {
@@ -28,5 +24,4 @@ Example:
 			<&pdc1 0>,
 			<&pdc2 0>,
 			<&pdc3 0>;
-		brcm,max-pkt-size = <65536>;
 	};

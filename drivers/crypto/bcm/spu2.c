@@ -764,6 +764,33 @@ static void spu2_fmd_ctrl3_write(struct SPU2_FMD *fmd, u64 payload_len)
 }
 
 /**
+ * spu2_ctx_max_payload() - Determine the maximum length of the payload for a
+ * SPU message for a given cipher and hash alg context.
+ * @cipher_alg:		The cipher algorithm
+ * @cipher_mode:	The cipher mode
+ * @blocksize:		The size of a block of data for this algo
+ *
+ * For SPU2, the hardware generally ignores the PayloadLen field in ctrl3 of
+ * FMD and just keeps computing until it receives a DMA descriptor with the EOF
+ * flag set. So we consider the max payload to be infinite. AES CCM is an
+ * exception.
+ *
+ * Return: Max payload length in bytes
+ */
+u32 spu2_ctx_max_payload(enum spu_cipher_alg cipher_alg,
+			 enum spu_cipher_mode cipher_mode,
+			 unsigned int blocksize)
+{
+	if ((cipher_alg == CIPHER_ALG_AES) &&
+	    (cipher_mode == CIPHER_MODE_CCM)) {
+		u32 excess = SPU2_MAX_PAYLOAD % blocksize;
+
+		return SPU2_MAX_PAYLOAD - excess;
+	} else
+		return SPU_MAX_PAYLOAD_INF;
+}
+
+/**
  * spu_payload_length() -  Given a SPU2 message header, extract the payload
  * length.
  * @spu_hdr:  Start of SPU message header (FMD)

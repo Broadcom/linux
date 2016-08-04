@@ -307,7 +307,6 @@
 				<0x28290000 0x3c>;  /* SPU 1 control regs */
 			mboxes = <&pdc0 0>,
 				<&pdc1 0>;
-			brcm,max_pkt_size = <4294967232>;  /* 2^32 - 64 */
 		};
 
 		xhci0: usb@28330000 {

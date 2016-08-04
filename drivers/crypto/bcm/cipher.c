@@ -203,7 +203,6 @@ spu_ablkcipher_tx_sg_create(struct brcm_message *mssg,
 	struct scatterlist *sg;	/* used to build sgs in mbox message */
 	struct iproc_ctx_s *ctx = rctx->ctx;
 	u32 datalen;		/* Number of bytes of response data expected */
-	u32 msg_len = 0;	/* length of SPU request in bytes  */
 
 	mssg->spu.src = kcalloc(tx_frag_num, sizeof(struct scatterlist),
 				GFP_KERNEL);
@@ -215,7 +214,6 @@ spu_ablkcipher_tx_sg_create(struct brcm_message *mssg,
 
 	sg_set_buf(sg++, rctx->msg_buf->bcm_spu_req_hdr,
 		   BCM_HDR_LEN + ctx->spu_req_hdr_len);
-	msg_len += ctx->spu_req_hdr_len;
 
 	/* Copy in each src sg entry from request, up to chunksize */
 	datalen = spu_msg_sg_add(&sg, &rctx->src_sg, &rctx->src_skip,
@@ -225,25 +223,13 @@ spu_ablkcipher_tx_sg_create(struct brcm_message *mssg,
 			__func__);
 		return -EFAULT;
 	}
-	msg_len += datalen;
 
-	if (pad_len) {
+	if (pad_len)
 		sg_set_buf(sg++, rctx->msg_buf->spu_req_pad, pad_len);
-		msg_len += pad_len;
-	}
 
-	if (spu->spu_tx_status_len()) {
+	if (spu->spu_tx_status_len())
 		sg_set_buf(sg, rctx->msg_buf->tx_stat,
 			   spu->spu_tx_status_len());
-		msg_len += spu->spu_tx_status_len();
-	}
-
-	if (unlikely(msg_len >= spu->max_pkt_size)) {
-		dev_err(dev,
-			"SPU message for block cipher too big. Length %u. Max %u.",
-			msg_len, spu->max_pkt_size);
-		return -EFAULT;
-	}
 	return 0;
 }
 
@@ -300,8 +286,12 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 	remaining = rctx->total_todo - chunk_start;
 
 	/* determine the chunk we are breaking off and update the indexes */
-	chunksize = (remaining > ctx->max_payload) ? ctx->max_payload :
-	    remaining;
+	if ((ctx->max_payload != SPU_MAX_PAYLOAD_INF) &&
+	    (remaining > ctx->max_payload))
+		chunksize = ctx->max_payload;
+	else
+		chunksize = remaining;
+
 	rctx->src_sent += chunksize;
 	rctx->total_sent = rctx->src_sent;
 
@@ -358,9 +348,13 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 	}
 
 	flow_log("%s()-send req:%p rctx:%p ctx:%p\n", __func__, req, rctx, ctx);
-	flow_log("max_payload:%u sent:%u start:%u remains:%u size:%u\n",
-		 ctx->max_payload, rctx->src_sent, chunk_start, remaining,
-		 chunksize);
+	if (ctx->max_payload == SPU_MAX_PAYLOAD_INF)
+		flow_log("max_payload infinite\n");
+	else
+		flow_log("max_payload %u\n", ctx->max_payload);
+
+	flow_log("sent:%u start:%u remains:%u size:%u\n",
+		 rctx->src_sent, chunk_start, remaining, chunksize);
 
 	/* Copy SPU header template created at setkey time */
 	memcpy(rctx->msg_buf->bcm_spu_req_hdr, ctx->bcm_spu_req_hdr,
@@ -534,7 +528,6 @@ spu_ahash_tx_sg_create(struct brcm_message *mssg,
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct scatterlist *sg;	/* used to build sgs in mbox message */
 	u32 datalen;		/* Number of bytes of response data expected */
-	u32 msg_len = 0;	/* length of SPU request in bytes  */
 
 	mssg->spu.src = kcalloc(tx_frag_num, sizeof(struct scatterlist),
 				GFP_KERNEL);
@@ -546,12 +539,9 @@ spu_ahash_tx_sg_create(struct brcm_message *mssg,
 
 	sg_set_buf(sg++, rctx->msg_buf->bcm_spu_req_hdr,
 		   BCM_HDR_LEN + spu_hdr_len);
-	msg_len += spu_hdr_len;
 
-	if (hash_carry_len) {
+	if (hash_carry_len)
 		sg_set_buf(sg++, rctx->hash_carry, hash_carry_len);
-		msg_len += hash_carry_len;
-	}
 
 	if (new_data_len) {
 		/* Copy in each src sg entry from request, up to chunksize */
@@ -563,26 +553,15 @@ spu_ahash_tx_sg_create(struct brcm_message *mssg,
 				__func__);
 			return -EFAULT;
 		}
-		msg_len += datalen;
 	}
 
-	if (pad_len) {
+	if (pad_len)
 		sg_set_buf(sg++, rctx->msg_buf->spu_req_pad, pad_len);
-		msg_len += pad_len;
-	}
 
-	if (spu->spu_tx_status_len()) {
+	if (spu->spu_tx_status_len())
 		sg_set_buf(sg, rctx->msg_buf->tx_stat,
 			   spu->spu_tx_status_len());
-		msg_len += spu->spu_tx_status_len();
-	}
 
-	if (unlikely(msg_len >= spu->max_pkt_size)) {
-		dev_err(dev,
-			"SPU message for ahash too big. Length %u. Max %u.\n",
-			msg_len, spu->max_pkt_size);
-		return -EFAULT;
-	}
 	return 0;
 }
 
@@ -681,7 +660,8 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	 */
 	nbytes_to_hash = rctx->total_todo - rctx->total_sent;
 	chunksize = nbytes_to_hash;
-	if (unlikely(chunksize > ctx->max_payload))
+	if ((ctx->max_payload != SPU_MAX_PAYLOAD_INF) &&
+	    (chunksize > ctx->max_payload))
 		chunksize = ctx->max_payload;
 
 	/*
@@ -748,8 +728,14 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 
 	atomic64_add(chunksize, &iproc_priv.bytes_out);
 
-	flow_log("%s() final: %u max_payload: %u nbuf: %u ",
-		 __func__, rctx->is_final, ctx->max_payload, local_nbuf);
+	flow_log("%s() final: %u nbuf: %u ",
+		 __func__, rctx->is_final, local_nbuf);
+
+	if (ctx->max_payload == SPU_MAX_PAYLOAD_INF)
+		flow_log("max_payload infinite\n");
+	else
+		flow_log("max_payload %u\n", ctx->max_payload);
+
 	flow_log("chunk_start: %u chunk_size: %u\n", chunk_start, chunksize);
 
 	/* Prepend SPU header with type 3 BCM header */
@@ -835,7 +821,6 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 static void handle_ahash_resp(struct iproc_reqctx_s *rctx)
 {
 	struct iproc_ctx_s *ctx = rctx->ctx;
-
 #ifdef DEBUG
 	struct crypto_async_request *areq = rctx->parent;
 	struct ahash_request *req = ahash_request_cast(areq);
@@ -843,7 +828,6 @@ static void handle_ahash_resp(struct iproc_reqctx_s *rctx)
 	unsigned int blocksize =
 		crypto_tfm_alg_blocksize(crypto_ahash_tfm(ahash));
 #endif
-
 	/*
 	 * Save hash to use as input to next op if incremental. Might be copying
 	 * too much, but that's easier than figuring out actual digest size here
@@ -1137,7 +1121,6 @@ spu_aead_tx_sg_create(struct brcm_message *mssg,
 	struct iproc_ctx_s *ctx = rctx->ctx;
 	u32 datalen;		/* Number of bytes of data to write */
 	u32 written;		/* Number of bytes of data written */
-	u32 msg_len = 0;	/* length of SPU request in bytes  */
 	u32 assoc_offset = 0;
 
 	mssg->spu.src = kcalloc(tx_frag_num, sizeof(struct scatterlist),
@@ -1150,7 +1133,6 @@ spu_aead_tx_sg_create(struct brcm_message *mssg,
 
 	sg_set_buf(sg++, rctx->msg_buf->bcm_spu_req_hdr,
 		   BCM_HDR_LEN + spu_hdr_len);
-	msg_len += spu_hdr_len;
 
 	if (assoc_len) {
 		/* Copy in each associated data sg entry from request */
@@ -1162,18 +1144,13 @@ spu_aead_tx_sg_create(struct brcm_message *mssg,
 				__func__);
 			return -EFAULT;
 		}
-		msg_len += assoc_len;
 	}
 
-	if (aead_iv_len) {
+	if (aead_iv_len)
 		sg_set_buf(sg++, rctx->iv_ctr, aead_iv_len);
-		msg_len += aead_iv_len;
-	}
 
-	if (aad_pad_len) {
+	if (aad_pad_len)
 		sg_set_buf(sg++, rctx->msg_buf->a.req_aad_pad, aad_pad_len);
-		msg_len += pad_len;
-	}
 
 	datalen = chunksize;
 	if ((chunksize > ctx->digestsize) && incl_icv)
@@ -1187,30 +1164,17 @@ spu_aead_tx_sg_create(struct brcm_message *mssg,
 				__func__);
 			return -EFAULT;
 		}
-		msg_len += written;
 	}
 
-	if (pad_len) {
+	if (pad_len)
 		sg_set_buf(sg++, rctx->msg_buf->spu_req_pad, pad_len);
-		msg_len += pad_len;
-	}
 
-	if (incl_icv) {
+	if (incl_icv)
 		sg_set_buf(sg++, rctx->msg_buf->digest, ctx->digestsize);
-		msg_len += ctx->digestsize;
-	}
 
-	if (spu->spu_tx_status_len()) {
+	if (spu->spu_tx_status_len())
 		sg_set_buf(sg, rctx->msg_buf->tx_stat,
 			   spu->spu_tx_status_len());
-		msg_len += spu->spu_tx_status_len();
-	}
-
-	if (unlikely(msg_len >= spu->max_pkt_size)) {
-		pr_err("SPU message for AEAD request too big. Length %u. Max %u.\n",
-		     msg_len, spu->max_pkt_size);
-		return -EFAULT;
-	}
 	return 0;
 }
 
@@ -1756,24 +1720,19 @@ static int aes_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
 	switch (keylen) {
 	case AES_KEYSIZE_128:
 		ctx->cipher_type = CIPHER_TYPE_AES128;
-		ctx->max_payload -= AES_KEYSIZE_128;
 		break;
 	case AES_KEYSIZE_192:
 		ctx->cipher_type = CIPHER_TYPE_AES192;
-		/* Subtract a multiple of the block size rather than
-		 * exact key len
-		 */
-		ctx->max_payload -= AES_KEYSIZE_256;	/* yes, 256 */
 		break;
 	case AES_KEYSIZE_256:
 		ctx->cipher_type = CIPHER_TYPE_AES256;
-		ctx->max_payload -= AES_KEYSIZE_256;
 		break;
 	default:
 		crypto_ablkcipher_set_flags(cipher, CRYPTO_TFM_RES_BAD_KEY_LEN);
 		return -EINVAL;
 	}
-	WARN_ON((ctx->max_payload % AES_BLOCK_SIZE) != 0);
+	WARN_ON((ctx->max_payload != SPU_MAX_PAYLOAD_INF) &&
+		((ctx->max_payload % AES_BLOCK_SIZE) != 0));
 	return 0;
 }
 
@@ -1939,12 +1898,13 @@ static int ahash_enqueue(struct ahash_request *req)
 		/* synchronous result */
 		spu_chunk_cleanup(rctx);
 		spu_req_cleanup(rctx);
-		if (err == -EAGAIN)
-			/* we saved data in hash carry, but tell crypto API
-			 * we successfully completed request.
-			 */
-			err = 0;
 	}
+	if (err == -EAGAIN)
+		/* we saved data in hash carry, but tell crypto API
+		 * we successfully completed request.
+		 */
+		err = 0;
+
 	return err;
 }
 
@@ -2252,13 +2212,10 @@ static int ahash_hmac_digest(struct ahash_request *req)
 
 static int aead_need_fallback(struct aead_request *req)
 {
-	struct iproc_reqctx_s *rctx = aead_request_ctx(req);
+	struct spu_hw *spu = &iproc_priv.spu;
 	struct crypto_aead *aead = crypto_aead_reqtfm(req);
 	struct iproc_ctx_s *ctx = crypto_aead_ctx(aead);
-
-	unsigned int packetlen =
-	    (ctx->authkeylen + ctx->enckeylen + rctx->iv_ctr_len +
-	     req->assoclen + rctx->iv_ctr_len + (req->cryptlen & 0xffff) + 40);
+	u32 payload_len;
 
 	/*
 	 * SPU hardware cannot handle the AES-GCM case where plaintext and AAD
@@ -2271,9 +2228,16 @@ static int aead_need_fallback(struct aead_request *req)
 		return 1;
 	}
 
-	flow_log("%s() packetlen:%u\n", __func__, packetlen);
+	payload_len = req->cryptlen;
+	if (spu->spu_type == SPU_TYPE_SPUM)
+		payload_len += req->assoclen;
 
-	return packetlen > ctx->max_payload;
+	flow_log("%s() payload len: %u\n", __func__, payload_len);
+
+	if (ctx->max_payload == SPU_MAX_PAYLOAD_INF)
+		return 0;
+	else
+		return payload_len > ctx->max_payload;
 }
 
 static void aead_complete(struct crypto_async_request *areq, int err)
@@ -2422,8 +2386,12 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	flow_dump("  iv: ", req->iv, rctx->iv_ctr_len);
 	flow_log("  authkeylen:%u\n", ctx->authkeylen);
 	flow_log("  ctx:%p\n", ctx);
-	flow_log("  max_payload: %u\n", ctx->max_payload);
 	flow_log("  is_esp: %s\n", ctx->is_esp ? "yes" : "no");
+
+	if (ctx->max_payload == SPU_MAX_PAYLOAD_INF)
+		flow_log("  max_payload infinite");
+	else
+		flow_log("  max_payload: %u\n", ctx->max_payload);
 
 	if (unlikely(aead_need_fallback(req)))
 		return aead_do_fallback(req, is_encrypt);
@@ -2791,7 +2759,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_GCM,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 
@@ -2843,7 +2810,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 	{
@@ -2868,7 +2834,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 	{
@@ -2893,7 +2858,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 	/* enc -> hash - des */
@@ -2919,7 +2883,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 	{
@@ -2944,7 +2907,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 	{
@@ -2969,7 +2931,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 	{
@@ -2994,7 +2955,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 	/* enc -> hash - 3des */
@@ -3020,7 +2980,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 	{
@@ -3045,7 +3004,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 	{
@@ -3070,7 +3028,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 	{
@@ -3095,7 +3052,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
-	 .max_payload = -32,
 	 .dtls_hmac = 0,
 	 },
 
@@ -3120,7 +3076,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_NONE,
 		       .mode = HASH_MODE_NONE,
 		       },
-	 .max_payload = -312,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_ABLKCIPHER,
@@ -3142,7 +3097,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_NONE,
 		       .mode = HASH_MODE_NONE,
 		       },
-	 .max_payload = -64,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_ABLKCIPHER,
@@ -3164,7 +3118,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_NONE,
 		       .mode = HASH_MODE_NONE,
 		       },
-	 .max_payload = -64,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_ABLKCIPHER,
@@ -3186,7 +3139,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_NONE,
 		       .mode = HASH_MODE_NONE,
 		       },
-	 .max_payload = -64,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_ABLKCIPHER,
@@ -3208,7 +3160,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_NONE,
 		       .mode = HASH_MODE_NONE,
 		       },
-	 .max_payload = -80,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_ABLKCIPHER,
@@ -3230,7 +3181,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_NONE,
 		       .mode = HASH_MODE_NONE,
 		       },
-	 .max_payload = -80,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_ABLKCIPHER,
@@ -3252,7 +3202,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_NONE,
 		       .mode = HASH_MODE_NONE,
 		       },
-	 .max_payload = -72,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_ABLKCIPHER,
@@ -3274,7 +3223,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_NONE,
 		       .mode = HASH_MODE_NONE,
 		       },
-	 .max_payload = -64,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_ABLKCIPHER,
@@ -3296,7 +3244,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_NONE,
 		       .mode = HASH_MODE_NONE,
 		       },
-	 .max_payload = -64,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_ABLKCIPHER,
@@ -3318,7 +3265,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_NONE,
 		       .mode = HASH_MODE_NONE,
 		       },
-	 .max_payload = -48,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_ABLKCIPHER,
@@ -3341,7 +3287,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_NONE,
 		       .mode = HASH_MODE_NONE,
 		       },
-	 .max_payload = -96,
 	 },
 
 /* AHASH algorithms. */
@@ -3365,7 +3310,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_MD5,
 		       .mode = HASH_MODE_HASH,
 		       },
-	 .max_payload = -128,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_AHASH,
@@ -3385,7 +3329,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_MD5,
 		       .mode = HASH_MODE_HMAC,
 		       },
-	 .max_payload = -128,
 	 },
 	{.type = CRYPTO_ALG_TYPE_AHASH,
 	 .alg.hash = {
@@ -3404,7 +3347,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_SHA1,
 		       .mode = HASH_MODE_HASH,
 		       },
-	 .max_payload = -128,
 	 },
 	{.type = CRYPTO_ALG_TYPE_AHASH,
 	 .alg.hash = {
@@ -3423,7 +3365,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_SHA1,
 		       .mode = HASH_MODE_HMAC,
 		       },
-	 .max_payload = -128,
 	 },
 	{.type = CRYPTO_ALG_TYPE_AHASH,
 	 .alg.hash = {
@@ -3442,7 +3383,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_SHA224,
 		       .mode = HASH_MODE_HASH,
 		       },
-	 .max_payload = -128,
 	 },
 	{.type = CRYPTO_ALG_TYPE_AHASH,
 	 .alg.hash = {
@@ -3461,7 +3401,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_SHA224,
 		       .mode = HASH_MODE_HMAC,
 		       },
-	 .max_payload = -128,
 	 },
 	{.type = CRYPTO_ALG_TYPE_AHASH,
 	 .alg.hash = {
@@ -3480,7 +3419,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_SHA256,
 		       .mode = HASH_MODE_HASH,
 		       },
-	 .max_payload = -128,
 	 },
 	{.type = CRYPTO_ALG_TYPE_AHASH,
 	 .alg.hash = {
@@ -3499,7 +3437,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       .alg = HASH_ALG_SHA256,
 		       .mode = HASH_MODE_HMAC,
 		       },
-	 .max_payload = -128,
 	 },
 	{
 	 .type = CRYPTO_ALG_TYPE_AHASH,
@@ -3696,7 +3633,9 @@ static struct iproc_alg_s driver_algs[] = {
 static int generic_cra_init(struct crypto_tfm *tfm,
 			    struct iproc_alg_s *cipher_alg)
 {
+	struct spu_hw *spu = &iproc_priv.spu;
 	struct iproc_ctx_s *ctx = crypto_tfm_ctx(tfm);
+	unsigned int blocksize = crypto_tfm_alg_blocksize(tfm);
 
 	flow_log("%s() tfm:%p ctx:%p\n", __func__, tfm, ctx);
 
@@ -3704,7 +3643,9 @@ static int generic_cra_init(struct crypto_tfm *tfm,
 	ctx->cipher = cipher_alg->cipher_info;
 	ctx->auth = cipher_alg->auth_info;
 	ctx->auth_first = cipher_alg->auth_first;
-	ctx->max_payload = (unsigned int)cipher_alg->max_payload;
+	ctx->max_payload = spu->spu_ctx_max_payload(ctx->cipher.alg,
+						    ctx->cipher.mode,
+						    blocksize);
 	ctx->fallback_cipher = NULL;
 
 	ctx->enckeylen = 0;
@@ -4127,25 +4068,6 @@ static int spu_register_rabin(struct iproc_alg_s *driver_alg)
 }
 /* ==================== Kernel Platform API ==================== */
 
-static int spu_dt_validate(struct device *dev, struct spu_hw *spu)
-{
-	if (spu->max_pkt_size % HASH_BLOCK_SIZE) {
-		dev_err(dev,
-			"SPU max pkt size %u must be multiple of hash block size %u",
-			spu->max_pkt_size, HASH_BLOCK_SIZE);
-		return -EINVAL;
-	}
-
-	if (spu->max_pkt_size % AES_BLOCK_SIZE) {
-		dev_err(dev,
-			"SPU max pkt size %u must be multiple of cipher block size %u",
-			spu->max_pkt_size, AES_BLOCK_SIZE);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int spu_dt_read(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -4154,7 +4076,6 @@ static int spu_dt_read(struct platform_device *pdev)
 	struct resource *spu_ctrl_regs;
 	void __iomem *spu_reg_vbase[MAX_SPUS];
 	int i;
-	u32 max_pkt_size;
 	int err;
 
 	if (!of_device_is_available(dn)) {
@@ -4176,17 +4097,6 @@ static int spu_dt_read(struct platform_device *pdev)
 		dev_err(dev, "Unknown SPU type");
 		return -EINVAL;
 	}
-
-	/* Get max SPU message packet size */
-	err = of_property_read_u32(dn, "brcm,max-pkt-size", &max_pkt_size);
-	if (err < 0) {
-		dev_err(dev,
-			"%s failed to get max-pkt-size from device tree",
-			__func__);
-		return -EINVAL;
-	}
-	spu->max_pkt_size = max_pkt_size;
-	dev_dbg(dev, "Maximum SPU pkt size %u bytes", spu->max_pkt_size);
 
 	/* Read registers and count number of SPUs */
 	i = 0;
@@ -4219,7 +4129,7 @@ static int spu_dt_read(struct platform_device *pdev)
 	memcpy(spu->reg_vbase, spu_reg_vbase,
 	       spu->num_spu * sizeof(*(spu->reg_vbase)));
 
-	return spu_dt_validate(dev, spu);
+	return 0;
 }
 
 /*
@@ -4234,6 +4144,7 @@ static void spu_functions_register(struct device *dev,
 	if (spu_type == SPU_TYPE_SPUM) {
 		dev_dbg(dev, "Registering SPUM functions");
 		spu->spu_dump_msg_hdr = spum_dump_msg_hdr;
+		spu->spu_ctx_max_payload = spum_ctx_max_payload;
 		spu->spu_payload_length = spum_payload_length;
 		spu->spu_response_hdr_len = spum_response_hdr_len;
 		spu->spu_hash_pad_len = spum_hash_pad_len;
@@ -4254,6 +4165,7 @@ static void spu_functions_register(struct device *dev,
 		   (spu_type == SPU_TYPE_SPU2_V2)) {
 		dev_dbg(dev, "Registering SPU2 functions");
 		spu->spu_dump_msg_hdr = spu2_dump_msg_hdr;
+		spu->spu_ctx_max_payload = spu2_ctx_max_payload;
 		spu->spu_payload_length = spu2_payload_length;
 		spu->spu_response_hdr_len = spu2_response_hdr_len;
 		spu->spu_hash_pad_len = spu2_hash_pad_len;
@@ -4437,14 +4349,11 @@ static int spu_register_aead(struct iproc_alg_s *driver_alg)
 
 static int spu_algs_register(struct device *dev)
 {
-	struct spu_hw *spu = &iproc_priv.spu;
 	int i, j;
 	int err;
 
 		/* register crypto algorithms the device supports */
 	for (i = 0; i < ARRAY_SIZE(driver_algs); i++) {
-
-		driver_algs[i].max_payload += spu->max_pkt_size;
 
 		switch (driver_algs[i].type) {
 		case CRYPTO_ALG_TYPE_ABLKCIPHER:

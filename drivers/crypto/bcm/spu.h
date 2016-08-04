@@ -163,6 +163,9 @@ struct spu_aead_parms {
  */
 #define SPU_INVALID_ICV  1
 
+/* Indicates no limit to the length of the payload in a SPU message */
+#define SPU_MAX_PAYLOAD_INF  0xFFFFFFFF
+
 /**
  * spu_req_incl_icv() - Return true if SPU request message should include the
  * ICV as a separate buffer.
@@ -209,6 +212,9 @@ static __always_inline u32 spu_status_padlen(u32 db_size)
 
 void spum_dump_msg_hdr(u8 *buf, unsigned int buf_len);
 
+u32 spum_ctx_max_payload(enum spu_cipher_alg cipher_alg,
+			 enum spu_cipher_mode cipher_mode,
+			 unsigned int blocksize);
 u32 spum_payload_length(u8 *spu_hdr);
 u16 spum_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash);
 u16 spum_hash_pad_len(u32 chunksize, u16 hash_block_size);

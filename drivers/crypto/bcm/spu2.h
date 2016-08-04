@@ -193,10 +193,19 @@ struct SPU2_FMD {
 					     */
 #define SPU2_TLS_LEN_SHIFT               32
 
+/*
+ * Max value that can be represented in the Payload Length field of the
+ * ctrl3 word of FMD.
+ */
+#define SPU2_MAX_PAYLOAD  SPU2_PL_LEN
+
 /* Error values returned in STATUS field of response messages */
 #define SPU2_INVALID_ICV  1
 
 void spu2_dump_msg_hdr(u8 *buf, unsigned int buf_len);
+u32 spu2_ctx_max_payload(enum spu_cipher_alg cipher_alg,
+			 enum spu_cipher_mode cipher_mode,
+			 unsigned int blocksize);
 u32 spu2_payload_length(u8 *spu_hdr);
 u16 spu2_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash);
 u16 spu2_hash_pad_len(u32 chunksize, u16 hash_block_size);

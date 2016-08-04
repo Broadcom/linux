@@ -279,6 +279,28 @@ void spum_dump_msg_hdr(u8 *buf, unsigned int buf_len)
 	packet_log("\n");
 }
 
+/**
+ * spum_ctx_max_payload() - Determine the maximum length of the payload for a
+ * SPU message for a given cipher and hash alg context.
+ * @cipher_alg:		The cipher algorithm
+ * @cipher_mode:	The cipher mode
+ * @blocksize:		The size of a block of data for this algo
+ *
+ * The max payload must be a multiple of the blocksize so that if a request is
+ * too large to fit in a single SPU message, the request can be broken into
+ * max_payload sized chunks. Each chunk must be a multiple of blocksize.
+ *
+ * Return: Max payload length in bytes
+ */
+u32 spum_ctx_max_payload(enum spu_cipher_alg cipher_alg,
+			 enum spu_cipher_mode cipher_mode,
+			 unsigned int blocksize)
+{
+	u32 excess = SPUM_MAX_PAYLOAD % blocksize;
+
+	return SPUM_MAX_PAYLOAD - excess;
+}
+
 /* Given a SPU-M message header, extract the payload length.
  * Assumes just MH, EMH, BD (no SCTX, BDESC. Works for response frames.
  */

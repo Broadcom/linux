@@ -62,6 +62,12 @@
 #define SPU_RESP_HDR_LEN 12
 #define SPU_HASH_RESP_HDR_LEN 8
 
+/*
+ * Max value that can be represented in the Payload Length field of the BD
+ * header. This is a 16-bit field.
+ */
+#define SPUM_MAX_PAYLOAD  (BIT(16) - 1)
+
 /* Buffer Descriptor Header [BDESC]. SPU in big-endian mode. */
 struct BDESC_HEADER {
 	u16 offsetMAC;		/* word 0 [31-16] */
