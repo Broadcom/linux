@@ -321,10 +321,15 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 				    rctx->iv_ctr_len,
 				    rctx->src_sent - rctx->iv_ctr_len);
 	} else if (ctx->cipher.mode == CIPHER_MODE_CTR) {
-		/* CTR mode, increment counter for next block. Assumes 16-byte
-		 * block (AES).  SPU does not support CTR mode for DES/3DES.
+		/*
+		 * The SPU hardware increments the counter once for each AES
+		 * block of 16 bytes. So update the counter for the next chunk,
+		 * if there is one. Note that for this chunk, the counter has
+		 * already been copied to local_iv_ctr. We can assume a block
+		 * size of 16, because we only support CTR mode for AES, not for
+		 * any other cipher alg.
 		 */
-		add_to_ctr(rctx->iv_ctr, chunksize);
+		add_to_ctr(rctx->iv_ctr, chunksize >> 4);
 	}
 
 	if (ctx->cipher.alg == CIPHER_ALG_RC4) {
