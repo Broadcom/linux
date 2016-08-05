@@ -22,7 +22,7 @@ obj-$(CONFIG_STI_MBOX)		+= mailbox-sti.o
 
 obj-$(CONFIG_BCM_FLEXDMA_MBOX)	+= mailbox-flexdma/
 
-obj-$(CONFIG_BCM_PDC_MBOX)	+= mailbox-pdc/
+obj-$(CONFIG_BCM_PDC_MBOX)	+= bcm-pdc-mailbox.o
 
 obj-$(CONFIG_TI_MESSAGE_MANAGER) += ti-msgmgr.o
 
