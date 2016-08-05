@@ -744,10 +744,6 @@ static int iproc_pcie_paxc_msi_steer(struct iproc_pcie *pcie,
 	u64 msi_addr;
 	u32 val;
 
-	/* if PAXC v2 event queue based MSI controller is detected, use it */
-	if (of_device_is_compatible(msi_node, "brcm,iproc-msi-paxc-v2"))
-		return iproc_msi_paxc_v2_init(pcie, msi_node);
-
 	ret = iproce_pcie_get_msi(pcie, msi_node, &msi_addr);
 	if (ret < 0) {
 		dev_err(pcie->dev,
