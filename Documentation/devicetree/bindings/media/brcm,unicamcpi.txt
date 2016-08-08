@@ -1,0 +1,65 @@
+Broadcom Unicam CPI (Camera Parallel Interface) driver
+------------------------------------------------------
+Overview
+CPI is the camera interface HW IP present in Cygnuc SoC.
+This is derived from Unicam IP groups. CPI interface as the name
+suggest support only parallel interface. It receives data from the
+Parallel interface Image sensor and dumps it to memory. It works on
+HSYNC and VSYNC received from Image sensor and generates, Frame Start
+And Frame End Interrupts. CPI Drivers state machine works based on
+these interrupts. This Driver acts as the "soc-camera" host camera driver in
+soc-camera subsystem methodology.
+
+This controller is used in the following Broadom SoC's:
+Cygnus
+
+Required properties:
+- compatible			: "brcm,unicamcpi"
+- asiu-syscon			: phandle of asiu registers needed for camera
+- mclk-src-syscon		: phandle of mclk src select for camera
+- id				: Camera ID
+- reg				: Physical base address and length of the
+				registers set for the device
+- interrupts			: IRQ line for the CPI
+- data-width			: Data width in bits
+- clocks			: Source for reference clock generation
+- clock-names			: Reference clock name. Must be "cam-clock"
+- clock-frequency  		: Reference clock frequency
+
+Unicam CPI supports a single port node with parallel bus. It can contain one
+'port' child node with child 'endpoint' node. Please refer to the bindings
+defined in Documentation/devicetree/bindings/media/video-interfaces.txt.
+
+Example:
+
+	unicam: camera@180a1000 {
+		compatible = "brcm,unicamcpi";
+		asiu-syscon = <&camera_asiu>;
+		mclk-src-syscon = <&camera_pllclk_select>;
+		id = <0>;
+		reg = <0x180a1000 0x5ff>;
+		interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
+		data-width = <8>;
+		clocks = <&audiopll_clks BCM_CYGNUS_AUDIOPLL_CH2>;
+		clock-names = "cam-clock";
+		clock-frequency = <24576000>;
+		port {
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+			unicam_0: endpoint {
+				remote-endpoint = <&ov5640_0>;
+				bus-width = <8>;
+			};
+                };
+	};
+
+	camera_asiu: syscon@180aa000 {
+		compatible = "syscon";
+		reg = <0x180aa000 0x84>;
+	};
+
+	camera_pllclk_select: syscon@180aedcc {
+                compatible = "syscon";
+                reg = <0x180aedcc 0x04>;
+        };
