@@ -166,7 +166,6 @@
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
-		brcm,pcie-ob-window-size = <1024>;
 
 		dma-coherent;
 
@@ -188,7 +187,6 @@
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
-		brcm,pcie-ob-window-size = <1024>;
 
 		dma-coherent;
 
@@ -210,7 +208,6 @@
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
-		brcm,pcie-ob-window-size = <1024>;
 
 		dma-coherent;
 
@@ -232,7 +229,6 @@
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
-		brcm,pcie-ob-window-size = <1024>;
 
 		dma-coherent;
 
@@ -254,7 +250,6 @@
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
-		brcm,pcie-ob-window-size = <1024>;
 
 		dma-coherent;
 
@@ -276,7 +271,6 @@
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
-		brcm,pcie-ob-window-size = <1024>;
 
 		dma-coherent;
 
@@ -298,7 +292,6 @@
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
-		brcm,pcie-ob-window-size = <1024>;
 
 		dma-coherent;
 
@@ -320,7 +313,6 @@
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
-		brcm,pcie-ob-window-size = <1024>;
 
 		dma-coherent;
 
