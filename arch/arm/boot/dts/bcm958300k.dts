@@ -48,8 +48,34 @@
 	};
 };
 
+&unicam {
+	status = "okay";
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		unicam_0: endpoint {
+			remote-endpoint = <&ov5640_0>;
+			bus-width = <8>;
+		};
+	};
+};
+
 &pcie0 {
 	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+	ov5640: camera@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		port {
+			ov5640_0: endpoint {
+				remote-endpoint = <&unicam_0>;
+				bus-width = <8>;
+			};
+		};
+	};
 };
 
 &pcie1 {

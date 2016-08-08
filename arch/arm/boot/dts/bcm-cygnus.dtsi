@@ -366,6 +366,18 @@
 			brcm,nand-has-wp;
 		};
 
+		unicam: camera@180a1000 {
+			compatible = "brcm,unicamcpi";
+			id = <0>;
+			reg = <0x180a1000 0x5ff>;
+			interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
+			brcm,unicam-data-width = <8>;
+			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+			clock-names = "cam-clock";
+			clock-frequency = <24576000>;
+			status = "disabled";
+		};
+
 		gpio_asiu: gpio@180a5000 {
 			compatible = "brcm,cygnus-asiu-gpio";
 			reg = <0x180a5000 0x668>;
