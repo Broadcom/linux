@@ -81,6 +81,8 @@ void spum_dump_msg_hdr(u8 *buf, unsigned int buf_len)
 			   (cflags & CIPHER_INBOUND) >> CIPHER_INBOUND_SHIFT);
 		packet_log("    Order:%u (1:AuthFirst 0:EncFirst)\n",
 			   (cflags & CIPHER_ORDER) >> CIPHER_ORDER_SHIFT);
+		packet_log("    ICV_IS_512:%lx\n",
+			   (cflags & ICV_IS_512) >> ICV_IS_512_SHIFT);
 		cipher_alg = (cflags & CIPHER_ALG) >> CIPHER_ALG_SHIFT;
 		cipher_mode = (cflags & CIPHER_MODE) >> CIPHER_MODE_SHIFT;
 		cipher_type = (cflags & CIPHER_TYPE) >> CIPHER_TYPE_SHIFT;
@@ -131,6 +133,14 @@ void spum_dump_msg_hdr(u8 *buf, unsigned int buf_len)
 				hash_key_len = 32;
 				name = "SHA256";
 				break;
+			case HASH_ALG_SHA384:
+				hash_key_len = 48;
+				name = "SHA384";
+				break;
+			case HASH_ALG_SHA512:
+				hash_key_len = 64;
+				name = "SHA512";
+				break;
 			case HASH_ALG_AES:
 				hash_key_len = 0;
 				name = "AES";
@@ -165,6 +175,14 @@ void spum_dump_msg_hdr(u8 *buf, unsigned int buf_len)
 			case HASH_ALG_SHA256:
 				hash_state_len = 32;
 				name = "SHA256";
+				break;
+			case HASH_ALG_SHA384:
+				hash_state_len = 48;
+				name = "SHA384";
+				break;
+			case HASH_ALG_SHA512:
+				hash_state_len = 64;
+				name = "SHA512";
 				break;
 			case HASH_ALG_AES:
 				hash_state_len = 0;
@@ -330,6 +348,7 @@ u16 spum_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash)
 /**
  * spum_hash_pad_len() - Calculate the length of hash padding required to extend
  * data to a full block size.
+ * @hash_alg:   hash algorithm
  * @chunksize:  length of data, in bytes
  * @hash_block_size:  size of a block of data for hash algorithm
  *
@@ -337,17 +356,25 @@ u16 spum_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash)
  *
  * Return:  length of hash pad in bytes
  */
-u16 spum_hash_pad_len(u32 chunksize, u16 hash_block_size)
+u16 spum_hash_pad_len(enum hash_alg hash_alg, u32 chunksize,
+		      u16 hash_block_size)
 {
+	unsigned int length_len;
 	unsigned int used_space_last_block;
 	int hash_pad_len;
 
-	used_space_last_block = chunksize % hash_block_size + 1 + sizeof(u64);
+	used_space_last_block = chunksize % hash_block_size + 1;
+	if ((hash_alg == HASH_ALG_SHA384) || (hash_alg == HASH_ALG_SHA512))
+		length_len = 2 * sizeof(u64);
+	else
+		length_len = sizeof(u64);
+
+	used_space_last_block += length_len;
 	hash_pad_len = hash_block_size - used_space_last_block;
 	if (hash_pad_len < 0)
 		hash_pad_len += hash_block_size;
 
-	hash_pad_len += 1 + sizeof(u64);
+	hash_pad_len += 1 + length_len;
 	return hash_pad_len;
 }
 
@@ -435,10 +462,12 @@ u32 spum_digest_size(u32 alg_digest_size, enum hash_alg alg,
 	/* SPU returns complete digest when doing incremental hash and truncated
 	 * hash algo.
 	 */
-	if ((alg == HASH_ALG_SHA224) &&
-	    ((htype == HASH_TYPE_INIT) || (htype == HASH_TYPE_UPDT)))
-		digestsize = SHA256_DIGEST_SIZE;
-
+	if ((htype == HASH_TYPE_INIT) || (htype == HASH_TYPE_UPDT)) {
+		if (alg == HASH_ALG_SHA224)
+			digestsize = SHA256_DIGEST_SIZE;
+		else if (alg == HASH_ALG_SHA384)
+			digestsize = SHA512_DIGEST_SIZE;
+	}
 	return digestsize;
 }
 
@@ -587,7 +616,11 @@ u32 spum_create_request(u8 *spu_hdr,
 			ecf_bits |= CHECK_ICV;
 
 		/* Inform the SPU of the ICV size (in words) */
-		ecf_bits |= (hash_parms->digestsize / 4) << ICV_SIZE_SHIFT;
+		if (hash_parms->digestsize == 64)
+			cipher_bits |= ICV_IS_512;
+		else
+			ecf_bits |=
+			(hash_parms->digestsize / 4) << ICV_SIZE_SHIFT;
 	}
 
 	if (req_opts->bd_suppress)

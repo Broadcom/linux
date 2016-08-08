@@ -715,8 +715,9 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	rctx->src_sent += new_data_len;
 
 	if ((rctx->total_sent == rctx->total_todo) && rctx->is_final)
-		hash_parms.pad_len = spu->spu_hash_pad_len(chunksize,
-							   HASH_BLOCK_SIZE);
+		hash_parms.pad_len = spu->spu_hash_pad_len(hash_parms.alg,
+							   chunksize,
+							   blocksize);
 
 	/* If a non-first chunk, then include the digest returned from the
 	 * previous chunk so that hw can add to it.
@@ -865,6 +866,14 @@ static int spu_hmac_outer_hash(struct ahash_request *req,
 		break;
 	case HASH_ALG_SHA256:
 		do_shash("sha256", req->result, ctx->opad, blocksize,
+			 req->result, ctx->digestsize);
+		break;
+	case HASH_ALG_SHA384:
+		do_shash("sha384", req->result, ctx->opad, blocksize,
+			 req->result, ctx->digestsize);
+		break;
+	case HASH_ALG_SHA512:
+		do_shash("sha512", req->result, ctx->opad, blocksize,
 			 req->result, ctx->digestsize);
 		break;
 	default:
@@ -2063,6 +2072,12 @@ static int ahash_hmac_setkey(struct crypto_ahash *ahash, const u8 *key,
 			break;
 		case HASH_ALG_SHA256:
 			do_shash("sha256", ctx->authkey, key, keylen, NULL, 0);
+			break;
+		case HASH_ALG_SHA384:
+			do_shash("sha384", ctx->authkey, key, keylen, NULL, 0);
+			break;
+		case HASH_ALG_SHA512:
+			do_shash("sha512", ctx->authkey, key, keylen, NULL, 0);
 			break;
 		case HASH_ALG_SHA3_224:
 			do_shash("sha3-224", ctx->authkey, key, keylen,
@@ -3423,6 +3438,82 @@ static struct iproc_alg_s driver_algs[] = {
 		       },
 	 },
 	{
+	.type = CRYPTO_ALG_TYPE_AHASH,
+	 .alg.hash = {
+		      .halg.digestsize = SHA384_DIGEST_SIZE,
+		      .halg.base = {
+				    .cra_name = "sha384",
+				    .cra_driver_name = "sha384-iproc",
+				    .cra_blocksize = SHA384_BLOCK_SIZE,
+				}
+		      },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_NONE,
+			 .mode = CIPHER_MODE_NONE,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA384,
+		       .mode = HASH_MODE_HASH,
+		       },
+	 },
+	{
+	 .type = CRYPTO_ALG_TYPE_AHASH,
+	 .alg.hash = {
+		      .halg.digestsize = SHA384_DIGEST_SIZE,
+		      .halg.base = {
+				    .cra_name = "hmac(sha384)",
+				    .cra_driver_name = "hmac-sha384-iproc",
+				    .cra_blocksize = SHA384_BLOCK_SIZE,
+				}
+		      },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_NONE,
+			 .mode = CIPHER_MODE_NONE,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA384,
+		       .mode = HASH_MODE_HMAC,
+		       },
+	 },
+	{
+	 .type = CRYPTO_ALG_TYPE_AHASH,
+	 .alg.hash = {
+		      .halg.digestsize = SHA512_DIGEST_SIZE,
+		      .halg.base = {
+				    .cra_name = "sha512",
+				    .cra_driver_name = "sha512-iproc",
+				    .cra_blocksize = SHA512_BLOCK_SIZE,
+				}
+		      },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_NONE,
+			 .mode = CIPHER_MODE_NONE,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA512,
+		       .mode = HASH_MODE_HASH,
+		       },
+	 },
+	{
+	 .type = CRYPTO_ALG_TYPE_AHASH,
+	 .alg.hash = {
+		      .halg.digestsize = SHA512_DIGEST_SIZE,
+		      .halg.base = {
+				    .cra_name = "hmac(sha512)",
+				    .cra_driver_name = "hmac-sha512-iproc",
+				    .cra_blocksize = SHA512_BLOCK_SIZE,
+				}
+		      },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_NONE,
+			 .mode = CIPHER_MODE_NONE,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA512,
+		       .mode = HASH_MODE_HMAC,
+		       },
+	 },
+	{
 	 .type = CRYPTO_ALG_TYPE_AHASH,
 	 .alg.hash = {
 		      .halg.digestsize = SHA3_224_DIGEST_SIZE,
@@ -4270,12 +4361,12 @@ static int spu_register_ahash(struct iproc_alg_s *driver_alg)
 
 	/*
 	 * AES-XCBC, AES-CMAC, SHA3 variants are not registered for SPU-M.
-	 * SHA3 algorithm variants are not registered for SPU2.
+	 * SHA3 algorithm variants are not registered for SPU-M or SPU2.
 	 */
-	if (((driver_alg->auth_info.alg >= HASH_ALG_AES) &&
+	if (((driver_alg->auth_info.alg == HASH_ALG_AES) &&
 		(spu->spu_type == SPU_TYPE_SPUM)) ||
 		((driver_alg->auth_info.alg >= HASH_ALG_SHA3_224) &&
-		(spu->spu_type == SPU_TYPE_SPU2)))
+		 (spu->spu_type != SPU_TYPE_SPU2_V2)))
 		return 0;
 
 	hash->halg.base.cra_module = THIS_MODULE;

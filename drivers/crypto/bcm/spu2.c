@@ -269,6 +269,12 @@ spu2_hash_xlate(enum hash_alg hash_alg, enum hash_mode hash_mode,
 	case HASH_ALG_SHA256:
 		*spu2_type = SPU2_HASH_TYPE_SHA256;
 		break;
+	case HASH_ALG_SHA384:
+		*spu2_type = SPU2_HASH_TYPE_SHA384;
+		break;
+	case HASH_ALG_SHA512:
+		*spu2_type = SPU2_HASH_TYPE_SHA512;
+		break;
 	case HASH_ALG_AES:
 		switch (ciph_type) {
 		case CIPHER_TYPE_AES128:
@@ -827,14 +833,16 @@ u16 spu2_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash)
 /**
  * spu_hash_pad_len() - Calculate the length of hash padding required to extend
  * data to a full block size.
+ * @hash_alg:        hash algorithm
  * @chunksize:       length of data, in bytes
  * @hash_block_size: size of a hash block, in bytes
  *
- * Reserve space for 1 byte (0x80) start of pad and the total length as u64
+ * SPU2 hardware does all hash padding
  *
  * Return:  length of hash pad in bytes
  */
-u16 spu2_hash_pad_len(u32 chunksize, u16 hash_block_size)
+u16 spu2_hash_pad_len(enum hash_alg hash_alg, u32 chunksize,
+		      u16 hash_block_size)
 {
 	return 0;
 }

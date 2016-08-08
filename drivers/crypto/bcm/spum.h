@@ -116,6 +116,8 @@ struct MHEADER {
 #define  CIPHER_MODE_SHIFT              18
 #define  CIPHER_ALG             0x00E00000   /* encryption algo */
 #define  CIPHER_ALG_SHIFT               21
+#define  ICV_IS_512                BIT(27)
+#define  ICV_IS_512_SHIFT		27
 #define  CIPHER_ORDER             (1 << 30)
 #define  CIPHER_ORDER_SHIFT             30
 #define  CIPHER_INBOUND           (1 << 31)

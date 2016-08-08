@@ -51,8 +51,6 @@
 
 #define GCM_ESP_DIGESTSIZE 16
 
-/* MD5, SHA1, SHA224, SHA256 all have the same block size of 64 bytes */
-#define HASH_BLOCK_SIZE 64
 #define MAX_HASH_BLOCK_SIZE SHA512_BLOCK_SIZE
 
 /* Maximum number of bytes from a non-final hash request that can
@@ -191,8 +189,8 @@ struct iproc_ctx_s {
 
 	/* auth_type is determined during processing of request */
 
-	u8 ipad[HASH_BLOCK_SIZE];
-	u8 opad[HASH_BLOCK_SIZE];
+	u8 ipad[MAX_HASH_BLOCK_SIZE];
+	u8 opad[MAX_HASH_BLOCK_SIZE];
 
 	/* Buffer to hold SPU message header template. Template is created at
 	 * setkey time for ablkcipher requests, since most of the fields in the
@@ -321,7 +319,8 @@ struct spu_hw {
 	u32 (*spu_payload_length)(u8 *spu_hdr);
 	u16 (*spu_response_hdr_len)(u16 auth_key_len, u16 enc_key_len,
 				    bool is_hash);
-	u16 (*spu_hash_pad_len)(u32 chunksize, u16 hash_block_size);
+	u16 (*spu_hash_pad_len)(enum hash_alg, u32 chunksize,
+				u16 hash_block_size);
 	u32 (*spu_gcm_pad_len)(enum spu_cipher_mode cipher_mode,
 			       unsigned int data_size);
 	u32 (*spu_assoc_resp_len)(enum spu_cipher_mode cipher_mode,

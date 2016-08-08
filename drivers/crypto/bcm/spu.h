@@ -68,11 +68,13 @@ enum hash_alg {
 	HASH_ALG_SHA224 = 0x3,
 	HASH_ALG_SHA256 = 0x4,
 	HASH_ALG_AES = 0x5,
+	HASH_ALG_SHA384 = 0x6,
+	HASH_ALG_SHA512 = 0x7,
 	/* Keep SHA3 algorithms at the end always */
-	HASH_ALG_SHA3_224 = 0x6,
-	HASH_ALG_SHA3_256 = 0x7,
-	HASH_ALG_SHA3_384 = 0x8,
-	HASH_ALG_SHA3_512 = 0x9,
+	HASH_ALG_SHA3_224 = 0x8,
+	HASH_ALG_SHA3_256 = 0x9,
+	HASH_ALG_SHA3_384 = 0xa,
+	HASH_ALG_SHA3_512 = 0xb,
 };
 
 enum hash_mode {
@@ -150,7 +152,7 @@ struct spu_aead_parms {
 #define SPU_STAT_PAD_MAX  4
 
 /* Max length of pad fragment. 4 is for 4-byte alignment of STATUS field */
-#define SPU_PAD_LEN_MAX (SPU_GCM_ALIGN + HASH_BLOCK_SIZE + SPU_STAT_PAD_MAX)
+#define SPU_PAD_LEN_MAX (SPU_GCM_ALIGN + MAX_HASH_BLOCK_SIZE + SPU_STAT_PAD_MAX)
 
 /* GCM requires 16-byte alignment */
 #define SPU_GCM_ALIGN 16
@@ -217,7 +219,8 @@ u32 spum_ctx_max_payload(enum spu_cipher_alg cipher_alg,
 			 unsigned int blocksize);
 u32 spum_payload_length(u8 *spu_hdr);
 u16 spum_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash);
-u16 spum_hash_pad_len(u32 chunksize, u16 hash_block_size);
+u16 spum_hash_pad_len(enum hash_alg hash_alg, u32 chunksize,
+		      u16 hash_block_size);
 u32 spum_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size);
 u32 spum_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
 			unsigned int assoc_len, unsigned int iv_len,

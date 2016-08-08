@@ -238,7 +238,22 @@ int do_decrypt(char *alg_name,
 	return ret;
 }
 
-/* produce a message digest from data of length n bytes */
+/**
+ * do_shash() - Do a synchronous hash operation in software
+ * @name:       The name of the hash algorithm
+ * @result:     Buffer where digest is to be written
+ * @data1:      First part of data to hash. May be NULL.
+ * @data1_len:  Length of data1, in bytes
+ * @data2:      Second part of data to hash. May be NULL.
+ * @data2_len:  Length of data2, in bytes
+ *
+ * Note that the crypto API will not select this driver's own transform because
+ * this driver only registers asynchronous algos.
+ *
+ * Return: 0 if hash successfully stored in result
+ *         < 0 otherwise
+ *
+ */
 int do_shash(unsigned char *name, unsigned char *result,
 	     const u8 *data1, unsigned int data1_len,
 	     const u8 *data2, unsigned int data2_len)
