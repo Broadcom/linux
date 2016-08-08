@@ -27,7 +27,6 @@
 #include <linux/kthread.h>
 #include <linux/semaphore.h>
 #include <linux/rtnetlink.h>
-#include <linux/workqueue.h>
 #include <linux/sched.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
@@ -96,12 +95,9 @@ char BCMHEADER[] = { 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x28 };
 
 /* ==================== Queue Tasks and Helpers ==================== */
 
-static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx);
 static void handle_ablkcipher_resp(struct iproc_reqctx_s *rctx);
-static int handle_ahash_req(struct iproc_reqctx_s *rctx);
 static void handle_ahash_resp(struct iproc_reqctx_s *rctx);
 static int ahash_req_done(struct iproc_reqctx_s *rctx);
-static int handle_aead_req(struct iproc_reqctx_s *rctx);
 static void handle_aead_resp(struct iproc_reqctx_s *rctx);
 
 /*
@@ -116,7 +112,7 @@ static u8 select_channel(void)
 {
 	u8 chan_idx = atomic_inc_return(&iproc_priv.next_chan);
 
-	return (chan_idx % iproc_priv.spu.num_chan);
+	return chan_idx % iproc_priv.spu.num_chan;
 }
 
 /* Build up the scatterlist of buffers used to receive a SPU response message
@@ -352,7 +348,6 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 		}
 	}
 
-	flow_log("%s()-send req:%p rctx:%p ctx:%p\n", __func__, req, rctx, ctx);
 	if (ctx->max_payload == SPU_MAX_PAYLOAD_INF)
 		flow_log("max_payload infinite\n");
 	else
@@ -448,8 +443,8 @@ static void handle_ablkcipher_resp(struct iproc_reqctx_s *rctx)
 
 	atomic64_add(payload_len, &iproc_priv.bytes_in);
 
-	flow_log("%s() rctx:%p  offset: %u, bd_len: %u BD:\n",
-		 __func__, rctx, rctx->total_received, payload_len);
+	flow_log("%s() offset: %u, bd_len: %u BD:\n",
+		 __func__, rctx->total_received, payload_len);
 
 	dump_sg(req->dst, rctx->total_received, payload_len);
 	if (ctx->cipher.alg == CIPHER_ALG_RC4)
@@ -839,8 +834,8 @@ static void handle_ahash_resp(struct iproc_reqctx_s *rctx)
 	 */
 	memcpy(rctx->incr_hash, rctx->msg_buf->digest, MAX_DIGEST_SIZE);
 
-	flow_log("%s() req:%p blocksize:%u digestsize:%u\n",
-		 __func__, req, blocksize, ctx->digestsize);
+	flow_log("%s() blocksize:%u digestsize:%u\n",
+		 __func__, blocksize, ctx->digestsize);
 
 	atomic64_add(ctx->digestsize, &iproc_priv.bytes_in);
 
@@ -1224,7 +1219,7 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 	/* doing the whole thing at once */
 	chunksize = rctx->total_todo;
 
-	flow_log("%s: rctx %p, chunksize %u\n", __func__, rctx, chunksize);
+	flow_log("%s: chunksize %u\n", __func__, chunksize);
 
 	memset(&req_opts, 0, sizeof(req_opts));
 	memset(&hash_parms, 0, sizeof(hash_parms));
@@ -1323,8 +1318,8 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 
 	atomic64_add(chunksize, &iproc_priv.bytes_out);
 
-	flow_log("%s()-sent req:%p chunksize:%u hmac_offset:%u\n",
-		 __func__, req, chunksize, hash_parms.hmac_offset);
+	flow_log("%s()-sent chunksize:%u hmac_offset:%u\n",
+		 __func__, chunksize, hash_parms.hmac_offset);
 
 	/* Prepend SPU header with type 3 BCM header */
 	memcpy(rctx->msg_buf->bcm_spu_req_hdr, BCMHEADER, BCM_HDR_LEN);
@@ -1501,7 +1496,7 @@ static void finish_req(struct iproc_reqctx_s *rctx, int err)
 {
 	struct crypto_async_request *areq = rctx->parent;
 
-	flow_log("%s() rctx:%p err:%d\n\n", __func__, rctx, err);
+	flow_log("%s() err:%d\n\n", __func__, err);
 
 	/* No harm done if these were already called */
 	spu_chunk_cleanup(rctx);
@@ -1523,7 +1518,6 @@ static void spu_rx_callback(struct mbox_client *cl, void *msg)
 	int err = 0;
 
 	rctx = mssg->ctx;
-	flow_log("%s() rctx: %p\n", __func__, rctx);
 	if (unlikely(rctx == NULL)) {
 		/* This is fatal */
 		dev_err(dev, "%s(): no request context", __func__);
@@ -1618,8 +1612,7 @@ static int ablkcipher_enqueue(struct ablkcipher_request *req, bool encrypt)
 	    crypto_ablkcipher_ctx(crypto_ablkcipher_reqtfm(req));
 	int err;
 
-	flow_log("%s() req:%p enc:%u rctx:%p ctx:%p\n", __func__, req,
-		 encrypt, rctx, ctx);
+	flow_log("%s() enc:%u\n", __func__, encrypt);
 
 	rctx->parent = &req->base;
 	rctx->is_encrypt = encrypt;
@@ -1832,19 +1825,14 @@ static int ablkcipher_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
 
 static int ablkcipher_encrypt(struct ablkcipher_request *req)
 {
-	flow_log("ablkcipher_encrypt() alkb_req:%p nbytes:%u\n", req,
-		 req->nbytes);
-	flow_log("sg src %p, sg dst %p\n", req->src, req->dst);
-	flow_log("Number of sg entries in src: %u\n", sg_nents(req->src));
-	flow_log("Number of sg entries in dst: %u\n", sg_nents(req->dst));
+	flow_log("ablkcipher_encrypt() nbytes:%u\n", req->nbytes);
 
 	return ablkcipher_enqueue(req, true);
 }
 
 static int ablkcipher_decrypt(struct ablkcipher_request *req)
 {
-	flow_log("ablkcipher_decrypt() alkb_req:%p nbytes:%u\n", req,
-		 req->nbytes);
+	flow_log("ablkcipher_decrypt() nbytes:%u\n", req->nbytes);
 	return ablkcipher_enqueue(req, false);
 }
 
@@ -1858,8 +1846,7 @@ static int ahash_enqueue(struct ahash_request *req)
 	int err = 0;
 	const char *alg_name;
 
-	flow_log("ahash_enqueue() req:%p base:%p nbytes:%u\n", req, &req->base,
-		 req->nbytes);
+	flow_log("ahash_enqueue() nbytes:%u\n", req->nbytes);
 
 	rctx->parent = &req->base;
 	rctx->msg_buf = NULL;
@@ -1920,7 +1907,7 @@ static int ahash_init(struct ahash_request *req)
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct iproc_ctx_s *ctx = crypto_ahash_ctx(tfm);
 
-	flow_log("ahash_init() req:%p\n", req);
+	flow_log("%s()\n", __func__);
 
 	/* Initialize the context */
 	rctx->hash_carry_len = 0;
@@ -1947,7 +1934,7 @@ static int ahash_update(struct ahash_request *req)
 {
 	struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
 
-	flow_log("ahash_update() req:%p nbytes:%u\n", req, req->nbytes);
+	flow_log("ahash_update() nbytes:%u\n", req->nbytes);
 	/* dump_sg(req->src, req->nbytes); */
 
 	if (!req->nbytes)
@@ -1962,7 +1949,7 @@ static int ahash_final(struct ahash_request *req)
 {
 	struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
 
-	flow_log("ahash_final() req:%p nbytes:%u\n", req, req->nbytes);
+	flow_log("ahash_final() nbytes:%u\n", req->nbytes);
 	/* dump_sg(req->src, req->nbytes); */
 
 	rctx->is_final = 1;
@@ -1974,8 +1961,7 @@ static int ahash_finup(struct ahash_request *req)
 {
 	struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
 
-	flow_log("ahash_finup() req:%p nbytes:%u\n", req, req->nbytes);
-	/* dump_sg(req->src, req->nbytes); */
+	flow_log("ahash_finup() nbytes:%u\n", req->nbytes);
 
 	rctx->total_todo += req->nbytes;
 	rctx->src_sent = 0;
@@ -1989,7 +1975,7 @@ static int ahash_digest(struct ahash_request *req)
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
 	int err = 0;
 
-	flow_log("ahash_digest() req:%p nbytes:%u\n", req, req->nbytes);
+	flow_log("ahash_digest() nbytes:%u\n", req->nbytes);
 
 	/* whole thing at once */
 	err = ahash->init(req);
@@ -2141,7 +2127,7 @@ static int ahash_hmac_init(struct ahash_request *req)
 	unsigned int blocksize =
 			crypto_tfm_alg_blocksize(crypto_ahash_tfm(tfm));
 
-	flow_log("ahash_hmac_init() req:%p\n", req);
+	flow_log("ahash_hmac_init()\n");
 
 	/* init the context as a hash */
 	ahash_init(req);
@@ -2172,8 +2158,7 @@ static int ahash_hmac_init(struct ahash_request *req)
 
 static int ahash_hmac_update(struct ahash_request *req)
 {
-	flow_log("ahash_hmac_update() req:%p nbytes:%u\n", req, req->nbytes);
-	/* dump_sg(req->src, req->nbytes); */
+	flow_log("ahash_hmac_update() nbytes:%u\n", req->nbytes);
 
 	if (!req->nbytes)
 		return 0;
@@ -2183,7 +2168,7 @@ static int ahash_hmac_update(struct ahash_request *req)
 
 static int ahash_hmac_final(struct ahash_request *req)
 {
-	flow_log("ahash_hmac_final() req:%p nbytes:%u\n", req, req->nbytes);
+	flow_log("ahash_hmac_final() nbytes:%u\n", req->nbytes);
 	/* dump_sg(req->src, req->nbytes); */
 
 	return ahash_final(req);
@@ -2191,8 +2176,7 @@ static int ahash_hmac_final(struct ahash_request *req)
 
 static int ahash_hmac_finup(struct ahash_request *req)
 {
-	flow_log("ahash_hmac_finupl() req:%p nbytes:%u\n", req, req->nbytes);
-	/* dump_sg(req->src, req->nbytes); */
+	flow_log("ahash_hmac_finupl() nbytes:%u\n", req->nbytes);
 
 	return ahash_finup(req);
 }
@@ -2202,8 +2186,7 @@ static int ahash_hmac_digest(struct ahash_request *req)
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
 	int err = 0;
 
-	flow_log("ahash_hmac_digest() req:%p nbytes:%u\n", req, req->nbytes);
-	/* dump_sg(req->src, req->nbytes); */
+	flow_log("ahash_hmac_digest() nbytes:%u\n", req->nbytes);
 
 	/* whole thing at once */
 	err = ahash->init(req);
@@ -2252,7 +2235,7 @@ static void aead_complete(struct crypto_async_request *areq, int err)
 	struct iproc_reqctx_s *rctx = aead_request_ctx(req);
 	struct crypto_aead *aead = crypto_aead_reqtfm(req);
 
-	flow_log("%s() req:%p err:%d\n", __func__, areq, err);
+	flow_log("%s() err:%d\n", __func__, err);
 
 	areq->tfm = crypto_aead_tfm(aead);
 
@@ -2271,7 +2254,7 @@ static int aead_do_fallback(struct aead_request *req, bool is_encrypt)
 	int err;
 	u32 req_flags;
 
-	flow_log("%s() req:%p enc:%u\n", __func__, req, is_encrypt);
+	flow_log("%s() enc:%u\n", __func__, is_encrypt);
 
 	if (ctx->fallback_cipher) {
 		/* Store the cipher tfm and then use the fallback tfm */
@@ -2313,7 +2296,7 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	struct iproc_ctx_s *ctx = crypto_aead_ctx(aead);
 	int err;
 
-	flow_log("%s() req:%p enc:%u\n", __func__, req, is_encrypt);
+	flow_log("%s() enc:%u\n", __func__, is_encrypt);
 
 	if (req->assoclen > MAX_ASSOC_SIZE) {
 		pr_err
@@ -2390,7 +2373,6 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	flow_log("  iv_ctr_len:%u\n", rctx->iv_ctr_len);
 	flow_dump("  iv: ", req->iv, rctx->iv_ctr_len);
 	flow_log("  authkeylen:%u\n", ctx->authkeylen);
-	flow_log("  ctx:%p\n", ctx);
 	flow_log("  is_esp: %s\n", ctx->is_esp ? "yes" : "no");
 
 	if (ctx->max_payload == SPU_MAX_PAYLOAD_INF)
@@ -2586,8 +2568,7 @@ static int aead_gcm_setkey(struct crypto_aead *cipher,
 
 	int ret = 0;
 
-	flow_log("%s() aead:%p key:%p keylen:%u\n", __func__, cipher, key,
-		 keylen);
+	flow_log("%s() keylen:%u\n", __func__, keylen);
 	flow_dump("  key: ", key, keylen);
 
 	if (!ctx->is_esp)
@@ -2642,7 +2623,6 @@ static int aead_gcm_setkey(struct crypto_aead *cipher,
 
 	flow_log("  enckeylen:%u authkeylen:%u\n", ctx->enckeylen,
 		 ctx->authkeylen);
-	flow_log("  ctx:%p\n", ctx);
 
 	return ret;
 
@@ -2687,8 +2667,8 @@ static int aead_setauthsize(struct crypto_aead *cipher, unsigned int authsize)
 	struct iproc_ctx_s *ctx = crypto_aead_ctx(cipher);
 	int ret = 0;
 
-	flow_log("%s() aead:%p authkeylen:%u authsize:%u\n",
-		 __func__, cipher, ctx->authkeylen, authsize);
+	flow_log("%s() authkeylen:%u authsize:%u\n",
+		 __func__, ctx->authkeylen, authsize);
 
 	ctx->digestsize = authsize;
 
@@ -2706,8 +2686,8 @@ static int aead_setauthsize(struct crypto_aead *cipher, unsigned int authsize)
 
 static int aead_encrypt(struct aead_request *req)
 {
-	flow_log("%s() aead_req:%p cryptlen:%u %08x\n", __func__, req,
-		 req->cryptlen, req->cryptlen);
+	flow_log("%s() cryptlen:%u %08x\n", __func__, req->cryptlen,
+		 req->cryptlen);
 	dump_sg(req->src, 0, req->cryptlen + req->assoclen);
 	flow_log("  assoc_len:%u\n", req->assoclen);
 
@@ -2716,8 +2696,7 @@ static int aead_encrypt(struct aead_request *req)
 
 static int aead_decrypt(struct aead_request *req)
 {
-	flow_log("%s() aead_req:%p cryptlen:%u %08x\n", __func__, req,
-		 req->cryptlen, req->cryptlen);
+	flow_log("%s() cryptlen:%u\n", __func__, req->cryptlen);
 	dump_sg(req->src, 0, req->cryptlen + req->assoclen);
 	flow_log("  assoc_len:%u\n", req->assoclen);
 
@@ -3642,7 +3621,7 @@ static int generic_cra_init(struct crypto_tfm *tfm,
 	struct iproc_ctx_s *ctx = crypto_tfm_ctx(tfm);
 	unsigned int blocksize = crypto_tfm_alg_blocksize(tfm);
 
-	flow_log("%s() tfm:%p ctx:%p\n", __func__, tfm, ctx);
+	flow_log("%s()\n", __func__);
 
 	ctx->alg = cipher_alg;
 	ctx->cipher = cipher_alg->cipher_info;
@@ -3667,7 +3646,7 @@ static int ablkcipher_cra_init(struct crypto_tfm *tfm)
 	struct crypto_alg *alg = tfm->__crt_alg;
 	struct iproc_alg_s *cipher_alg;
 
-	flow_log("%s() tfm:%p\n", __func__, tfm);
+	flow_log("%s()\n", __func__);
 
 	tfm->crt_ablkcipher.reqsize = sizeof(struct iproc_reqctx_s);
 
@@ -3685,7 +3664,7 @@ static int ahash_cra_init(struct crypto_tfm *tfm)
 				  alg.hash);
 
 	err = generic_cra_init(tfm, cipher_alg);
-	flow_log("%s() tfm:%p\n", __func__, tfm);
+	flow_log("%s()\n", __func__);
 
 	crypto_ahash_set_reqsize(__crypto_ahash_cast(tfm),
 				 sizeof(struct iproc_reqctx_s));
@@ -3703,7 +3682,7 @@ static int rabin_cra_init(struct crypto_rabin *rabin)
 
 	int err = generic_cra_init(tfm, cipher_alg);
 
-	flow_log("%s() tfm:%p\n", __func__, tfm);
+	flow_log("%s()\n", __func__);
 
 	crypto_rabin_set_reqsize(rabin, sizeof(struct iproc_reqctx_s));
 
@@ -3721,7 +3700,7 @@ static int aead_cra_init(struct crypto_aead *aead)
 
 	int err = generic_cra_init(tfm, cipher_alg);
 
-	flow_log("%s() tfm:%p\n", __func__, tfm);
+	flow_log("%s()\n", __func__);
 
 	crypto_aead_set_reqsize(aead, sizeof(struct iproc_reqctx_s));
 	ctx->is_esp = false;
@@ -4017,6 +3996,7 @@ static int rabin_get_finger_print(struct rabin_request *req)
 
 static void spu_unregister_rabin(struct rabin_alg *rabin)
 {
+	struct device *dev = &iproc_priv.pdev->dev;
 	struct spu_hw *spu = &iproc_priv.spu;
 
 	/*
@@ -4028,7 +4008,7 @@ static void spu_unregister_rabin(struct rabin_alg *rabin)
 		return;
 
 	crypto_unregister_rabin(rabin);
-	pr_info("  unregistered rabin %s\n", rabin->base.cra_driver_name);
+	dev_dbg(dev, "  unregistered rabin %s\n", rabin->base.cra_driver_name);
 }
 
 static int spu_register_rabin(struct iproc_alg_s *driver_alg)
@@ -4036,6 +4016,7 @@ static int spu_register_rabin(struct iproc_alg_s *driver_alg)
 	int err;
 	struct rabin_alg *rabin = &driver_alg->alg.rabin;
 	struct spu_hw *spu = &iproc_priv.spu;
+	struct device *dev = &iproc_priv.pdev->dev;
 
 	/*
 	 * Currently SPU2_V2 only supports RABIN Fingerprint
@@ -4068,7 +4049,7 @@ static int spu_register_rabin(struct iproc_alg_s *driver_alg)
 		return err;
 	}
 
-	pr_info("registered rabin %s\n", rabin->base.cra_driver_name);
+	dev_dbg(dev, "registered rabin %s\n", rabin->base.cra_driver_name);
 	return 0;
 }
 /* ==================== Kernel Platform API ==================== */
@@ -4243,6 +4224,7 @@ static void spu_mb_release(struct platform_device *pdev)
 
 static int spu_register_ablkcipher(struct iproc_alg_s *driver_alg)
 {
+	struct device *dev = &iproc_priv.pdev->dev;
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct crypto_alg *crypto = &driver_alg->alg.crypto;
 	int err;
@@ -4275,12 +4257,13 @@ static int spu_register_ablkcipher(struct iproc_alg_s *driver_alg)
 	crypto->cra_ablkcipher.decrypt = ablkcipher_decrypt;
 
 	err = crypto_register_alg(crypto);
-	pr_info("  registered ablkcipher %s\n", crypto->cra_driver_name);
+	dev_dbg(dev, "  registered ablkcipher %s\n", crypto->cra_driver_name);
 	return err;
 }
 
 static int spu_register_ahash(struct iproc_alg_s *driver_alg)
 {
+	struct device *dev = &iproc_priv.pdev->dev;
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct ahash_alg *hash = &driver_alg->alg.hash;
 	int err;
@@ -4324,12 +4307,14 @@ static int spu_register_ahash(struct iproc_alg_s *driver_alg)
 	hash->import = ahash_import;
 
 	err = crypto_register_ahash(hash);
-	pr_info("  registered ahash %s\n", hash->halg.base.cra_driver_name);
+	dev_dbg(dev, "  registered ahash %s\n",
+		hash->halg.base.cra_driver_name);
 	return err;
 }
 
 static int spu_register_aead(struct iproc_alg_s *driver_alg)
 {
+	struct device *dev = &iproc_priv.pdev->dev;
 	struct aead_alg *aead = &driver_alg->alg.aead;
 	int err;
 
@@ -4348,7 +4333,7 @@ static int spu_register_aead(struct iproc_alg_s *driver_alg)
 	aead->exit = aead_cra_exit;
 
 	err = crypto_register_aead(aead);
-	pr_info("  registered aead %s\n", aead->base.cra_driver_name);
+	dev_dbg(dev, "  registered aead %s\n", aead->base.cra_driver_name);
 	return err;
 }
 
