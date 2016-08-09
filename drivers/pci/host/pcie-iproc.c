@@ -187,17 +187,14 @@ enum iproc_pcie_reg {
 
 	/* link status. Only available in PAXB */
 	IPROC_PCIE_LINK_STATUS,
+
+	/* total number of core registers */
+	IPROC_PCIE_MAX_NUM_REG,
 };
 
 /* iProc PCIe PAXB registers */
 static const u16 iproc_pcie_reg_paxb[] = {
 	[IPROC_PCIE_CLK_CTRL]         = 0x000,
-	[IPROC_PCIE_MSI_GIC_MODE]     = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_BASE_ADDR]    = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_WINDOW_SIZE]  = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_ADDR_LO]      = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_ADDR_HI]      = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_EN_CFG]       = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_CFG_IND_ADDR]     = 0x120,
 	[IPROC_PCIE_CFG_IND_DATA]     = 0x124,
 	[IPROC_PCIE_CFG_ADDR]         = 0x1f8,
@@ -207,22 +204,12 @@ static const u16 iproc_pcie_reg_paxb[] = {
 	[IPROC_PCIE_OARR_HI]          = 0xd24,
 	[IPROC_PCIE_OMAP_LO]          = 0xd40,
 	[IPROC_PCIE_OMAP_HI]          = 0xd44,
-	[IPROC_PCIE_IARR0_LO]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IARR0_HI]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP0_LO]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP0_HI]         = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_LINK_STATUS]      = 0xf0c,
 };
 
 /* iProc PCIe PAXB_V2 registers */
 static const u16 iproc_pcie_reg_paxb_v2[] = {
 	[IPROC_PCIE_CLK_CTRL]         = 0x000,
-	[IPROC_PCIE_MSI_GIC_MODE]     = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_BASE_ADDR]    = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_WINDOW_SIZE]  = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_ADDR_LO]      = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_ADDR_HI]      = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_EN_CFG]       = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_CFG_IND_ADDR]     = 0x120,
 	[IPROC_PCIE_CFG_IND_DATA]     = 0x124,
 	[IPROC_PCIE_CFG_ADDR]         = 0x1f8,
@@ -242,31 +229,14 @@ static const u16 iproc_pcie_reg_paxb_v2[] = {
 /* iProc PCIe PAXC v1 registers */
 static const u16 iproc_pcie_reg_paxc[] = {
 	[IPROC_PCIE_CLK_CTRL]         = 0x000,
-	[IPROC_PCIE_MSI_GIC_MODE]     = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_BASE_ADDR]    = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_WINDOW_SIZE]  = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_ADDR_LO]      = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_ADDR_HI]      = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_MSI_EN_CFG]       = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_CFG_IND_ADDR]     = 0x1f0,
 	[IPROC_PCIE_CFG_IND_DATA]     = 0x1f4,
 	[IPROC_PCIE_CFG_ADDR]         = 0x1f8,
 	[IPROC_PCIE_CFG_DATA]         = 0x1fc,
-	[IPROC_PCIE_INTX_EN]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OARR_LO]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OARR_HI]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OMAP_LO]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OMAP_HI]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IARR0_LO]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IARR0_HI]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP0_LO]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP0_HI]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_LINK_STATUS]      = IPROC_PCIE_REG_INVALID,
 };
 
 /* iProc PCIe PAXC v2 registers */
 static const u16 iproc_pcie_reg_paxc_v2[] = {
-	[IPROC_PCIE_CLK_CTRL]         = IPROC_PCIE_REG_INVALID,
 	[IPROC_PCIE_MSI_GIC_MODE]     = 0x050,
 	[IPROC_PCIE_MSI_BASE_ADDR]    = 0x074,
 	[IPROC_PCIE_MSI_WINDOW_SIZE]  = 0x078,
@@ -277,16 +247,6 @@ static const u16 iproc_pcie_reg_paxc_v2[] = {
 	[IPROC_PCIE_CFG_IND_DATA]     = 0x1f4,
 	[IPROC_PCIE_CFG_ADDR]         = 0x1f8,
 	[IPROC_PCIE_CFG_DATA]         = 0x1fc,
-	[IPROC_PCIE_INTX_EN]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OARR_LO]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OARR_HI]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OMAP_LO]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_OMAP_HI]          = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IARR0_LO]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IARR0_HI]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP0_LO]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_IMAP0_HI]         = IPROC_PCIE_REG_INVALID,
-	[IPROC_PCIE_LINK_STATUS]      = IPROC_PCIE_REG_INVALID,
 };
 
 static inline struct iproc_pcie *iproc_data(struct pci_bus *bus)
@@ -866,6 +826,51 @@ int iproc_pcie_setup_ib_map(struct iproc_pcie *pcie)
 }
 EXPORT_SYMBOL(iproc_pcie_setup_ib_map);
 
+static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
+{
+	unsigned int reg_idx;
+	const u16 *regs;
+
+	switch (pcie->type) {
+	case IPROC_PCIE_PAXB:
+		regs = iproc_pcie_reg_paxb;
+		pcie->ep_is_internal = false;
+		break;
+	case IPROC_PCIE_PAXB_V2:
+		regs = iproc_pcie_reg_paxb_v2;
+		pcie->ep_is_internal = false;
+		break;
+	case IPROC_PCIE_PAXC:
+		regs = iproc_pcie_reg_paxc;
+		pcie->ep_is_internal = true;
+		pcie->nr_pf = 4;
+		break;
+	case IPROC_PCIE_PAXC_V2:
+		regs = iproc_pcie_reg_paxc_v2;
+		pcie->ep_is_internal = true;
+		pcie->nr_pf = 1;
+		break;
+	default:
+		dev_err(pcie->dev, "incompatible iProc PCIe interface\n");
+		return -EINVAL;
+	}
+
+	pcie->reg_offsets = devm_kcalloc(pcie->dev, IPROC_PCIE_MAX_NUM_REG,
+					 sizeof(*pcie->reg_offsets),
+					 GFP_KERNEL);
+	if (!pcie->reg_offsets)
+		return -ENOMEM;
+
+	/* go through the register table and populate all valid registers */
+	pcie->reg_offsets[0] = (pcie->type == IPROC_PCIE_PAXC_V2) ?
+		IPROC_PCIE_REG_INVALID : regs[0];
+	for (reg_idx = 1; reg_idx < IPROC_PCIE_MAX_NUM_REG; reg_idx++)
+		pcie->reg_offsets[reg_idx] = regs[reg_idx] ?
+			regs[reg_idx] : IPROC_PCIE_REG_INVALID;
+
+	return 0;
+}
+
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 {
 	int ret;
@@ -874,6 +879,13 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 
 	if (!pcie || !pcie->dev || !pcie->base)
 		return -EINVAL;
+
+	ret = iproc_pcie_rev_init(pcie);
+	if (ret) {
+		dev_err(pcie->dev,
+			"unable to initialize controller parameters\n");
+		return ret;
+	}
 
 	ret = phy_init(pcie->phy);
 	if (ret) {
@@ -885,31 +897,6 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	if (ret) {
 		dev_err(pcie->dev, "unable to power on PCIe PHY\n");
 		goto err_exit_phy;
-	}
-
-	switch (pcie->type) {
-	case IPROC_PCIE_PAXB:
-		pcie->reg_offsets = iproc_pcie_reg_paxb;
-		pcie->ep_is_internal = false;
-		break;
-	case IPROC_PCIE_PAXB_V2:
-		pcie->reg_offsets = iproc_pcie_reg_paxb_v2;
-		pcie->ep_is_internal = false;
-		break;
-	case IPROC_PCIE_PAXC:
-		pcie->reg_offsets = iproc_pcie_reg_paxc;
-		pcie->ep_is_internal = true;
-		pcie->nr_pf = 4;
-		break;
-	case IPROC_PCIE_PAXC_V2:
-		pcie->reg_offsets = iproc_pcie_reg_paxc_v2;
-		pcie->ep_is_internal = true;
-		pcie->nr_pf = 1;
-		break;
-	default:
-		dev_err(pcie->dev, "incompatible iProc PCIe interface\n");
-		ret = -EINVAL;
-		goto err_power_off_phy;
 	}
 
 	iproc_pcie_reset(pcie);

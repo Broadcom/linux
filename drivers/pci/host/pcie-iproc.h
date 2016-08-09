@@ -108,7 +108,7 @@ struct iproc_msi;
 struct iproc_pcie {
 	struct device *dev;
 	enum iproc_pcie_type type;
-	const u16 *reg_offsets;
+	u16 *reg_offsets;
 	void __iomem *base;
 	phys_addr_t base_addr;
 #ifdef CONFIG_ARM
