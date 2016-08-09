@@ -249,14 +249,6 @@
 			brcm,pinconf-func-off = <IPROC_PIN_OFF_DRIVE_STRENGTH>;
 		};
 
-		pwm: pwm@31000 {
-			compatible = "brcm,iproc-pwm";
-			reg = <0x31000 0x28>;
-			clocks = <&osc>;
-			#pwm-cells = <3>;
-			status = "disabled";
-		};
-
 		rng: rng@33000 {
 			compatible = "brcm,bcm2835-rng";
 			reg = <0x33000 0x14>;
