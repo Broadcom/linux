@@ -136,3 +136,18 @@
 		};
 	};
 };
+
+&mdio_mux_iproc {
+	mdio@1 {
+		gphy0: eth-phy@0 {
+			reg = <0x1>;
+		};
+	};
+};
+
+&enet {
+	phy-mode = "mii";
+	phy-handle = <&gphy0>;
+	/* switch mode used in emulator to bypass phy */
+	brcm,enet-switch-mode;
+};

@@ -717,6 +717,17 @@
 			#size-cells = <0>;
 		};
 
+		enet: ethernet@68c40000{
+			compatible = "brcm,amac-enet";
+			reg = <0x68c40000 0x1000>,
+			      <0x68e04400 0x1000>;
+			reg-names = "core_base",
+				    "amac_idm_base";
+			dma-coherent;
+			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>;
+			status= "disabled";
+		};
+
 		sdio0: sdhci@68cf1000 {
 			compatible = "brcm,sdhci-iproc";
 			reg = <0x68cf1000 0x100>;
