@@ -472,6 +472,37 @@
 			gpio-controller;
 		};
 
+		mdio_mux_iproc: mdio-mux@6892023c {
+			compatible = "brcm,mdio-mux-iproc";
+			reg = <0x6892023c 0x14>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mdio@0 { /* PCIe serdes */
+				reg = <0x0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+
+			mdio@1 { /* SGMII */
+				reg = <0x1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+
+			mdio@2 { /* SATA */
+				reg = <0x2>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+
+			mdio@3 { /* USB */
+				reg = <0x3>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+		};
+
 		timer0: timer@68930000 {
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x68930000 0x1000>;
