@@ -52,15 +52,13 @@ enum iproc_pcie_type {
 
 /**
  * iProc PCIe outbound mapping
- * @oarr_size_bits: indicates the OARR size bits
  * @axi_offset: offset from the AXI address to the internal address used by
  * the iProc PCIe core
- * @window_size: outbound window size
+ * @nr_windows: total number of supported outbound mapping windows
  */
 struct iproc_pcie_ob {
-	unsigned int oarr_size_bits;
 	resource_size_t axi_offset;
-	resource_size_t window_size;
+	unsigned int nr_windows;
 };
 
 /**
@@ -94,15 +92,19 @@ struct iproc_msi;
  * @root_bus: pointer to root bus
  * @phy: optional PHY device that controls the Serdes
  * @map_irq: function callback to map interrupts
- * @need_ob_cfg: indicates SW needs to configure the outbound mapping window
- * @need_ib_cfg: indicates SW needs to configure the inbound mapping window
  * @ep_is_internal: indicates an internal emulated endpoint device is connected
  * @nr_pf: number of physical functions (only valid for internally emulated
  * EPs)
- * @ob: outbound mapping parameters
+ *
+ * @need_ob_cfg: indicates SW needs to configure the outbound mapping window
+ * @ob: outbound mapping related parameters
+ * @ob_map: outbound mapping related parameters specific to the controller
+ *
+ * @need_ib_cfg: indicates SW needs to configure the inbound mapping window
  * @ib: inbound mapping parameters
  * @num_of_ib: number of inbound windows
  * @ib_map: inbound register map
+ *
  * @msi: MSI data
  */
 struct iproc_pcie {
@@ -117,14 +119,18 @@ struct iproc_pcie {
 	struct pci_bus *root_bus;
 	struct phy *phy;
 	int (*map_irq)(const struct pci_dev *, u8, u8);
-	bool need_ob_cfg;
-	bool need_ib_cfg;
 	bool ep_is_internal;
 	unsigned int nr_pf;
+
+	bool need_ob_cfg;
 	struct iproc_pcie_ob ob;
+	const struct iproc_pcie_ob_map *ob_map;
+
+	bool need_ib_cfg;
 	struct iproc_pcie_ib *ib;
 	unsigned int num_of_ib;
 	const struct paxb_ib_map *ib_map;
+
 	struct iproc_msi *msi;
 };
 
