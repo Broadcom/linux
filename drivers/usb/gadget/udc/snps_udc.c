@@ -74,10 +74,10 @@ static void ep_dma_init(struct snps_udc_ep *ep)
 	for (i = 0; i < DESC_CNT; i++) {
 		ep->dma.virt->desc[i].status = DMA_STS_BUF_HOST_BUSY;
 		ep->dma.virt->desc[i].next_desc_addr =
-				(u64)&ep->dma.phys->desc[i + 1];
+				(dma_addr_t)&ep->dma.phys->desc[i + 1];
 	}
 	ep->dma.virt->desc[desc_cnt].next_desc_addr =
-				(u64)&ep->dma.phys->desc[0];
+				(dma_addr_t)&ep->dma.phys->desc[0];
 
 	set_data_desc_ptr(udc->regs, ep->num, USB_DIR_OUT,
 			  &ep->dma.phys->desc[0]);

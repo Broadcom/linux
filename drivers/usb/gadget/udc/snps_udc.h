@@ -766,16 +766,16 @@ static inline void set_setup_buf_ptr(struct snps_udc_regs *regs,
 				     u32 num, u32 dirn, void *addr)
 {
 	if (dirn == EP_DIRN_OUT)
-		REG_WR(regs->ep_out[num].setupbuf, (u64)addr);
+		REG_WR(regs->ep_out[num].setupbuf, (dma_addr_t)addr);
 }
 
 static inline void set_data_desc_ptr(struct snps_udc_regs *regs,
 				     u32 num, u32 dirn, void *addr)
 {
 	if (dirn == EP_DIRN_OUT)
-		REG_WR(regs->ep_out[num].datadesc, (u64)addr);
+		REG_WR(regs->ep_out[num].datadesc, (dma_addr_t)addr);
 	else
-		REG_WR(regs->ep_in[num].datadesc, (u64)addr);
+		REG_WR(regs->ep_in[num].datadesc, (dma_addr_t)addr);
 }
 
 static inline bool is_ep_fifo_empty(struct snps_udc_regs *regs,
