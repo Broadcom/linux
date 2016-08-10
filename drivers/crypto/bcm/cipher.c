@@ -4278,8 +4278,8 @@ static int spu_mb_init(struct device *dev)
 		return -ENOMEM;
 
 	mcl->dev = dev;
-	mcl->tx_block = true;
-	mcl->tx_tout = 10000;	/* ms */
+	mcl->tx_block = false;
+	mcl->tx_tout = 0;
 	mcl->knows_txdone = false;
 	mcl->rx_callback = spu_rx_callback;
 	mcl->tx_done = NULL;
