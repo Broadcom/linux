@@ -975,7 +975,7 @@ void bcm_amac_tx_send_packet(struct bcm_amac_priv *privp)
 		/* Add skb to list */
 		dmap->tx_skb_list[curr].skb = skb;
 		dmap->tx_skb_list[curr].len = len;
-		dmap->tx_skb_list[curr].len = buf_dma;
+		dmap->tx_skb_list[curr].dma_addr = buf_dma;
 
 		desc_idx++;
 		curr++;
