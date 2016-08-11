@@ -96,6 +96,8 @@ struct iproc_msi;
  * @ep_is_internal: indicates an internal emulated endpoint device is connected
  * @nr_pf: number of physical functions (only valid for internally emulated
  * EPs)
+ * @has_apb_err_disable: indicates the controller can be configured to prevent
+ * unsupported request from being forwarded as APB error
  *
  * @need_ob_cfg: indicates SW needs to configure the outbound mapping window
  * @ob: outbound mapping related parameters
@@ -122,6 +124,7 @@ struct iproc_pcie {
 	int (*map_irq)(const struct pci_dev *, u8, u8);
 	bool ep_is_internal;
 	unsigned int nr_pf;
+	bool has_apb_err_disable;
 
 	bool need_ob_cfg;
 	struct iproc_pcie_ob ob;

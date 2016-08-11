@@ -65,6 +65,9 @@
 #define PCIE_DL_ACTIVE_SHIFT         2
 #define PCIE_DL_ACTIVE               BIT(PCIE_DL_ACTIVE_SHIFT)
 
+#define APB_ERR_EN_SHIFT             0
+#define APB_ERR_EN                   BIT(APB_ERR_EN_SHIFT)
+
 /*
  * Maximum number of outbound mapping window sizes that can be supported by any
  * OARR/OMAP mapping pair
@@ -233,6 +236,9 @@ enum iproc_pcie_reg {
 	/* link status. Only available in PAXB */
 	IPROC_PCIE_LINK_STATUS,
 
+	/* enable APB error for unsupported requests */
+	IPROC_PCIE_APB_ERR_EN,
+
 	/* total number of core registers */
 	IPROC_PCIE_MAX_NUM_REG,
 };
@@ -261,6 +267,7 @@ static const u16 iproc_pcie_reg_paxb[] = {
 	[IPROC_PCIE_OARR1]            = 0xd28,
 	[IPROC_PCIE_OMAP1]            = 0xd48,
 	[IPROC_PCIE_LINK_STATUS]      = 0xf0c,
+	[IPROC_PCIE_APB_ERR_EN]       = 0xf40,
 };
 
 /* iProc PCIe PAXB_V2 registers */
@@ -284,6 +291,7 @@ static const u16 iproc_pcie_reg_paxb_v2[] = {
 	[IPROC_PCIE_IMAP0_LO]         = 0xc00,
 	[IPROC_PCIE_IMAP0_HI]         = 0xc04,
 	[IPROC_PCIE_LINK_STATUS]      = 0xf0c,
+	[IPROC_PCIE_APB_ERR_EN]       = 0xf40,
 };
 
 /* iProc PCIe PAXC v1 registers */
@@ -961,6 +969,7 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 		break;
 	case IPROC_PCIE_PAXB:
 		regs = iproc_pcie_reg_paxb;
+		pcie->has_apb_err_disable = true;
 		if (pcie->need_ob_cfg) {
 			pcie->ob_map = paxb_ob_map;
 			pcie->ob.nr_windows = ARRAY_SIZE(paxb_ob_map);
@@ -968,6 +977,7 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 		break;
 	case IPROC_PCIE_PAXB_V2:
 		regs = iproc_pcie_reg_paxb_v2;
+		pcie->has_apb_err_disable = true;
 		if (pcie->need_ob_cfg) {
 			pcie->ob_map = paxb_v2_ob_map;
 			pcie->ob.nr_windows = ARRAY_SIZE(paxb_v2_ob_map);
@@ -1033,6 +1043,18 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	}
 
 	iproc_pcie_reset(pcie);
+
+	if (pcie->has_apb_err_disable) {
+		u32 val;
+
+		/*
+		 * Prevent device configuration space unsupported requests
+		 * from being forwarded as APB error
+		 */
+		val = iproc_pcie_read_reg(pcie, IPROC_PCIE_APB_ERR_EN);
+		val &= ~APB_ERR_EN;
+		iproc_pcie_write_reg(pcie, IPROC_PCIE_APB_ERR_EN, val);
+	}
 
 	if (pcie->need_ob_cfg) {
 		ret = iproc_pcie_map_ranges(pcie, res);
