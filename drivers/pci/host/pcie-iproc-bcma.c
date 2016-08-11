@@ -54,6 +54,7 @@ static int iproc_pcie_bcma_probe(struct bcma_device *bdev)
 	pcie->dev = &bdev->dev;
 	bcma_set_drvdata(bdev, pcie);
 
+	pcie->type = IPROC_PCIE_PAXB_BCMA;
 	pcie->base = bdev->io_addr;
 	pcie->base_addr = bdev->addr;
 
