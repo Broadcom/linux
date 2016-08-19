@@ -160,6 +160,9 @@
 			ngpios = <6>;
 			#gpio-cells = <2>;
 			gpio-controller;
+			interrupt-controller;
+			interrupt-parent = <&mailbox>;
+			interrupts = <0>;
 		};
 
 		mdio: mdio@18002000 {
