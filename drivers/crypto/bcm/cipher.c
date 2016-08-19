@@ -2956,6 +2956,54 @@ static struct iproc_alg_s driver_algs[] = {
 	 .auth_first = 0,
 	 .dtls_hmac = 0,
 	 },
+	{
+	 .type = CRYPTO_ALG_TYPE_AEAD,
+	 .alg.aead = {
+		 .base = {
+			.cra_name = "authenc(hmac(sha384),cbc(des))",
+			.cra_driver_name = "authenc-hmac-sha384-cbc-des-iproc",
+			.cra_blocksize = DES_BLOCK_SIZE,
+			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
+		 },
+		 .setkey = aead_authenc_setkey,
+		 .ivsize = DES_BLOCK_SIZE,
+		 .maxauthsize = SHA384_DIGEST_SIZE,
+	 },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_DES,
+			 .mode = CIPHER_MODE_CBC,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA384,
+		       .mode = HASH_MODE_HMAC,
+		       },
+	 .auth_first = 0,
+	 .dtls_hmac = 0,
+	 },
+	{
+	 .type = CRYPTO_ALG_TYPE_AEAD,
+	 .alg.aead = {
+		 .base = {
+			.cra_name = "authenc(hmac(sha512),cbc(des))",
+			.cra_driver_name = "authenc-hmac-sha512-cbc-des-iproc",
+			.cra_blocksize = DES_BLOCK_SIZE,
+			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
+		 },
+		 .setkey = aead_authenc_setkey,
+		 .ivsize = DES_BLOCK_SIZE,
+		 .maxauthsize = SHA512_DIGEST_SIZE,
+	 },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_DES,
+			 .mode = CIPHER_MODE_CBC,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA512,
+		       .mode = HASH_MODE_HMAC,
+		       },
+	 .auth_first = 0,
+	 .dtls_hmac = 0,
+	 },
 	/* enc -> hash - 3des */
 	{
 	 .type = CRYPTO_ALG_TYPE_AEAD,
@@ -3048,6 +3096,54 @@ static struct iproc_alg_s driver_algs[] = {
 			 },
 	 .auth_info = {
 		       .alg = HASH_ALG_SHA256,
+		       .mode = HASH_MODE_HMAC,
+		       },
+	 .auth_first = 0,
+	 .dtls_hmac = 0,
+	 },
+	{
+	 .type = CRYPTO_ALG_TYPE_AEAD,
+	 .alg.aead = {
+		 .base = {
+			.cra_name = "authenc(hmac(sha384),cbc(des3_ede))",
+			.cra_driver_name = "authenc-hmac-sha384-cbc-des3-iproc",
+			.cra_blocksize = DES3_EDE_BLOCK_SIZE,
+			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
+		 },
+		 .setkey = aead_authenc_setkey,
+		 .ivsize = DES3_EDE_BLOCK_SIZE,
+		 .maxauthsize = SHA384_DIGEST_SIZE,
+	 },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_3DES,
+			 .mode = CIPHER_MODE_CBC,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA384,
+		       .mode = HASH_MODE_HMAC,
+		       },
+	 .auth_first = 0,
+	 .dtls_hmac = 0,
+	 },
+	{
+	 .type = CRYPTO_ALG_TYPE_AEAD,
+	 .alg.aead = {
+		 .base = {
+			.cra_name = "authenc(hmac(sha512),cbc(des3_ede))",
+			.cra_driver_name = "authenc-hmac-sha512-cbc-des3-iproc",
+			.cra_blocksize = DES3_EDE_BLOCK_SIZE,
+			.cra_flags = CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC
+		 },
+		 .setkey = aead_authenc_setkey,
+		 .ivsize = DES3_EDE_BLOCK_SIZE,
+		 .maxauthsize = SHA512_DIGEST_SIZE,
+	 },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_3DES,
+			 .mode = CIPHER_MODE_CBC,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_SHA512,
 		       .mode = HASH_MODE_HMAC,
 		       },
 	 .auth_first = 0,
