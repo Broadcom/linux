@@ -121,7 +121,10 @@
  * 11    - PtyChkDisable - parity check is disabled
  * 20:18 - BurstLen = 3 -> 2^7 = 128 byte data reads from memory
  */
-#define PDC_TX_CTL              0x000C0801
+#define PDC_TX_CTL_ENA          0x000C0801
+
+/* Same control word but XmtEn=0 (Disabled) */
+#define PDC_TX_CTL_DIS          0x000C0800
 
 /*
  * Sets the following bits for write to receive control reg:
@@ -135,7 +138,10 @@
  * 11    - PtyChkDisable - parity check is disabled
  * 20:18 - BurstLen = 3 -> 2^7 = 128 byte data reads from memory
  */
-#define PDC_RX_CTL              0x000C0E01
+#define PDC_RX_CTL_ENA          0x000C0E01
+
+/* Same control word but RcvEn=0 (Disabled) */
+#define PDC_RX_CTL_DIS          0x000C0E00
 
 #define CRYPTO_D64_RS0_CD_MASK   ((PDC_RING_ENTRIES * RING_ENTRY_SIZE) - 1)
 
@@ -1053,6 +1059,15 @@ static int pdc_ring_init(struct pdc_state *pdcs, int ringset)
 
 	/* Tell device the base DMA address of each ring */
 	dma_reg = &pdcs->regs->dmaregs[ringset];
+
+	/* But first disable DMA and set curptr to 0 for both TX & RX */
+	iowrite32(PDC_TX_CTL_DIS, (void *)&dma_reg->dmaxmt.control);
+	iowrite32((PDC_RX_CTL_DIS + (pdcs->rx_status_len << 1)),
+		  (void *)&dma_reg->dmarcv.control);
+	iowrite32(0, (void *)&dma_reg->dmaxmt.ptr);
+	iowrite32(0, (void *)&dma_reg->dmarcv.ptr);
+
+	/* Set base DMA addresses */
 	iowrite32(lower_32_bits(pdcs->tx_ring_alloc.dmabase),
 		  (void *)&dma_reg->dmaxmt.addrlow);
 	iowrite32(upper_32_bits(pdcs->tx_ring_alloc.dmabase),
@@ -1062,6 +1077,11 @@ static int pdc_ring_init(struct pdc_state *pdcs, int ringset)
 		  (void *)&dma_reg->dmarcv.addrlow);
 	iowrite32(upper_32_bits(pdcs->rx_ring_alloc.dmabase),
 		  (void *)&dma_reg->dmarcv.addrhigh);
+
+	/* Re-enable DMA */
+	iowrite32(PDC_TX_CTL_ENA, (void *)&dma_reg->dmaxmt.control);
+	iowrite32((PDC_RX_CTL_ENA + (pdcs->rx_status_len << 1)),
+		  (void *)&dma_reg->dmarcv.control);
 
 	/* Initialize descriptors */
 	for (i = 0; i < PDC_RING_ENTRIES; i++) {
@@ -1239,9 +1259,10 @@ void pdc_hw_init(struct pdc_state *pdcs)
 	iowrite32(0, (void *)&dma_reg->dmaxmt.ptr);
 	iowrite32(0, (void *)&dma_reg->dmarcv.ptr);
 
-	iowrite32(PDC_TX_CTL, (void *)&dma_reg->dmaxmt.control);
+	/* Configure DMA but will enable later in pdc_ring_init() */
+	iowrite32(PDC_TX_CTL_DIS, (void *)&dma_reg->dmaxmt.control);
 
-	iowrite32(PDC_RX_CTL + (pdcs->rx_status_len << 1),
+	iowrite32(PDC_RX_CTL_DIS + (pdcs->rx_status_len << 1),
 		  (void *)&dma_reg->dmarcv.control);
 
 	if (pdcs->pdc_resp_hdr_len == PDC_SPU2_RESP_HDR_LEN)
