@@ -486,14 +486,7 @@ void spu_setup_debugfs(void)
 
 void spu_free_debugfs(void)
 {
-	if (iproc_priv.debugfs_dir && simple_empty(iproc_priv.debugfs_dir)) {
-		debugfs_remove(iproc_priv.debugfs_dir);
-		iproc_priv.debugfs_dir = NULL;
-	}
+	debugfs_remove_recursive(iproc_priv.debugfs_dir);
+	iproc_priv.debugfs_dir = NULL;
 }
 
-void spu_free_debugfs_stats(void)
-{
-	debugfs_remove(iproc_priv.debugfs_stats);
-	iproc_priv.debugfs_stats = NULL;
-}

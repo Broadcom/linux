@@ -4647,7 +4647,6 @@ int bcm_spu_probe(struct platform_device *pdev)
 	return 0;
 
 fail_reg:
-	spu_free_debugfs_stats();
 	spu_free_debugfs();
 failure:
 	spu_mb_release(pdev);
@@ -4694,7 +4693,6 @@ int bcm_spu_remove(struct platform_device *pdev)
 			break;
 		}
 	}
-	spu_free_debugfs_stats();
 	spu_free_debugfs();
 	spu_mb_release(pdev);
 	return 0;
