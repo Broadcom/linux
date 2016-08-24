@@ -99,6 +99,7 @@ struct iproc_alg_s {
 	struct auth_op auth_info;
 	bool auth_first;
 	bool dtls_hmac;
+	bool registered;
 };
 
 /* Buffers for a SPU request/reply message pair. All part of one structure to

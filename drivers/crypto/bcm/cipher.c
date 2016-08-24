@@ -4236,6 +4236,9 @@ static int spu_register_rabin(struct iproc_alg_s *driver_alg)
 		return err;
 	}
 
+	/* Mark alg as having been registered */
+	driver_alg->registered = true;
+
 	dev_dbg(dev, "registered rabin %s\n", rabin->base.cra_driver_name);
 	return 0;
 }
@@ -4444,6 +4447,9 @@ static int spu_register_ablkcipher(struct iproc_alg_s *driver_alg)
 	crypto->cra_ablkcipher.decrypt = ablkcipher_decrypt;
 
 	err = crypto_register_alg(crypto);
+	/* Mark alg as having been registered, if successful */
+	if (err == 0)
+		driver_alg->registered = true;
 	dev_dbg(dev, "  registered ablkcipher %s\n", crypto->cra_driver_name);
 	return err;
 }
@@ -4494,6 +4500,9 @@ static int spu_register_ahash(struct iproc_alg_s *driver_alg)
 	hash->import = ahash_import;
 
 	err = crypto_register_ahash(hash);
+	/* Mark alg as having been registered, if successful */
+	if (err == 0)
+		driver_alg->registered = true;
 	dev_dbg(dev, "  registered ahash %s\n",
 		hash->halg.base.cra_driver_name);
 	return err;
@@ -4520,6 +4529,9 @@ static int spu_register_aead(struct iproc_alg_s *driver_alg)
 	aead->exit = aead_cra_exit;
 
 	err = crypto_register_aead(aead);
+	/* Mark alg as having been registered, if successful */
+	if (err == 0)
+		driver_alg->registered = true;
 	dev_dbg(dev, "  registered aead %s\n", aead->base.cra_driver_name);
 	return err;
 }
@@ -4563,18 +4575,25 @@ static int spu_algs_register(struct device *dev)
 
 err_algs:
 	for (j = 0; j < i; j++) {
+		/* Skip any algorithm not registered */
+		if (driver_algs[j].registered == false)
+			continue;
 		switch (driver_algs[j].type) {
 		case CRYPTO_ALG_TYPE_ABLKCIPHER:
 			crypto_unregister_alg(&driver_algs[j].alg.crypto);
+			driver_algs[j].registered = false;
 			break;
 		case CRYPTO_ALG_TYPE_AHASH:
 			crypto_unregister_ahash(&driver_algs[j].alg.hash);
+			driver_algs[j].registered = false;
 			break;
 		case CRYPTO_ALG_TYPE_AEAD:
 			crypto_unregister_aead(&driver_algs[j].alg.aead);
+			driver_algs[j].registered = false;
 			break;
 		case CRYPTO_ALG_TYPE_RABIN:
 			spu_unregister_rabin(&driver_algs[j].alg.rabin);
+			driver_algs[j].registered = false;
 			break;
 		}
 	}
@@ -4642,25 +4661,36 @@ int bcm_spu_remove(struct platform_device *pdev)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(driver_algs); i++) {
+		/* Not all algorithms were registered, depending on whether
+		 * hardware is SPU or SPU2.  So here we make sure to skip
+		 * those algorithms that were not previously registered.
+		 */
+		if (driver_algs[i].registered == false)
+			continue;
+
 		switch (driver_algs[i].type) {
 		case CRYPTO_ALG_TYPE_ABLKCIPHER:
 			crypto_unregister_alg(&driver_algs[i].alg.crypto);
 			pr_info("  unregistered cipher %s\n",
 				driver_algs[i].alg.crypto.cra_driver_name);
+			driver_algs[i].registered = false;
 			break;
 		case CRYPTO_ALG_TYPE_AHASH:
 			crypto_unregister_ahash(&driver_algs[i].alg.hash);
 			pr_info("  unregistered hash %s\n",
 				driver_algs[i].alg.hash.halg.
 				base.cra_driver_name);
+			driver_algs[i].registered = false;
 			break;
 		case CRYPTO_ALG_TYPE_AEAD:
 			crypto_unregister_aead(&driver_algs[i].alg.aead);
 			pr_info("  unregistered aead %s\n",
 				driver_algs[i].alg.aead.base.cra_driver_name);
+			driver_algs[i].registered = false;
 			break;
 		case CRYPTO_ALG_TYPE_RABIN:
 			spu_unregister_rabin(&driver_algs[i].alg.rabin);
+			driver_algs[i].registered = false;
 			break;
 		}
 	}
