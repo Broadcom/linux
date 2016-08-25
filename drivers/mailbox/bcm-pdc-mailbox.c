@@ -493,10 +493,8 @@ void pdc_setup_debugfs(struct pdc_state *pdcs)
 
 void pdc_free_debugfs(void)
 {
-	if (debugfs_dir && simple_empty(debugfs_dir)) {
-		debugfs_remove_recursive(debugfs_dir);
-		debugfs_dir = NULL;
-	}
+	debugfs_remove_recursive(debugfs_dir);
+	debugfs_dir = NULL;
 }
 
 /**
