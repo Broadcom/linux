@@ -1,0 +1,27 @@
+Broadcom Digital Timing Engine (DTE) Device Tree Bindings
+-------------------------------------------------------------
+
+Required properties:
+	- compatible: Should be "brcm,iproc-dte"
+	- reg       : Physical base address and size of the
+                      DTE registers
+
+Optional properties:
+	- interrupts: DTE IIG Interrupt number
+	              If intr number is not specified DTE uses
+	              software timer mode for reading the hw
+	              fifo.
+	- brcm,dte-interval-ns: DTE IRQ interval in nanoseconds for
+	               generation of ITG (used to get data from
+	               h/w FIFO).
+	               If unspecified the default from the driver
+	               is used. default value 0.5 sec
+
+Examples:
+	dte: dte@180af000 {
+		compatible = "brcm,iproc-dte";
+		reg = <0x180af000 0x1000>;
+		interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>;
+		brcm,dte-interval-ns = <500000000>;
+		status = "okay";
+	};
