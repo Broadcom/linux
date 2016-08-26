@@ -519,5 +519,10 @@
 				status = "disabled";
 			};
 		};
+
+		dte: dte@180af000 {
+			compatible = "brcm,iproc-dte";
+			reg = <0x180af000 0x1000>;
+		};
 	};
 };
