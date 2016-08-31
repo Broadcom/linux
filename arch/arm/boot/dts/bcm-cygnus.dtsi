@@ -85,6 +85,11 @@
 		};
 	};
 
+	iproc-reset {
+		compatible = "brcm,iproc-reset";
+		mboxes = <&mailbox 0>;
+	};
+
 	axi {
 		compatible = "simple-bus";
 		ranges;
