@@ -1,0 +1,18 @@
+Device tree binding for broadcom iproc reset functionality.
+
+The system reset is implemented in the M0 processor.
+A message is sent to M0 via the mailbox driver which would
+contain a command to reset. This command when received at M0
+triggers the reset sequence.
+
+Required properties:
+- compatible: should be "brcm,iproc-reset".
+- mboxes: list of phandle and mailbox channel specifier,
+used for communication with a power management co-processor.
+
+Examples:
+
+		iproc-reset {
+			compatible = "brcm,iproc-reset";
+			mboxes = <&mailbox 0>;
+		};
