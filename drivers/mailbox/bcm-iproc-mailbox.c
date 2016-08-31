@@ -254,8 +254,21 @@ static int iproc_mbox_send_data_m0(struct mbox_chan *chan, void *data)
 	return err;
 }
 
+static int iproc_mbox_startup(struct mbox_chan *chan)
+{
+	/* Do nothing. */
+	return 0;
+}
+
+static void iproc_mbox_shutdown(struct mbox_chan *chan)
+{
+	/* Do nothing. */
+}
+
 static struct mbox_chan_ops iproc_mbox_ops = {
 	.send_data    = iproc_mbox_send_data_m0,
+	.startup      = iproc_mbox_startup,
+	.shutdown     = iproc_mbox_shutdown,
 };
 
 static int __init iproc_mbox_probe(struct platform_device *pdev)
