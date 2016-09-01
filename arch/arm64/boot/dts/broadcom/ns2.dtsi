@@ -201,6 +201,7 @@
 				    "rgmii_base";
 			dma-coherent;
 			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
+			local-mac-address = [ 00 00 00 00 00 00 ];
 			max-speed = <1000>;
 			phy-mode = "mii";
 			phy-handle = <&gphy0>;
