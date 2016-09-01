@@ -132,18 +132,24 @@ irqreturn_t bcm_amac_isr(int irq, void *userdata)
 static int amac_enet_start(struct bcm_amac_priv *privp)
 {
 	int rc;
-	struct sockaddr parsed_mac;
-	bool ret;
+	const void *mac_addr;
+	char parsed_cmd_mac[14];
 
-	/* parse cmd line and set mac address */
-	ret = mac_pton(cmdline_params.mac_addr, parsed_mac.sa_data);
-	if (ret) {
-		rc = amac_enet_set_mac(privp->ndev, (void *)&parsed_mac);
-		if (rc)
-			return rc;
+	/* Look for mac addr passed via cmdline or dt */
+	if (is_valid_ether_addr(cmdline_params.mac_addr)) {
+		mac_pton(cmdline_params.mac_addr, parsed_cmd_mac);
+		mac_addr = (const void *)parsed_cmd_mac;
 	} else {
-		netdev_err(privp->ndev, "Error parsing MAC address\n");
-		rc = -EFAULT;
+		/* get mac_addr from DT */
+		mac_addr = of_get_mac_address(privp->pdev->dev.of_node);
+	}
+
+	if (mac_addr) {
+		ether_addr_copy(privp->ndev->dev_addr, mac_addr);
+	} else {
+		dev_err(&privp->pdev->dev,
+			"Error: no mac address specified\n");
+		return -EFAULT;
 	}
 
 	rc = bcm_amac_core_init(privp);
