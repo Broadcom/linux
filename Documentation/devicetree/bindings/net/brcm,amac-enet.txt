@@ -28,6 +28,9 @@ Required properties:
  - phy-mode  : Interface type between AMAC and PHY
 
 Optional properties:
+ - local-mac-address: Set to [ 00 00 00 00 00 00 ] in the DT.
+                      This variable can be overwritten at run-time
+                      to pass the mac address to the driver.
  - brcm,enet-switch-mode : Indicates the availability of an internal
                switch. In the absence of this setting the AMAC driver
                works in switch-by-pass mode. In some SoC's
@@ -91,6 +94,7 @@ Examples:
 			"switch_global_base",
 			"crmu_io_pad_ctrl";
 		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+		local-mac-address = [ 00 00 00 00 00 00 ];
 		phy-mode = "mii";
 		phy-handle = <&gphy0>;
 		brcm,enet-pause-disable;
@@ -120,6 +124,7 @@ Examples:
                         "amac_idm_base",
                         "crmu_io_pad_ctrl";
                 interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+                local-mac-address = [ 00 00 00 00 00 00 ];
                 brcm,enet-switch-mode;
 		phy-mode = "mii";
                 phy-handle = <&gphy0>;
@@ -161,6 +166,7 @@ Examples:
 			"rgmii_base";
 		dma-coherent;
 		interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
+                local-mac-address = [ 00 00 00 00 00 00 ];
 		max-speed = <1000>;
 		phy-mode = "mii";
 		phy-handle = <&gphy0>;
@@ -204,6 +210,7 @@ Examples:
 			"rgmii_base";
 		dma-coherent;
 		interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
+                local-mac-address = [ 00 00 00 00 00 00 ];
 		max-speed = <1000>;
 		phy-mode = "mii";
 		phy-handle = <&gphy0>;
