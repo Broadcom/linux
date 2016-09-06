@@ -15,13 +15,11 @@ Cygnus
 
 Required properties:
 - compatible			: "brcm,unicamcpi"
-- asiu-syscon			: phandle of asiu registers needed for camera
-- mclk-src-syscon		: phandle of mclk src select for camera
 - id				: Camera ID
 - reg				: Physical base address and length of the
 				registers set for the device
 - interrupts			: IRQ line for the CPI
-- data-width			: Data width in bits
+- brcm,unicam-data-width	: Data width in bits
 - clocks			: Source for reference clock generation
 - clock-names			: Reference clock name. Must be "cam-clock"
 - clock-frequency  		: Reference clock frequency
@@ -34,12 +32,10 @@ Example:
 
 	unicam: camera@180a1000 {
 		compatible = "brcm,unicamcpi";
-		asiu-syscon = <&camera_asiu>;
-		mclk-src-syscon = <&camera_pllclk_select>;
 		id = <0>;
 		reg = <0x180a1000 0x5ff>;
 		interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
-		data-width = <8>;
+		brcm,unicam-data-width = <8>;
 		clocks = <&audiopll_clks BCM_CYGNUS_AUDIOPLL_CH2>;
 		clock-names = "cam-clock";
 		clock-frequency = <24576000>;
@@ -53,13 +49,3 @@ Example:
 			};
                 };
 	};
-
-	camera_asiu: syscon@180aa000 {
-		compatible = "syscon";
-		reg = <0x180aa000 0x84>;
-	};
-
-	camera_pllclk_select: syscon@180aedcc {
-                compatible = "syscon";
-                reg = <0x180aedcc 0x04>;
-        };
