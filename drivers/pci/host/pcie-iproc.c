@@ -68,6 +68,9 @@
 #define APB_ERR_EN_SHIFT             0
 #define APB_ERR_EN                   BIT(APB_ERR_EN_SHIFT)
 
+/* derive the enum index of the outbound/inbound mapping registers */
+#define MAP_REG(base_reg, index)      ((base_reg) + (index) * 2)
+
 /*
  * Maximum number of outbound mapping window sizes that can be supported by any
  * OARR/OMAP mapping pair
@@ -78,25 +81,22 @@
 #define OARR_VALID                   BIT(OARR_VALID_SHIFT)
 #define OARR_SIZE_CFG_SHIFT          1
 
-#define OB_REG(base_reg, index)      ((base_reg) + (index) * 2)
+/*
+ * Maximum number of inbound mapping region sizes that can be supported by an
+ * IARR
+ */
+#define MAX_NUM_IB_REGION_SIZES      9
 
-#define MAX_NUM_PAXC_PF              4
-
-#define IPROC_PCIE_REG_INVALID       0xffff
-
-/* inbound memory. */
-#define MAX_IARR_WINDOWS             3
-#define IB_SENTINEL_SZ               0xffff
-#define IB_IMAP_VALID                0x1
-#define IB_IMAP_MAX                  8
-
-#define IB_WINDOW_OFFSET             8
-#define IB_HI_OFFSET                 4
+#define IMAP_VALID_SHIFT             0
+#define IMAP_VALID                   BIT(IMAP_VALID_SHIFT)
 
 /* gic-itsv3 mapping. */
 #define IARR_0_WINDOW_MASK           0xfffff000
 #define IARR_SIZE_CFG_SHIFT          0
 #define IARR_SIZE_CFG                BIT(IARR_SIZE_CFG_SHIFT)
+
+#define MAX_NUM_PAXC_PF              4
+#define IPROC_PCIE_REG_INVALID       0xffff
 
 /**
 * iProc PCIe outbound mapping controller specific parameters
@@ -139,38 +139,85 @@ static const struct iproc_pcie_ob_map paxb_v2_ob_map[] = {
 	},
 };
 
-static const struct paxb_ib_map paxb_v2_ib_map[] = {
-	/* IARR_2. */
-	{
-		.iarr_size = {0, 64, 128, 256, 512, 1024,
-				2048, 4096, 8192, 16384,
-				IB_SENTINEL_SZ},
-		.axi_mask = 0x80000000,
-		.divider = 64,
-		.wmask = 0xfc000000,
-		.iarr_offset = 0xd10,
-		.imap_offset = 0xcc0,
+/**
+ * iProc PCIe inbound mapping type
+ */
+enum iproc_pcie_ib_map_type {
+	/* for DDR memory */
+	IPROC_PCIE_IB_MAP_MEM = 0,
+
+	/* for device I/O memory */
+	IPROC_PCIE_IB_MAP_IO,
+
+	/* invalid or unused */
+	IPROC_PCIE_IB_MAP_INVALID
+};
+
+/**
+ * iProc PCIe inbound mapping controller specific parameters
+ *
+ * @type: inbound mapping region type
+ * @size_unit: inbound mapping region size unit, could be SZ_1K, SZ_1M, or
+ * SZ_1G
+ * @region_sizes: list of supported inbound mapping region sizes in KB, MB, or
+ * GB, depedning on the size unit
+ * @nr_sizes: number of supported inbound mapping region sizes
+ * @nr_windows: number of supported inbound mapping windows for the region
+ * @imap_addr_offset: register offset between the upper and lower 32-bit
+ * IMAP address registers
+ * @imap_window_offset: register offset between each IMAP window
+ */
+struct iproc_pcie_ib_map {
+	enum iproc_pcie_ib_map_type type;
+	unsigned int size_unit;
+	resource_size_t region_sizes[MAX_NUM_IB_REGION_SIZES];
+	unsigned int nr_sizes;
+	unsigned int nr_windows;
+	u16 imap_addr_offset;
+	u16 imap_window_offset;
+};
+
+static const struct iproc_pcie_ib_map paxb_v2_ib_map[] = {
+	{ /* IARR0/IMAP0 */
+		.type = IPROC_PCIE_IB_MAP_IO,
+		.size_unit = SZ_1K,
+		.region_sizes = { 32 },
+		.nr_sizes = 1,
+		.nr_windows = 8,
+		.imap_addr_offset = 0x40,
+		.imap_window_offset = 0x4,
 	},
-	/* IARR_3. */
-	{
-		.iarr_size = {0, 1, 2, 4, 8, 16, 32,
-				IB_SENTINEL_SZ, 0, 0, 0},
-		.axi_mask = 0x800000000,
-		.divider = 1,
-		.wmask = 0xf8000000,
-		.iarr_offset = 0xe00,
-		.imap_offset = 0xe08,
+	{ /* IARR1/IMAP1 (currently unused) */
+		.type = IPROC_PCIE_IB_MAP_INVALID,
 	},
-	/* IARR_4. */
-	{
-		.iarr_size = {0, 32, 64, 128, 256, 512,
-				IB_SENTINEL_SZ, 0, 0, 0, 0},
-		.axi_mask = 0x8000000000,
-		.divider = 32,
-		.wmask = 0x0,
-		.iarr_offset = 0xe68,
-		.imap_offset = 0xe70,
-	}
+	{ /* IARR2/IMAP2 */
+		.type = IPROC_PCIE_IB_MAP_MEM,
+		.size_unit = SZ_1M,
+		.region_sizes = { 64, 128, 256, 512, 1024, 2048, 4096, 8192,
+				  16384 },
+		.nr_sizes = 9,
+		.nr_windows = 1,
+		.imap_addr_offset = 0x4,
+		.imap_window_offset = 0x8,
+	},
+	{ /* IARR3/IMAP3 */
+		.type = IPROC_PCIE_IB_MAP_MEM,
+		.size_unit = SZ_1G,
+		.region_sizes = { 1, 2, 4, 8, 16, 32 },
+		.nr_sizes = 6,
+		.nr_windows = 8,
+		.imap_addr_offset = 0x4,
+		.imap_window_offset = 0x8,
+	},
+	{ /* IARR4/IMAP4 */
+		.type = IPROC_PCIE_IB_MAP_MEM,
+		.size_unit = SZ_1G,
+		.region_sizes = { 32, 64, 128, 256, 512 },
+		.nr_sizes = 5,
+		.nr_windows = 8,
+		.imap_addr_offset = 0x4,
+		.imap_window_offset = 0x8,
+	},
 };
 
 /*
@@ -227,11 +274,17 @@ enum iproc_pcie_reg {
 	IPROC_PCIE_OARR3,
 	IPROC_PCIE_OMAP3,
 
-	/* gic_its mapping. */
-	IPROC_PCIE_IARR0_LO,
-	IPROC_PCIE_IARR0_HI,
-	IPROC_PCIE_IMAP0_LO,
-	IPROC_PCIE_IMAP0_HI,
+	/* inbound address mapping */
+	IPROC_PCIE_IARR0,
+	IPROC_PCIE_IMAP0,
+	IPROC_PCIE_IARR1,
+	IPROC_PCIE_IMAP1,
+	IPROC_PCIE_IARR2,
+	IPROC_PCIE_IMAP2,
+	IPROC_PCIE_IARR3,
+	IPROC_PCIE_IMAP3,
+	IPROC_PCIE_IARR4,
+	IPROC_PCIE_IMAP4,
 
 	/* link status. Only available in PAXB */
 	IPROC_PCIE_LINK_STATUS,
@@ -270,7 +323,7 @@ static const u16 iproc_pcie_reg_paxb[] = {
 	[IPROC_PCIE_APB_ERR_EN]       = 0xf40,
 };
 
-/* iProc PCIe PAXB_V2 registers */
+/* iProc PCIe PAXB v2 registers */
 static const u16 iproc_pcie_reg_paxb_v2[] = {
 	[IPROC_PCIE_CLK_CTRL]         = 0x000,
 	[IPROC_PCIE_CFG_IND_ADDR]     = 0x120,
@@ -286,10 +339,14 @@ static const u16 iproc_pcie_reg_paxb_v2[] = {
 	[IPROC_PCIE_OMAP2]            = 0xd68,
 	[IPROC_PCIE_OARR3]            = 0xdf0,
 	[IPROC_PCIE_OMAP3]            = 0xdf8,
-	[IPROC_PCIE_IARR0_LO]         = 0xd00,
-	[IPROC_PCIE_IARR0_HI]         = 0xd04,
-	[IPROC_PCIE_IMAP0_LO]         = 0xc00,
-	[IPROC_PCIE_IMAP0_HI]         = 0xc04,
+	[IPROC_PCIE_IARR0]            = 0xd00,
+	[IPROC_PCIE_IMAP0]            = 0xc00,
+	[IPROC_PCIE_IARR2]            = 0xd10,
+	[IPROC_PCIE_IMAP2]            = 0xcc0,
+	[IPROC_PCIE_IARR3]            = 0xe00,
+	[IPROC_PCIE_IMAP3]            = 0xe08,
+	[IPROC_PCIE_IARR4]            = 0xe68,
+	[IPROC_PCIE_IMAP4]            = 0xe70,
 	[IPROC_PCIE_LINK_STATUS]      = 0xf0c,
 	[IPROC_PCIE_APB_ERR_EN]       = 0xf40,
 };
@@ -368,7 +425,7 @@ static inline bool iproc_pcie_ob_is_valid(struct iproc_pcie *pcie,
 {
 	u32 val;
 
-	val = iproc_pcie_read_reg(pcie, OB_REG(IPROC_PCIE_OARR0, window_idx));
+	val = iproc_pcie_read_reg(pcie, MAP_REG(IPROC_PCIE_OARR0, window_idx));
 
 	return !!(val & OARR_VALID);
 }
@@ -382,10 +439,10 @@ static inline int iproc_pcie_ob_write(struct iproc_pcie *pcie, int window_idx,
 	 * Derive the OARR/OMAP offset from the first pair (OARR0/OMAP0) based
 	 * on window index
 	 */
-	oarr_offset = iproc_pcie_reg_offset(pcie, OB_REG(IPROC_PCIE_OARR0,
-							 window_idx));
-	omap_offset = iproc_pcie_reg_offset(pcie, OB_REG(IPROC_PCIE_OMAP0,
-							 window_idx));
+	oarr_offset = iproc_pcie_reg_offset(pcie, MAP_REG(IPROC_PCIE_OARR0,
+							  window_idx));
+	omap_offset = iproc_pcie_reg_offset(pcie, MAP_REG(IPROC_PCIE_OMAP0,
+							  window_idx));
 	if (iproc_pcie_reg_is_invalid(oarr_offset) ||
 	    iproc_pcie_reg_is_invalid(omap_offset))
 		return -EINVAL;
@@ -676,72 +733,6 @@ err_ob:
 	return ret;
 }
 
-/**
- * iproc_pcie_ib_write_imapx - map imap to inbound memory
- * @pcie: iproc pcie
- * @reg: imap reg
- * @window: which window ? e.g. iarr_2 iarr_3 iarr_4
- * @size: size of the window
- * @axi_addr: address to map
- * @wmask: window mask for particular iarr
- */
-static inline void iproc_pcie_ib_write_imapx(struct iproc_pcie *pcie,
-				u16 offset, unsigned int window,
-				unsigned long size,
-				resource_size_t axi_addr,
-				unsigned int wmask)
-{
-	int imap;
-	u32 val;
-
-	if (window == 0) {
-		/* IARR_2 does not have windows. */
-		val = readl(pcie->base + offset);
-		val |= (lower_32_bits(axi_addr) & wmask) | IB_IMAP_VALID;
-		writel(val, pcie->base + offset);
-		val = upper_32_bits(axi_addr);
-		writel(val, pcie->base + offset + IB_HI_OFFSET);
-		return;
-	}
-	size = size / IB_IMAP_MAX;
-	for (imap = 0; imap < IB_IMAP_MAX; imap++) {
-		offset += imap * IB_WINDOW_OFFSET;
-		val = readl(pcie->base + offset);
-		val |= (lower_32_bits(axi_addr) & wmask) | IB_IMAP_VALID;
-		writel(val, pcie->base + offset);
-
-		val = upper_32_bits(axi_addr);
-		writel(val, pcie->base + offset + IB_HI_OFFSET);
-
-		axi_addr += size;
-	}
-}
-
-static int iproc_pcie_map_ib_ranges(struct iproc_pcie *pcie)
-{
-	int iarr;
-	u32 val;
-
-	for (iarr = 0; iarr < pcie->num_of_ib; iarr++) {
-		val = (lower_32_bits(pcie->ib[iarr].pci_addr) &
-			pcie->ib[iarr].wmask) |
-			(pcie->ib[iarr].iarr_size_bits <<
-			IARR_SIZE_CFG_SHIFT);
-		writel(val, pcie->base + paxb_v2_ib_map[iarr].iarr_offset);
-
-		val = upper_32_bits(pcie->ib[iarr].pci_addr);
-		writel(val, pcie->base +
-			paxb_v2_ib_map[iarr].iarr_offset + IB_HI_OFFSET);
-
-		iproc_pcie_ib_write_imapx(pcie,
-				paxb_v2_ib_map[iarr].imap_offset,
-				iarr, pcie->ib[iarr].window_size,
-				pcie->ib[iarr].axi_addr,
-				pcie->ib[iarr].wmask);
-	}
-	return 0;
-}
-
 static int iproc_pcie_map_ranges(struct iproc_pcie *pcie,
 				 struct list_head *resources)
 {
@@ -767,6 +758,177 @@ static int iproc_pcie_map_ranges(struct iproc_pcie *pcie,
 			dev_err(pcie->dev, "invalid resource %pR\n", res);
 			return -EINVAL;
 		}
+	}
+
+	return 0;
+}
+
+static inline bool iproc_pcie_ib_is_in_use(struct iproc_pcie *pcie,
+					   int region_idx)
+{
+	const struct iproc_pcie_ib_map *ib_map =
+		&pcie->ib_map[region_idx];
+	u32 val;
+
+	val = iproc_pcie_read_reg(pcie, MAP_REG(IPROC_PCIE_IARR0, region_idx));
+
+	return !!(val & (BIT(ib_map->nr_sizes) - 1));
+}
+
+static inline bool iproc_pcie_ib_check_type(const struct iproc_pcie_ib_map *ib_map,
+					    enum iproc_pcie_ib_map_type type)
+{
+	return !!(ib_map->type == type);
+}
+
+static int iproc_pcie_ib_write(struct iproc_pcie *pcie, int region_idx,
+			       int size_idx, int nr_windows, u64 axi_addr,
+			       u64 pci_addr, resource_size_t size)
+{
+	const struct iproc_pcie_ib_map *ib_map = &pcie->ib_map[region_idx];
+	u16 iarr_offset, imap_offset;
+	u32 val;
+	int window_idx;
+
+	iarr_offset = iproc_pcie_reg_offset(pcie,
+				MAP_REG(IPROC_PCIE_IARR0, region_idx));
+	imap_offset = iproc_pcie_reg_offset(pcie,
+				MAP_REG(IPROC_PCIE_IMAP0, region_idx));
+	if (iproc_pcie_reg_is_invalid(iarr_offset) ||
+	    iproc_pcie_reg_is_invalid(imap_offset))
+		return -EINVAL;
+
+	dev_info(pcie->dev, "ib region [%d]: offset 0x%x axi %pap pci %pap\n",
+		 region_idx, iarr_offset, &axi_addr, &pci_addr);
+
+	/*
+	 * Program the IARR registers. The upper 32-bit IARR register is
+	 * always right after the lower 32-bit IARR register
+	 */
+	writel(lower_32_bits(pci_addr) | BIT(size_idx),
+	       pcie->base + iarr_offset);
+	writel(upper_32_bits(pci_addr), pcie->base + iarr_offset + 4);
+
+	dev_info(pcie->dev, "iarr lo 0x%x iarr hi 0x%x\n",
+		 readl(pcie->base + iarr_offset),
+		 readl(pcie->base + iarr_offset + 4));
+
+	/*
+	 * Now program the IMAP registers. Each IARR region may have one or
+	 * more IMAP windows
+	 */
+	size /= nr_windows;
+	for (window_idx = 0; window_idx < nr_windows; window_idx++) {
+		val = readl(pcie->base + imap_offset);
+		val |= lower_32_bits(axi_addr) | IMAP_VALID;
+		writel(val, pcie->base + imap_offset);
+		writel(upper_32_bits(axi_addr),
+		       pcie->base + imap_offset + ib_map->imap_addr_offset);
+
+		dev_info(pcie->dev, "imap window [%d] lo 0x%x hi 0x%x\n",
+			 window_idx, readl(pcie->base + imap_offset),
+			 readl(pcie->base + imap_offset +
+			       ib_map->imap_addr_offset));
+
+		imap_offset += ib_map->imap_window_offset;
+		axi_addr += size;
+	}
+
+	return 0;
+}
+
+static int iproc_pcie_setup_ib(struct iproc_pcie *pcie,
+			       struct of_pci_range *range,
+			       enum iproc_pcie_ib_map_type type)
+{
+	struct iproc_pcie_ib *ib = &pcie->ib;
+	int ret;
+	unsigned int region_idx, size_idx;
+	u64 axi_addr = range->cpu_addr, pci_addr = range->pci_addr;
+	resource_size_t size = range->size;
+
+	/* iterate through all IARR mapping regions */
+	for (region_idx = 0; region_idx < ib->nr_regions; region_idx++) {
+		const struct iproc_pcie_ib_map *ib_map =
+			&pcie->ib_map[region_idx];
+
+		/*
+		 * If current inbound region is already in use or not a
+		 * compatible type, move on to the next
+		 */
+		if (iproc_pcie_ib_is_in_use(pcie, region_idx) ||
+		    !iproc_pcie_ib_check_type(ib_map, type))
+			continue;
+
+		/* iterate through all supported region sizes to find a match */
+		for (size_idx = 0; size_idx < ib_map->nr_sizes; size_idx++) {
+			resource_size_t region_size =
+			ib_map->region_sizes[size_idx] * ib_map->size_unit;
+
+			if (size != region_size)
+				continue;
+
+			if (!IS_ALIGNED(axi_addr, region_size) ||
+			    !IS_ALIGNED(pci_addr, region_size)) {
+				dev_err(pcie->dev,
+					"axi %pap or pci %pap not aligned\n",
+					&axi_addr, &pci_addr);
+				return -EINVAL;
+			}
+
+			/* match found! program IARR and all IMAP windows */
+			ret = iproc_pcie_ib_write(pcie, region_idx, size_idx,
+						  ib_map->nr_windows, axi_addr,
+						  pci_addr, size);
+			if (ret)
+				goto err_ib;
+			else
+				return 0;
+
+		}
+	}
+err_ib:
+	dev_err(pcie->dev, "unable to configure inbound mapping\n");
+	dev_err(pcie->dev, "axi %pap, pci %pap, res size %pap\n", &axi_addr,
+		&pci_addr, &size);
+
+	return ret;
+}
+
+static int pci_dma_range_parser_init(struct of_pci_range_parser *parser,
+				     struct device_node *node)
+{
+	const int na = 3, ns = 2;
+	int rlen;
+
+	parser->node = node;
+	parser->pna = of_n_addr_cells(node);
+	parser->np = parser->pna + na + ns;
+
+	parser->range = of_get_property(node, "dma-ranges", &rlen);
+	if (!parser->range)
+		return -ENOENT;
+
+	parser->end = parser->range + rlen / sizeof(__be32);
+	return 0;
+}
+
+static int iproc_pcie_map_dma_ranges(struct iproc_pcie *pcie)
+{
+	struct of_pci_range range;
+	struct of_pci_range_parser parser;
+	int ret;
+
+	/* get the dma-ranges from DT */
+	ret = pci_dma_range_parser_init(&parser, pcie->dev->of_node);
+	if (ret)
+		return ret;
+
+	for_each_of_pci_range(&parser, &range) {
+		/* each range entry corresponds to an inbound mapping region */
+		ret = iproc_pcie_setup_ib(pcie, &range, IPROC_PCIE_IB_MAP_MEM);
+		if (ret)
+			return ret;
 	}
 
 	return 0;
@@ -802,45 +964,22 @@ static int iproce_pcie_get_msi(struct iproc_pcie *pcie,
 	return 0;
 }
 
-static int iproc_pcie_paxb_msi_steer(struct iproc_pcie *pcie,
-				     struct device_node *msi_node)
+static int iproc_pcie_paxb_v2_msi_steer(struct iproc_pcie *pcie, u64 msi_addr)
 {
 	int ret;
-	u64 msi_addr;
-	u32 val;
+	struct of_pci_range range;
 
-	ret = iproce_pcie_get_msi(pcie, msi_node, &msi_addr);
-	if (ret < 0) {
-		dev_err(pcie->dev,
-			"paxb msi steering failed\n");
-		return ret;
-	}
+	memset(&range, 0, sizeof(range));
+	range.size = SZ_32K;
+	range.pci_addr = range.cpu_addr = ALIGN(msi_addr, range.size);
 
-	/* program incoming pci address to iarr0. */
-	val = (lower_32_bits(msi_addr) & IARR_0_WINDOW_MASK) | IB_IMAP_VALID;
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_IARR0_LO, val);
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_IARR0_HI,
-		upper_32_bits(msi_addr));
-	/* program translation register to point it to GICv3 ITS. */
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP0_LO, val);
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP0_HI,
-		upper_32_bits(msi_addr));
-	return 0;
+	ret = iproc_pcie_setup_ib(pcie, &range, IPROC_PCIE_IB_MAP_IO);
+	return ret;
 }
 
-static int iproc_pcie_paxc_msi_steer(struct iproc_pcie *pcie,
-				     struct device_node *msi_node)
+static void iproc_pcie_paxc_v2_msi_steer(struct iproc_pcie *pcie, u64 msi_addr)
 {
-	int ret;
-	u64 msi_addr;
 	u32 val;
-
-	ret = iproce_pcie_get_msi(pcie, msi_node, &msi_addr);
-	if (ret < 0) {
-		dev_err(pcie->dev,
-			"paxc msi steering failed\n");
-		return ret;
-	}
 
 	/*
 	 * Program bits [43:13] of address of GITS_TRANSLATER register into
@@ -873,6 +1012,32 @@ static int iproc_pcie_paxc_msi_steer(struct iproc_pcie *pcie,
 	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_MSI_EN_CFG);
 	val |= MSI_ENABLE_CFG;
 	iproc_pcie_write_reg(pcie, IPROC_PCIE_MSI_EN_CFG, val);
+}
+
+static int iproc_pcie_msi_steer(struct iproc_pcie *pcie,
+				struct device_node *msi_node)
+{
+	int ret;
+	u64 msi_addr;
+
+	ret = iproce_pcie_get_msi(pcie, msi_node, &msi_addr);
+	if (ret < 0) {
+		dev_err(pcie->dev, "msi steering failed\n");
+		return ret;
+	}
+
+	switch (pcie->type) {
+	case IPROC_PCIE_PAXB_V2:
+		ret = iproc_pcie_paxb_v2_msi_steer(pcie, msi_addr);
+		if (ret)
+			return ret;
+		break;
+	case IPROC_PCIE_PAXC_V2:
+		iproc_pcie_paxc_v2_msi_steer(pcie, msi_addr);
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -903,28 +1068,21 @@ static int iproc_pcie_msi_enable(struct iproc_pcie *pcie)
 	}
 
 	/*
-	 * PAXB v2 requires additional configurations to steer MSI to another
-	 * MSI controller
+	 * Certain revisions of the iProc PCIe controller require additional
+	 * configurations to steer the MSI writes towards an external MSI
+	 * controller
+	 *
 	 */
-	if (pcie->type == IPROC_PCIE_PAXB_V2) {
-		ret = iproc_pcie_paxb_msi_steer(pcie, msi_node);
+	if (pcie->need_msi_steer) {
+		ret = iproc_pcie_msi_steer(pcie, msi_node);
 		if (ret)
 			return ret;
 	}
 
 	/*
-	 * PAXC v2 requires additional configurations to steer MSI to another
-	 * MSI controller
-	 */
-	if (pcie->type == IPROC_PCIE_PAXC_V2) {
-		ret = iproc_pcie_paxc_msi_steer(pcie, msi_node);
-		if (ret)
-			return ret;
-	}
-
-	/*
-	 * If another MSI controller is being used, the call below should fail
-	 * but that is okay
+	 * If an external MSI controller is being used, the call below to
+	 * invoke the iProc event queue based MSI controller should fail, but
+	 * that is okay
 	 */
 	return iproc_msi_init(pcie, msi_node);
 }
@@ -933,30 +1091,6 @@ static void iproc_pcie_msi_disable(struct iproc_pcie *pcie)
 {
 	iproc_msi_exit(pcie);
 }
-
-int iproc_pcie_setup_ib_map(struct iproc_pcie *pcie)
-{
-	int ret = 0;
-
-	switch (pcie->type) {
-	case IPROC_PCIE_PAXB_BCMA:
-	case IPROC_PCIE_PAXB:
-	case IPROC_PCIE_PAXC:
-	case IPROC_PCIE_PAXC_V2:
-		pcie->ib_map = NULL;
-		ret = -EINVAL;
-		break;
-	case IPROC_PCIE_PAXB_V2:
-		pcie->ib_map = paxb_v2_ib_map;
-		break;
-	default:
-		dev_err(pcie->dev, "incompatible iProc PCIe interface\n");
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-EXPORT_SYMBOL(iproc_pcie_setup_ib_map);
 
 static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 {
@@ -982,6 +1116,9 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 			pcie->ob_map = paxb_v2_ob_map;
 			pcie->ob.nr_windows = ARRAY_SIZE(paxb_v2_ob_map);
 		}
+		pcie->ib.nr_regions = ARRAY_SIZE(paxb_v2_ib_map);
+		pcie->ib_map = paxb_v2_ib_map;
+		pcie->need_msi_steer = true;
 		break;
 	case IPROC_PCIE_PAXC:
 		regs = iproc_pcie_reg_paxc;
@@ -992,6 +1129,7 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 		regs = iproc_pcie_reg_paxc_v2;
 		pcie->ep_is_internal = true;
 		pcie->nr_pf = 1;
+		pcie->need_msi_steer = true;
 		break;
 	default:
 		dev_err(pcie->dev, "incompatible iProc PCIe interface\n");
@@ -1064,13 +1202,9 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 		}
 	}
 
-	if (pcie->need_ib_cfg) {
-		ret = iproc_pcie_map_ib_ranges(pcie);
-		if (ret) {
-			dev_err(pcie->dev, "inbound mapping failed\n");
-			goto err_power_off_phy;
-		}
-	}
+	ret = iproc_pcie_map_dma_ranges(pcie);
+	if (ret && ret != -ENOENT)
+		goto err_power_off_phy;
 
 #ifdef CONFIG_ARM
 	pcie->sysdata.private_data = pcie;
