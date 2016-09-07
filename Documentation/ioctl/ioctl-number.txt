@@ -338,4 +338,5 @@ Code  Seq#(hex)	Include File		Comments
 					<mailto:raph@8d.com>
 0xF6	all	LTTng			Linux Trace Toolkit Next Generation
 					<mailto:mathieu.desnoyers@efficios.com>
+0xFC    all     include/uapi/linux/bcm_dte.h
 0xFD	all	linux/dm-ioctl.h
