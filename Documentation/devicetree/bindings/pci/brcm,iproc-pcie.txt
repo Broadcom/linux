@@ -2,9 +2,14 @@
 
 Required properties:
 - compatible:
-      "brcm,iproc-pcie" for PAXB
-      "brcm,iproc-pcie-paxc" for first generation of PAXC
-      "brcm,iproc-pcie-paxc-v2" for second generation of PAXC
+      "brcm,iproc-pcie" for the first generation of PAXB based controller,
+used in SoCs including NSP, Cygnus, NS2, and Pegasus
+      "brcm,iproc-pcie-paxb-v2" for the second generation of PAXB based
+controller, used in Stingray
+      "brcm,iproc-pcie-paxc" for the first generation of PAXC based
+controller, used in NS2
+      "brcm,iproc-pcie-paxc-v2" for the second generation of PAXC based
+controller, used in Stingray
   PAXB-based root complex is used for external endpoint devices. PAXC-based
   root complex is connected to emulated endpoint devices internal to the ASIC
 - reg: base address and length of the PCIe controller I/O register space
@@ -21,10 +26,9 @@ Required properties:
 Optional properties:
 - phys: phandle of the PCIe PHY device
 - phy-names: must be "pcie-phy"
-
-- dma-ranges: Some PAXB based root complex do not have inbound mapping done by
-the ASIC after power on reset. SW needs to expand the range. dma-ranges are
-inbound memory ranges, which defines the exposed host memory to the PCI endpoints.
+- dma-ranges: Some PAXB based root complexes do not have inbound mapping done
+  by the ASIC after power on reset. In this case, SW is required to configure
+the mapping, based on inbound memory regions specified by this property
 
 - brcm,pcie-ob: Some iProc SoCs do not have the outbound address mapping done
 by the ASIC after power on reset. In this case, SW needs to configure it
