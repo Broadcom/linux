@@ -147,6 +147,15 @@
 					groups = "spdif_grp";
 				};
 			};
+
+			flextimer_default_mux: flextimer_mux {
+				flextimer_default_mux {
+					function = "audio_dte";
+					groups = "audio_dte0_grp",
+					"audio_dte1_grp",
+					"audio_dte2_grp";
+				};
+			};
 		};
 
 		mailbox: mailbox@03024024 {
@@ -443,6 +452,16 @@
 		ts_adc_syscon: ts_adc_syscon@180a6000 {
 			compatible = "brcm,iproc-ts-adc-syscon", "syscon";
 			reg = <0x180a6000 0xc30>;
+		};
+
+		flextimer: flextimer@180a6000 {
+			compatible = "brcm,iproc-ftm";
+			flextimer_syscon = <&ts_adc_syscon>;
+			interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&asiu_clks BCM_CYGNUS_ASIU_ADC_CLK>;
+			clock-names = "ftm_clk";
+			pinctrl-0 = <&flextimer_default_mux>;
+			status = "disabled";
 		};
 
 		touchscreen: touchscreen@180a6000 {
