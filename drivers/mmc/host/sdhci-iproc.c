@@ -143,6 +143,14 @@ static void sdhci_iproc_writeb(struct sdhci_host *host, u8 val, int reg)
 }
 
 static const struct sdhci_ops sdhci_iproc_ops = {
+	.set_clock = sdhci_set_clock,
+	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
+	.set_bus_width = sdhci_set_bus_width,
+	.reset = sdhci_reset,
+	.set_uhs_signaling = sdhci_set_uhs_signaling,
+};
+
+static const struct sdhci_ops sdhci_iproc_32only_ops = {
 	.read_l = sdhci_iproc_readl,
 	.read_w = sdhci_iproc_readw,
 	.read_b = sdhci_iproc_readb,
@@ -154,6 +162,19 @@ static const struct sdhci_ops sdhci_iproc_ops = {
 	.set_bus_width = sdhci_set_bus_width,
 	.reset = sdhci_reset,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
+};
+
+static const struct sdhci_pltfm_data sdhci_iproc_cygnus_pltfm_data = {
+	.quirks = SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK,
+	.quirks2 = SDHCI_QUIRK2_ACMD23_BROKEN,
+	.ops = &sdhci_iproc_32only_ops,
+};
+
+static const struct sdhci_iproc_data iproc_cygnus_data = {
+	.pdata = &sdhci_iproc_cygnus_pltfm_data,
+	.caps = 0x05E90000,
+	.caps1 = 0x00000064,
+	.mmc_caps = MMC_CAP_1_8V_DDR,
 };
 
 static const struct sdhci_pltfm_data sdhci_iproc_pltfm_data = {
@@ -173,7 +194,7 @@ static const struct sdhci_pltfm_data sdhci_bcm2835_pltfm_data = {
 	.quirks = SDHCI_QUIRK_BROKEN_CARD_DETECTION |
 		  SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
 		  SDHCI_QUIRK_MISSING_CAPS,
-	.ops = &sdhci_iproc_ops,
+	.ops = &sdhci_iproc_32only_ops,
 };
 
 static const struct sdhci_iproc_data bcm2835_data = {
@@ -185,7 +206,7 @@ static const struct sdhci_iproc_data bcm2835_data = {
 
 static const struct of_device_id sdhci_iproc_of_match[] = {
 	{ .compatible = "brcm,bcm2835-sdhci", .data = &bcm2835_data },
-	{ .compatible = "brcm,sdhci-iproc-cygnus", .data = &iproc_data },
+	{ .compatible = "brcm,sdhci-iproc-cygnus", .data = &iproc_cygnus_data},
 	{ .compatible = "brcm,sdhci-iproc", .data = &iproc_data },
 	{ }
 };
