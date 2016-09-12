@@ -235,7 +235,7 @@ static struct phy *bcm_usb_phy_xlate(struct device *dev,
 
 	p = phy_port->p;
 
-	if (WARN_ON(args->args[0] < 0 || args->args[0] > 1))
+	if (WARN_ON(args->args[0] < 1 || args->args[0] > 2))
 		return ERR_PTR(-EINVAL);
 
 	if (WARN_ON(args->args_count < 1))
@@ -446,19 +446,18 @@ static int sr_u3h_u2drd_phy_power_on(struct phy *gphy)
 		break;
 	}
 
-	if (phy_port->mode & USB_DEV_MODE) {
+	/* Device Mode */
+	if (phy_port->port_id == DRDU2_PORT) {
 		writel(DRDU2_BDC_AXI_SOFT_RST_N,
 				p->drdu2reg + DRDU2_SOFT_RESET_CTRL);
 		reg32_setbits(p->drdu2reg + DRDU2_PHY_CTRL,
 				DRDU2_U2SOFT_RST_N);
-
 	}
-	if (phy_port->mode & USB_HOST_MODE) {
-		writel(USB3H_XHC_AXI_SOFT_RST_N,
-				p->usb3hreg + USB3H_SOFT_RESET_CTRL);
-		reg32_setbits(p->usb3hreg + USB3H_U3PHY_CTRL,
-				USB3H_U3SOFT_RST_N);
-	}
+	/* Host Mode */
+	writel(USB3H_XHC_AXI_SOFT_RST_N,
+			p->usb3hreg + USB3H_SOFT_RESET_CTRL);
+	reg32_setbits(p->usb3hreg + USB3H_U3PHY_CTRL,
+			USB3H_U3SOFT_RST_N);
 
 	return 0;
 err_usb3h_phy_on:
@@ -488,18 +487,16 @@ static int sr_u3drd_phy_power_on(struct phy *gphy)
 	if (ret)
 		goto err_drdu3_phy_on;
 
-	if (phy_port->mode & USB_HOST_MODE) {
-		reg32_setbits(p->drdu3reg + DRDU3_SOFT_RESET_CTRL,
-				DRDU3_XHC_AXI_SOFT_RST_N);
-		reg32_setbits(p->drdu3reg + DRDU3_U3PHY_CTRL,
-				DRDU3_U3XHC_SOFT_RST_N);
-	}
-	if (phy_port->mode & USB_DEV_MODE) {
-		reg32_setbits(p->drdu3reg + DRDU3_SOFT_RESET_CTRL,
-				DRDU3_BDC_AXI_SOFT_RST_N);
-		reg32_setbits(p->drdu3reg + DRDU3_U3PHY_CTRL,
-				DRDU3_U3BDC_SOFT_RST_N);
-	}
+	/* Host Mode */
+	reg32_setbits(p->drdu3reg + DRDU3_SOFT_RESET_CTRL,
+			DRDU3_XHC_AXI_SOFT_RST_N);
+	reg32_setbits(p->drdu3reg + DRDU3_U3PHY_CTRL,
+			DRDU3_U3XHC_SOFT_RST_N);
+	/* Device Mode */
+	reg32_setbits(p->drdu3reg + DRDU3_SOFT_RESET_CTRL,
+			DRDU3_BDC_AXI_SOFT_RST_N);
+	reg32_setbits(p->drdu3reg + DRDU3_U3PHY_CTRL,
+			DRDU3_U3BDC_SOFT_RST_N);
 
 	return 0;
 err_drdu3_phy_on:
@@ -643,7 +640,7 @@ static int sr_usb_phy_probe(struct platform_device *pdev)
 		if (phy_port->port_id >= MAX_NR_PORTS)
 			return -EINVAL;
 
-		gphy = devm_phy_create(dev, NULL, ops);
+		gphy = devm_phy_create(dev, child, ops);
 		if (IS_ERR(gphy))
 			return PTR_ERR(gphy);
 
@@ -655,6 +652,7 @@ static int sr_usb_phy_probe(struct platform_device *pdev)
 			dev_err(dev, "Failed to register phy provider\n");
 			return PTR_ERR(phy_provider);
 		}
+		phy_port->gphy = gphy;
 		phy_port->p = p;
 		cnt++;
 	}
