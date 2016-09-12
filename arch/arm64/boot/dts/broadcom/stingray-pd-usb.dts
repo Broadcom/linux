@@ -92,6 +92,14 @@
 	status = "ok";
 };
 
+&xhci1 {
+	status = "ok";
+};
+
 &bdc0 {
+	status = "ok";
+};
+
+&bdc1 {
 	status = "ok";
 };
