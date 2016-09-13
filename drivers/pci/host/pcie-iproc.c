@@ -420,6 +420,28 @@ static inline void iproc_pcie_write_reg(struct iproc_pcie *pcie,
 	writel(val, pcie->base + offset);
 }
 
+/**
+ * APB error forwarding can be disabled during access of configuration
+ * registers from the endpoint device, to prevent unsupported requests
+ * (typically seen during enumeration with multi-function devices) from
+ * triggering a system exception
+ */
+static inline void iproc_pcie_apb_err_disable(struct pci_bus *bus,
+					      bool disable)
+{
+	struct iproc_pcie *pcie = iproc_data(bus);
+	u32 val;
+
+	if (bus->number && pcie->has_apb_err_disable) {
+		val = iproc_pcie_read_reg(pcie, IPROC_PCIE_APB_ERR_EN);
+		if (disable)
+			val &= ~APB_ERR_EN;
+		else
+			val |= APB_ERR_EN;
+		iproc_pcie_write_reg(pcie, IPROC_PCIE_APB_ERR_EN, val);
+	}
+}
+
 static inline bool iproc_pcie_ob_is_valid(struct iproc_pcie *pcie,
 					  int window_idx)
 {
@@ -527,10 +549,34 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct pci_bus *bus,
 		return (pcie->base + offset);
 }
 
+static int iproc_pcie_config_read32(struct pci_bus *bus, unsigned int devfn,
+				    int where, int size, u32 *val)
+{
+	int ret;
+
+	iproc_pcie_apb_err_disable(bus, true);
+	ret = pci_generic_config_read32(bus, devfn, where, size, val);
+	iproc_pcie_apb_err_disable(bus, false);
+
+	return ret;
+}
+
+static int iproc_pcie_config_write32(struct pci_bus *bus, unsigned int devfn,
+				     int where, int size, u32 val)
+{
+	int ret;
+
+	iproc_pcie_apb_err_disable(bus, true);
+	ret = pci_generic_config_write32(bus, devfn, where, size, val);
+	iproc_pcie_apb_err_disable(bus, false);
+
+	return ret;
+}
+
 static struct pci_ops iproc_pcie_ops = {
 	.map_bus = iproc_pcie_map_cfg_bus,
-	.read = pci_generic_config_read32,
-	.write = pci_generic_config_write32,
+	.read = iproc_pcie_config_read32,
+	.write = iproc_pcie_config_write32,
 };
 
 static void iproc_pcie_reset(struct iproc_pcie *pcie)
@@ -1181,18 +1227,6 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	}
 
 	iproc_pcie_reset(pcie);
-
-	if (pcie->has_apb_err_disable) {
-		u32 val;
-
-		/*
-		 * Prevent device configuration space unsupported requests
-		 * from being forwarded as APB error
-		 */
-		val = iproc_pcie_read_reg(pcie, IPROC_PCIE_APB_ERR_EN);
-		val &= ~APB_ERR_EN;
-		iproc_pcie_write_reg(pcie, IPROC_PCIE_APB_ERR_EN, val);
-	}
 
 	if (pcie->need_ob_cfg) {
 		ret = iproc_pcie_map_ranges(pcie, res);
