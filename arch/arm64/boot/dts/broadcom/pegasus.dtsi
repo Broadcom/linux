@@ -260,7 +260,7 @@
 		};
 
 		sdio0: sdhci@00620000 {
-			compatible = "brcm,sdhci-iproc";
+			compatible = "brcm,sdhci-iproc-cygnus";
 			reg = <0x00620000 0x100>;
 			interrupts = <GIC_SPI 298 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
