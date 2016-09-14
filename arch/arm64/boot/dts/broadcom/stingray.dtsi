@@ -757,7 +757,7 @@
 		#size-cells = <1>;
 		ranges = <0 0 0 0xffffffff>;
 
-		crypto_mbox: mbox@67000000 {
+		crypto_mbox: crypto_mbox@67000000 {
 			compatible = "brcm,flexdma-mbox";
 			reg = <0x67000000 0x200000>;
 			msi-parent = <&gic_its 0x7ffd>;
@@ -765,7 +765,7 @@
 			dma-coherent;
 		};
 
-		raid_mbox: mbox@67400000 {
+		raid_mbox: raid_mbox@67400000 {
 			compatible = "brcm,flexdma-mbox";
 			reg = <0x67400000 0x200000>;
 			msi-parent = <&gic_its 0x7ffe>;
@@ -773,7 +773,7 @@
 			dma-coherent;
 		};
 
-		raid0 {
+		raid0: raid@0 {
 			compatible = "brcm,iproc-sba";
 			brcm,max-pq-disks = <12>;
 			brcm,max-requests = <256>;
@@ -788,7 +788,7 @@
 				 <&raid_mbox 7 0x1 0xff00>;
 		};
 
-		raid1 {
+		raid1: raid@1 {
 			compatible = "brcm,iproc-sba";
 			brcm,max-pq-disks = <12>;
 			brcm,max-requests = <256>;
@@ -803,7 +803,7 @@
 				 <&raid_mbox 15 0x1 0xff00>;
 		};
 
-		raid2 {
+		raid2: raid@2 {
 			compatible = "brcm,iproc-sba";
 			brcm,max-pq-disks = <12>;
 			brcm,max-requests = <256>;
@@ -818,7 +818,7 @@
 				 <&raid_mbox 23 0x1 0xff00>;
 		};
 
-		raid3 {
+		raid3: raid@3 {
 			compatible = "brcm,iproc-sba";
 			brcm,max-pq-disks = <12>;
 			brcm,max-requests = <256>;
@@ -833,7 +833,7 @@
 				 <&raid_mbox 31 0x1 0xff00>;
 		};
 
-		spu2 {
+		spu2: spu2 {
 			compatible = "brcm,spu2-v2-crypto";
 			reg = <0x672c0000 0x1000>,
 			      <0x672c1000 0x1000>,
