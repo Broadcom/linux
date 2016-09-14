@@ -113,3 +113,163 @@
 &bdc1 {
 	status = "ok";
 };
+
+&sata0_phy0 {
+	status = "ok";
+};
+
+&sata0 {
+	status = "ok";
+};
+
+&sata1_phy0 {
+	status = "ok";
+};
+
+&sata1 {
+	status = "ok";
+};
+
+&sata2_phy0 {
+	status = "ok";
+};
+
+&sata2 {
+	status = "ok";
+};
+
+&sata3_phy0 {
+	status = "ok";
+};
+
+&sata3 {
+	status = "ok";
+};
+
+&sata4_phy0 {
+	status = "ok";
+};
+
+&sata4 {
+	status = "ok";
+};
+
+&sata5_phy0 {
+	status = "ok";
+};
+
+&sata5 {
+	status = "ok";
+};
+
+&sata6_phy0 {
+	status = "ok";
+};
+
+&sata6 {
+	status = "ok";
+};
+
+&sata7_phy0 {
+	status = "ok";
+};
+
+&sata7 {
+	status = "ok";
+};
+
+&sata8_phy0 {
+	status = "ok";
+};
+
+&sata8 {
+	status = "ok";
+};
+
+&sata9_phy0 {
+	status = "ok";
+};
+
+&sata9 {
+	status = "ok";
+};
+
+&sata10_phy0 {
+	status = "ok";
+};
+
+&sata10 {
+	status = "ok";
+};
+
+&sata11_phy0 {
+	status = "ok";
+};
+
+&sata11 {
+	status = "ok";
+};
+
+&sata12_phy0 {
+	status = "ok";
+};
+
+&sata12 {
+	status = "ok";
+};
+
+&sata13_phy0 {
+	status = "ok";
+};
+
+&sata13 {
+	status = "ok";
+};
+
+&sata14_phy0 {
+	status = "ok";
+};
+
+&sata14 {
+	status = "ok";
+};
+
+&sata15_phy0 {
+	status = "ok";
+};
+
+&sata15 {
+	status = "ok";
+};
+
+&sata16_phy0 {
+	status = "ok";
+};
+
+&sata16 {
+	status = "ok";
+};
+
+&sata17_phy0 {
+	status = "ok";
+};
+
+&sata17 {
+	status = "ok";
+};
+
+&sata18_phy0 {
+	status = "ok";
+};
+
+&sata18 {
+	status = "ok";
+};
+
+&sata19_phy0 {
+	status = "ok";
+};
+
+&sata19 {
+	status = "ok";
+};
