@@ -85,3 +85,31 @@
 	phy-mode = "mii";
 	phy-handle = <&gphy0>;
 };
+
+&usb0_phy0 {
+	status = "ok";
+};
+
+&usb1_phy0 {
+	status = "ok";
+};
+
+&usb1_phy1 {
+	status = "ok";
+};
+
+&xhci0 {
+	status = "ok";
+};
+
+&xhci1 {
+	status = "ok";
+};
+
+&bdc0 {
+	status = "ok";
+};
+
+&bdc1 {
+	status = "ok";
+};
