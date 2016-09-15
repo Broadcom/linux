@@ -73,6 +73,15 @@
 	status = "ok";
 };
 
+&sdio0 {
+	non-removable;
+	status = "ok";
+};
+
+&sdio1 {
+	status = "ok";
+};
+
 &mdio_mux_iproc {
 	mdio@1 {
 		gphy0: eth-phy@1 {
