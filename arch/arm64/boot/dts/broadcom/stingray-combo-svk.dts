@@ -73,6 +73,26 @@
 	status = "ok";
 };
 
+&ssp0 {
+	status = "ok";
+	pinctrl-0 = <&spi0_pins>;
+	spi-flash@0 {
+		compatible = "winbond,w25q32";
+		reg = <0>;
+		spi-max-frequency = <20000000>;
+	};
+};
+
+&ssp1 {
+	status = "ok";
+	pinctrl-0 = <&spi1_pins>;
+	spi-flash@0 {
+		compatible = "winbond,w25q32";
+		reg = <0>;
+		spi-max-frequency = <20000000>;
+	};
+};
+
 &sdio0 {
 	non-removable;
 	status = "ok";
