@@ -33,6 +33,27 @@
 		err = -EBUSY; \
 }
 
+void bcm_amac_enet_set_speed(struct bcm_amac_priv *privp, u32 speed, u32 duplex)
+{
+	u32 cmd;
+
+	cmd = readl(privp->hw.reg.amac_core + UNIMAC_CMD_CFG_REG);
+
+	cmd &= ~CC_ES_MASK;
+
+	if (speed == AMAC_PORT_SPEED_1G)
+		cmd |= (AMAC_SPEED_1000 << CC_ES_SHIFT);
+	else if (speed == AMAC_PORT_SPEED_100M)
+		cmd |= (AMAC_SPEED_100 << CC_ES_SHIFT);
+
+	if (duplex == DUPLEX_HALF)
+		cmd |= CC_HD;
+	else
+		cmd &= ~(CC_HD);
+
+	writel(cmd, (privp->hw.reg.amac_core + UNIMAC_CMD_CFG_REG));
+}
+
 /* amac_alloc_rx_skb() - Allocate RX SKB
  * @privp: driver info pointer
  * @len: length of skb
@@ -488,9 +509,7 @@ int bcm_amac_core_init(struct bcm_amac_priv *privp)
 	/* Disbale loopback mode */
 	cmd &= ~CC_ML;
 	/* set the speed */
-	cmd &= ~(CC_ES_MASK | CC_HD);
-	/* Set to 1Gbps and full duplex by default */
-	cmd |= (2 << CC_ES_SHIFT);
+	bcm_amac_enet_set_speed(privp, privp->port.imp_port_speed, DUPLEX_FULL);
 
 	amac_core_init_reset(privp);
 	writel(cmd, (privp->hw.reg.amac_core + UNIMAC_CMD_CFG_REG));

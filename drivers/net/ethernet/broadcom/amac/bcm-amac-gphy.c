@@ -41,6 +41,18 @@ static void amac_gphy_handle_link_change(struct net_device *ndev)
 		port_stat->link = phydev->link;
 		port_stat->speed = phydev->speed;
 		port_stat->duplex = phydev->duplex;
+
+		if (!privp->switch_mode) {
+			if (port_stat->link == 0)
+				bcm_amac_enet_set_speed(privp,
+							privp->port.
+							imp_port_speed,
+							DUPLEX_FULL);
+			else
+				bcm_amac_enet_set_speed(privp,
+							port_stat->speed,
+							port_stat->duplex);
+		}
 	}
 }
 

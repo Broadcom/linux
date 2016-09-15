@@ -26,6 +26,9 @@
 #define BCM_AMAC_DIR_TX false
 #define BCM_AMAC_DIR_RX true
 
+#define AMAC_SPEED_1000 2
+#define AMAC_SPEED_100  1
+
 int bcm_amac_gphy_init(struct bcm_amac_priv *privp);
 void bcm_amac_gphy_exit(struct bcm_amac_priv *privp);
 int bcm_amac_gphy_powerup(struct bcm_amac_priv *privp, bool powerup);
@@ -49,4 +52,5 @@ void bcm_amac_set_rx_mode(struct net_device *ndev);
 void bcm_amac_clear_intr(struct bcm_amac_priv *privp, bool dir);
 void bcm_amac_enable_intr(struct bcm_amac_priv *privp, bool dir, bool enable);
 
+void bcm_amac_enet_set_speed(struct bcm_amac_priv *priv, u32 speed, u32 duplex);
 #endif /*__BCM_AMAC_CORE_H__*/
