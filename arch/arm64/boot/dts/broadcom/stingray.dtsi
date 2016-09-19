@@ -661,6 +661,12 @@
 			status = "disabled";
 		};
 
+		dte: dte@68aa1600 {
+			compatible = "brcm,iproc-dte";
+			reg = <0x68aa1600 0x1000>;
+			status = "disabled";
+		};
+
 		hwrng: hwrng@68b20000 {
 			compatible = "brcm,iproc-rng200";
 			reg = <0x68b20000 0x28>;
