@@ -1426,13 +1426,13 @@ static int bcm_qspi_resume(struct device *dev)
 
 	return ret;
 }
+#endif /* CONFIG_PM_SLEEP */
 
 const struct dev_pm_ops bcm_qspi_pm_ops = {
 	.suspend = bcm_qspi_suspend,
 	.resume  = bcm_qspi_resume,
 };
 EXPORT_SYMBOL_GPL(bcm_qspi_pm_ops);
-#endif /* CONFIG_PM_SLEEP */
 
 MODULE_AUTHOR("Kamal Dasu");
 MODULE_DESCRIPTION("Broadcom QSPI driver");

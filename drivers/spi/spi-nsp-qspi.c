@@ -147,9 +147,7 @@ static struct platform_driver bcm_nsp_driver = {
 	.remove			= bcm_nsp_remove,
 	.driver = {
 		.name		= "bcm_nsp",
-#ifdef CONFIG_PM_SLEEP
 		.pm		= &bcm_qspi_pm_ops,
-#endif
 		.of_match_table = bcm_nsp_of_match,
 	}
 };
