@@ -48,25 +48,10 @@
 	(INTR_MSPI_DONE_MASK |		       \
 	 INTR_MSPI_HALTED_MASK)
 
-#define QSPI_INTERRUPTS_ALL                    \
-	(MSPI_INTERRUPTS_ALL |		       \
-	 BSPI_LR_INTERRUPTS_ALL)
-
 struct platform_device;
 struct dev_pm_ops;
 
-enum {
-	MSPI_DONE = 0x1,
-	BSPI_DONE = 0x2,
-	BSPI_ERR = 0x4,
-	MSPI_BSPI_DONE = 0x7
-};
-
-struct bcm_qspi_soc {
-	void (*bcm_qspi_int_ack)(struct bcm_qspi_soc *soc, int type);
-	void (*bcm_qspi_int_set)(struct bcm_qspi_soc *soc, int type, bool en);
-	u32 (*bcm_qspi_get_int_status)(struct bcm_qspi_soc *soc);
-};
+struct bcm_qspi_soc;
 
 /* Read controller register*/
 static inline u32 bcm_qspi_readl(struct platform_device *pdev,
@@ -86,22 +71,6 @@ static inline void bcm_qspi_writel(struct platform_device *pdev,
 		iowrite32be(data, addr);
 	else
 		writel_relaxed(data, addr);
-}
-
-static inline u32 get_qspi_mask(int type)
-{
-	switch (type) {
-	case MSPI_DONE:
-		return INTR_MSPI_DONE_MASK;
-	case BSPI_DONE:
-		return BSPI_LR_INTERRUPTS_ALL;
-	case MSPI_BSPI_DONE:
-		return QSPI_INTERRUPTS_ALL;
-	case BSPI_ERR:
-		return BSPI_LR_INTERRUPTS_ERROR;
-	}
-
-	return 0;
 }
 
 int bcm_qspi_probe(struct platform_device *pdev, struct bcm_qspi_soc *soc);
