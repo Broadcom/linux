@@ -20,6 +20,7 @@
 #include "util.h"
 #include "spu.h"
 #include "spum.h"
+#include "cipher.h"
 
 /*
  * This array is based on the hash algo type supporeted in spu.h
@@ -378,16 +379,18 @@ u16 spum_hash_pad_len(enum hash_alg hash_alg, u32 chunksize,
 	return hash_pad_len;
 }
 
-/* Determine the length of GCM padding required. */
-u32 spum_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size)
+/* Determine the length of GCM/CCM padding required. */
+u32 spum_gcm_ccm_pad_len(enum spu_cipher_mode cipher_mode,
+			 unsigned int data_size)
 {
-	u32 gcm_pad_len = 0;
-	u32 m1 = SPU_GCM_ALIGN - 1;
+	u32 pad_len = 0;
+	u32 m1 = SPU_GCM_CCM_ALIGN - 1;
 
-	if (cipher_mode == CIPHER_MODE_GCM)
-		gcm_pad_len = ((data_size + m1) & ~m1) - data_size;
+	if ((cipher_mode == CIPHER_MODE_GCM) ||
+	    (cipher_mode == CIPHER_MODE_CCM))
+		pad_len = ((data_size + m1) & ~m1) - data_size;
 
-	return gcm_pad_len;
+	return pad_len;
 }
 
 /* Determine the size of the receive buffer required to catch associated data.
@@ -404,7 +407,14 @@ u32 spum_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
 
 	if (cipher_mode == CIPHER_MODE_GCM) {
 		/* AAD needs to be padded in responses too */
-		pad = spum_gcm_pad_len(cipher_mode, buflen);
+		pad = spum_gcm_ccm_pad_len(cipher_mode, buflen);
+		buflen += pad;
+	}
+	if (cipher_mode == CIPHER_MODE_CCM) {
+		/* AAD needs to be padded in responses too
+		 * for CCM, len + 2 needs to be 128-bit aligned.
+		 */
+		pad = spum_gcm_ccm_pad_len(cipher_mode, buflen + 2);
 		buflen += pad;
 	}
 
@@ -510,14 +520,16 @@ u32 spum_create_request(u8 *spu_hdr,
 						 hash_parms->prebuf_len,
 						 data_size,
 						 aead_parms->aad_pad_len,
-						 aead_parms->gcm_pad_len,
+						 aead_parms->data_pad_len,
 						 hash_parms->pad_len);
 
 	unsigned int auth_offset = 0;
 	unsigned int offset_iv = 0;
 
 	/* size/offset of the auth payload */
-	unsigned int auth_len = real_db_size;
+	unsigned int auth_len;
+
+	auth_len = real_db_size;
 
 	if (req_opts->dtls_aead)
 		cipher_len += aead_parms->iv_len;
@@ -603,14 +615,16 @@ u32 spum_create_request(u8 *spu_hdr,
 			sctx_words += hash_parms->key_len / 4;
 		}
 
-		if (cipher_parms->mode == CIPHER_MODE_GCM)
+		if ((cipher_parms->mode == CIPHER_MODE_GCM) ||
+		    (cipher_parms->mode == CIPHER_MODE_CCM))
 			/* unpadded length */
 			offset_iv = aead_parms->assoc_size;
 
-		/* in DTLS we need to write the ICV into the payload */
+		/* in DTLS or GCM/CCM we need to write ICV into the payload */
 		if (!req_opts->is_inbound) {
 			if (req_opts->dtls_aead ||
-			    (cipher_parms->mode == CIPHER_MODE_GCM))
+			    (cipher_parms->mode == CIPHER_MODE_GCM) ||
+			    (cipher_parms->mode == CIPHER_MODE_CCM))
 				ecf_bits |= 1 << INSERT_ICV_SHIFT;
 		} else
 			ecf_bits |= CHECK_ICV;
@@ -668,6 +682,13 @@ u32 spum_create_request(u8 *spu_hdr,
 	bdesc->lengthMAC = cpu_to_be16(auth_len);
 	bdesc->offsetCrypto = cpu_to_be16(cipher_offset);
 	bdesc->lengthCrypto = cpu_to_be16(cipher_len);
+
+	/* CCM in SPU-M requires that ICV not be in same 32-bit word as data or
+	 * padding.  So account for padding as necessary.
+	 */
+	if ((cipher_parms->mode == CIPHER_MODE_CCM) && (!req_opts->is_inbound))
+		auth_len += spu_wordalign_padlen(auth_len);
+
 	bdesc->offsetICV = cpu_to_be16(auth_len);
 	bdesc->offsetIV = cpu_to_be16(offset_iv);
 
@@ -873,33 +894,33 @@ void spum_cipher_req_finish(u8 *spu_hdr,
 /*
  * Create pad bytes at the end of the data. There may be three forms of
  * pad:
- *  1. GCM pad - for GCM mode ciphers, pad to 16-byte alignment
+ *  1. GCM/CCM pad - for GCM/CCM mode ciphers, pad to 16-byte alignment
  *  2. hash pad - pad to a block length, with 0x80 data terminator and
  *                size at the end
  *  3. STAT pad - to ensure the STAT field is 4-byte aligned
  *
  * Inputs:
  *   pad_start      - Start of buffer where pad bytes are to be written
- *   gcm_padding    - length of GCM padding, in bytes
+ *   gcm_ccm_padding- length of GCM/CCM padding, in bytes
  *   hash_pad_len   - Number of bytes of padding extend data to full block
  *   auth_alg       - authentication algorithm
  *   total_sent     - length inserted at end of hash pad
  *   status_padding - Number of bytes of padding to align STATUS word
  */
 void spum_request_pad(u8 *pad_start,
-		      u32 gcm_padding,
+		      u32 gcm_ccm_padding,
 		      u32 hash_pad_len,
 		      enum hash_alg auth_alg,
 		      unsigned int total_sent, u32 status_padding)
 {
 	u8 *ptr = pad_start;
 
-	/* fix data alignent for GCM */
-	if (gcm_padding > 0) {
+	/* fix data alignent for GCM/CCM */
+	if (gcm_ccm_padding > 0) {
 		flow_log("  GCM: padding to 16 byte alignment: %u bytes\n",
-			 gcm_padding);
-		memset(ptr, 0, gcm_padding);
-		ptr += gcm_padding;
+			 gcm_ccm_padding);
+		memset(ptr, 0, gcm_ccm_padding);
+		ptr += gcm_ccm_padding;
 	}
 
 	if (hash_pad_len > 0) {
@@ -990,4 +1011,73 @@ int rabintag_to_hash_index(unsigned char *tag)
 
 	pr_err("Invalid Rabin tag:%s\n", tag);
 	return -EINVAL;
+}
+
+/**
+ * spu_ccm_update_iv() - Update the IV as per the requirements for CCM mode.
+ *
+ * @ctx:		(pointer to) iproc ctx structure for this request
+ * @cipher_parms:	(pointer to) cipher parmaeters, includes IV buf & IV len
+ * @req:		(pointer to) aead_request structure describing this req
+ * @chunksize:		length of input data to be sent in this req
+ *
+ *
+ * Note that both SPU-M and SPU2 require similar IV changes, so no need for
+ * separate functions for the two variants.  (Only difference between the two
+ * is the printing of a warning message.)
+ *
+ */
+void spu_ccm_update_iv(unsigned int digestsize,
+		       struct spu_cipher_parms *cipher_parms,
+		       unsigned int assoclen,
+		       unsigned int chunksize,
+		       bool is_encrypt)
+{
+	u8 L;		/* L from CCM algorithm, length of plaintext data */
+	u8 mprime;	/* M' from CCM algo, (M - 2) / 2, where M=authsize */
+	u8 adata;
+
+	if (cipher_parms->iv_len != CCM_AES_IV_SIZE) {
+		pr_err("%s(): Invalid IV len %d for CCM mode, should be %d\n",
+			__func__, cipher_parms->iv_len, CCM_AES_IV_SIZE);
+		return;
+	}
+
+	/* IV needs to be formatted as follows:
+	 *
+	 * |          Byte 0               | Bytes 1 - N | Bytes (N+1) - 15 |
+	 * | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 | Bits 7 - 0  |    Bits 7 - 0    |
+	 * | 0 |Ad?|(M - 2) / 2|   L - 1   |    Nonce    | Plaintext Length |
+	 *
+	 * Ad? = 1 if AAD present, 0 if not present
+	 * M = size of auth field, 8, 12, or 16 bytes (SPU-M) -or-
+	 *                         4, 6, 8, 10, 12, 14, 16 bytes (SPU2)
+	 * L = Size of Plaintext Length field; Nonce size = 15 - L
+	 *
+	 * It appears that the crypto API already expects the L-1 portion
+	 * to be set in the first byte of the IV, which implicitly determines
+	 * the nonce size, and also fills in the nonce.  But the other bits
+	 * in byte 0 as well as the plaintext length need to be filled in.
+	 */
+
+	/* L' = plaintext length - 1 so Plaintext length is L' + 1 */
+	L = ((cipher_parms->iv_buf[0] & CCM_B0_L_PRIME) >>
+	      CCM_B0_L_PRIME_SHIFT) + 1;
+
+	mprime = (digestsize - 2) >> 1;  /* M' = (M - 2) / 2 */
+	adata = (assoclen > 0);  /* adata = 1 if any associated data */
+
+	cipher_parms->iv_buf[0] = (adata << CCM_B0_ADATA_SHIFT) |
+				  (mprime << CCM_B0_M_PRIME_SHIFT) |
+				  ((L - 1) << CCM_B0_L_PRIME_SHIFT);
+
+	/* Nonce is already filled in by crypto API, and is 15 - L bytes */
+
+	/* Don't include digest in plaintext size when decrypting */
+	if (!is_encrypt)
+		chunksize -= digestsize;
+
+	/* Fill in length of plaintext, formatted to be L bytes long */
+	format_value_ccm(chunksize, &cipher_parms->iv_buf[15 - L + 1], L);
+
 }

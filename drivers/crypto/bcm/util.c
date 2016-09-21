@@ -492,3 +492,28 @@ void spu_free_debugfs(void)
 	iproc_priv.debugfs_dir = NULL;
 }
 
+/**
+ * format_value_ccm() - Format a value into a buffer, using a specified number
+ *			of bytes (i.e. maybe writing value X into a 4 byte
+ *			buffer, or maybe into a 12 byte buffer), as per the
+ *			SPU CCM spec.
+ *
+ * @val:		value to write (up to max of unsigned int)
+ * @buf:		(pointer to) buffer to write the value
+ * @len:		number of bytes to use (0 to 255)
+ *
+ */
+void format_value_ccm(unsigned int val, u8 *buf, u8 len)
+{
+	int i;
+
+	/* First clear full output buffer */
+	memset(buf, 0, len);
+
+	/* Then, starting from right side, fill in with data */
+	for (i = 0; i < len; i++) {
+		buf[len - i - 1] = (val >> (8 * i)) & 0xff;
+		if (i >= 3)
+			break;  /* Only handle up to 32 bits of 'val' */
+	}
+}

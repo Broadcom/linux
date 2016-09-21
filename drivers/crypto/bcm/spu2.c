@@ -848,12 +848,13 @@ u16 spu2_hash_pad_len(enum hash_alg hash_alg, u32 chunksize,
 }
 
 /**
- * spu2_gcm_padlen() -  Determine the length of GCM padding for either the
- * AAD field or the data.
+ * spu2_gcm_ccm_padlen() -  Determine the length of GCM/CCM padding for either
+ * the AAD field or the data.
  *
- * Return:  0. Unlike SPU-M, SPU2 hardware does any GCM padding required.
+ * Return:  0. Unlike SPU-M, SPU2 hardware does any GCM/CCM padding required.
  */
-u32 spu2_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size)
+u32 spu2_gcm_ccm_pad_len(enum spu_cipher_mode cipher_mode,
+			 unsigned int data_size)
 {
 	return 0;
 }
@@ -978,7 +979,7 @@ u32 spu2_create_request(u8 *spu_hdr,
 						 hash_parms->prebuf_len,
 						 data_size,
 						 aead_parms->aad_pad_len,
-						 aead_parms->gcm_pad_len,
+						 aead_parms->data_pad_len,
 						 hash_parms->pad_len);
 #endif
 

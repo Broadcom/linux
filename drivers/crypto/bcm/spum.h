@@ -161,17 +161,4 @@ struct SPUHEADER {
 	struct SCTX sa;
 };
 
-/* Determine the length of GCM padding required. */
-static __always_inline u32 spu_gcm_padlen(enum spu_cipher_mode cipher_mode,
-					  unsigned int data_size)
-{
-	u32 gcm_pad_len = 0;
-	u32 m1 = SPU_GCM_ALIGN - 1;
-
-	if (cipher_mode == CIPHER_MODE_GCM)
-		gcm_pad_len = ((data_size + m1) & ~m1) - data_size;
-
-	return gcm_pad_len;
-}
-
 #endif /* _SPUM_H_ */

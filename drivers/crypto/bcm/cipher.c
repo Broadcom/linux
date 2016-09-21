@@ -256,7 +256,7 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 
 	/* IV or ctr value to use in this SPU msg */
 	u8 local_iv_ctr[MAX_IV_SIZE];
-	u32 gcm_pad_len;
+	u32 data_pad_len;
 	u32 db_size;
 	u32 stat_pad_len;	/* num bytes to align status field */
 	u32 pad_len;		/* total length of all padding */
@@ -371,16 +371,16 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 
 	atomic64_add(chunksize, &iproc_priv.bytes_out);
 
-	gcm_pad_len = spu->spu_gcm_pad_len(ctx->cipher.mode, chunksize);
+	data_pad_len = spu->spu_gcm_ccm_pad_len(ctx->cipher.mode, chunksize);
 	db_size = spu_real_db_size(0, 0, 0, chunksize, 0, 0, 0);
-	stat_pad_len = spu_status_padlen(db_size);
+	stat_pad_len = spu_wordalign_padlen(db_size);
 	if (stat_pad_len)
 		rx_frag_num++;
-	pad_len = gcm_pad_len + stat_pad_len;
+	pad_len = data_pad_len + stat_pad_len;
 	if (pad_len) {
 		tx_frag_num++;
-		spu->spu_request_pad(rctx->msg_buf->spu_req_pad, gcm_pad_len, 0,
-				     ctx->auth.alg, rctx->total_sent,
+		spu->spu_request_pad(rctx->msg_buf->spu_req_pad, data_pad_len,
+				     0, ctx->auth.alg, rctx->total_sent,
 				     stat_pad_len);
 	}
 
@@ -610,7 +610,7 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	unsigned int chunk_start = 0;
 	u32 db_size;	 /* Length of data field, incl gcm and hash padding */
 	int pad_len = 0; /* total pad len, including gcm, hash, stat padding */
-	u32 gcm_pad_len = 0;	/* length of GCM padding */
+	u32 data_pad_len = 0;	/* length of GCM/CCM padding */
 	u32 stat_pad_len = 0;	/* length of padding to align STATUS word */
 	struct brcm_message *mssg;	/* mailbox message */
 	struct spu_request_opts req_opts;
@@ -757,17 +757,17 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	/* Determine total length of padding required. Put all padding in one
 	 * buffer.
 	 */
-	gcm_pad_len = spu->spu_gcm_pad_len(ctx->cipher.mode, chunksize);
+	data_pad_len = spu->spu_gcm_ccm_pad_len(ctx->cipher.mode, chunksize);
 	db_size = spu_real_db_size(0, 0, local_nbuf, new_data_len,
 				   0, 0, hash_parms.pad_len);
 	if (spu->spu_tx_status_len())
-		stat_pad_len = spu_status_padlen(db_size);
+		stat_pad_len = spu_wordalign_padlen(db_size);
 	if (stat_pad_len)
 		rx_frag_num++;
-	pad_len = hash_parms.pad_len + gcm_pad_len + stat_pad_len;
+	pad_len = hash_parms.pad_len + data_pad_len + stat_pad_len;
 	if (pad_len) {
 		tx_frag_num++;
-		spu->spu_request_pad(rctx->msg_buf->spu_req_pad, gcm_pad_len,
+		spu->spu_request_pad(rctx->msg_buf->spu_req_pad, data_pad_len,
 				     hash_parms.pad_len, ctx->auth.alg,
 				     rctx->total_sent, stat_pad_len);
 	}
@@ -970,6 +970,13 @@ static unsigned int spu_dtls_hmac_offset(struct aead_request *req,
 				crypto_inc(iv_buf, block_size);
 			break;
 
+		case CIPHER_MODE_CCM:
+			memcpy(iv_buf, req->iv, block_size);
+
+			for (i = (chunksize / block_size); i > 0; i--)
+				crypto_inc(iv_buf, block_size);
+			break;
+
 		default:
 			break;
 		}
@@ -1030,14 +1037,24 @@ spu_aead_rx_sg_create(struct brcm_message *mssg,
 	struct iproc_ctx_s *ctx = rctx->ctx;
 	u32 datalen;		/* Number of bytes of response data expected */
 	u32 assoc_buf_len;
-	u8 gcm_padlen = 0;
+	u8 data_padlen = 0;
 
-	if (ctx->cipher.mode == CIPHER_MODE_GCM) {
-		gcm_padlen = spu->spu_gcm_pad_len(ctx->cipher.mode, resp_len);
-		if (gcm_padlen)
-			/* have to catch gcm pad in separate buffer */
-			rx_frag_num++;
-	}
+	data_padlen = spu->spu_gcm_ccm_pad_len(ctx->cipher.mode,
+						  resp_len);
+
+	assoc_buf_len = spu->spu_assoc_resp_len(ctx->cipher.mode,
+						ctx->alg->dtls_hmac, assoc_len,
+						ret_iv_len,
+						rctx->is_encrypt);
+
+	if (ctx->cipher.mode == CIPHER_MODE_CCM)
+		/* ICV (after data) must be in the next 32-bit word for CCM */
+		data_padlen += spu_wordalign_padlen(assoc_buf_len + resp_len +
+						    data_padlen);
+
+	if (data_padlen)
+		/* have to catch gcm pad in separate buffer */
+		rx_frag_num++;
 
 	mssg->spu.dst = kcalloc(rx_frag_num, sizeof(struct scatterlist),
 				GFP_KERNEL);
@@ -1050,10 +1067,6 @@ spu_aead_rx_sg_create(struct brcm_message *mssg,
 	/* Space for SPU message header */
 	sg_set_buf(sg++, rctx->msg_buf->spu_resp_hdr, ctx->spu_resp_hdr_len);
 
-	assoc_buf_len = spu->spu_assoc_resp_len(ctx->cipher.mode,
-						ctx->alg->dtls_hmac, assoc_len,
-						ret_iv_len,
-						rctx->is_encrypt);
 	if (assoc_buf_len)
 		/* Don't write directly to req->dst, because SPU may pad the
 		 * assoc data in the response
@@ -1072,9 +1085,10 @@ spu_aead_rx_sg_create(struct brcm_message *mssg,
 		return -EFAULT;
 	}
 
-	/* If GCM data is padded, catch padding in separate buffer */
-	if (gcm_padlen)
-		sg_set_buf(sg++, rctx->msg_buf->a.gcmpad, gcm_padlen);
+
+	/* If GCM/CCM data is padded, catch padding in separate buffer */
+	if (data_padlen)
+		sg_set_buf(sg++, rctx->msg_buf->a.gcmpad, data_padlen);
 
 	/* Always catch ICV in separate buffer */
 	sg_set_buf(sg++, rctx->msg_buf->digest, digestsize);
@@ -1103,7 +1117,7 @@ spu_aead_rx_sg_create(struct brcm_message *mssg,
  *   assoc_nents - number of scatterlist entries containing assoc data
  *   aead_iv_len - length of AEAD IV, if included
  *   chunksize - Number of bytes of request data
- *   aad_pad_len - Number of bytes of padding at end of AAD. For GCM.
+ *   aad_pad_len - Number of bytes of padding at end of AAD. For GCM/CCM.
  *   pad_len - Number of pad bytes
  *   incl_icv - If true, write separate ICV buffer after data and
  *              any padding
@@ -1309,12 +1323,38 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 	if (ctx->auth.alg == HASH_ALG_AES)
 		hash_parms.type = ctx->cipher_type;
 
-	aead_parms.aad_pad_len = spu->spu_gcm_pad_len(ctx->cipher.mode,
-						      aead_parms.assoc_size);
-	flow_log("gcm AAD padding: %u bytes\n", aead_parms.aad_pad_len);
-	aead_parms.gcm_pad_len = spu->spu_gcm_pad_len(ctx->cipher.mode,
-						      chunksize);
-	flow_log("gcm pad: %u bytes\n", aead_parms.gcm_pad_len);
+	/* General case AAD padding (CCM special case below) */
+	aead_parms.aad_pad_len = spu->spu_gcm_ccm_pad_len(ctx->cipher.mode,
+						 aead_parms.assoc_size);
+
+	/* General case data padding (CCM decrypt special case below) */
+	aead_parms.data_pad_len = spu->spu_gcm_ccm_pad_len(ctx->cipher.mode,
+							   chunksize);
+
+	if (ctx->cipher.mode == CIPHER_MODE_CCM) {
+		/* for CCM, AAD len + 2 (rather than AAD len) needs to be
+		 * 128-bit aligned
+		 */
+		aead_parms.aad_pad_len = spu->spu_gcm_ccm_pad_len(
+					 ctx->cipher.mode,
+					 aead_parms.assoc_size + 2);
+
+		/* And when decrypting CCM, need to pad without including
+		 * size of ICV which is tacked on to end of chunk
+		 */
+		if (!rctx->is_encrypt)
+			aead_parms.data_pad_len =
+				spu->spu_gcm_ccm_pad_len(ctx->cipher.mode,
+							chunksize - digestsize);
+
+		/* CCM also requires software to rewrite portions of IV: */
+		spu_ccm_update_iv(ctx->digestsize, &cipher_parms, req->assoclen,
+				  chunksize, rctx->is_encrypt);
+	}
+
+
+
+
 
 	if (spu_req_incl_icv(ctx->cipher.mode, rctx->is_encrypt)) {
 		incl_icv = true;
@@ -1341,15 +1381,17 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 	/* Determine total length of padding. Put all padding in one buffer. */
 	db_size = spu_real_db_size(aead_parms.assoc_size, aead_parms.iv_len, 0,
 				   chunksize, aead_parms.aad_pad_len,
-				   aead_parms.gcm_pad_len, 0);
-	stat_pad_len = spu_status_padlen(db_size + aead_parms.gcm_pad_len);
+				   aead_parms.data_pad_len, 0);
+
+	stat_pad_len = spu_wordalign_padlen(db_size);
+
 	if (stat_pad_len)
 		rx_frag_num++;
-	pad_len = aead_parms.gcm_pad_len + stat_pad_len;
+	pad_len = aead_parms.data_pad_len + stat_pad_len;
 	if (pad_len) {
 		tx_frag_num++;
 		spu->spu_request_pad(rctx->msg_buf->spu_req_pad,
-				     aead_parms.gcm_pad_len, 0,
+				     aead_parms.data_pad_len, 0,
 				     ctx->auth.alg, rctx->total_sent,
 				     stat_pad_len);
 	}
@@ -1373,13 +1415,14 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 	rx_frag_num += rctx->dst_nents;
 	resp_len = chunksize;
 
-	/* Always catch ICV in separate buffer. Have to for GCM because of GCM
+	/* Always catch ICV in separate buffer. Have to for GCM/CCM because of
 	 * padding. Have to for SHA-224 and other truncated SHAs because SPU
 	 * sends entire digest back.
 	 */
 	rx_frag_num++;
 
-	if ((ctx->cipher.mode == CIPHER_MODE_GCM) && !rctx->is_encrypt)
+	if (((ctx->cipher.mode == CIPHER_MODE_GCM) ||
+	     (ctx->cipher.mode == CIPHER_MODE_CCM)) && !rctx->is_encrypt)
 		/* Input is ciphertxt plus ICV, but ICV not incl
 		 * in output.
 		 */
@@ -1650,7 +1693,8 @@ static int ablkcipher_enqueue(struct ablkcipher_request *req, bool encrypt)
 	    ctx->cipher.mode == CIPHER_MODE_CTR ||
 	    ctx->cipher.mode == CIPHER_MODE_OFB ||
 	    ctx->cipher.mode == CIPHER_MODE_XTS ||
-	    ctx->cipher.mode == CIPHER_MODE_GCM) {
+	    ctx->cipher.mode == CIPHER_MODE_GCM ||
+	    ctx->cipher.mode == CIPHER_MODE_CCM) {
 		rctx->iv_ctr_len =
 		    crypto_ablkcipher_ivsize(crypto_ablkcipher_reqtfm(req));
 		rctx->iv_ctr = kmalloc(rctx->iv_ctr_len, GFP_KERNEL);
@@ -2235,13 +2279,24 @@ static int aead_need_fallback(struct aead_request *req)
 	u32 payload_len;
 
 	/*
-	 * SPU hardware cannot handle the AES-GCM case where plaintext and AAD
-	 * are both 0 bytes long. So use fallback in this case.
+	 * SPU hardware cannot handle the AES-GCM/CCM case where plaintext
+	 * and AAD are both 0 bytes long. So use fallback in this case.
 	 */
-	if ((ctx->cipher.mode == CIPHER_MODE_GCM) &&
-	    (req->cryptlen + req->assoclen) == 0) {
-		flow_log("%s() AES GCM needs fallback for zero len request\n",
+	if (((ctx->cipher.mode == CIPHER_MODE_GCM) ||
+	     (ctx->cipher.mode == CIPHER_MODE_CCM)) &&
+	     (req->cryptlen + req->assoclen) == 0) {
+		flow_log("%s() AES GCM/CCM needs fallback for 0 len request\n",
 			 __func__);
+		return 1;
+	}
+
+	/* SPU-M hardware only supports CCM digest size of 8, 12, or 16 bytes */
+	if ((ctx->cipher.mode == CIPHER_MODE_CCM) &&
+	    (spu->spu_type == SPU_TYPE_SPUM) &&
+	    (ctx->digestsize != 8) && (ctx->digestsize != 12) &&
+	    (ctx->digestsize != 16)) {
+		flow_log("%s() AES CCM needs fallbck for digest size %d\n",
+				__func__, ctx->digestsize);
 		return 1;
 	}
 
@@ -2383,7 +2438,8 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	    ctx->cipher.mode == CIPHER_MODE_CTR ||
 	    ctx->cipher.mode == CIPHER_MODE_OFB ||
 	    ctx->cipher.mode == CIPHER_MODE_XTS ||
-	    ctx->cipher.mode == CIPHER_MODE_GCM) {
+	    ctx->cipher.mode == CIPHER_MODE_GCM ||
+	    ctx->cipher.mode == CIPHER_MODE_CCM) {
 		rctx->iv_ctr_len =
 			ctx->salt_len +
 			crypto_aead_ivsize(crypto_aead_reqtfm(req));
@@ -2589,8 +2645,8 @@ badkey:
 	return -EINVAL;
 }
 
-static int aead_gcm_setkey(struct crypto_aead *cipher,
-			   const u8 *key, unsigned int keylen)
+static int aead_gcm_ccm_setkey(struct crypto_aead *cipher,
+			       const u8 *key, unsigned int keylen)
 {
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct iproc_ctx_s *ctx = crypto_aead_ctx(cipher);
@@ -2689,7 +2745,7 @@ static int aead_gcm_esp_setkey(struct crypto_aead *cipher,
 	ctx->is_esp = true;
 	flow_dump("salt: ", ctx->salt, GCM_ESP_SALT_SIZE);
 
-	return aead_gcm_setkey(cipher, key, keylen);
+	return aead_gcm_ccm_setkey(cipher, key, keylen);
 }
 
 static int aead_setauthsize(struct crypto_aead *cipher, unsigned int authsize)
@@ -2760,7 +2816,7 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_blocksize = AES_BLOCK_SIZE,
 			.cra_flags = CRYPTO_ALG_NEED_FALLBACK
 		 },
-		 .setkey = aead_gcm_setkey,
+		 .setkey = aead_gcm_ccm_setkey,
 		 .ivsize = GCM_AES_IV_SIZE,
 		.maxauthsize = AES_BLOCK_SIZE,
 	 },
@@ -2771,6 +2827,30 @@ static struct iproc_alg_s driver_algs[] = {
 	 .auth_info = {
 		       .alg = HASH_ALG_AES,
 		       .mode = HASH_MODE_GCM,
+		       },
+	 .auth_first = 0,
+	 .dtls_hmac = 0,
+	 },
+	{
+	 .type = CRYPTO_ALG_TYPE_AEAD,
+	 .alg.aead = {
+		 .base = {
+			.cra_name = "ccm(aes)",
+			.cra_driver_name = "ccm-aes-iproc",
+			.cra_blocksize = AES_BLOCK_SIZE,
+			.cra_flags = CRYPTO_ALG_NEED_FALLBACK
+		 },
+		 .setkey = aead_gcm_ccm_setkey,
+		 .ivsize = CCM_AES_IV_SIZE,
+		.maxauthsize = AES_BLOCK_SIZE,
+	 },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_AES,
+			 .mode = CIPHER_MODE_CCM,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_AES,
+		       .mode = HASH_MODE_CCM,
 		       },
 	 .auth_first = 0,
 	 .dtls_hmac = 0,
@@ -4360,7 +4440,7 @@ static void spu_functions_register(struct device *dev,
 		spu->spu_payload_length = spum_payload_length;
 		spu->spu_response_hdr_len = spum_response_hdr_len;
 		spu->spu_hash_pad_len = spum_hash_pad_len;
-		spu->spu_gcm_pad_len = spum_gcm_pad_len;
+		spu->spu_gcm_ccm_pad_len = spum_gcm_ccm_pad_len;
 		spu->spu_assoc_resp_len = spum_assoc_resp_len;
 		spu->spu_aead_ivlen = spum_aead_ivlen;
 		spu->spu_hash_type = spum_hash_type;
@@ -4381,7 +4461,7 @@ static void spu_functions_register(struct device *dev,
 		spu->spu_payload_length = spu2_payload_length;
 		spu->spu_response_hdr_len = spu2_response_hdr_len;
 		spu->spu_hash_pad_len = spu2_hash_pad_len;
-		spu->spu_gcm_pad_len = spu2_gcm_pad_len;
+		spu->spu_gcm_ccm_pad_len = spu2_gcm_ccm_pad_len;
 		spu->spu_assoc_resp_len = spu2_assoc_resp_len;
 		spu->spu_aead_ivlen = spu2_aead_ivlen;
 		spu->spu_hash_type = spu2_hash_type;
@@ -4554,7 +4634,13 @@ static int spu_register_aead(struct iproc_alg_s *driver_alg)
 {
 	struct device *dev = &iproc_priv.pdev->dev;
 	struct aead_alg *aead = &driver_alg->alg.aead;
+	struct spu_hw *spu = &iproc_priv.spu;
 	int err;
+
+	/* CCM not (yet) supported in SPU2 */
+	if ((driver_alg->cipher_info.mode == CIPHER_MODE_CCM) &&
+		(spu->spu_type != SPU_TYPE_SPUM))
+		return 0;
 
 	aead->base.cra_module = THIS_MODULE;
 	aead->base.cra_priority = 1500;

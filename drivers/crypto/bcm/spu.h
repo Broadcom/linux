@@ -137,8 +137,8 @@ struct spu_hash_parms {
 struct spu_aead_parms {
 	u32 assoc_size;
 	u16 iv_len;      /* length of IV field between assoc data and data */
-	u8  aad_pad_len; /* For AES GCM, length of padding after AAD */
-	u8  gcm_pad_len; /* For AES GCM, length of padding after data */
+	u8  aad_pad_len; /* For AES GCM/CCM, length of padding after AAD */
+	u8  data_pad_len;/* For AES GCM/CCM, length of padding after data */
 	bool return_iv;  /* True if SPU should return an IV */
 	u32 ret_iv_len;  /* Length in bytes of returned IV */
 	u32 ret_iv_off;  /* Offset into full IV if partial IV returned */
@@ -152,10 +152,11 @@ struct spu_aead_parms {
 #define SPU_STAT_PAD_MAX  4
 
 /* Max length of pad fragment. 4 is for 4-byte alignment of STATUS field */
-#define SPU_PAD_LEN_MAX (SPU_GCM_ALIGN + MAX_HASH_BLOCK_SIZE + SPU_STAT_PAD_MAX)
+#define SPU_PAD_LEN_MAX (SPU_GCM_CCM_ALIGN + MAX_HASH_BLOCK_SIZE + \
+			 SPU_STAT_PAD_MAX)
 
-/* GCM requires 16-byte alignment */
-#define SPU_GCM_ALIGN 16
+/* GCM and CCM require 16-byte alignment */
+#define SPU_GCM_CCM_ALIGN 16
 
 /* Length up SUPDT field in SPU response message for RC4 */
 #define SPU_SUPDT_LEN 260
@@ -167,6 +168,14 @@ struct spu_aead_parms {
 
 /* Indicates no limit to the length of the payload in a SPU message */
 #define SPU_MAX_PAYLOAD_INF  0xFFFFFFFF
+
+/* CCM B_0 field definitions, common for SPU-M and SPU2 */
+#define CCM_B0_ADATA		0x40
+#define CCM_B0_ADATA_SHIFT	   6
+#define CCM_B0_M_PRIME		0x38
+#define CCM_B0_M_PRIME_SHIFT	   3
+#define CCM_B0_L_PRIME		0x07
+#define CCM_B0_L_PRIME_SHIFT	   0
 
 /**
  * spu_req_incl_icv() - Return true if SPU request message should include the
@@ -181,8 +190,10 @@ static __always_inline  bool spu_req_incl_icv(enum spu_cipher_mode cipher_mode,
 {
 	if ((cipher_mode == CIPHER_MODE_GCM) && !is_encrypt)
 		return true;
-	else
-		return false;
+	if ((cipher_mode == CIPHER_MODE_CCM) && !is_encrypt)
+		return true;
+
+	return false;
 }
 
 static __always_inline u32 spu_real_db_size(u32 assoc_size,
@@ -198,16 +209,15 @@ static __always_inline u32 spu_real_db_size(u32 assoc_size,
 }
 
 /**
- * spu_status_padlen() - Given the length of the DB field and padding in a SPU
- * request message, determine the padding required to align the STATUS word on a
- * 4-byte boundary.
- * @db_size: length of DB field in bytes
+ * spu_wordalign_padlen() - Given the length of a data field, determine the
+ * padding required to align the data following this field on a 4-byte boundary.
+ * @data_size: length of data field in bytes
  *
  * Return: length of status field padding, in bytes
  */
-static __always_inline u32 spu_status_padlen(u32 db_size)
+static __always_inline u32 spu_wordalign_padlen(u32 data_size)
 {
-	return ((db_size + 3) & ~3) - db_size;
+	return ((data_size + 3) & ~3) - data_size;
 }
 
 /************** SPU Functions Prototypes **************/
@@ -220,8 +230,9 @@ u32 spum_ctx_max_payload(enum spu_cipher_alg cipher_alg,
 u32 spum_payload_length(u8 *spu_hdr);
 u16 spum_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash);
 u16 spum_hash_pad_len(enum hash_alg hash_alg, u32 chunksize,
-		      u16 hash_block_size);
-u32 spum_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size);
+			u16 hash_block_size);
+u32 spum_gcm_ccm_pad_len(enum spu_cipher_mode cipher_mode,
+			 unsigned int data_size);
 u32 spum_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
 			unsigned int assoc_len, unsigned int iv_len,
 			bool is_encrypt);
@@ -259,4 +270,9 @@ u8 spum_rx_status_len(void);
 int spum_status_process(u8 *statp);
 
 int rabintag_to_hash_index(unsigned char *tag);
+void spu_ccm_update_iv(unsigned int digestsize,
+		       struct spu_cipher_parms *cipher_parms,
+		       unsigned int assoclen,
+		       unsigned int chunksize,
+		       bool is_encrypt);
 #endif

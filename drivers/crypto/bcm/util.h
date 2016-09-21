@@ -111,5 +111,6 @@ char *spu_alg_name(enum spu_cipher_alg alg, enum spu_cipher_mode mode);
 void spu_setup_debugfs(void);
 void spu_free_debugfs(void);
 void spu_free_debugfs_stats(void);
+void format_value_ccm(unsigned int val, u8 *buf, u8 len);
 
 #endif

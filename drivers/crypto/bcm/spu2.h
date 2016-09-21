@@ -209,8 +209,9 @@ u32 spu2_ctx_max_payload(enum spu_cipher_alg cipher_alg,
 u32 spu2_payload_length(u8 *spu_hdr);
 u16 spu2_response_hdr_len(u16 auth_key_len, u16 enc_key_len, bool is_hash);
 u16 spu2_hash_pad_len(enum hash_alg hash_alg, u32 chunksize,
-		      u16 hash_block_size);
-u32 spu2_gcm_pad_len(enum spu_cipher_mode cipher_mode, unsigned int data_size);
+			u16 hash_block_size);
+u32 spu2_gcm_ccm_pad_len(enum spu_cipher_mode cipher_mode,
+			 unsigned int data_size);
 u32 spu2_assoc_resp_len(enum spu_cipher_mode cipher_mode, bool dtls_hmac,
 			unsigned int assoc_len, unsigned int iv_len,
 			bool is_encrypt);

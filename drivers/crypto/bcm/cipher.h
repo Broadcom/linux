@@ -36,6 +36,7 @@
 #define ARC4_BLOCK_SIZE     1
 #define ARC4_STATE_SIZE     4
 
+#define CCM_AES_IV_SIZE    16
 #define GCM_AES_IV_SIZE    12
 #define GCM_ESP_IV_SIZE     8
 #define RFC4543_ICV_SIZE   16
@@ -322,8 +323,8 @@ struct spu_hw {
 				    bool is_hash);
 	u16 (*spu_hash_pad_len)(enum hash_alg, u32 chunksize,
 				u16 hash_block_size);
-	u32 (*spu_gcm_pad_len)(enum spu_cipher_mode cipher_mode,
-			       unsigned int data_size);
+	u32 (*spu_gcm_ccm_pad_len)(enum spu_cipher_mode cipher_mode,
+				   unsigned int data_size);
 	u32 (*spu_assoc_resp_len)(enum spu_cipher_mode cipher_mode,
 				  bool dtls_hmac, unsigned int assoc_len,
 				  unsigned int iv_len, bool is_encrypt);
