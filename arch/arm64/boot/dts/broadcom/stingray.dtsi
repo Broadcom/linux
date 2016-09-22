@@ -585,6 +585,16 @@
 			arm,sp804-no-sched-clock;
 		};
 
+		i2c0: i2c@689b0000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x689b0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 177 IRQ_TYPE_NONE>;
+			clock-frequency = <100000>;
+			status = "disabled";
+		};
+
 		wdt0: watchdog@689c0000 {
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x689c0000 0x1000>;
@@ -617,6 +627,16 @@
 					<&pinmux 141 67 4>,
 					<&pinmux 145 149 6>,
 					<&pinmux 151 91 4>;
+		};
+
+		i2c1: i2c@689e0000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x689e0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 178 IRQ_TYPE_NONE>;
+			clock-frequency = <100000>;
+			status = "disabled";
 		};
 
 		uart1: uart@68a10000 {
