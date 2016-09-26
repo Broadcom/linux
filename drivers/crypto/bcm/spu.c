@@ -686,7 +686,7 @@ u32 spum_create_request(u8 *spu_hdr,
 	/* CCM in SPU-M requires that ICV not be in same 32-bit word as data or
 	 * padding.  So account for padding as necessary.
 	 */
-	if ((cipher_parms->mode == CIPHER_MODE_CCM) && (!req_opts->is_inbound))
+	if (cipher_parms->mode == CIPHER_MODE_CCM)
 		auth_len += spu_wordalign_padlen(auth_len);
 
 	bdesc->offsetICV = cpu_to_be16(auth_len);
@@ -1016,11 +1016,12 @@ int rabintag_to_hash_index(unsigned char *tag)
 /**
  * spu_ccm_update_iv() - Update the IV as per the requirements for CCM mode.
  *
- * @ctx:		(pointer to) iproc ctx structure for this request
+ * @digestsize:		Digest size of this request
  * @cipher_parms:	(pointer to) cipher parmaeters, includes IV buf & IV len
- * @req:		(pointer to) aead_request structure describing this req
+ * @assoclen:		Length of AAD data
  * @chunksize:		length of input data to be sent in this req
- *
+ * @is_encrypt:		true if this is an output/encrypt operation
+ * @is_esp:		true if this is an ESP / RFC4309 operation
  *
  * Note that both SPU-M and SPU2 require similar IV changes, so no need for
  * separate functions for the two variants.  (Only difference between the two
@@ -1031,7 +1032,8 @@ void spu_ccm_update_iv(unsigned int digestsize,
 		       struct spu_cipher_parms *cipher_parms,
 		       unsigned int assoclen,
 		       unsigned int chunksize,
-		       bool is_encrypt)
+		       bool is_encrypt,
+		       bool is_esp)
 {
 	u8 L;		/* L from CCM algorithm, length of plaintext data */
 	u8 mprime;	/* M' from CCM algo, (M - 2) / 2, where M=authsize */
@@ -1058,11 +1060,20 @@ void spu_ccm_update_iv(unsigned int digestsize,
 	 * to be set in the first byte of the IV, which implicitly determines
 	 * the nonce size, and also fills in the nonce.  But the other bits
 	 * in byte 0 as well as the plaintext length need to be filled in.
+	 *
+	 * In rfc4309/esp mode, L is not already in the supplied IV and
+	 * we need to fill it in, as well as move the IV data to be after
+	 * the salt
 	 */
 
-	/* L' = plaintext length - 1 so Plaintext length is L' + 1 */
-	L = ((cipher_parms->iv_buf[0] & CCM_B0_L_PRIME) >>
-	      CCM_B0_L_PRIME_SHIFT) + 1;
+
+	if (is_esp) {
+		L = CCM_ESP_L_VALUE;	/* RFC4309 has fixed L */
+	} else {
+		/* L' = plaintext length - 1 so Plaintext length is L' + 1 */
+		L = ((cipher_parms->iv_buf[0] & CCM_B0_L_PRIME) >>
+		      CCM_B0_L_PRIME_SHIFT) + 1;
+	}
 
 	mprime = (digestsize - 2) >> 1;  /* M' = (M - 2) / 2 */
 	adata = (assoclen > 0);  /* adata = 1 if any associated data */

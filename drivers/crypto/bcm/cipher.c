@@ -1348,8 +1348,8 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 							chunksize - digestsize);
 
 		/* CCM also requires software to rewrite portions of IV: */
-		spu_ccm_update_iv(ctx->digestsize, &cipher_parms, req->assoclen,
-				  chunksize, rctx->is_encrypt);
+		spu_ccm_update_iv(digestsize, &cipher_parms, req->assoclen,
+				  chunksize, rctx->is_encrypt, ctx->is_esp);
 	}
 
 
@@ -2443,6 +2443,8 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 		rctx->iv_ctr_len =
 			ctx->salt_len +
 			crypto_aead_ivsize(crypto_aead_reqtfm(req));
+	} else if (ctx->cipher.mode == CIPHER_MODE_CCM) {
+		rctx->iv_ctr_len = CCM_AES_IV_SIZE;
 	} else {
 		rctx->iv_ctr_len = 0;
 	}
@@ -2484,9 +2486,10 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 		if (rctx->iv_ctr == NULL)
 			return -ENOMEM;
 		if (ctx->salt_len)
-			memcpy(rctx->iv_ctr, ctx->salt, ctx->salt_len);
-		memcpy(rctx->iv_ctr + ctx->salt_len, req->iv,
-		       rctx->iv_ctr_len - ctx->salt_len);
+			memcpy(rctx->iv_ctr + ctx->salt_offset, ctx->salt,
+			       ctx->salt_len);
+		memcpy(rctx->iv_ctr + ctx->salt_offset + ctx->salt_len, req->iv,
+		       rctx->iv_ctr_len - ctx->salt_len - ctx->salt_offset);
 	}
 
 	rctx->chan_idx = select_channel();
@@ -2739,11 +2742,39 @@ static int aead_gcm_esp_setkey(struct crypto_aead *cipher,
 
 	flow_log("%s\n", __func__);
 	ctx->salt_len = GCM_ESP_SALT_SIZE;
+	ctx->salt_offset = GCM_ESP_SALT_OFFSET;
 	memcpy(ctx->salt, key + keylen - GCM_ESP_SALT_SIZE, GCM_ESP_SALT_SIZE);
 	keylen -= GCM_ESP_SALT_SIZE;
 	ctx->digestsize = GCM_ESP_DIGESTSIZE;
 	ctx->is_esp = true;
 	flow_dump("salt: ", ctx->salt, GCM_ESP_SALT_SIZE);
+
+	return aead_gcm_ccm_setkey(cipher, key, keylen);
+}
+
+/**
+ * aead_ccm_esp_setkey() - setkey() operation for ESP variant of CCM AES.
+ * cipher: AEAD structure
+ * key:    Key followed by 4 bytes of salt
+ * keylen: Length of key plus salt, in bytes
+ *
+ * Extracts salt from key and stores it to be prepended to IV on each request.
+ * Digest is always 16 bytes
+ *
+ * Return: Value from generic ccm setkey.
+ */
+static int aead_ccm_esp_setkey(struct crypto_aead *cipher,
+			       const u8 *key, unsigned int keylen)
+{
+	struct iproc_ctx_s *ctx = crypto_aead_ctx(cipher);
+
+	flow_log("%s\n", __func__);
+	ctx->salt_len = CCM_ESP_SALT_SIZE;
+	ctx->salt_offset = CCM_ESP_SALT_OFFSET;
+	memcpy(ctx->salt, key + keylen - CCM_ESP_SALT_SIZE, CCM_ESP_SALT_SIZE);
+	keylen -= CCM_ESP_SALT_SIZE;
+	ctx->is_esp = true;
+	flow_dump("salt: ", ctx->salt, CCM_ESP_SALT_SIZE);
 
 	return aead_gcm_ccm_setkey(cipher, key, keylen);
 }
@@ -2878,6 +2909,30 @@ static struct iproc_alg_s driver_algs[] = {
 	 .auth_info = {
 		       .alg = HASH_ALG_AES,
 		       .mode = HASH_MODE_GCM,
+		       },
+	 .auth_first = 0,
+	 .dtls_hmac = 0,
+	 },
+	{
+	 .type = CRYPTO_ALG_TYPE_AEAD,
+	 .alg.aead = {
+		 .base = {
+			.cra_name = "rfc4309(ccm(aes))",
+			.cra_driver_name = "ccm-aes-esp-iproc",
+			.cra_blocksize = AES_BLOCK_SIZE,
+			.cra_flags = CRYPTO_ALG_NEED_FALLBACK
+		 },
+		 .setkey = aead_ccm_esp_setkey,
+		 .ivsize = CCM_AES_IV_SIZE,
+		 .maxauthsize = AES_BLOCK_SIZE,
+	 },
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_AES,
+			 .mode = CIPHER_MODE_CCM,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_AES,
+		       .mode = HASH_MODE_CCM,
 		       },
 	 .auth_first = 0,
 	 .dtls_hmac = 0,
@@ -4008,6 +4063,7 @@ static int aead_cra_init(struct crypto_aead *aead)
 	crypto_aead_set_reqsize(aead, sizeof(struct iproc_reqctx_s));
 	ctx->is_esp = false;
 	ctx->salt_len = 0;
+	ctx->salt_offset = 0;
 
 	/* random first IV */
 	get_random_bytes(ctx->iv, MAX_IV_SIZE);

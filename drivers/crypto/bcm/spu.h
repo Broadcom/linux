@@ -274,5 +274,6 @@ void spu_ccm_update_iv(unsigned int digestsize,
 		       struct spu_cipher_parms *cipher_parms,
 		       unsigned int assoclen,
 		       unsigned int chunksize,
-		       bool is_encrypt);
+		       bool is_encrypt,
+		       bool is_esp);
 #endif

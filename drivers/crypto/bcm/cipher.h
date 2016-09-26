@@ -39,6 +39,7 @@
 #define CCM_AES_IV_SIZE    16
 #define GCM_AES_IV_SIZE    12
 #define GCM_ESP_IV_SIZE     8
+#define CCM_ESP_IV_SIZE     8
 #define RFC4543_ICV_SIZE   16
 
 #define MAX_KEY_SIZE	ARC4_MAX_KEY_SIZE
@@ -46,11 +47,16 @@
 #define MAX_DIGEST_SIZE	SHA3_512_DIGEST_SIZE
 #define MAX_ASSOC_SIZE	512
 
-/* size of salt value for AES-GCM-ESP */
+/* size of salt value for AES-GCM-ESP and AES-CCM-ESP */
 #define GCM_ESP_SALT_SIZE   4
+#define CCM_ESP_SALT_SIZE   3
 #define MAX_SALT_SIZE       GCM_ESP_SALT_SIZE
+#define GCM_ESP_SALT_OFFSET 0
+#define CCM_ESP_SALT_OFFSET 1
 
 #define GCM_ESP_DIGESTSIZE 16
+
+#define CCM_ESP_L_VALUE     4
 
 #define MAX_HASH_BLOCK_SIZE SHA512_BLOCK_SIZE
 
@@ -165,6 +171,7 @@ struct iproc_ctx_s {
 
 	u8 salt[MAX_SALT_SIZE];
 	unsigned int salt_len;
+	unsigned int salt_offset;
 	u8 iv[MAX_IV_SIZE];
 
 	unsigned int digestsize;
