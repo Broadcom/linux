@@ -45,7 +45,7 @@
 #include "stingray.dtsi"
 
 / {
-	model = "Broadcom Stingray Combo SVK";
+	model = "Stingray Combo SVK (BCM958742K)";
 
 	aliases {
 		serial1 = &uart1;

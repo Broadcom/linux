@@ -45,7 +45,7 @@
 #include "stingray.dtsi"
 
 / {
-	model = "Broadcom Stingray Combo SVK External SRAM";
+	model = "Stingray Combo SVK (BCM958742K) w/External SRAM";
 
 	aliases {
 		serial1 = &uart1;

@@ -35,7 +35,7 @@
 #include "stingray.dtsi"
 
 / {
-	model = "Broadcom Stingray SVK Diagnostics";
+	model = "Stingray Combo SVK (BCM958742k) Diagnostics";
 	compatible = "brcm,stingray-svk", "brcm,stingray";
 
 	chosen {
