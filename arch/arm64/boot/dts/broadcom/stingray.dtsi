@@ -728,7 +728,8 @@
 		};
 
 		qspi: spi@68c70200 {
-			compatible = "brcm,spi-nsp-qspi", "brcm,spi-bcm-qspi";
+			compatible = "brcm,spi-iproc-qspi-v1",
+				     "brcm,spi-bcm-qspi";
 			reg = <0x68c70200 0x184>,
 				<0x68c70000 0x124>,
 				<0x68e0c408 0x004>,
