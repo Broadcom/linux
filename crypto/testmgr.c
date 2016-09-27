@@ -1720,28 +1720,6 @@ static int alg_test_comp(const struct alg_test_desc *desc, const char *driver,
 	return err;
 }
 
-static int alg_test_pcomp(const struct alg_test_desc *desc, const char *driver,
-			  u32 type, u32 mask)
-{
-	struct crypto_pcomp *tfm;
-	int err;
-
-	tfm = crypto_alloc_pcomp(driver, type, mask);
-	if (IS_ERR(tfm)) {
-		pr_err("alg: pcomp: Failed to load transform for %s: %ld\n",
-		       driver, PTR_ERR(tfm));
-		return PTR_ERR(tfm);
-	}
-
-	err = test_pcomp(tfm, desc->suite.pcomp.comp.vecs,
-			 desc->suite.pcomp.decomp.vecs,
-			 desc->suite.pcomp.comp.count,
-			 desc->suite.pcomp.decomp.count);
-
-	crypto_free_pcomp(tfm);
-	return err;
-}
-
 static int alg_test_rabin(const struct alg_test_desc *desc, const char *driver,
 			 u32 type, u32 mask)
 {
