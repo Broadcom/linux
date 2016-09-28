@@ -42,3 +42,14 @@ config RFKILL_GPIO
 	help
 	  If you say yes here you get support of a generic gpio RFKILL
 	  driver.
+
+config BCM_RFKILL
+	tristate "BCM RFKILL legacy driver support for Bluetooth"
+	depends on RFKILL
+	depends on REGULATOR
+	default n
+	help
+	  Say Y here if you want to add RFKILL support for Broadcom BT devices.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called bcm-bt-rfkill.
