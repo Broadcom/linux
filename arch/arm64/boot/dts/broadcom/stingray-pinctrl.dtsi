@@ -64,6 +64,30 @@
 
 			nor_pins: pinmux_pnor_adv_n {
 				pinctrl-single,pins = <
+					0x0ac MODE_PNOR /* nand_ce1_n */
+					0x0b0 MODE_PNOR /* nand_ce0_n */
+					0x0b4 MODE_PNOR /* nand_we_n */
+					0x0b8 MODE_PNOR /* nand_wp_n */
+					0x0bc MODE_PNOR /* nand_re_n */
+					0x0c0 MODE_PNOR /* nand_rdy_bsy_n */
+					0x0c4 MODE_PNOR /* nand_io0_0 */
+					0x0c8 MODE_PNOR /* nand_io1_0 */
+					0x0cc MODE_PNOR /* nand_io2_0 */
+					0x0d0 MODE_PNOR /* nand_io3_0 */
+					0x0d4 MODE_PNOR /* nand_io4_0 */
+					0x0d8 MODE_PNOR /* nand_io5_0 */
+					0x0dc MODE_PNOR /* nand_io6_0 */
+					0x0e0 MODE_PNOR /* nand_io7_0 */
+					0x0e4 MODE_PNOR /* nand_io8_0 */
+					0x0e8 MODE_PNOR /* nand_io9_0 */
+					0x0ec MODE_PNOR /* nand_io10_0 */
+					0x0f0 MODE_PNOR /* nand_io11_0 */
+					0x0f4 MODE_PNOR /* nand_io12_0 */
+					0x0f8 MODE_PNOR /* nand_io13_0 */
+					0x0fc MODE_PNOR /* nand_io14_0 */
+					0x100 MODE_PNOR /* nand_io15_0 */
+					0x104 MODE_PNOR /* nand_ale_0 */
+					0x108 MODE_PNOR /* nand_cle_0 */
 					0x040 MODE_PNOR /* pnor_adv_n */
 					0x044 MODE_PNOR /* pnor_baa_n */
 					0x048 MODE_PNOR /* pnor_bls_0_n */
@@ -188,12 +212,12 @@
 
 			qspi_pins: pinumx_qspi_hold_n {
 				pinctrl-single,pins = <
-					0x14c MODE_NITRO /* qspi_hold_n */
-					0x150 MODE_NITRO /* qspi_wp_n */
-					0x154 MODE_NITRO /* qspi_sck */
-					0x158 MODE_NITRO /* qspi_cs_n */
-					0x15c MODE_NITRO /* qspi_mosi */
-					0x160 MODE_NITRO /* qspi_miso */
+					0x14c MODE_NAND /* qspi_hold_n */
+					0x150 MODE_NAND /* qspi_wp_n */
+					0x154 MODE_NAND /* qspi_sck */
+					0x158 MODE_NAND /* qspi_cs_n */
+					0x15c MODE_NAND /* qspi_mosi */
+					0x160 MODE_NAND /* qspi_miso */
 				>;
 			};
 
@@ -256,21 +280,12 @@
 				>;
 			};
 
-			nspi_pins: pinmux_spi0_sck_nitro {
+			spi0_pins: pinmux_spi0_sck_nand {
 				pinctrl-single,pins = <
 					0x1ec MODE_NITRO /* spi0_sck */
 					0x1f0 MODE_NITRO /* spi0_rxd */
 					0x1f4 MODE_NITRO /* spi0_fss */
 					0x1f8 MODE_NITRO /* spi0_txd */
-				>;
-			};
-
-			spi0_pins: pinmux_spi0_sck_nand {
-				pinctrl-single,pins = <
-					0x1ec MODE_NAND /* spi0_sck */
-					0x1f0 MODE_NAND /* spi0_rxd */
-					0x1f4 MODE_NAND /* spi0_fss */
-					0x1f8 MODE_NAND /* spi0_txd */
 				>;
 			};
 
