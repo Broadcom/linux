@@ -43,6 +43,7 @@
 /memreserve/ 0x8f000000 0x00100000;
 
 #include "stingray.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "Stingray Combo SVK (BCM958742K)";
@@ -60,6 +61,45 @@
 		linux,initrd-end = <0x0 0x81800000>;
 	};
 
+	sdio0_vcc_en_reg: sdio0_en {
+		compatible = "regulator-fixed";
+		regulator-name = "sdio0_vcc_en-reg";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca9505 16 0>;
+		enable-active-high;
+	};
+
+	sdio1_vcc_en_reg: sdio1_en {
+		compatible = "regulator-fixed";
+		regulator-name = "sdio1_vcc_en-reg";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca9505 17 0>;
+		enable-active-high;
+	};
+
+	sdio0_vddo_ctrl_reg: sdio0_vddo_ctrl {
+		compatible = "regulator-gpio";
+		regulator-name = "sdio0_vddo_ctrl_reg";
+		regulator-type = "voltage";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+		gpios = <&pca9505 18 0>;
+		states = <3300000 0x0
+			  1800000 0x1>;
+	};
+
+	sdio1_vddo_ctrl_reg: sdio1_vddo_ctrl {
+		compatible = "regulator-gpio";
+		regulator-name = "sdio1_vddo_ctrl_reg";
+		regulator-type = "voltage";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+		gpios = <&pca9505 19 0>;
+		states = <3300000 0x0
+			  1800000 0x1>;
+	};
 };
 
 &memory {
@@ -97,13 +137,27 @@
 	};
 };
 
+&i2c0 {
+	status = "ok";
+	pca9505: pca9505@20 {
+		compatible = "nxp,pca9505";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x20>;
+	};
+};
+
 &sdio0 {
 	non-removable;
 	status = "ok";
+	vmmc-supply = <&sdio0_vcc_en_reg>;
+	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
 };
 
 &sdio1 {
 	status = "ok";
+	vmmc-supply = <&sdio1_vcc_en_reg>;
+	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
 };
 
 &mdio_mux_iproc {
