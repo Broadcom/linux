@@ -73,6 +73,10 @@
 	status = "ok";
 };
 
+&pwm {
+	status = "ok";
+};
+
 &ssp0 {
 	status = "ok";
 	pinctrl-0 = <&spi0_pins>;

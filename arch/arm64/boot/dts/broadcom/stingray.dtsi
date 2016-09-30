@@ -495,6 +495,14 @@
 			};
 		};
 
+		pwm: pwm@68910000{
+			compatible = "brcm,iproc-pwm";
+			reg = <0x68910000 0x1000>;
+			clocks = <&crmu_ref25m>;
+			#pwm-cells = <3>;
+			status = "disabled";
+		};
+
 		/* Don't use this timer it is being used by ATF */
 		timer0: timer@68930000 {
 			compatible = "arm,sp804", "arm,primecell";
