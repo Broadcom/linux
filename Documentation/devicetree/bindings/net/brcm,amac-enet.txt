@@ -86,7 +86,7 @@ Examples:
 	enet: enet@0x18042000 {
 		compatible = "brcm,amac-enet";
 		reg = <0x18042000 0x1000>,
-			<0x18110400 0x1000>,
+			<0x18110400 0x600>,
 			<0x0301d194 0x4>,
 			<0x0301d0bc 0x4>;
 		reg-names = "core_base",
@@ -118,7 +118,7 @@ Examples:
         enet: enet@0x18042000 {
                 compatible = "brcm,amac-enet";
                 reg = <0x18042000 0x1000>,
-                        <0x18110400 0x1000>,
+                        <0x18110400 0x600>,
                         <0x0301d0bc 0x4>;
                 reg-names = "core_base",
                         "amac_idm_base",
@@ -159,7 +159,7 @@ Examples:
 	enet: enet@61000000 {
 		compatible = "brcm,amac-enet";
 		reg = <0x61000000 0x1000>,
-			<0x61090400 0x1000>,
+			<0x61090400 0x600>,
 			<0x61030000 0x10>;
 		reg-names = "core_base",
 			"amac_idm_base",
@@ -203,7 +203,7 @@ Examples:
 	enet: enet@61000000 {
 		compatible = "brcm,amac-enet-v2";
 		reg = <0x61000000 0x1000>,
-			<0x61090400 0x1000>,
+			<0x61090400 0x600>,
 			<0x61030000 0x10>;
 		reg-names = "core_base",
 			"amac_idm_base",
