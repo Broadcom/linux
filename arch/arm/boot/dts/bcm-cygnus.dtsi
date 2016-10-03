@@ -383,7 +383,7 @@
 		enet: enet@0x18042000 {
 			compatible = "brcm,amac-enet";
 			reg = <0x18042000 0x1000>,
-					<0x18110400 0x1000>,
+					<0x18110400 0x600>,
 					<0x0301d194 0x4>,
 					<0x0301d0bc 0x4>;
 			reg-names = "core_base",
