@@ -126,7 +126,7 @@
 		};
 
 		otp: otp@0301c800 {
-			compatible = "brcm,28nm-ocotp";
+			compatible = "brcm,ocotp";
 			reg = <0x0301c800 0x2c>;
 			brcm,ocotp-size = <2048>;
 			status = "disabled";
