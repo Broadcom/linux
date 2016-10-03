@@ -80,17 +80,17 @@ config ROCKCHIP_EFUSE
 	  This driver can also be built as a module. If so, the module
 	  will be called nvmem_rockchip_efuse.
 
-config NVMEM_BCM_28NM_OCOTP
-	tristate "Broadcom 28NM NVM support"
+config NVMEM_BCM_OCOTP
+	tristate "Broadcom NVM support"
 	depends on ARCH_BCM_IPROC || COMPILE_TEST
 	depends on HAS_IOMEM
 	default ARCH_BCM_IPROC
 	help
-	  Say y here to enable read/write access to the Broadcom 28nm OTP
+	  Say y here to enable read/write access to the Broadcom OTP
 	  controller.
 
 	  This driver can also be built as a module. If so, the module
-	  will be called nvmem-bcm-28nm-ocotp.
+	  will be called nvmem-bcm-ocotp.
 
 config NVMEM_SUNXI_SID
 	tristate "Allwinner SoCs SID support"

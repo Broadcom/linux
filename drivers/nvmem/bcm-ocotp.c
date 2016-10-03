@@ -48,7 +48,6 @@
 #define OTPC_CMD_START_OFFSET        0x8
 #define OTPC_CMD_START_START         0
 #define OTPC_CPU_STATUS_OFFSET       0xc
-#define OTPC_CPU_DATA_OFFSET         0x10
 #define OTPC_CPUADDR_REG_OFFSET      0x28
 #define OTPC_CPUADDR_REG_OTPC_CPU_ADDRESS_WIDTH 16
 #define OTPC_CPU_WRITE_REG_OFFSET    0x2c
@@ -56,9 +55,32 @@
 #define OTPC_CMD_MASK  (BIT(OTPC_COMMAND_COMMAND_WIDTH) - 1)
 #define OTPC_ADDR_MASK (BIT(OTPC_CPUADDR_REG_OTPC_CPU_ADDRESS_WIDTH) - 1)
 
+
+struct otpc_map {
+	/* in words. */
+	u32 otpc_row_size;
+	/* 128 bit row / 4 words support. */
+	u16 data_r_offset[4];
+	/* 128 bit row / 4 words support. */
+	u16 data_w_offset[4];
+};
+
+static struct otpc_map otp_map = {
+	.otpc_row_size = 1,
+	.data_r_offset = {0x10},
+	.data_w_offset = {0x2c},
+};
+
+static struct otpc_map otp_map_v2 = {
+	.otpc_row_size = 2,
+	.data_r_offset = {0x10, 0x5c},
+	.data_w_offset = {0x2c, 0x64},
+};
+
 struct otpc_priv {
 	struct device       *dev;
 	void __iomem        *base;
+	struct otpc_map     *map;
 	struct nvmem_config *config;
 };
 
@@ -136,16 +158,16 @@ static int disable_ocotp_program(void __iomem *base)
 	return ret;
 }
 
-static int bcm_28nm_otpc_read(void *context, unsigned int offset, void *val,
+static int bcm_otpc_read(void *context, unsigned int offset, void *val,
 	size_t bytes)
 {
 	struct otpc_priv *priv = context;
 	u32 *buf = val;
 	u32 bytes_read;
 	u32 address = offset / priv->config->word_size;
-	int ret;
+	int i, ret;
 
-	for (bytes_read = 0; bytes_read < bytes; bytes_read += sizeof(*buf)) {
+	for (bytes_read = 0; bytes_read < bytes;) {
 		set_command(priv->base, OTPC_CMD_READ);
 		set_cpu_address(priv->base, address++);
 		set_start_bit(priv->base);
@@ -154,21 +176,27 @@ static int bcm_28nm_otpc_read(void *context, unsigned int offset, void *val,
 			dev_err(priv->dev, "otp read error: 0x%x", ret);
 			return -EIO;
 		}
-		*buf++ = readl(priv->base + OTPC_CPU_DATA_OFFSET);
+
+		for (i = 0; i < priv->map->otpc_row_size; i++) {
+			*buf++ = readl(priv->base +
+					priv->map->data_r_offset[i]);
+			bytes_read += sizeof(*buf);
+		}
+
 		reset_start_bit(priv->base);
 	}
 
 	return 0;
 }
 
-static int bcm_28nm_otpc_write(void *context, unsigned int offset, void *val,
+static int bcm_otpc_write(void *context, unsigned int offset, void *val,
 	size_t bytes)
 {
 	struct otpc_priv *priv = context;
 	u32 *buf = val;
 	u32 bytes_written;
 	u32 address = offset / priv->config->word_size;
-	int ret;
+	int i, ret;
 
 	if (offset % priv->config->word_size)
 		return -EINVAL;
@@ -177,11 +205,14 @@ static int bcm_28nm_otpc_write(void *context, unsigned int offset, void *val,
 	if (ret)
 		return -EIO;
 
-	for (bytes_written = 0; bytes_written < bytes;
-		bytes_written += sizeof(*buf)) {
+	for (bytes_written = 0; bytes_written < bytes;) {
 		set_command(priv->base, OTPC_CMD_PROGRAM);
 		set_cpu_address(priv->base, address++);
-		write_cpu_data(priv->base, *buf++);
+		for (i = 0; i < priv->map->otpc_row_size; i++) {
+			writel(*buf, priv->base + priv->map->data_r_offset[i]);
+			buf++;
+			bytes_written += sizeof(*buf);
+		}
 		set_start_bit(priv->base);
 		ret = poll_cpu_status(priv->base, OTPC_STAT_CMD_DONE);
 		reset_start_bit(priv->base);
@@ -196,23 +227,24 @@ static int bcm_28nm_otpc_write(void *context, unsigned int offset, void *val,
 	return 0;
 }
 
-static struct nvmem_config bcm_28nm_otpc_nvmem_config = {
-	.name = "bcm-28nm-ocotp",
+static struct nvmem_config bcm_otpc_nvmem_config = {
+	.name = "bcm-ocotp",
 	.read_only = false,
 	.word_size = 4,
 	.stride = 4,
 	.owner = THIS_MODULE,
-	.reg_read = bcm_28nm_otpc_read,
-	.reg_write = bcm_28nm_otpc_write,
+	.reg_read = bcm_otpc_read,
+	.reg_write = bcm_otpc_write,
 };
 
-static const struct of_device_id bcm_28nm_otpc_dt_ids[] = {
-	{ .compatible = "brcm,28nm-ocotp" },
+static const struct of_device_id bcm_otpc_dt_ids[] = {
+	{ .compatible = "brcm,ocotp" },
+	{ .compatible = "brcm,ocotp-v2" },
 	{ },
 };
-MODULE_DEVICE_TABLE(of, bcm_28nm_otpc_dt_ids);
+MODULE_DEVICE_TABLE(of, bcm_otpc_dt_ids);
 
-static int bcm_28nm_otpc_probe(struct platform_device *pdev)
+static int bcm_otpc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *dn = dev->of_node;
@@ -222,9 +254,20 @@ static int bcm_28nm_otpc_probe(struct platform_device *pdev)
 	int err;
 	u32 num_words;
 
+
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
+
+	if (of_device_is_compatible(dev->of_node, "brcm,ocotp"))
+		priv->map = &otp_map;
+	else if (of_device_is_compatible(dev->of_node, "brcm,ocotp-v2"))
+		priv->map = &otp_map_v2;
+	else {
+		dev_err(&pdev->dev,
+			"%s otpc config map not defined\n", __func__);
+		return -EINVAL;
+	}
 
 	/* Get OTP base address register. */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -250,11 +293,16 @@ static int bcm_28nm_otpc_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	bcm_28nm_otpc_nvmem_config.size = 4 * num_words;
-	bcm_28nm_otpc_nvmem_config.dev = dev;
-	bcm_28nm_otpc_nvmem_config.priv = priv;
-	priv->config = &bcm_28nm_otpc_nvmem_config;
-	nvmem = nvmem_register(&bcm_28nm_otpc_nvmem_config);
+	bcm_otpc_nvmem_config.size = 4 * num_words;
+	bcm_otpc_nvmem_config.dev = dev;
+	bcm_otpc_nvmem_config.priv = priv;
+
+	if (of_device_is_compatible(dev->of_node, "brcm,ocotp-v2"))
+		bcm_otpc_nvmem_config.word_size = 8;
+
+	priv->config = &bcm_otpc_nvmem_config;
+
+	nvmem = nvmem_register(&bcm_otpc_nvmem_config);
 	if (IS_ERR(nvmem)) {
 		dev_err(dev, "error registering nvmem config\n");
 		return PTR_ERR(nvmem);
@@ -265,22 +313,22 @@ static int bcm_28nm_otpc_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int bcm_28nm_otpc_remove(struct platform_device *pdev)
+static int bcm_otpc_remove(struct platform_device *pdev)
 {
 	struct nvmem_device *nvmem = platform_get_drvdata(pdev);
 
 	return nvmem_unregister(nvmem);
 }
 
-static struct platform_driver bcm_28nm_otpc_driver = {
-	.probe	= bcm_28nm_otpc_probe,
-	.remove	= bcm_28nm_otpc_remove,
+static struct platform_driver bcm_otpc_driver = {
+	.probe	= bcm_otpc_probe,
+	.remove	= bcm_otpc_remove,
 	.driver = {
-		.name	= "brcm-28nm-otpc",
-		.of_match_table = bcm_28nm_otpc_dt_ids,
+		.name	= "brcm-otpc",
+		.of_match_table = bcm_otpc_dt_ids,
 	},
 };
-module_platform_driver(bcm_28nm_otpc_driver);
+module_platform_driver(bcm_otpc_driver);
 
-MODULE_DESCRIPTION("Broadcom 28NM OTPC driver");
+MODULE_DESCRIPTION("Broadcom OTPC driver");
 MODULE_LICENSE("GPL v2");
