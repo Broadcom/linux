@@ -1,0 +1,19 @@
+Broadcom Bluetooth RFKILL Driver
+
+Required Properties:
+- compatible: Must be "brcm,bt-rfkill"
+- brcm,rfkill-regulator: List of phandles to regulator nodes. These regulators
+    are disabled when the rfkill state is set to 0 and enabled when set to 1.
+
+Optional Properties:
+- bt-dev-wake-gpio: Device wake GPIO.
+- bt-host-wake-gpio: Host wake GPIO.
+
+Example:
+
+bluetooth {
+	compatible = "brcm,bt-rfkill";
+	brcm,rfkill-regulator = <&rf_reg0>;
+	bt-dev-wake-gpio = <&gpio_asiu 87 0>;
+	bt-host-wake-gpio = <&gpio_crmu 4 0>;
+};
