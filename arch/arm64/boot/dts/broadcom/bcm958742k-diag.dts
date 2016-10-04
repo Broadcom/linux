@@ -38,6 +38,13 @@
 	model = "Stingray Combo SVK (BCM958742k) Diagnostics";
 	compatible = "brcm,stingray-svk", "brcm,stingray";
 
+	aliases {
+		serial0 = &uart1;
+		serial1 = &uart0;
+		serial2 = &uart2;
+		serial3 = &uart3;
+	};
+
 	chosen {
 		bootargs = "console=ttyS0,115200n8 earlycon=uart8250, \
 			    mmio32,0x66130000 maxcpus=2";
@@ -116,6 +123,22 @@
 			};
 		};
 	};
+};
+
+&uart0 {
+	status = "ok";
+};
+
+&uart1 {
+	status = "ok";
+};
+
+&uart2 {
+	status = "ok";
+};
+
+&uart3 {
+	status = "ok";
 };
 
 &sata_phy0 {
