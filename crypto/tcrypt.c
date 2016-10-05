@@ -1812,8 +1812,6 @@ static int do_test(const char *alg, u32 type, u32 mask, int m)
 		test_ahash_speed("sha3-512", sec, generic_hash_speed_template);
 		if (mode > 400 && mode < 500) break;
 
-<<<<<<< HEAD
-=======
 	case 422:
 		test_mb_ahash_speed("sha1", sec, generic_hash_speed_template);
 		if (mode > 400 && mode < 500) break;
@@ -1825,7 +1823,6 @@ static int do_test(const char *alg, u32 type, u32 mask, int m)
 	case 424:
 		test_mb_ahash_speed("sha512", sec, generic_hash_speed_template);
 		if (mode > 400 && mode < 500) break;
->>>>>>> v4.8
 
 	case 499:
 		break;
