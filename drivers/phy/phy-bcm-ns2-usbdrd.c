@@ -365,7 +365,7 @@ static int register_extcon_notifier(struct ns2_phy_driver *phy_driver,
 	}
 
 	/* Check the device cable connect state */
-	ret = extcon_get_cable_state(edev, "USB");
+	ret = extcon_get_cable_state_(edev, EXTCON_USB);
 	if (ret < 0) {
 		dev_err(dev, "can't get extcon_dev state for %s\n", edev->name);
 		goto err_host;
@@ -374,7 +374,7 @@ static int register_extcon_notifier(struct ns2_phy_driver *phy_driver,
 	}
 
 	/* Check the host cable connect state */
-	ret = extcon_get_cable_state(edev, "USB-HOST");
+	ret = extcon_get_cable_state_(edev, EXTCON_USB_HOST);
 	if (ret < 0) {
 		dev_err(dev, "can't get extcon_dev state for %s\n", edev->name);
 		goto err_host;

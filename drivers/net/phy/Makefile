@@ -1,6 +1,7 @@
 # Makefile for Linux PHY drivers
 
-libphy-objs			:= phy.o phy_device.o mdio_bus.o mdio_device.o
+libphy-y			:= phy.o phy_device.o mdio_bus.o mdio_device.o
+libphy-$(CONFIG_SWPHY)		+= swphy.o
 
 obj-$(CONFIG_PHYLIB)		+= libphy.o
 obj-$(CONFIG_AQUANTIA_PHY)	+= aquantia.o
@@ -46,3 +47,6 @@ obj-$(CONFIG_MDIO_BCM_UNIMAC)	+= mdio-bcm-unimac.o
 obj-$(CONFIG_MICROCHIP_PHY)	+= microchip.o
 obj-$(CONFIG_MDIO_BCM_IPROC)	+= mdio-bcm-iproc.o
 obj-$(CONFIG_MDIO_BUS_MUX_BCM_NSP)	+= mdio-mux-bcm-nsp.o
+obj-$(CONFIG_INTEL_XWAY_PHY)	+= intel-xway.o
+obj-$(CONFIG_MDIO_HISI_FEMAC)	+= mdio-hisi-femac.o
+obj-$(CONFIG_MDIO_XGENE)	+= mdio-xgene.o

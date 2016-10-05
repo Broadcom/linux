@@ -11,6 +11,7 @@
 * GNU General Public License for more details.
 */
 
+#include <linux/module.h>
 #include <linux/printk.h>
 
 static const unsigned char track23cset[32] = {

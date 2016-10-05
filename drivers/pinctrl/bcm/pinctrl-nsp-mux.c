@@ -27,7 +27,6 @@
 
 #include <linux/err.h>
 #include <linux/io.h>
-#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinconf-generic.h>
@@ -79,8 +78,8 @@ struct nsp_mux_log {
  */
 struct nsp_pin_group {
 	const char *name;
-	const unsigned *pins;
-	const unsigned num_pins;
+	const unsigned int *pins;
+	const unsigned int num_pins;
 	const struct nsp_mux mux;
 };
 
@@ -94,7 +93,7 @@ struct nsp_pin_group {
 struct nsp_pin_function {
 	const char *name;
 	const char * const *groups;
-	const unsigned num_groups;
+	const unsigned int num_groups;
 };
 
 /*
@@ -119,9 +118,9 @@ struct nsp_pinctrl {
 	void __iomem *base1;
 	void __iomem *base2;
 	const struct nsp_pin_group *groups;
-	unsigned num_groups;
+	unsigned int num_groups;
 	const struct nsp_pin_function *functions;
-	unsigned num_functions;
+	unsigned int num_functions;
 	struct nsp_mux_log *mux_log;
 	spinlock_t lock;
 };
@@ -134,7 +133,7 @@ struct nsp_pinctrl {
  * @gpio_select: reg data to select GPIO
  */
 struct nsp_pin {
-	unsigned pin;
+	unsigned int pin;
 	char *name;
 	unsigned int gpio_select;
 };
@@ -199,30 +198,30 @@ static struct nsp_pin nsp_pins[] = {
  * List of groups of pins
  */
 
-static const unsigned spi_pins[] = {0, 1, 2, 3};
-static const unsigned i2c_pins[] = {4, 5};
-static const unsigned mdio_pins[] = {6, 7};
-static const unsigned pwm0_pins[] = {8};
-static const unsigned gpio_b_0_pins[] = {8};
-static const unsigned pwm1_pins[] = {9};
-static const unsigned gpio_b_1_pins[] = {9};
-static const unsigned pwm2_pins[] = {10};
-static const unsigned gpio_b_2_pins[] = {10};
-static const unsigned pwm3_pins[] = {11};
-static const unsigned gpio_b_3_pins[] = {11};
-static const unsigned uart1_pins[] = {12, 13, 14, 15};
-static const unsigned uart2_pins[] = {16, 17};
-static const unsigned synce_pins[] = {18};
-static const unsigned sata0_led_pins[] = {19};
-static const unsigned sata1_led_pins[] = {20};
-static const unsigned xtal_out_pins[] = {21};
-static const unsigned sdio_pwr_pins[] = {22};
-static const unsigned sdio_1p8v_pins[] = {23};
-static const unsigned switch_p05_led0_pins[] = {26};
-static const unsigned switch_p05_led1_pins[] = {27};
-static const unsigned nand_pins[] = {32, 33, 34, 35, 36, 37, 38, 39,
+static const unsigned int spi_pins[] = {0, 1, 2, 3};
+static const unsigned int i2c_pins[] = {4, 5};
+static const unsigned int mdio_pins[] = {6, 7};
+static const unsigned int pwm0_pins[] = {8};
+static const unsigned int gpio_b_0_pins[] = {8};
+static const unsigned int pwm1_pins[] = {9};
+static const unsigned int gpio_b_1_pins[] = {9};
+static const unsigned int pwm2_pins[] = {10};
+static const unsigned int gpio_b_2_pins[] = {10};
+static const unsigned int pwm3_pins[] = {11};
+static const unsigned int gpio_b_3_pins[] = {11};
+static const unsigned int uart1_pins[] = {12, 13, 14, 15};
+static const unsigned int uart2_pins[] = {16, 17};
+static const unsigned int synce_pins[] = {18};
+static const unsigned int sata0_led_pins[] = {19};
+static const unsigned int sata1_led_pins[] = {20};
+static const unsigned int xtal_out_pins[] = {21};
+static const unsigned int sdio_pwr_pins[] = {22};
+static const unsigned int sdio_1p8v_pins[] = {23};
+static const unsigned int switch_p05_led0_pins[] = {26};
+static const unsigned int switch_p05_led1_pins[] = {27};
+static const unsigned int nand_pins[] = {32, 33, 34, 35, 36, 37, 38, 39,
 							40, 41, 42};
-static const unsigned emmc_pins[] = {32, 33, 34, 35, 36, 37, 38, 39,
+static const unsigned int emmc_pins[] = {32, 33, 34, 35, 36, 37, 38, 39,
 							40, 41, 42};
 
 #define NSP_PIN_GROUP(group_name, ba, sh, ma, al)	\
@@ -324,7 +323,7 @@ static int nsp_get_groups_count(struct pinctrl_dev *pctrl_dev)
 }
 
 static const char *nsp_get_group_name(struct pinctrl_dev *pctrl_dev,
-				      unsigned selector)
+				      unsigned int selector)
 {
 	struct nsp_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 
@@ -332,8 +331,8 @@ static const char *nsp_get_group_name(struct pinctrl_dev *pctrl_dev,
 }
 
 static int nsp_get_group_pins(struct pinctrl_dev *pctrl_dev,
-			      unsigned selector, const unsigned **pins,
-			      unsigned *num_pins)
+			      unsigned int selector, const unsigned int **pins,
+			      unsigned int *num_pins)
 {
 	struct nsp_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 
@@ -344,7 +343,7 @@ static int nsp_get_group_pins(struct pinctrl_dev *pctrl_dev,
 }
 
 static void nsp_pin_dbg_show(struct pinctrl_dev *pctrl_dev,
-			     struct seq_file *s, unsigned offset)
+			     struct seq_file *s, unsigned int offset)
 {
 	seq_printf(s, " %s", dev_name(pctrl_dev->dev));
 }
@@ -366,7 +365,7 @@ static int nsp_get_functions_count(struct pinctrl_dev *pctrl_dev)
 }
 
 static const char *nsp_get_function_name(struct pinctrl_dev *pctrl_dev,
-					 unsigned selector)
+					 unsigned int selector)
 {
 	struct nsp_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 
@@ -374,7 +373,7 @@ static const char *nsp_get_function_name(struct pinctrl_dev *pctrl_dev,
 }
 
 static int nsp_get_function_groups(struct pinctrl_dev *pctrl_dev,
-				   unsigned selector,
+				   unsigned int selector,
 				   const char * const **groups,
 				   unsigned * const num_groups)
 {
@@ -406,8 +405,10 @@ static int nsp_pinmux_set(struct nsp_pinctrl *pinctrl,
 		if (!mux_log[i].is_configured)
 			break;
 
-		/* IOMUX has been configured previously and one is trying to
-		  configure it to a different function */
+		/*
+		 * IOMUX has been configured previously and one is trying to
+		 * configure it to a different function
+		 */
 		if (mux_log[i].mux.alt != mux->alt) {
 			dev_err(pinctrl->dev,
 				"double configuration error detected!\n");
@@ -453,7 +454,7 @@ static int nsp_pinmux_set(struct nsp_pinctrl *pinctrl,
 }
 
 static int nsp_pinmux_enable(struct pinctrl_dev *pctrl_dev,
-			     unsigned func_select, unsigned grp_select)
+			     unsigned int func_select, unsigned int grp_select)
 {
 	struct nsp_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 	const struct nsp_pin_function *func;
@@ -478,7 +479,7 @@ static int nsp_pinmux_enable(struct pinctrl_dev *pctrl_dev,
 
 static int nsp_gpio_request_enable(struct pinctrl_dev *pctrl_dev,
 				   struct pinctrl_gpio_range *range,
-				   unsigned pin)
+				   unsigned int pin)
 {
 	struct nsp_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 	u32 *gpio_select = pctrl_dev->desc->pins[pin].drv_data;
@@ -499,7 +500,7 @@ static int nsp_gpio_request_enable(struct pinctrl_dev *pctrl_dev,
 
 static void nsp_gpio_disable_free(struct pinctrl_dev *pctrl_dev,
 				  struct pinctrl_gpio_range *range,
-				  unsigned pin)
+				  unsigned int pin)
 {
 	struct nsp_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 	u32 *gpio_select = pctrl_dev->desc->pins[pin].drv_data;
@@ -561,7 +562,7 @@ static int nsp_pinmux_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i, ret;
 	struct pinctrl_pin_desc *pins;
-	unsigned num_pins = ARRAY_SIZE(nsp_pins);
+	unsigned int num_pins = ARRAY_SIZE(nsp_pins);
 
 	pinctrl = devm_kzalloc(&pdev->dev, sizeof(*pinctrl), GFP_KERNEL);
 	if (!pinctrl)
@@ -572,10 +573,8 @@ static int nsp_pinmux_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	pinctrl->base0 = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(pinctrl->base0)) {
-		dev_err(&pdev->dev, "unable to map I/O space\n");
+	if (IS_ERR(pinctrl->base0))
 		return PTR_ERR(pinctrl->base0);
-	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	pinctrl->base1 = devm_ioremap_nocache(&pdev->dev, res->start,
@@ -587,10 +586,8 @@ static int nsp_pinmux_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
 	pinctrl->base2 = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(pinctrl->base2)) {
-		dev_err(&pdev->dev, "unable to map I/O space\n");
+	if (IS_ERR(pinctrl->base2))
 		return PTR_ERR(pinctrl->base2);
-	}
 
 	ret = nsp_mux_log_init(pinctrl);
 	if (ret) {
@@ -615,7 +612,7 @@ static int nsp_pinmux_probe(struct platform_device *pdev)
 	nsp_pinctrl_desc.pins = pins;
 	nsp_pinctrl_desc.npins = num_pins;
 
-	pinctrl->pctl = pinctrl_register(&nsp_pinctrl_desc, &pdev->dev,
+	pinctrl->pctl = devm_pinctrl_register(&pdev->dev, &nsp_pinctrl_desc,
 					 pinctrl);
 	if (IS_ERR(pinctrl->pctl)) {
 		dev_err(&pdev->dev, "unable to register nsp IOMUX pinctrl\n");
@@ -643,6 +640,3 @@ static int __init nsp_pinmux_init(void)
 	return platform_driver_register(&nsp_pinmux_driver);
 }
 arch_initcall(nsp_pinmux_init);
-
-MODULE_DESCRIPTION("Broadcom NSP IOMUX driver");
-MODULE_LICENSE("GPL v2");

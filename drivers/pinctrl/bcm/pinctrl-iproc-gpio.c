@@ -34,7 +34,6 @@
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinconf-generic.h>
 
-#include <dt-bindings/pinctrl/brcm,iproc-gpio.h>
 #include "../pinctrl-utils.h"
 
 #define IPROC_GPIO_DATA_IN_OFFSET   0x00
@@ -66,6 +65,14 @@
 #define GPIO_DRV_STRENGTH_BIT_SHIFT  20
 #define GPIO_DRV_STRENGTH_BITS       3
 #define GPIO_DRV_STRENGTH_BIT_MASK   ((1 << GPIO_DRV_STRENGTH_BITS) - 1)
+
+enum iproc_pinconf_param {
+	IPROC_PINCONF_DRIVE_STRENGTH = 0,
+	IPROC_PINCONF_BIAS_DISABLE,
+	IPROC_PINCONF_BIAS_PULL_UP,
+	IPROC_PINCONF_BIAS_PULL_DOWN,
+	IPROC_PINCON_MAX,
+};
 
 /*
  * Iproc GPIO core
@@ -373,10 +380,10 @@ static int iproc_gpio_get(struct gpio_chip *gc, unsigned gpio)
  * parameters
  */
 static const enum pin_config_param iproc_pinconf_disable_map[] = {
-	[IPROC_PIN_DRIVE_STRENGTH] = PIN_CONFIG_DRIVE_STRENGTH,
-	[IPROC_PIN_BIAS_DISABLE] = PIN_CONFIG_BIAS_DISABLE,
-	[IPROC_PIN_BIAS_PULL_UP] = PIN_CONFIG_BIAS_PULL_UP,
-	[IPROC_PIN_BIAS_PULL_DOWN] = PIN_CONFIG_BIAS_PULL_DOWN,
+	[IPROC_PINCONF_DRIVE_STRENGTH] = PIN_CONFIG_DRIVE_STRENGTH,
+	[IPROC_PINCONF_BIAS_DISABLE] = PIN_CONFIG_BIAS_DISABLE,
+	[IPROC_PINCONF_BIAS_PULL_UP] = PIN_CONFIG_BIAS_PULL_UP,
+	[IPROC_PINCONF_BIAS_PULL_DOWN] = PIN_CONFIG_BIAS_PULL_DOWN,
 };
 
 static bool iproc_pinconf_param_is_disabled(struct iproc_gpio *chip,
@@ -707,11 +714,12 @@ static int iproc_gpio_register_pinconf(struct iproc_gpio *chip)
 }
 
 static const struct of_device_id iproc_gpio_of_match[] = {
+	{ .compatible = "brcm,iproc-gpio" },
 	{ .compatible = "brcm,cygnus-ccm-gpio" },
 	{ .compatible = "brcm,cygnus-asiu-gpio" },
 	{ .compatible = "brcm,cygnus-crmu-gpio" },
-	{ .compatible = "brcm,iproc-gpio" },
-	{ .compatible = "brcm,iproc-gpio-only" },
+	{ .compatible = "brcm,iproc-nsp-gpio" },
+	{ .compatible = "brcm,iproc-stingray-gpio" },
 	{ /* sentinel */ }
 };
 
@@ -721,8 +729,17 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct iproc_gpio *chip;
 	struct gpio_chip *gc;
-	u32 ngpios, pinconf_disable_mask;
+	u32 ngpios, pinconf_disable_mask = 0;
 	int irq, ret;
+	bool no_pinconf = false;
+
+	/* NSP does not support drive strength config */
+	if (of_device_is_compatible(dev->of_node, "brcm,iproc-nsp-gpio"))
+		pinconf_disable_mask = BIT(IPROC_PINCONF_DRIVE_STRENGTH);
+	/* Stingray does not support pinconf in this controller */
+	else if (of_device_is_compatible(dev->of_node,
+					 "brcm,iproc-stingray-gpio"))
+		no_pinconf = true;
 
 	chip = devm_kzalloc(dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
@@ -777,21 +794,14 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (!of_device_is_compatible(dev->of_node, "brcm,iproc-gpio-only")) {
+	if (!no_pinconf) {
 		ret = iproc_gpio_register_pinconf(chip);
 		if (ret) {
 			dev_err(dev, "unable to register pinconf\n");
 			goto err_rm_gpiochip;
 		}
 
-		/*
-		 * Optional DT property to disable unsupported pinconf
-		 * parameters for a particular iProc SoC
-		 */
-		ret = of_property_read_u32(dev->of_node,
-					   "brcm,pinconf-func-off",
-					   &pinconf_disable_mask);
-		if (!ret) {
+		if (pinconf_disable_mask) {
 			ret = iproc_pinconf_disable_map_create(chip,
 							 pinconf_disable_mask);
 			if (ret) {
@@ -834,6 +844,6 @@ static struct platform_driver iproc_gpio_driver = {
 
 static int __init iproc_gpio_init(void)
 {
-	return platform_driver_probe(&iproc_gpio_driver, iproc_gpio_probe);
+	return platform_driver_register(&iproc_gpio_driver);
 }
 arch_initcall_sync(iproc_gpio_init);

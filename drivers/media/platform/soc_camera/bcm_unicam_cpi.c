@@ -53,12 +53,10 @@ static struct unicam_camera_buffer *to_unicam_camera_vb(struct vb2_buffer *vb)
 
 static int unicam_videobuf_setup(struct vb2_queue *vq,
 		unsigned int *count, unsigned int *numplanes,
-		unsigned int sizes[], void *alloc_ctxs[])
+		unsigned int sizes[], struct device *alloc_devs[])
 {
 	struct soc_camera_device *icd = soc_camera_from_vb2q(vq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
-	struct unicam_camera_dev *unicam_dev =
-			(struct unicam_camera_dev *) ici->priv;
 	int bytes_per_line = soc_mbus_bytes_per_line(icd->user_width,
 			icd->current_fmt->host_fmt);
 
@@ -71,7 +69,6 @@ static int unicam_videobuf_setup(struct vb2_queue *vq,
 	*numplanes = 1;
 
 	sizes[0] = bytes_per_line * icd->user_height;
-	alloc_ctxs[0] = unicam_dev->alloc_ctx;
 
 	if (!*count)
 		*count = 2;
@@ -339,6 +336,8 @@ static struct vb2_ops unicam_videobuf_ops = {
 static int unicam_camera_init_videobuf(struct vb2_queue *q,
 		struct soc_camera_device *icd)
 {
+	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
+
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_READ;
 	q->drv_priv = icd;
@@ -346,6 +345,7 @@ static int unicam_camera_init_videobuf(struct vb2_queue *q,
 	q->mem_ops = &vb2_dma_contig_memops;
 	q->buf_struct_size = sizeof(struct unicam_camera_buffer);
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+	q->dev = ici->v4l2_dev.dev;
 
 	return vb2_queue_init(q);
 }
@@ -810,11 +810,6 @@ static int unicam_camera_probe(struct platform_device *pdev)
 	pcdev->cam_state.devbusy = false;
 	pcdev->cam_state.mode = INVALID;
 
-	pcdev->alloc_ctx = vb2_dma_contig_init_ctx(&pdev->dev);
-	if (IS_ERR(pcdev->alloc_ctx)) {
-		err = PTR_ERR(pcdev->alloc_ctx);
-		goto exit_release;
-	}
 	pcdev->b_mode = BUFFER_DOUBLE;
 	pcdev->curr = BUFCUR_FLAG_1;
 	atomic_set(&pcdev->stopping, 0);
@@ -827,13 +822,10 @@ static int unicam_camera_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(&pdev->dev,
 			"soc_camera_host_register failed err =0x%x", err);
-		goto exit_free_ctx;
+		goto exit_release;
 	}
 
 	return 0;
-
-exit_free_ctx:
-	vb2_dma_contig_cleanup_ctx(pcdev->alloc_ctx);
 
 exit_release:
 	return err;
@@ -845,7 +837,6 @@ static int unicam_camera_remove(struct platform_device *pdev)
 	struct unicam_camera_dev *pcdev =  soc_host->priv;
 
 	soc_camera_host_unregister(soc_host);
-	vb2_dma_contig_cleanup_ctx(pcdev->alloc_ctx);
 	clk_disable_unprepare(pcdev->clk);
 	return 0;
 }

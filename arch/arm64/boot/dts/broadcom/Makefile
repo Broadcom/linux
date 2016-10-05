@@ -4,6 +4,7 @@ dtb-$(CONFIG_ARCH_BCM_IPROC) += stingray-palladium.dtb stingray-pd-paxc-chimp.dt
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742k-diag.dtb stingray-pd-sata.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742k.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742k-extsram.dtb
+dtb-$(CONFIG_ARCH_BCM2835) += bcm2837-rpi-3-b.dtb
 dtb-$(CONFIG_ARCH_VULCAN) += vulcan-eval.dtb
 
 always		:= $(dtb-y)

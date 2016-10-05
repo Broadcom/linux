@@ -3,11 +3,10 @@
 
 struct clk;
 
-void __sp804_clocksource_and_sched_clock_init(void __iomem *,
-					      const char *,
-					      struct clk *, bool);
-void __sp804_clockevents_init(void __iomem *, unsigned int,
-			      struct clk *, const char *);
+int __sp804_clocksource_and_sched_clock_init(void __iomem *,
+					     const char *, struct clk *, bool);
+int __sp804_clockevents_init(void __iomem *, unsigned int,
+			     struct clk *, const char *);
 void sp804_timer_disable(void __iomem *);
 
 static inline void sp804_clocksource_init(void __iomem *base, const char *name)

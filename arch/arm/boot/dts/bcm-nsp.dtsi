@@ -33,7 +33,6 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/clock/bcm-nsp.h>
-#include <dt-bindings/pinctrl/brcm,iproc-gpio.h>
 
 #include "skeleton.dtsi"
 
@@ -248,14 +247,13 @@
 		};
 
 		gpiob: gpio@30000 {
-			compatible = "brcm,iproc-gpio";
+			compatible = "brcm,iproc-nsp-gpio", "brcm,iproc-gpio";
 			reg = <0x30000 0x50>;
 			#gpio-cells = <2>;
 			gpio-controller;
 			ngpios = <4>;
 			interrupt-controller;
 			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
-			brcm,pinconf-func-off = <IPROC_PIN_OFF_DRIVE_STRENGTH>;
 		};
 
 		mdio: mdio@32000 {

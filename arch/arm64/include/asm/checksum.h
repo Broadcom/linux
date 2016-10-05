@@ -1,57 +1,51 @@
 /*
- * Copyright 2016 Broadcom
+ * Copyright (C) 2016 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License, version 2, as
- * published by the Free Software Foundation (the "GPL").
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License version 2 (GPLv2) for more details.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * version 2 (GPLv2) along with this source code.
- *
- * ip_fast_csum() loosely derived from original arch/arm implementation
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef __ASM_CHECKSUM_H
+#define __ASM_CHECKSUM_H
 
-#ifndef __ASM_ARM64_CHECKSUM_H
-#define __ASM_ARM64_CHECKSUM_H
+#include <linux/types.h>
 
-/*
- * This is a version of ip_compute_csum() optimized for IP headers,
- * which always checksum on 4 octet boundaries.
- */
-static inline __sum16
-ip_fast_csum(const void *iph, unsigned int ihl)
+static inline __sum16 csum_fold(__wsum csum)
 {
-	u64 tmp, sum;
-
-	__asm__ __volatile__ (
-"	ldp	%0, %3, [%1], #16\n"
-"	sub	%2, %2, #4\n"
-"	adds	%0, %0, %3\n"
-"1:	ldr	%w3, [%1], #4\n"
-"	sub	%2, %2, #1\n"
-"	adcs	%0, %0, %3\n"
-"	tst	%2, #15\n"
-"	bne	1b\n"
-"	adc	%0, %0, xzr\n"
-"	ror	%3, %0, #32\n"
-"	add     %0, %0, %3\n"
-"	lsr	%0, %0, #32\n"
-"	ror	%w3, %w0, #16\n"
-"	add     %w0, %w0, %w3\n"
-"	lsr	%0, %0, #16\n"
-	: "=r" (sum), "=r" (iph), "=r" (ihl), "=r" (tmp)
-	: "1" (iph), "2" (ihl)
-	: "cc", "memory");
-
-	return (__force __sum16)(~sum);
+	u32 sum = (__force u32)csum;
+	sum += (sum >> 16) | (sum << 16);
+	return ~(__force __sum16)(sum >> 16);
 }
+#define csum_fold csum_fold
 
+static inline __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
+{
+	__uint128_t tmp;
+	u64 sum;
+
+	tmp = *(const __uint128_t *)iph;
+	iph += 16;
+	ihl -= 4;
+	tmp += ((tmp >> 64) | (tmp << 64));
+	sum = tmp >> 64;
+	do {
+		sum += *(const u32 *)iph;
+		iph += 4;
+	} while (--ihl);
+
+	sum += ((sum >> 32) | (sum << 32));
+	return csum_fold(sum >> 32);
+}
 #define ip_fast_csum ip_fast_csum
+
 #include <asm-generic/checksum.h>
 
-#endif	/* __ASM_ARM64_CHECKSUM_H */
+#endif	/* __ASM_CHECKSUM_H */

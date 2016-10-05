@@ -7,3 +7,4 @@ obj-$(CONFIG_PINCTRL_CYGNUS_MUX)	+= pinctrl-cygnus-mux.o
 obj-$(CONFIG_PINCTRL_NSP_MUX)		+= pinctrl-nsp-mux.o
 obj-$(CONFIG_PINCTRL_NSP_GPIO)		+= pinctrl-nsp-gpio.o
 obj-$(CONFIG_PINCTRL_NS2_MUX)		+= pinctrl-ns2-mux.o
+obj-$(CONFIG_PINCTRL_NSP_MUX)		+= pinctrl-nsp-mux.o

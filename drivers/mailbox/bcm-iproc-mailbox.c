@@ -408,11 +408,12 @@ struct platform_driver iproc_mbox_driver = {
 		.of_match_table = iproc_mbox_of_match,
 		.pm = &iproc_mbox_pm_ops,
 	},
+	.probe = iproc_mbox_probe,
 };
 
 static int __init iproc_mbox_init(void)
 {
-	return platform_driver_probe(&iproc_mbox_driver, iproc_mbox_probe);
+	return platform_driver_register(&iproc_mbox_driver);
 }
 arch_initcall(iproc_mbox_init);
 

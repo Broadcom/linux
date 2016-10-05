@@ -67,7 +67,6 @@ struct unicam_cpi_generic {
 
 struct unicam_camera_dev {
 	struct soc_camera_device *icd;
-	struct vb2_alloc_ctx *alloc_ctx;
 	struct soc_camera_host soc_host;
 	struct soc_camera_desc *pdata;
 	/* generic driver related */

@@ -1,19 +1,20 @@
 * Broadcom's IPROC Static ADC controller
 
+Broadcom iProc ADC controller has 8 channels 10bit ADC.
+Allows user to convert analog input voltage values to digital.
+
 Required properties:
 
 - compatible: Must be "brcm,iproc-static-adc"
 
-- address-cells: Specify the number of u32 entries needed in child nodes.
-  Should set to 1.
-
-- size-cells: Specify number of u32 entries needed to specify child nodes size
-  in reg property. Should set to 1.
-
-- adc_syscon: Handler of syscon node defining physical base address of the
+- adc-syscon: Handler of syscon node defining physical base address of the
   controller and length of memory mapped region.
 
 - #io-channel-cells = <1>; As ADC has multiple outputs
+  refer to Documentation/devicetree/bindings/iio/iio-bindings.txt for details.
+
+- io-channel-ranges:
+  refer to Documentation/devicetree/bindings/iio/iio-bindings.txt for details.
 
 - clocks: Clock used for this block.
 
@@ -24,15 +25,13 @@ Required properties:
 For example:
 
 	ts_adc_syscon: ts_adc_syscon@180a6000 {
-		compatible = "syscon";
+		compatible = "brcm,iproc-ts-adc-syscon","syscon";
 		reg = <0x180a6000 0xc30>;
 	};
 
 	adc: adc@180a6000 {
 		compatible = "brcm,iproc-static-adc";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		adc_syscon = <&ts_adc_syscon>;
+		adc-syscon = <&ts_adc_syscon>;
 		#io-channel-cells = <1>;
 		io-channel-ranges;
 		clocks = <&asiu_clks BCM_CYGNUS_ASIU_ADC_CLK>;

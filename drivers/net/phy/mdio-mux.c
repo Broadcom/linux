@@ -115,6 +115,7 @@ int mdio_mux_init(struct device *dev,
 			goto err_parent_bus;
 		}
 	} else {
+		parent_bus_node = NULL;
 		parent_bus = mux_bus;
 	}
 

@@ -40,7 +40,7 @@ For example:
 		gpio_b: gpio_b {
 			function = "gpio_b";
 			groups = "gpio_b_0_grp", "gpio_b_1_grp";
-                };
+		};
 
 		nand_sel: nand_sel {
 			function = "nand";
@@ -77,4 +77,3 @@ List of supported functions and groups in Northstar Plus:
 "nand": "nand_grp"
 
 "emmc": "emmc_grp"
-
