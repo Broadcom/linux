@@ -46,6 +46,36 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	vbus_p0: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb-vbus-p0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio_ccm 5 0>;
+		enable-active-high;
+		status = "okay";
+	};
+
+	vbus_p1: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb-vbus-p1";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio_ccm 6 0>;
+		enable-active-high;
+		status = "okay";
+	};
+
+	vbus_p2: regulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb-vbus-p2";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio_ccm 7 0>;
+		enable-active-high;
+		status = "okay";
+	};
 };
 
 &unicam {
