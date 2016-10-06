@@ -418,6 +418,13 @@
 			status = "disabled";
 		};
 
+		ohci0: usb@18048800 {
+			compatible = "generic-ohci";
+			reg = <0x18048800 0x100>;
+			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
 		unicam: camera@180a1000 {
 			compatible = "brcm,unicamcpi";
 			id = <0>;
