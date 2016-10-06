@@ -411,6 +411,13 @@
 			brcm,nand-has-wp;
 		};
 
+		ehci0: usb@18048000 {
+			compatible = "generic-ehci";
+			reg = <0x18048000 0x100>;
+			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
 		unicam: camera@180a1000 {
 			compatible = "brcm,unicamcpi";
 			id = <0>;
