@@ -139,3 +139,17 @@
 &usb2 {
 	status = "okay";
 };
+
+&usbphy {
+	usbphy0: usb-phy@0 {
+		vbus-p0-supply = <&vbus_p0>;
+	};
+
+	usbphy1: usb-phy@1 {
+		vbus-p1-supply = <&vbus_p1>;
+	};
+
+	usbphy2: usb-phy@2 {
+		vbus-p2-supply = <&vbus_p2>;
+	};
+};
