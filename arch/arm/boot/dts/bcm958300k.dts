@@ -159,3 +159,9 @@
 	phy-names = "usbp0", "usbp1", "usbp2";
 	status = "okay";
 };
+
+&ohci0 {
+	phys = <&usbphy0 0 &usbphy1 1 &usbphy2 2>;
+	phy-names = "usbp0", "usbp1", "usbp2";
+	status = "okay";
+};
