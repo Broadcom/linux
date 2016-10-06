@@ -105,3 +105,7 @@
 		brcm,nand-oob-sector-size = <27>;
 	};
 };
+
+&usb2 {
+	status = "okay";
+};
