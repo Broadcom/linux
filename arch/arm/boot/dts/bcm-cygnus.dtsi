@@ -425,6 +425,16 @@
 			status = "disabled";
 		};
 
+		usb2: usb@1804c000 {
+			compatible = "snps,dw-ahb-udc";
+			reg = <0x1804c000 0x2000>;
+			interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usbphy2 2>;
+			extcon = <&usbphy2>;
+			phy-names = "usb2drd";
+			status = "disabled";
+		};
+
 		unicam: camera@180a1000 {
 			compatible = "brcm,unicamcpi";
 			id = <0>;
