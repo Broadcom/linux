@@ -182,8 +182,9 @@
 };
 
 &ssp0 {
-	status = "ok";
 	pinctrl-0 = <&spi0_pins>;
+	status = "ok";
+
 	spi-flash@0 {
 		compatible = "winbond,w25q32";
 		reg = <0>;
@@ -192,8 +193,9 @@
 };
 
 &ssp1 {
-	status = "ok";
 	pinctrl-0 = <&spi1_pins>;
+	status = "ok";
+
 	spi-flash@0 {
 		compatible = "winbond,w25q32";
 		reg = <0>;
@@ -203,6 +205,7 @@
 
 &i2c0 {
 	status = "ok";
+
 	pca9505: pca9505@20 {
 		compatible = "nxp,pca9505";
 		gpio-controller;
@@ -213,15 +216,15 @@
 
 &sdio0 {
 	non-removable;
-	status = "ok";
 	vmmc-supply = <&sdio0_vcc_en_reg>;
 	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
+	status = "ok";
 };
 
 &sdio1 {
-	status = "ok";
 	vmmc-supply = <&sdio1_vcc_en_reg>;
 	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
+	status = "ok";
 };
 
 &mdio_mux_iproc {
