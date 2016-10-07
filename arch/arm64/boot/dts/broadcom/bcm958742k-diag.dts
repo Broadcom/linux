@@ -47,7 +47,8 @@
 
 	chosen {
 		bootargs = "console=ttyS0,115200n8 earlycon=uart8250, \
-			    mmio32,0x66130000 maxcpus=2";
+			    mmio32,0x66130000 maxcpus=2
+			    mtdparts=brcmnand.0:10m(nboot),16m(kernel),1m(dt-blob),940m(nroot),32m(nand-test)";
 	};
 
 	memory {
@@ -139,6 +140,20 @@
 
 &uart3 {
 	status = "ok";
+};
+
+&nand {
+	nandcs@0 {
+		compatible = "brcm,nandcs";
+		reg = <0>;
+		nand-ecc-mode = "hw";
+		nand-ecc-strength = <8>;
+		nand-ecc-step-size = <512>;
+		nand-bus-width = <16>;
+		brcm,nand-oob-sector-size = <16>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+	};
 };
 
 &sata_phy0 {
