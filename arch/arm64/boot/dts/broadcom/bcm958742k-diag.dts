@@ -156,6 +156,34 @@
 	};
 };
 
+
+&qspi {
+	bspi-sel = <0>;
+	flash: w25q64@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		reg = <0x0>;
+		spi-max-frequency = <12500000>;
+
+		partition@0 {
+			label = "sf-boot";		/* 4 MiB */
+			reg = <0x00000000 0x00400000>;
+		};
+
+		partition@400000 {			/* 2 MiB */
+			label = "sf-user";
+			reg = <0x00400000 0x00200000>;
+		};
+
+		partition@600000 {			/* 2 MiB */
+			label = "sf-test";
+			reg = <0x00600000 0x00200000>;
+		};
+
+	};
+};
+
 &sata_phy0 {
 	compatible = "brcm,stingray-sata-phy-prbs";
 };
