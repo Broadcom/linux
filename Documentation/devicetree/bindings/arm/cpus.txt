@@ -197,7 +197,6 @@ nodes to be present and contain the properties described below.
 			    "brcm,bcm23550"
 			    "brcm,bcm-nsp-smp"
 			    "brcm,brahma-b15"
-			    "brcm,bcm-nsp-smp"
 			    "marvell,armada-375-smp"
 			    "marvell,armada-380-smp"
 			    "marvell,armada-390-smp"
