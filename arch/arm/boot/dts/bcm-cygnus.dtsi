@@ -380,7 +380,7 @@
 			status = "disabled";
 		};
 
-		enet: enet@0x18042000 {
+		enet: enet@18042000 {
 			compatible = "brcm,amac-enet";
 			reg = <0x18042000 0x1000>,
 					<0x18110400 0x600>,
