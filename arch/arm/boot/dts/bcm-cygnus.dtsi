@@ -90,7 +90,7 @@
 		mboxes = <&mailbox 0>;
 	};
 
-	axi {
+	axi: axi {
 		compatible = "simple-bus";
 		ranges;
 		#address-cells = <1>;
