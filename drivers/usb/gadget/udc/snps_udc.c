@@ -1572,8 +1572,7 @@ static int snps_udc_probe(struct platform_device *pdev)
 	}
 
 	udc->nb.notifier_call = usbd_connect_notify;
-	ret = extcon_register_interest(&udc->extcon_nb, udc->edev->name,
-				       "USB", &udc->nb);
+	ret = extcon_register_notifier(udc->edev, EXTCON_USB, &udc->nb);
 	if (ret < 0) {
 		dev_err(dev, "Can't register extcon device\n");
 		goto exit_phy;
@@ -1633,7 +1632,7 @@ static int snps_udc_probe(struct platform_device *pdev)
 exit_dma:
 	free_udc_dma(pdev, udc);
 exit_extcon:
-	extcon_unregister_interest(&udc->extcon_nb);
+	extcon_unregister_notifier(udc->edev, EXTCON_USB, &udc->nb);
 exit_phy:
 	phy_power_off(udc->udc_phy);
 	phy_exit(udc->udc_phy);
@@ -1659,7 +1658,7 @@ static int snps_udc_remove(struct platform_device *pdev)
 	free_udc_dma(pdev, udc);
 	phy_power_off(udc->udc_phy);
 	phy_exit(udc->udc_phy);
-	extcon_unregister_interest(&udc->extcon_nb);
+	extcon_unregister_notifier(udc->edev, EXTCON_USB, &udc->nb);
 	dev_info(&pdev->dev, "Synopsys UDC driver removed\n");
 
 	return 0;
