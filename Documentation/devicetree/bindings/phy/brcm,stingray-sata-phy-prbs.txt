@@ -1,7 +1,7 @@
 Broadcom SATA PHY PRBS for Stingray
 
 Required properties:
-- compatible : should be "brcm, stingray-sata-phy-prbs"
+- compatible : should be "brcm,stingray-sata-phy-prbs"
 - address-cells: should be 1
 - size-cells: should be 0
 - reg: register ranges for the PHY PCB interface

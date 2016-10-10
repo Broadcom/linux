@@ -352,7 +352,7 @@ static int stingray_sata_phy_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id stingray_sata_phy_of_match[] = {
-	{ .compatible = "brcm, stingray-sata-phy-prbs" },
+	{ .compatible = "brcm,stingray-sata-phy-prbs" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, stingray_sata_phy_of_match);
