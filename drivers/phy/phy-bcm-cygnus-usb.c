@@ -724,8 +724,8 @@ static int bcm_phy_drd_extcon_init(struct bcm_phy_instance *instance_ptr)
 	 * Register for the USB device mode connection
 	 * state change notification
 	 */
-	ret = extcon_register_interest(&instance_ptr->extcon_dev,
-			extcon->edev->name, "USB",
+	ret = extcon_register_notifier(extcon->edev,
+			EXTCON_USB,
 			&instance_ptr->dev_nb);
 	if (ret < 0) {
 		pr_info("Cannot register extcon_dev for %s.\n",
@@ -737,9 +737,8 @@ static int bcm_phy_drd_extcon_init(struct bcm_phy_instance *instance_ptr)
 	 * Register for the USB host mode connection
 	 * state change notification
 	 */
-	ret = extcon_register_interest(&instance_ptr->extcon_host,
-				extcon->edev->name,
-				"USB-HOST",
+	ret = extcon_register_notifier(extcon->edev,
+				EXTCON_USB_HOST,
 				&instance_ptr->host_nb);
 	if (ret < 0) {
 		pr_info("Cannot register extcon_dev for %s.\n",
