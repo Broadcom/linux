@@ -483,12 +483,6 @@
 				#size-cells = <0>;
 			};
 
-			mdio@1 { /* SGMII */
-				reg = <0x1>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-			};
-
 			mdio@2 { /* SATA */
 				reg = <0x2>;
 				#address-cells = <1>;
@@ -497,6 +491,12 @@
 
 			mdio@3 { /* USB */
 				reg = <0x3>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+
+			mdio@11 { /* SGMII */
+				reg = <0x11>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 			};

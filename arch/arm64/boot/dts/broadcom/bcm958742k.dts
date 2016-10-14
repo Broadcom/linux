@@ -240,7 +240,7 @@
 
 
 &mdio_mux_iproc {
-	mdio@1 {
+	mdio@11 {
 		gphy0: eth-phy@1 {
 			reg = <0x1>;
 		};

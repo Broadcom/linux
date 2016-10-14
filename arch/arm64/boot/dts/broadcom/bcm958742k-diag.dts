@@ -112,6 +112,12 @@
 			status = "ok";
 		};
 	};
+
+	mdio@11 {
+		gphy0: eth-phy@1 {
+			reg = <0x1>;
+		};
+	};
 };
 
 &i2c0 {
@@ -178,6 +184,11 @@
 		};
 
 	};
+};
+
+&enet {
+	phy-mode = "rgmii";
+	phy-handle = <&gphy0>;
 };
 
 &sata_phy0 {
