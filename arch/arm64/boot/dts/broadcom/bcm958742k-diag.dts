@@ -36,7 +36,6 @@
 
 / {
 	model = "Stingray Combo SVK (BCM958742k) Diagnostics";
-	compatible = "brcm,stingray-svk", "brcm,stingray";
 
 	aliases {
 		serial0 = &uart1;
@@ -60,68 +59,57 @@
 		compatible = "syscon";
 		reg = <0x0 0x40000000 0x0 0x1000>;
 	};
+};
 
-	hsls {
-		mdio_mux_iproc: mdio-mux@6892023c {
-			compatible = "brcm,mdio-mux-iproc";
-			reg = <0x6892023c 0x14>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			mdio@0 {
-				reg = <0x0>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				pci_phy0: phy@0 {
-					compatible = "brcm,stingray-pcie-phy-prbs";
-					reg = <0x0>;
-					brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-					status = "ok";
-				};
-				pci_phy1: phy@1 {
-					compatible = "brcm,stingray-pcie-phy-prbs";
-					reg = <0x1>;
-					brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-					status = "ok";
-				};
-				pci_phy2: phy@2 {
-					compatible = "brcm,stingray-pcie-phy-prbs";
-					reg = <0x2>;
-					brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-					status = "ok";
-				};
-				pci_phy3: phy@3 {
-					compatible = "brcm,stingray-pcie-phy-prbs";
-					reg = <0x3>;
-					brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-					status = "ok";
-				};
-				pci_phy4: phy@4 {
-					compatible = "brcm,stingray-pcie-phy-prbs";
-					reg = <0x4>;
-					brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-					status = "ok";
-				};
-				pci_phy5: phy@5 {
-					compatible = "brcm,stingray-pcie-phy-prbs";
-					reg = <0x5>;
-					brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-					status = "ok";
-				};
-				pci_phy6: phy@6 {
-					compatible = "brcm,stingray-pcie-phy-prbs";
-					reg = <0x6>;
-					brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-					status = "ok";
-				};
-				pci_phy7: phy@7 {
-					compatible = "brcm,stingray-pcie-phy-prbs";
-					reg = <0x7>;
-					brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-					status = "ok";
-				};
-			};
+&mdio_mux_iproc {
+	mdio@0 {
+		pci_phy0: phy@0 {
+			compatible = "brcm,stingray-pcie-phy-prbs";
+			reg = <0x0>;
+			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+			status = "ok";
+		};
+		pci_phy1: phy@1 {
+			compatible = "brcm,stingray-pcie-phy-prbs";
+			reg = <0x1>;
+			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+			status = "ok";
+		};
+		pci_phy2: phy@2 {
+			compatible = "brcm,stingray-pcie-phy-prbs";
+			reg = <0x2>;
+			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+			status = "ok";
+		};
+		pci_phy3: phy@3 {
+			compatible = "brcm,stingray-pcie-phy-prbs";
+			reg = <0x3>;
+			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+			status = "ok";
+		};
+		pci_phy4: phy@4 {
+			compatible = "brcm,stingray-pcie-phy-prbs";
+			reg = <0x4>;
+			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+			status = "ok";
+		};
+		pci_phy5: phy@5 {
+			compatible = "brcm,stingray-pcie-phy-prbs";
+			reg = <0x5>;
+			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+			status = "ok";
+		};
+		pci_phy6: phy@6 {
+			compatible = "brcm,stingray-pcie-phy-prbs";
+			reg = <0x6>;
+			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+			status = "ok";
+		};
+		pci_phy7: phy@7 {
+			compatible = "brcm,stingray-pcie-phy-prbs";
+			reg = <0x7>;
+			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
+			status = "ok";
 		};
 	};
 };
