@@ -1,0 +1,27 @@
+* Broadcom Dallas One wire (D1W) bus master controller
+
+Required properties:
+- compatible : should be "brcm,iproc-d1w"
+- reg : Address and length of the register set for the device
+- interrupts : IRQ number of D1W controller
+
+Optional properties:
+- clocks : phandle of clock that supplies the module (required if platform
+		clock bindings use device tree)
+- clock-names : name for the clock
+- clock-frequency : D1W divisor clock rate
+- reset-recover-delay : Delay while reset D1W in milliseconds.
+
+Example:
+
+- From bcm-cygnus.dtsi:
+iproc_d1w: d1w@180ab000 {
+	compatible = "brcm,iproc_d1w";
+	reg = <0x180ab000 0x0f>;
+	interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>;
+	clocks = <&axi81_clk>;
+	clock-names = "iproc_d1w_clk";
+	clock-frequency = <100000000>;
+	reset-recover-delay = <1>;
+};
+
