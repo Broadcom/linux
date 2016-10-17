@@ -753,7 +753,9 @@ static int bcm_phy_drd_extcon_init(struct bcm_phy_instance *instance_ptr)
 	return 0;
 
 err_host:
-	extcon_unregister_interest(&instance_ptr->extcon_dev);
+	extcon_unregister_notifier(extcon->edev,
+				EXTCON_USB,
+				&instance_ptr->dev_nb);
 	return ret;
 }
 
