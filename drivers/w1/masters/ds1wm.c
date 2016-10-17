@@ -116,12 +116,26 @@ struct ds1wm_data {
 static inline void ds1wm_write_register(struct ds1wm_data *ds1wm_data, u32 reg,
 					u8 val)
 {
-	__raw_writeb(val, ds1wm_data->map + (reg << ds1wm_data->bus_shift));
+	struct device *dev = &ds1wm_data->pdev->dev;
+	struct ds1wm_driver_data *pdata = dev_get_platdata(dev);
+
+	if (pdata->write)
+		pdata->write(ds1wm_data->map, reg, val);
+	else
+		__raw_writeb(val, ds1wm_data->map +
+			(reg << ds1wm_data->bus_shift));
 }
 
 static inline u8 ds1wm_read_register(struct ds1wm_data *ds1wm_data, u32 reg)
 {
-	return __raw_readb(ds1wm_data->map + (reg << ds1wm_data->bus_shift));
+	struct device *dev = &ds1wm_data->pdev->dev;
+	struct ds1wm_driver_data *pdata = dev_get_platdata(dev);
+
+	if (pdata->read)
+		return pdata->read(ds1wm_data->map, reg);
+	else
+		return __raw_readb(ds1wm_data->map +
+				(reg << ds1wm_data->bus_shift));
 }
 
 

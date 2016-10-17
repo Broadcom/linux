@@ -10,4 +10,6 @@ struct ds1wm_driver_data {
 	/* ds1wm implements the precise timings of*/
 	/* a reset pulse/presence detect sequence.*/
 	unsigned int reset_recover_delay;
+	void (*write)(void __iomem *map, u32 reg, u8 val);
+	u8 (*read)(void __iomem *map, u32 reg);
 };
