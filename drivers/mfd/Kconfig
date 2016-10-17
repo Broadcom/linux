@@ -180,6 +180,17 @@ config MFD_ASIC3
 	  This driver supports the ASIC3 multifunction chip found on many
 	  PDAs (mainly iPAQ and HTC based ones)
 
+config MFD_IPROC_D1W
+	bool "IPROC DS1WM one wire interface"
+	depends on (ARCH_BCM_IPROC || COMPILE_TEST)
+	select MFD_CORE
+	default ARCH_BCM_IPROC
+	help
+	  This driver provides support to the Dallas One Wire (D1W).This block
+	  is found in various Broadcom iProc family of SoCs.
+	  The Cygnus Dallas 1-Wire Interface provides complete
+	  control of the 1-Wire bus through 8-bit commands.
+
 config PMIC_DA903X
 	bool "Dialog Semiconductor DA9030/DA9034 PMIC Support"
 	depends on I2C=y
