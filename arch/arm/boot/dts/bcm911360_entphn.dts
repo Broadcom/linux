@@ -59,6 +59,20 @@
 			gpios = <&gpio_asiu 48 0>;
 		};
 	};
+
+	vbus_p0: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb-vbus-p0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio_crmu 1 0>;
+		enable-active-high;
+		status = "okay";
+	};
+};
+
+&usbphy0 {
+	vbus-p0-supply = <&vbus_p0>;
 };
 
 &uart3 {
@@ -94,3 +108,17 @@
 	default-brightness-level = <6>;
 	status = "okay";
 };
+
+&ehci0 {
+	phys = <&usbphy0 0>;
+	phy-names = "usbp0";
+	status = "okay";
+};
+
+&ohci0 {
+	phys = <&usbphy0 0>;
+	phy-names = "usbp0";
+	status = "okay";
+};
+
+
