@@ -176,6 +176,7 @@ struct spu_aead_parms {
 #define CCM_B0_M_PRIME_SHIFT	   3
 #define CCM_B0_L_PRIME		0x07
 #define CCM_B0_L_PRIME_SHIFT	   0
+#define CCM_ESP_L_VALUE		   4
 
 /**
  * spu_req_incl_icv() - Return true if SPU request message should include the
@@ -206,18 +207,6 @@ static __always_inline u32 spu_real_db_size(u32 assoc_size,
 {
 	return assoc_size + aead_iv_buf_len + prebuf_len + data_size +
 	    aad_pad_len + gcm_pad_len + hash_pad_len;
-}
-
-/**
- * spu_wordalign_padlen() - Given the length of a data field, determine the
- * padding required to align the data following this field on a 4-byte boundary.
- * @data_size: length of data field in bytes
- *
- * Return: length of status field padding, in bytes
- */
-static __always_inline u32 spu_wordalign_padlen(u32 data_size)
-{
-	return ((data_size + 3) & ~3) - data_size;
 }
 
 /************** SPU Functions Prototypes **************/
@@ -270,10 +259,11 @@ u8 spum_rx_status_len(void);
 int spum_status_process(u8 *statp);
 
 int rabintag_to_hash_index(unsigned char *tag);
-void spu_ccm_update_iv(unsigned int digestsize,
-		       struct spu_cipher_parms *cipher_parms,
-		       unsigned int assoclen,
-		       unsigned int chunksize,
-		       bool is_encrypt,
-		       bool is_esp);
+void spum_ccm_update_iv(unsigned int digestsize,
+			struct spu_cipher_parms *cipher_parms,
+			unsigned int assoclen,
+			unsigned int chunksize,
+			bool is_encrypt,
+			bool is_esp);
+u32 spum_wordalign_padlen(u32 data_size);
 #endif

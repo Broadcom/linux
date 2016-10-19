@@ -56,8 +56,6 @@
 
 #define GCM_ESP_DIGESTSIZE 16
 
-#define CCM_ESP_L_VALUE     4
-
 #define MAX_HASH_BLOCK_SIZE SHA512_BLOCK_SIZE
 
 /* Maximum number of bytes from a non-final hash request that can
@@ -361,6 +359,11 @@ struct spu_hw {
 	u8 (*spu_tx_status_len)(void);
 	u8 (*spu_rx_status_len)(void);
 	int (*spu_status_process)(u8 *statp);
+	void (*spu_ccm_update_iv)(unsigned int digestsize,
+				  struct spu_cipher_parms *cipher_parms,
+				  unsigned int assoclen, unsigned int chunksize,
+				  bool is_encrypt, bool is_esp);
+	u32 (*spu_wordalign_padlen)(u32 data_size);
 
 	/* The base virtual address of the SPU hw registers */
 	void __iomem **reg_vbase;

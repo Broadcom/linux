@@ -687,7 +687,7 @@ u32 spum_create_request(u8 *spu_hdr,
 	 * padding.  So account for padding as necessary.
 	 */
 	if (cipher_parms->mode == CIPHER_MODE_CCM)
-		auth_len += spu_wordalign_padlen(auth_len);
+		auth_len += spum_wordalign_padlen(auth_len);
 
 	bdesc->offsetICV = cpu_to_be16(auth_len);
 	bdesc->offsetIV = cpu_to_be16(offset_iv);
@@ -1014,7 +1014,7 @@ int rabintag_to_hash_index(unsigned char *tag)
 }
 
 /**
- * spu_ccm_update_iv() - Update the IV as per the requirements for CCM mode.
+ * spum_ccm_update_iv() - Update the IV as per the requirements for CCM mode.
  *
  * @digestsize:		Digest size of this request
  * @cipher_parms:	(pointer to) cipher parmaeters, includes IV buf & IV len
@@ -1023,17 +1023,13 @@ int rabintag_to_hash_index(unsigned char *tag)
  * @is_encrypt:		true if this is an output/encrypt operation
  * @is_esp:		true if this is an ESP / RFC4309 operation
  *
- * Note that both SPU-M and SPU2 require similar IV changes, so no need for
- * separate functions for the two variants.  (Only difference between the two
- * is the printing of a warning message.)
- *
  */
-void spu_ccm_update_iv(unsigned int digestsize,
-		       struct spu_cipher_parms *cipher_parms,
-		       unsigned int assoclen,
-		       unsigned int chunksize,
-		       bool is_encrypt,
-		       bool is_esp)
+void spum_ccm_update_iv(unsigned int digestsize,
+			struct spu_cipher_parms *cipher_parms,
+			unsigned int assoclen,
+			unsigned int chunksize,
+			bool is_encrypt,
+			bool is_esp)
 {
 	u8 L;		/* L from CCM algorithm, length of plaintext data */
 	u8 mprime;	/* M' from CCM algo, (M - 2) / 2, where M=authsize */
@@ -1090,5 +1086,16 @@ void spu_ccm_update_iv(unsigned int digestsize,
 
 	/* Fill in length of plaintext, formatted to be L bytes long */
 	format_value_ccm(chunksize, &cipher_parms->iv_buf[15 - L + 1], L);
+}
 
+/**
+ * spum_wordalign_padlen() - Given the length of a data field, determine the
+ * padding required to align the data following this field on a 4-byte boundary.
+ * @data_size: length of data field in bytes
+ *
+ * Return: length of status field padding, in bytes
+ */
+u32 spum_wordalign_padlen(u32 data_size)
+{
+	return ((data_size + 3) & ~3) - data_size;
 }

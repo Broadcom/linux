@@ -373,7 +373,7 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 
 	data_pad_len = spu->spu_gcm_ccm_pad_len(ctx->cipher.mode, chunksize);
 	db_size = spu_real_db_size(0, 0, 0, chunksize, 0, 0, 0);
-	stat_pad_len = spu_wordalign_padlen(db_size);
+	stat_pad_len = spu->spu_wordalign_padlen(db_size);
 	if (stat_pad_len)
 		rx_frag_num++;
 	pad_len = data_pad_len + stat_pad_len;
@@ -761,7 +761,7 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	db_size = spu_real_db_size(0, 0, local_nbuf, new_data_len,
 				   0, 0, hash_parms.pad_len);
 	if (spu->spu_tx_status_len())
-		stat_pad_len = spu_wordalign_padlen(db_size);
+		stat_pad_len = spu->spu_wordalign_padlen(db_size);
 	if (stat_pad_len)
 		rx_frag_num++;
 	pad_len = hash_parms.pad_len + data_pad_len + stat_pad_len;
@@ -1049,8 +1049,9 @@ spu_aead_rx_sg_create(struct brcm_message *mssg,
 
 	if (ctx->cipher.mode == CIPHER_MODE_CCM)
 		/* ICV (after data) must be in the next 32-bit word for CCM */
-		data_padlen += spu_wordalign_padlen(assoc_buf_len + resp_len +
-						    data_padlen);
+		data_padlen += spu->spu_wordalign_padlen(assoc_buf_len +
+							 resp_len +
+							 data_padlen);
 
 	if (data_padlen)
 		/* have to catch gcm pad in separate buffer */
@@ -1348,8 +1349,9 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 							chunksize - digestsize);
 
 		/* CCM also requires software to rewrite portions of IV: */
-		spu_ccm_update_iv(digestsize, &cipher_parms, req->assoclen,
-				  chunksize, rctx->is_encrypt, ctx->is_esp);
+		spu->spu_ccm_update_iv(digestsize, &cipher_parms, req->assoclen,
+				       chunksize, rctx->is_encrypt,
+				       ctx->is_esp);
 	}
 
 
@@ -1383,7 +1385,7 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 				   chunksize, aead_parms.aad_pad_len,
 				   aead_parms.data_pad_len, 0);
 
-	stat_pad_len = spu_wordalign_padlen(db_size);
+	stat_pad_len = spu->spu_wordalign_padlen(db_size);
 
 	if (stat_pad_len)
 		rx_frag_num++;
@@ -4508,7 +4510,8 @@ static void spu_functions_register(struct device *dev,
 		spu->spu_tx_status_len = spum_tx_status_len;
 		spu->spu_rx_status_len = spum_rx_status_len;
 		spu->spu_status_process = spum_status_process;
-
+		spu->spu_ccm_update_iv = spum_ccm_update_iv;
+		spu->spu_wordalign_padlen = spum_wordalign_padlen;
 	} else if ((spu_type == SPU_TYPE_SPU2) ||
 		   (spu_type == SPU_TYPE_SPU2_V2)) {
 		dev_dbg(dev, "Registering SPU2 functions");
@@ -4529,6 +4532,8 @@ static void spu_functions_register(struct device *dev,
 		spu->spu_tx_status_len = spu2_tx_status_len;
 		spu->spu_rx_status_len = spu2_rx_status_len;
 		spu->spu_status_process = spu2_status_process;
+		spu->spu_ccm_update_iv = spu2_ccm_update_iv;
+		spu->spu_wordalign_padlen = spu2_wordalign_padlen;
 	}
 }
 
@@ -4690,13 +4695,7 @@ static int spu_register_aead(struct iproc_alg_s *driver_alg)
 {
 	struct device *dev = &iproc_priv.pdev->dev;
 	struct aead_alg *aead = &driver_alg->alg.aead;
-	struct spu_hw *spu = &iproc_priv.spu;
 	int err;
-
-	/* CCM not (yet) supported in SPU2 */
-	if ((driver_alg->cipher_info.mode == CIPHER_MODE_CCM) &&
-		(spu->spu_type != SPU_TYPE_SPUM))
-		return 0;
 
 	aead->base.cra_module = THIS_MODULE;
 	aead->base.cra_priority = 1500;

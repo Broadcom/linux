@@ -239,5 +239,9 @@ void spu2_request_pad(u8 *pad_start, u32 gcm_padding, u32 hash_pad_len,
 u8 spu2_tx_status_len(void);
 u8 spu2_rx_status_len(void);
 int spu2_status_process(u8 *statp);
-
+void spu2_ccm_update_iv(unsigned int digestsize,
+			struct spu_cipher_parms *cipher_parms,
+			unsigned int assoclen, unsigned int chunksize,
+			bool is_encrypt, bool is_esp);
+u32 spu2_wordalign_padlen(u32 data_size);
 #endif
