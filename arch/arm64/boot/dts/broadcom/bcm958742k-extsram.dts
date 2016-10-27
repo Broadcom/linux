@@ -73,6 +73,11 @@
 	status = "disabled";
 };
 
+&pcie8 {
+	/delete-property/ dma-coherent;
+	status = "disabled";
+};
+
 &raid_mbox {
 	status = "disabled";
 };
