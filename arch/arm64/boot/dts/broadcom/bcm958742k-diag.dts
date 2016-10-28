@@ -59,6 +59,46 @@
 		compatible = "syscon";
 		reg = <0x0 0x40000000 0x0 0x1000>;
 	};
+
+	sdio0_vcc_en_reg: sdio0_en {
+		compatible = "regulator-fixed";
+		regulator-name = "sdio0_vcc_en-reg";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca9505 16 0>;
+		enable-active-high;
+	};
+
+	sdio1_vcc_en_reg: sdio1_en {
+		compatible = "regulator-fixed";
+		regulator-name = "sdio1_vcc_en-reg";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca9505 17 0>;
+		enable-active-high;
+	};
+
+	sdio0_vddo_ctrl_reg: sdio0_vddo_ctrl {
+		compatible = "regulator-gpio";
+		regulator-name = "sdio0_vddo_ctrl_reg";
+		regulator-type = "voltage";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+		gpios = <&pca9505 18 0>;
+		states = <3300000 0x0
+			  1800000 0x1>;
+	};
+
+	sdio1_vddo_ctrl_reg: sdio1_vddo_ctrl {
+		compatible = "regulator-gpio";
+		regulator-name = "sdio1_vddo_ctrl_reg";
+		regulator-type = "voltage";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+		gpios = <&pca9505 19 0>;
+		states = <3300000 0x0
+			  1800000 0x1>;
+	};
 };
 
 &mdio_mux_iproc {
@@ -246,6 +286,19 @@
 &enet {
 	phy-mode = "rgmii";
 	phy-handle = <&gphy0>;
+};
+
+&sdio0 {
+	non-removable;
+	vmmc-supply = <&sdio0_vcc_en_reg>;
+	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
+	status = "ok";
+};
+
+&sdio1 {
+	vmmc-supply = <&sdio1_vcc_en_reg>;
+	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
+	status = "ok";
 };
 
 &sata_phy0 {
