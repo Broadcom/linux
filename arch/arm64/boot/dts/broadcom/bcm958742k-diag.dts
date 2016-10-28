@@ -122,6 +122,13 @@
 
 &i2c0 {
 	status = "ok";
+
+	pca9505: pca9505@20 {
+		compatible = "nxp,pca9505";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x20>;
+	};
 };
 
 &i2c1 {
