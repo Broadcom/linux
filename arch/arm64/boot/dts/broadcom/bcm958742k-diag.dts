@@ -120,6 +120,10 @@
 	};
 };
 
+&pwm {
+	status = "ok";
+};
+
 &i2c0 {
 	status = "ok";
 
