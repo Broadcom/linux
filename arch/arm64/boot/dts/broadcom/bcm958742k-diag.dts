@@ -144,6 +144,52 @@
 	status = "ok";
 };
 
+&ssp0 {
+	pinctrl-0 = <&spi0_pins>;
+	status = "ok";
+
+	spi-flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q32";
+		reg = <0x0>;
+		spi-max-frequency = <20000000>;
+
+		partition@0 {				/* 2 MiB */
+			label = "spi0-user";
+			reg = <0x00000000 0x00200000>;
+		};
+
+		partition@200000 {			/* 2 MiB */
+			label = "spi0-test";
+			reg = <0x00200000 0x00200000>;
+		};
+	};
+};
+
+&ssp1 {
+	pinctrl-0 = <&spi1_pins>;
+	status = "ok";
+
+	spi-flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q32";
+		reg = <0x0>;
+		spi-max-frequency = <20000000>;
+
+		partition@0 {				/* 2 MiB */
+			label = "spi1-user";
+			reg = <0x00000000 0x00200000>;
+		};
+
+		partition@200000 {			/* 2 MiB */
+			label = "spi1-test";
+			reg = <0x00200000 0x00200000>;
+		};
+	};
+};
+
 &nand {
 	nandcs@0 {
 		compatible = "brcm,nandcs";
