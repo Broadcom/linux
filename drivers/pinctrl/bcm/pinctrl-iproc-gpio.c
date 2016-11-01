@@ -33,6 +33,8 @@
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinconf-generic.h>
+#include <linux/mailbox_client.h>
+#include <linux/bcm_iproc_mailbox.h>
 
 #include "../pinctrl-utils.h"
 
@@ -74,6 +76,10 @@ enum iproc_pinconf_param {
 	IPROC_PINCON_MAX,
 };
 
+/* Commands sent to M0 via mailbox driver. */
+#define M0_IPC_M0_CMD_AON_GPIO_WAKEUP_GPIO_ENABLE_CFG   0x15
+#define M0_IPC_M0_CMD_AON_GPIO_WAKEUP_GPIO_DISABLE_CFG  0x16
+
 /*
  * Iproc GPIO core
  *
@@ -111,6 +117,9 @@ struct iproc_gpio {
 
 	struct pinctrl_dev *pctl;
 	struct pinctrl_desc pctldesc;
+
+	struct mbox_client  client;
+	struct mbox_chan    *mbox_chan;
 };
 
 /*
@@ -289,12 +298,66 @@ static int iproc_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 	return 0;
 }
 
+#if defined(CONFIG_MAILBOX)
+static int iproc_gpio_mailbox_send_cmd(struct iproc_gpio *chip,
+	u32 cmd, u32 param)
+{
+	int ret = 0;
+	struct iproc_mbox_msg msg;
+
+	msg.cmd = cmd;
+	msg.param = param;
+	msg.wait_ack = true;
+	ret = mbox_send_message(chip->mbox_chan, &msg);
+	mbox_client_txdone(chip->mbox_chan, 0);
+
+	return ret < 0 ? ret : msg.reply_code;
+}
+#endif
+
+static int iproc_gpio_irq_set_wake(struct irq_data *d, unsigned int on)
+{
+	int ret = -ENOTSUPP;
+#if defined(CONFIG_MAILBOX)
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct iproc_gpio *chip = gpiochip_get_data(gc);
+
+	unsigned long gpio = d->hwirq;
+	u32 cmd;
+
+	/*
+	 * gpio irq can not be used as a wake source if no mailbox
+	 * channel to PM co-processor is provided.
+	 */
+	if (IS_ERR(chip->mbox_chan))
+		return -ENODEV;
+
+	if (on)
+		cmd = M0_IPC_M0_CMD_AON_GPIO_WAKEUP_GPIO_ENABLE_CFG;
+	else
+		cmd = M0_IPC_M0_CMD_AON_GPIO_WAKEUP_GPIO_DISABLE_CFG;
+
+	ret = iproc_gpio_mailbox_send_cmd(chip, cmd, gpio);
+	if (ret) {
+		dev_err(chip->dev,
+			"M0 mailbox command to set gpio %lu wake enable failed with error %d\n",
+			gpio, ret);
+		ret = ret < 0 ? ret : -EINVAL;
+	}
+#endif
+
+	return ret;
+}
+
 static struct irq_chip iproc_gpio_irq_chip = {
 	.name = "bcm-iproc-gpio",
 	.irq_ack = iproc_gpio_irq_ack,
 	.irq_mask = iproc_gpio_irq_mask,
 	.irq_unmask = iproc_gpio_irq_unmask,
 	.irq_set_type = iproc_gpio_irq_set_type,
+	.irq_enable = iproc_gpio_irq_unmask,
+	.irq_disable = iproc_gpio_irq_mask,
+	.irq_set_wake = iproc_gpio_irq_set_wake,
 };
 
 /*
@@ -812,6 +875,20 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 		}
 	}
 
+#if defined(CONFIG_MAILBOX)
+	/* Request mailbox channel. This is optional.*/
+	chip->client.dev          = &pdev->dev;
+	chip->client.tx_block     = false;
+	chip->client.tx_tout      = 1;
+	chip->client.knows_txdone = true;
+	chip->mbox_chan = mbox_request_channel(&chip->client, 0);
+	if (IS_ERR(chip->mbox_chan) && PTR_ERR(chip->mbox_chan) != -ENODEV) {
+		dev_err(dev, "unable to request PM mailbox channel\n");
+		ret = PTR_ERR(chip->mbox_chan);
+		goto err_rm_gpiochip;
+	}
+#endif
+
 	/* optional GPIO interrupt support */
 	irq = platform_get_irq(pdev, 0);
 	if (irq) {
@@ -819,7 +896,7 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 					   handle_simple_irq, IRQ_TYPE_NONE);
 		if (ret) {
 			dev_err(dev, "no GPIO irqchip\n");
-			goto err_rm_gpiochip;
+			goto err_mbox;
 		}
 
 		gpiochip_set_chained_irqchip(gc, &iproc_gpio_irq_chip, irq,
@@ -828,6 +905,8 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_mbox:
+	mbox_free_channel(chip->mbox_chan);
 err_rm_gpiochip:
 	gpiochip_remove(gc);
 
