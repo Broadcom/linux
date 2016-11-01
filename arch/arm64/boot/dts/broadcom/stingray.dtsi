@@ -169,6 +169,8 @@
 
 		dma-coherent;
 
+		msi-map = <0x100 &gic_its 0x040 0x8>;
+
 		status = "disabled";
 	};
 
@@ -189,6 +191,8 @@
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
 		dma-coherent;
+
+		msi-map = <0x100 &gic_its 0x440 0x8>;
 
 		status = "disabled";
 	};
@@ -211,6 +215,8 @@
 
 		dma-coherent;
 
+		msi-map = <0x100 &gic_its 0x840 0x8>;
+
 		status = "disabled";
 	};
 
@@ -231,6 +237,8 @@
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
 		dma-coherent;
+
+		msi-map = <0x100 &gic_its 0xc40 0x8>;
 
 		status = "disabled";
 	};
@@ -253,6 +261,8 @@
 
 		dma-coherent;
 
+		msi-map = <0x100 &gic_its 0x1040 0x8>;
+
 		status = "disabled";
 	};
 
@@ -273,6 +283,8 @@
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
 		dma-coherent;
+
+		msi-map = <0x100 &gic_its 0x1440 0x8>;
 
 		status = "disabled";
 	};
@@ -295,6 +307,8 @@
 
 		dma-coherent;
 
+		msi-map = <0x100 &gic_its 0x1840 0x8>;
+
 		status = "disabled";
 	};
 
@@ -315,6 +329,8 @@
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
 		dma-coherent;
+
+		msi-map = <0x100 &gic_its 0x1c40 0x8>;
 
 		status = "disabled";
 	};
