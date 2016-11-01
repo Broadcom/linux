@@ -43,6 +43,11 @@ Optional properties:
 - interrupt-controller:
     Specifies that the node is an interrupt controller
 
+- interrupt-parent:
+    Specifies an interrupt parent. The parent can be the mailbox controller if
+    interrupt forwarding is being used. If this is the case then 'interrupts'
+    must be 0 to specify the AON GPIO irq domain.
+
 - gpio-ranges:
     Specifies the mapping between gpio controller and pin-controllers pins.
     This requires 4 fields in cells defined as -
@@ -55,6 +60,11 @@ Optional properties:
     Certain iProc SoCs might have some of the PINCONF functions disabled in
 the chip when the iProc GPIO controller is integrated. This optional property
 allows unsupported PINCONF functions to be disabled
+
+- mboxes:
+    A phandle specifying the mailbox controller and channel used to communicate
+    with the co-processor. This is required to configure a gpio pin as a wake
+    source from sleep and deep sleep states.
 
 Supported generic PINCONF properties in child nodes:
 
@@ -75,6 +85,36 @@ in the node apply to. Pin names are "gpio-<pin>"
     Valid drive strength values include 2, 4, 6, 8, 10, 12, 14, 16 (mA)
 
 Example:
+	/*
+	 * Mailbox controller used by gpio_crmu. For more information see:
+	 * Documentation/devicetree/bindings/mailbox/brcm,iproc-mailbox.txt
+	 */
+	mailbox: mailbox@03024024 {
+		compatible = "brcm,iproc-mailbox";
+		reg = <0x03024024 0x40>;
+		interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
+		#interrupt-cells = <1>;
+		interrupt-controller;
+		#mbox-cells = <1>;
+	};
+
+	/*
+	 * CRMU gpio handler configured with mailbox channel 1 to
+	 * support wake source configuration.
+	 */
+	gpio_crmu: gpio@03024800 {
+		compatible = "brcm,cygnus-crmu-gpio";
+		reg = <0x03024800 0x50>,
+		      <0x03024008 0x18>;
+		ngpios = <6>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		interrupt-controller;
+		interrupt-parent = <&mailbox>;
+		interrupts = <0>;
+		mboxes = <&mailbox 1>;
+	};
+
 	gpio_ccm: gpio@1800a000 {
 		compatible = "brcm,cygnus-ccm-gpio";
 		reg = <0x1800a000 0x50>,
