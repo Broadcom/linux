@@ -213,6 +213,7 @@
 			interrupt-controller;
 			interrupt-parent = <&mailbox>;
 			interrupts = <0>;
+			mboxes = <&mailbox 1>;
 		};
 
 		mdio: mdio@18002000 {
