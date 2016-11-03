@@ -468,3 +468,31 @@
 &sata19_phy0 {
 	status = "okay";
 };
+
+&xhci0 {
+	status = "ok";
+};
+
+&xhci1 {
+	status = "ok";
+};
+
+&bdc0 {
+	status = "ok";
+};
+
+&bdc1 {
+	status = "ok";
+};
+
+&usb0_phy0 {
+	status = "ok";
+};
+
+&usb1_phy0 {
+	status = "ok";
+};
+
+&usb1_phy1 {
+	status = "ok";
+};
