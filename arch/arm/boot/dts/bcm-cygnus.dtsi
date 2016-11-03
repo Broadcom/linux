@@ -625,5 +625,15 @@
 			compatible = "brcm,iproc-dte";
 			reg = <0x180af000 0x1000>;
 		};
+
+		pm: pm@19020000 {
+			compatible = "brcm,cygnus-pm";
+			reg = <0x19020000 0x100>,
+			      <0x03024024 0x7c>,
+			      <0x1800e000 0x2000>;
+			reg-names = "scu", "crmu", "cru";
+			mboxes = <&mailbox 2>;
+			status = "disabled";
+		};
 	};
 };
