@@ -12,7 +12,7 @@
  */
 
 #include <asm/mach/arch.h>
-#include "iproc_pm.h"
+#include "cygnus_pm.h"
 
 static const char * const bcm_cygnus_dt_compat[] __initconst = {
 	"brcm,cygnus",
@@ -20,7 +20,7 @@ static const char * const bcm_cygnus_dt_compat[] __initconst = {
 };
 
 DT_MACHINE_START(BCM_CYGNUS_DT, "Broadcom Cygnus SoC")
-	.init_late	= iproc_pm_init,
+	.init_late	= cygnus_pm_init,
 	.l2c_aux_val	= 0,
 	.l2c_aux_mask	= ~0,
 	.dt_compat = bcm_cygnus_dt_compat,

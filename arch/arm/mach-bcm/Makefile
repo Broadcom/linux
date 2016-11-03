@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012-2015 Broadcom Corporation
+# Copyright (C) 2012-2016 Broadcom Corporation
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -16,8 +16,10 @@ obj-$(CONFIG_ARCH_BCM_CYGNUS) +=  bcm_cygnus.o
 # Northstar Plus
 obj-$(CONFIG_ARCH_BCM_NSP)	+= bcm_nsp.o
 
-ifeq ($(CONFIG_ARCH_BCM_IPROC),y)
-obj-$(CONFIG_PM)		+= iproc_pm.o
+ifeq ($(CONFIG_ARCH_BCM_CYGNUS),y)
+obj-$(CONFIG_PM)		+= cygnus_pm.o
+obj-$(CONFIG_PM)		+= cygnus_pm_device.o
+obj-$(CONFIG_PM)		+= cygnus_pm_sleep.o
 endif
 
 ifeq ($(CONFIG_ARCH_BCM_NSP),y)

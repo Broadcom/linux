@@ -10,30 +10,14 @@
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <linux/linkage.h>
 
-#include <linux/kernel.h>
-#include <linux/suspend.h>
-#include "iproc_pm.h"
+	.align
 
-static int iproc_suspend_enter(suspend_state_t state)
-{
-	switch (state) {
-	case PM_SUSPEND_MEM:
-		cpu_do_idle();
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static const struct platform_suspend_ops iproc_suspend_ops = {
-	.enter = iproc_suspend_enter,
-	.valid = suspend_valid_only_mem,
-};
-
-void __init iproc_pm_init(void)
-{
-	suspend_set_ops(&iproc_suspend_ops);
-}
+/*
+ * Kernel resume entry. Invalidates the L1 cache then resume.
+ */
+ENTRY(cygnus_pm_cpu_resume)
+	bl  v7_invalidate_l1
+	b   cpu_resume
+ENDPROC(cygnus_pm_cpu_resume)
