@@ -192,6 +192,26 @@
 					"audio_dte2_grp";
 				};
 			};
+
+			dte_lts_0: dte_lts_0 {
+				function = "audio_dte";
+				groups = "audio_dte0_grp", "audio_dte1_grp";
+			};
+
+			spi_0: spi_0 {
+				function = "spi0";
+				groups = "spi0_grp";
+			};
+
+			spi_1: spi_1 {
+				function = "spi1";
+				groups = "spi1_grp";
+			};
+
+			spi_2: spi_2 {
+				function = "spi2";
+				groups = "spi2_grp";
+			};
 		};
 
 		mailbox: mailbox@03024024 {
@@ -349,6 +369,23 @@
 			};
 		};
 
+		dma0: dma@18018000 {
+			compatible = "arm,pl330", "arm,primecell";
+			reg = <0x18018000 0x1000>;
+			interrupts = <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&apb_clk>;
+			clock-names = "apb_pclk";
+			#dma-cells = <1>;
+		};
+
 		uart0: serial@18020000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0x18020000 0x100>;
@@ -393,6 +430,52 @@
 			status = "disabled";
 		};
 
+		spi0@18028000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x18028000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&spi_0>;
+			clocks = <&axi81_clk>;
+			clock-names = "apb_pclk";
+			status = "disabled";
+		};
+
+		spi1: spi@18029000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x18029000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&spi_1>;
+			clocks = <&axi81_clk>;
+			clock-names = "apb_pclk";
+			status = "disabled";
+		};
+
+		spi2: spi@1802a000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x1802a000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&spi_2>;
+			clocks = <&axi81_clk>;
+			clock-names = "apb_pclk";
+			status = "disabled";
+		};
+
+		sdhci0: sdhci@18041000 {
+			compatible = "brcm,sdhci-iproc-cygnus";
+			reg = <0x18041000 0x100>;
+			interrupts = <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&lcpll0 BCM_CYGNUS_LCPLL0_SDIO_CLK>;
+			bus-width = <4>;
+			sdhci,auto-cmd12;
+			status = "disabled";
+		};
+
 		enet: enet@18042000 {
 			compatible = "brcm,amac-enet";
 			reg = <0x18042000 0x1000>,
@@ -408,6 +491,16 @@
 			max-speed = <1000>;
 			phy-handle = <&gphy0>;
 			brcm,enet-pause-disable;
+			status = "disabled";
+		};
+
+		sdhci1: sdhci@18043000 {
+			compatible = "brcm,sdhci-iproc-cygnus";
+			reg = <0x18043000 0x100>;
+			interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&lcpll0 BCM_CYGNUS_LCPLL0_SDIO_CLK>;
+			bus-width = <4>;
+			sdhci,auto-cmd12;
 			status = "disabled";
 		};
 
@@ -581,6 +674,20 @@
 			clock-names = "iproc_d1w_clk";
 			clock-frequency = <100000000>;
 			reset-recover-delay = <1>;
+			status = "disabled";
+		};
+
+		keypad: keypad@180ac000 {
+			compatible = "brcm,bcm-keypad";
+			reg = <0x180ac000 0x14c>;
+			interrupts = <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&asiu_clks BCM_CYGNUS_ASIU_KEYPAD_CLK>;
+			clock-names = "peri_clk";
+			clock-frequency = <31250>;
+			pull-up-enabled;
+			col-debounce-filter-period = <0>;
+			status-debounce-filter-period = <0>;
+			row-output-enabled;
 			status = "disabled";
 		};
 
