@@ -747,7 +747,7 @@
 			compatible = "snps,dw-apb-uart";
 			reg = <0x68a00000 0x1000>;
 			reg-shift = <2>;
-			clock-frequency = <2500000>;
+			clock-frequency = <25000000>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
@@ -758,7 +758,7 @@
 			compatible = "snps,dw-apb-uart";
 			reg = <0x68a10000 0x1000>;
 			reg-shift = <2>;
-			clock-frequency = <2500000>;
+			clock-frequency = <25000000>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
@@ -769,7 +769,7 @@
 			compatible = "snps,dw-apb-uart";
 			reg = <0x68a20000 0x1000>;
 			reg-shift = <2>;
-			clock-frequency = <2500000>;
+			clock-frequency = <25000000>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
@@ -780,7 +780,7 @@
 			compatible = "snps,dw-apb-uart";
 			reg = <0x68a30000 0x1000>;
 			reg-shift = <2>;
-			clock-frequency = <2500000>;
+			clock-frequency = <25000000>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
