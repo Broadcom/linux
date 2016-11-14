@@ -125,11 +125,14 @@
 };
 
 &raid_mbox {
-	status = "disabled";
+	/* Use only one ring to save memory */
+	reg = <0x67400000 0x10000>;
+	/delete-property/ dma-coherent;
 };
 
 &raid0 {
-	status = "disabled";
+	/* Use only one ring to save memory */
+	mboxes = <&raid_mbox 0 0x1 0xff00>;
 };
 
 &raid1 {
