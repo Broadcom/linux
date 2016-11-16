@@ -792,6 +792,7 @@
 			interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_div4_clk>, <&hsls_div4_clk>;
 			clock-names = "spiclk", "apb_pclk";
+			num-cs = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -803,6 +804,7 @@
 			interrupts = <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_div4_clk>, <&hsls_div4_clk>;
 			clock-names = "spiclk", "apb_pclk";
+			num-cs = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
