@@ -547,7 +547,7 @@
 		otp: otp@6641c400 {
 			compatible = "brcm,ocotp-v2";
 			reg = <0x6641c400 0x68>;
-			brcm,ocotp-size = <16384>;
+			brcm,ocotp-size = <2048>;
 			status = "disabled";
 		};
 
