@@ -174,3 +174,11 @@
 		spi-max-frequency = <20000000>;
 	};
 };
+
+&mdio_mux_iproc {
+	mdio@10 {
+		gphy0: eth-phy@10 {
+			reg = <0x10>;
+		};
+	};
+};

@@ -583,8 +583,8 @@
 				#size-cells = <0>;
 			};
 
-			mdio@11 { /* SGMII */
-				reg = <0x11>;
+			mdio@10 { /* SGMII */
+				reg = <0x10>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 			};
