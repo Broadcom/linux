@@ -32,8 +32,26 @@ enum sata_phy_regs {
 	BLOCK0_XGXSSTATUS_PLL_LOCK	= BIT(12),
 	BLOCK0_SPARE			= 0x8d,
 	BLOCK0_SPEEDCTRL		= 0x8e,
-	SAPIS_DATA_RATE_OVERRIDE_VAL	= 0x2400,
-	TX0_DATA_RATE_VAL		= 0x0012,
+	/*
+	 * For Gen 1 - 0x400
+	 * For Gen 2 - 0x1400
+	 * For Gen 3 - 0x2400
+	 */
+	SAPIS_DATA_RATE_OVERRIDE_VAL	= 0x1400,
+
+	/*
+	 * For Gen 1 - 0x10
+	 * For Gen 2 - 0x11
+	 * For Gen 3 - 0x12
+	 */
+	TX0_DATA_RATE_VAL		= 0x0011,
+	/*
+	 * 0x600 - 2   x REFCLK = 200 MHz
+	 * 0x601 - 1/2 x REFCLK = 50  MHz - Passed for Gen 1
+	 * 0x602 - 1   x REFCLK = 100 MHz - Passed for Gen 2
+	 * 0x603 - 1   x REFCLK = 100 MHz
+	 */
+	OOB_REF_CLK_SEL			= 0x602,
 
 	BLOCK1_REG_BANK			= 0x0010,
 	BLOCK1_TX_TEST			= 0x83,
@@ -128,14 +146,17 @@ static int sata_phy_bert_setup(struct sata_prbs_test *test)
 	sata_phy_write(base, BLOCK0_REG_BANK, BLOCK0_SPEEDCTRL, 0x0,
 			SAPIS_DATA_RATE_OVERRIDE_VAL);
 	/* Software override SAPIS enable and enable tx0 driver */
-	sata_phy_write(base, BLOCK0_REG_BANK, BLOCK0_SPARE, 0x0, 0x0600);
+	sata_phy_write(base, BLOCK0_REG_BANK, BLOCK0_SPARE, 0x0,
+			OOB_REF_CLK_SEL);
 
 	/* Verifying that data has been written */
 	data_rd = sata_phy_read(base, BLOCK0_REG_BANK, BLOCK0_SPEEDCTRL);
 
-	if (data_rd == SAPIS_DATA_RATE_OVERRIDE_VAL)
+	if (data_rd == SAPIS_DATA_RATE_OVERRIDE_VAL) {
 		dev_info(test->dev, "Data read from 0x%x is correct- 0x%x\n",
 			 BLOCK0_SPEEDCTRL, data_rd);
+		dev_info(test->dev, "overridden SAPIS_DATA_RATE input");
+	}
 	else {
 		dev_err(test->dev, "Data read from address 0x%x is incorrect\n",
 			BLOCK0_SPEEDCTRL);
@@ -145,14 +166,16 @@ static int sata_phy_bert_setup(struct sata_prbs_test *test)
 	}
 
 	data_rd = sata_phy_read(base, BLOCK0_REG_BANK, BLOCK0_SPARE);
-	if (data_rd == 0x0600)
+	if (data_rd == OOB_REF_CLK_SEL) {
 		dev_info(test->dev, "Data read from 0x%x is correct- 0x%x\n",
 			 BLOCK0_SPARE, data_rd);
+		dev_info(test->dev, "Software override SAPIS enable and enabled tx0 driver");
+	}
 	else {
 		dev_err(test->dev, "Data read from address 0x%x is incorrect\n",
 			BLOCK0_SPARE);
 		dev_info(test->dev, "Expected is 0x%x, Received is 0x%x\n",
-			 0x0600, data_rd);
+			 OOB_REF_CLK_SEL, data_rd);
 		return -EIO;
 	}
 
@@ -161,9 +184,11 @@ static int sata_phy_bert_setup(struct sata_prbs_test *test)
 			TX0_DATA_RATE_VAL);
 
 	data_rd = sata_phy_read(base, BLOCK1_REG_BANK, BLOCK1_TX_TEST);
-	if (data_rd == TX0_DATA_RATE_VAL)
+	if (data_rd == TX0_DATA_RATE_VAL) {
 		dev_info(test->dev, "Data read from 0x%x is correct- 0x%x\n",
 			 BLOCK1_TX_TEST, data_rd);
+		dev_info(test->dev, "Set tx0_data_rate_val for tx0 driver");
+	}
 	else {
 		dev_err(test->dev, "Data read from address 0x%x is incorrect\n",
 			BLOCK1_TX_TEST);
@@ -180,11 +205,16 @@ static int sata_phy_begin_test(struct sata_prbs_test *test)
 	void __iomem *base = test->pcb_base;
 
 	/* Select prbs data as TX test data source */
-	sata_phy_write(base, TX_REG_BANK, TX_GEN_CTRL1, 0x0, 0x02);
+	data_rd = sata_phy_read(base, TX_REG_BANK, TX_GEN_CTRL1);
+	dev_info(test->dev, "Data read from 0x%x is- 0x%x\n",
+			TX_GEN_CTRL1, data_rd);
+
+	sata_phy_write(base, TX_REG_BANK, TX_GEN_CTRL1, 0x0, 0x42);
 
 	/* Enable PRBS7 monitor */
 	sata_phy_write(base, BLOCK1_REG_BANK, BLOCK1_PRBSCONTROL, 0x0, 0x88);
 	udelay(50);
+	dev_info(test->dev, "Enabled PRBS monitor\n");
 
 	sata_phy_write(base, RX_REG_BANK, RX_GEN_CTRL2, 0x0, 0x0800);
 	/* Select PRBS status register as RX_STATUS register input */
@@ -212,7 +242,8 @@ static int do_prbs_test(struct sata_prbs_test *test)
 	if (ret) {
 		dev_err(test->dev, "SATA PHY PRBS setup FAILED\n");
 		return 0;
-	}
+	} else
+		dev_info(test->dev, "BERT setup done");
 
 	ret = sata_phy_begin_test(test);
 	if (ret)
