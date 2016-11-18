@@ -89,6 +89,10 @@ enum sata_phy_regs {
 	PLL1_ACTRL3				= 0x83,
 	PLL1_ACTRL4				= 0x84,
 
+	TX_REG_BANK				= 0x070,
+	TX_ACTRL0				= 0x80,
+	TX_ACTRL0_TXPOL_FLIP			= BIT(6),
+
 	OOB_REG_BANK				= 0x150,
 	OOB1_REG_BANK				= 0x160,
 	OOB_CTRL1				= 0x80,
@@ -364,18 +368,6 @@ static int brcm_sr_sata_init(struct brcm_sata_port *port)
 	void __iomem *base = priv->phy_base;
 	unsigned int val, try;
 
-	/* Configure OOB control to handle 100MHz reference clock */
-	val = ((0xc << OOB_CTRL1_BURST_MAX_SHIFT) |
-		(0x4 << OOB_CTRL1_BURST_MIN_SHIFT) |
-		(0x8 << OOB_CTRL1_WAKE_IDLE_MAX_SHIFT) |
-		(0x3 << OOB_CTRL1_WAKE_IDLE_MIN_SHIFT));
-	brcm_sata_phy_wr(base, OOB_REG_BANK, OOB_CTRL1, 0x0, val);
-
-	val = ((0x1b << OOB_CTRL2_RESET_IDLE_MAX_SHIFT) |
-		(0x2 << OOB_CTRL2_BURST_CNT_SHIFT) |
-		(0x9 << OOB_CTRL2_RESET_IDLE_MIN_SHIFT));
-	brcm_sata_phy_wr(base, OOB_REG_BANK, OOB_CTRL2, 0x0, val);
-
 	/* Configure PHY PLL register bank 1 */
 	val = SR_PLL1_ACTRL2_MAGIC;
 	brcm_sata_phy_wr(base, PLL1_REG_BANK, PLL1_ACTRL2, 0x0, val);
@@ -387,7 +379,6 @@ static int brcm_sr_sata_init(struct brcm_sata_port *port)
 	/* Configure PHY PLL register bank 0 */
 	val = SR_PLL0_ACTRL6_MAGIC;
 	brcm_sata_phy_wr(base, PLL_REG_BANK_0, PLL_ACTRL6, 0x0, val);
-
 
 	/* Wait for PHY PLL lock by polling pll_lock bit */
 	try = 50;
@@ -405,6 +396,21 @@ static int brcm_sr_sata_init(struct brcm_sata_port *port)
 		dev_err(dev, "port%d PLL did not lock\n", port->portnum);
 		return -ETIMEDOUT;
 	}
+
+	/* Invert Tx polarity */
+	brcm_sata_phy_wr(base, TX_REG_BANK, TX_ACTRL0,
+			 ~TX_ACTRL0_TXPOL_FLIP, TX_ACTRL0_TXPOL_FLIP);
+
+	/* Configure OOB control to handle 100MHz reference clock */
+	val = ((0xc << OOB_CTRL1_BURST_MAX_SHIFT) |
+		(0x4 << OOB_CTRL1_BURST_MIN_SHIFT) |
+		(0x8 << OOB_CTRL1_WAKE_IDLE_MAX_SHIFT) |
+		(0x3 << OOB_CTRL1_WAKE_IDLE_MIN_SHIFT));
+	brcm_sata_phy_wr(base, OOB_REG_BANK, OOB_CTRL1, 0x0, val);
+	val = ((0x1b << OOB_CTRL2_RESET_IDLE_MAX_SHIFT) |
+		(0x2 << OOB_CTRL2_BURST_CNT_SHIFT) |
+		(0x9 << OOB_CTRL2_RESET_IDLE_MIN_SHIFT));
+	brcm_sata_phy_wr(base, OOB_REG_BANK, OOB_CTRL2, 0x0, val);
 
 	return 0;
 }
