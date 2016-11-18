@@ -603,8 +603,8 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x68930000 0x1000>;
 			interrupts = <GIC_SPI 179 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsls_div4_clk>,
-				 <&hsls_div4_clk>,
+			clocks = <&hsls_25m_div2_clk>,
+				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 			arm,sp804-no-sched-clock;
@@ -615,8 +615,8 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x68940000 0x1000>;
 			interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsls_div4_clk>,
-				 <&hsls_div4_clk>,
+			clocks = <&hsls_25m_div2_clk>,
+				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 			arm,sp804-no-sched-clock;
@@ -626,8 +626,8 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x68950000 0x1000>;
 			interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsls_div4_clk>,
-				 <&hsls_div4_clk>,
+			clocks = <&hsls_25m_div2_clk>,
+				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 			arm,sp804-no-sched-clock;
@@ -637,8 +637,8 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x68960000 0x1000>;
 			interrupts = <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsls_div4_clk>,
-				 <&hsls_div4_clk>,
+			clocks = <&hsls_25m_div2_clk>,
+				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 			arm,sp804-no-sched-clock;
@@ -648,8 +648,8 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x68970000 0x1000>;
 			interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsls_div4_clk>,
-				 <&hsls_div4_clk>,
+			clocks = <&hsls_25m_div2_clk>,
+				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 			arm,sp804-no-sched-clock;
@@ -659,8 +659,8 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x68980000 0x1000>;
 			interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsls_div4_clk>,
-				 <&hsls_div4_clk>,
+			clocks = <&hsls_25m_div2_clk>,
+				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 			arm,sp804-no-sched-clock;
@@ -670,8 +670,8 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x68990000 0x1000>;
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsls_div4_clk>,
-				 <&hsls_div4_clk>,
+			clocks = <&hsls_25m_div2_clk>,
+				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 			arm,sp804-no-sched-clock;
@@ -681,8 +681,8 @@
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x689a0000 0x1000>;
 			interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsls_div4_clk>,
-				 <&hsls_div4_clk>,
+			clocks = <&hsls_25m_div2_clk>,
+				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
 			arm,sp804-no-sched-clock;
@@ -702,7 +702,7 @@
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x689c0000 0x1000>;
 			interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsls_div4_clk>, <&hsls_div4_clk>;
+			clocks = <&hsls_25m_div2_clk>, <&hsls_div4_clk>;
 			clock-names = "wdogclk", "apb_pclk";
 		};
 
