@@ -79,6 +79,7 @@
 #define USB3H_U3PHY_CTRL		0x14
 #define USB3H_U3SOFT_RST_N		BIT(30)
 #define USB3H_U3MDIO_RESETB_I		BIT(29)
+#define USB3H_U3POR_RESET_I		BIT(28)
 #define USB3H_U3PHY_PCTL_MASK		0xFFFF
 #define USB3H_U3PHY_PCTL_OFFSET		2
 #define USB3H_U3PHY_RESETB		BIT(1)
@@ -86,11 +87,13 @@
 #define USB3H_U3PHY_PLL_CTRL		0x18
 #define USB3H_U3PLL_REFCLK_MASK		0x7
 #define USB3H_U3PLL_REFCLK_OFFSET	4
-#define USB3H_U3PLL_SS_LOCK		3
-#define USB3H_U3PLL_SEQ_START		2
+#define USB3H_U3PLL_SS_LOCK		BIT(3)
+#define USB3H_U3PLL_SEQ_START		BIT(2)
 #define DRDU3_U3SSPLL_SUSPEND_EN	BIT(1)
 #define USB3H_U3PLL_RESETB		BIT(0)
 
+#define USB3H_PWR_CTRL			0x28
+#define USB3H_PWR_CTRL_OVERRIDE_I_R	4
 
 #define USB3H_SOFT_RESET_CTRL		0x2C
 #define USB3H_XHC_AXI_SOFT_RST_N	BIT(1)
@@ -126,6 +129,7 @@
 #define DRDU3_U3XHC_SOFT_RST_N		BIT(31)
 #define DRDU3_U3BDC_SOFT_RST_N		BIT(30)
 #define DRDU3_U3MDIO_RESETB_I		BIT(29)
+#define DRDU3_U3POR_RESET_I		BIT(28)
 #define DRDU3_U3PHY_PCTL_MASK		0xFFFF
 #define DRDU3_U3PHY_PCTL_OFFSET		2
 #define DRDU3_U3PHY_RESETB		BIT(1)
@@ -143,6 +147,9 @@
 #define BDC_USB_STP_SPD_OFFSET		0
 #define BDC_USB_STP_SPD_SS		0x0
 #define BDC_USB_STP_SPD_HS		0x2
+
+#define DRDU3_PWR_CTRL			0x2c
+#define DRDU3_PWR_CTRL_OVERRIDE_I_R	4
 
 #define DRDU3_SOFT_RESET_CTRL		0x30
 #define DRDU3_XHC_AXI_SOFT_RST_N	BIT(1)
@@ -215,12 +222,13 @@ static int pll_lock_check(void __iomem *addr, u32 bit)
 
 	retry = PLL_LOCK_RETRY_COUNT;
 	do {
-		udelay(1);
 		rd_data = readl(addr);
 		if (rd_data & bit)
 			return 0;
+		udelay(1);
 	} while (--retry > 0);
 
+	pr_err("%s: FAIL\n", __func__);
 	return -ETIMEDOUT;
 }
 
@@ -255,21 +263,16 @@ static int usb3h_u2_phy_power_on(void __iomem *regs)
 	u32 rd_data;
 	int ret = 0;
 
-	writel(U2PLL_NDIV_INT_VAL, regs + USB3H_U2PLL_NDIV_INT);
-	writel(U2PLL_NDIV_FRAC_VAL, regs + USB3H_U2PLL_NDIV_FRAC);
-	rd_data = readl(regs + USB3H_U2PLL_CTRL);
-	rd_data &= ~(USB3H_U2PLL_PDIV_MASK);
-	rd_data |= (U2PLL_PDIV_VAL << USB3H_U2PLL_PDIV_OFFSET);
-	writel(rd_data, regs + USB3H_U2PLL_CTRL);
-
 	/* Set Core Ready high */
 	reg32_setbits(regs + USB3H_U2PHY_CTRL, USB3H_U2CTRL_CORERDY);
+	msleep(100);
 
 	rd_data = readl(regs + USB3H_U2PHY_CTRL);
-	rd_data &= ~(USB3H_U2PHY_PCTL_MASK);
+	rd_data &= ~(USB3H_U2PHY_PCTL_MASK << USB3H_U2PHY_PCTL_OFFSET);
 	rd_data |= (U2PHY_PCTL_VAL << USB3H_U2PHY_PCTL_OFFSET);
 	writel(rd_data, regs + USB3H_U2PHY_CTRL);
 
+	msleep(300);
 	reg32_setbits(regs + USB3H_U2PLL_CTRL,
 			USB3H_U2PLL_RESETB);
 
@@ -281,33 +284,43 @@ static int usb3h_u2_phy_power_on(void __iomem *regs)
 	return ret;
 }
 
+
 static int usb3h_u3_phy_power_on(void __iomem *regs)
 {
 	u32 rd_data;
 	int ret = 0;
 
+	rd_data = readl(regs + USB3H_U3PHY_CTRL);
+	rd_data &= ~(USB3H_U3POR_RESET_I);
+	writel(rd_data, regs + USB3H_U3PHY_CTRL);
+
+	rd_data = readl(regs + USB3H_PWR_CTRL);
+	rd_data &= ~(0x3 << USB3H_PWR_CTRL_OVERRIDE_I_R);
+	rd_data |= (1 << USB3H_PWR_CTRL_OVERRIDE_I_R);
+	writel(rd_data, regs + USB3H_PWR_CTRL);
+
+	msleep(100);
+
 	reg32_setbits(regs + USB3H_U3PHY_PLL_CTRL,
 			USB3H_U3PLL_SEQ_START);
 
-	/* Ref clk is chosen internal clk */
-	rd_data = readl(regs + USB3H_U3PHY_PLL_CTRL);
-	rd_data &= ~USB3H_U3PLL_REFCLK_MASK;
-	rd_data |= (PLL_REFCLK_INTERNAL << USB3H_U3PLL_REFCLK_OFFSET);
-	writel(rd_data, regs + USB3H_U3PHY_PLL_CTRL);
+	reg32_setbits(regs + USB3H_U3PHY_CTRL,
+			(USB3H_U3PHY_RESETB |
+			USB3H_U3SOFT_RST_N |
+			USB3H_U3MDIO_RESETB_I));
 
-	/* Set pctl with mode and soft reset */
-	rd_data = readl(regs + USB3H_U3PHY_CTRL);
-	rd_data &= ~(USB3H_U3PHY_PCTL_MASK);
-	rd_data |= (U3PHY_PCTL_VAL << USB3H_U3PHY_PCTL_OFFSET);
-	writel(rd_data, regs + USB3H_U3PHY_CTRL);
+	msleep(30);
 
 	reg32_setbits(regs + USB3H_U3PHY_PLL_CTRL,
 			USB3H_U3PLL_RESETB);
 
-	reg32_setbits(regs + USB3H_U3PHY_CTRL,
-			USB3H_U3PHY_RESETB |
-			USB3H_U3SOFT_RST_N |
-			USB3H_U3MDIO_RESETB_I);
+	/* Set pctl with mode and soft reset */
+	rd_data = readl(regs + USB3H_U3PHY_CTRL);
+	rd_data &= ~(USB3H_U3PHY_PCTL_MASK << USB3H_U3PHY_PCTL_OFFSET);
+	rd_data |= (U3PHY_PCTL_VAL << USB3H_U3PHY_PCTL_OFFSET);
+	writel(rd_data, regs + USB3H_U3PHY_CTRL);
+
+	msleep(30);
 
 	ret = pll_lock_check(regs + USB3H_U3PHY_PLL_CTRL, USB3H_U3PLL_SS_LOCK);
 
@@ -320,20 +333,22 @@ static int drdu3_u2_phy_power_on(void __iomem *regs)
 	u32 rd_data;
 	int ret = 0;
 
-	writel(U2PLL_NDIV_INT_VAL, regs + DRDU3_U2PLL_NDIV_INT);
-	writel(U2PLL_NDIV_FRAC_VAL, regs + DRDU3_U2PLL_NDIV_FRAC);
-	rd_data = readl(regs + DRDU3_U2PLL_CTRL);
-	rd_data &= ~(DRDU3_U2PLL_PDIV_MASK);
-	rd_data |= (U2PLL_PDIV_VAL << DRDU3_U2PLL_PDIV_OFFSET);
-	writel(rd_data, regs + DRDU3_U2PLL_CTRL);
-
 	/* Set Core Ready high */
 	reg32_setbits(regs + DRDU3_U2PHY_CTRL, DRDU3_U2CTRL_CORERDY);
 
+	msleep(100);
+
+	rd_data = readl(regs + DRDU3_STRAP_CTRL);
+	rd_data &= (~(BDC_USB_STP_SPD_MASK << BDC_USB_STP_SPD_OFFSET));
+	rd_data |= (BDC_USB_STP_SPD_SS << BDC_USB_STP_SPD_OFFSET);
+	writel(rd_data, regs + DRDU3_STRAP_CTRL);
+
 	rd_data = readl(regs + DRDU3_U2PHY_CTRL);
-	rd_data &= ~(DRDU3_U2PHY_PCTL_MASK);
+	rd_data &= ~(DRDU3_U2PHY_PCTL_MASK << DRDU3_U2PHY_PCTL_OFFSET);
 	rd_data |= (U2PHY_PCTL_VAL << DRDU3_U2PHY_PCTL_OFFSET);
 	writel(rd_data, regs + DRDU3_U2PHY_CTRL);
+
+	msleep(300);
 
 	reg32_setbits(regs + DRDU3_U2PLL_CTRL,
 			DRDU3_U2PLL_RESETB);
@@ -351,29 +366,36 @@ static int drdu3_u3_phy_power_on(void __iomem *regs)
 	u32 rd_data;
 	int ret = 0;
 
-	reg32_setbits(regs + DRDU3_U3PHY_PLL_CTRL,
-			DRDU3_U3PLL_SEQ_START);
-
-	/* Ref clk is chosen internal clk */
-	rd_data = readl(regs + DRDU3_U3PHY_PLL_CTRL);
-	rd_data &= ~DRDU3_U3PLL_REFCLK_MASK;
-	rd_data |= (PLL_REFCLK_INTERNAL << DRDU3_U3PLL_REFCLK_OFFSET);
-	writel(rd_data, regs + DRDU3_U3PHY_PLL_CTRL);
-
-	/* Set pctl with mode and soft reset */
 	rd_data = readl(regs + DRDU3_U3PHY_CTRL);
-	rd_data &= ~(DRDU3_U3PHY_PCTL_MASK);
-	rd_data |= (U3PHY_PCTL_VAL << DRDU3_U3PHY_PCTL_OFFSET);
+	rd_data &= ~(DRDU3_U3POR_RESET_I);
 	writel(rd_data, regs + DRDU3_U3PHY_CTRL);
 
-	reg32_setbits(regs + DRDU3_U3PHY_PLL_CTRL,
-			DRDU3_U3PLL_RESETB);
+	rd_data = readl(regs + DRDU3_PWR_CTRL);
+	rd_data &= ~(0x3 << DRDU3_PWR_CTRL_OVERRIDE_I_R);
+	rd_data |= (1 << DRDU3_PWR_CTRL_OVERRIDE_I_R);
+	writel(rd_data, regs + DRDU3_PWR_CTRL);
+
+	msleep(100);
 
 	reg32_setbits(regs + DRDU3_U3PHY_CTRL,
 			DRDU3_U3PHY_RESETB |
 			DRDU3_U3BDC_SOFT_RST_N |
 			DRDU3_U3XHC_SOFT_RST_N |
 			DRDU3_U3MDIO_RESETB_I);
+
+	msleep(30);
+
+	reg32_setbits(regs + DRDU3_U3PHY_PLL_CTRL,
+			DRDU3_U3PLL_RESETB);
+
+	/* Set pctl with mode and soft reset */
+	rd_data = readl(regs + DRDU3_U3PHY_CTRL);
+	rd_data &= ~(DRDU3_U3PHY_PCTL_MASK << DRDU3_U3PHY_PCTL_OFFSET);
+	rd_data |= (U3PHY_PCTL_VAL << DRDU3_U3PHY_PCTL_OFFSET);
+	writel(rd_data, regs + DRDU3_U3PHY_CTRL);
+
+	reg32_setbits(regs + DRDU3_U3PHY_PLL_CTRL,
+			DRDU3_U3PLL_SEQ_START);
 
 	ret = pll_lock_check(regs + DRDU3_U3PHY_PLL_CTRL, DRDU3_U3PLL_SS_LOCK);
 
@@ -396,6 +418,7 @@ static int drdu2_u2_phy_power_on(void __iomem *regs)
 
 	reg32_setbits(regs + DRDU2_PHY_CTRL, DRDU2_U2CTRL_CORERDY);
 
+	msleep(100);
 	reg32_setbits(regs + DRDU2_U2PLL_CTRL,
 			DRDU2_U2PLL_RESETB);
 
@@ -424,11 +447,11 @@ static int sr_u3h_u2drd_phy_power_on(struct phy *gphy)
 				(USB3H_DISABLE_EUSB_P1 |
 				 USB3H_DISABLE_USB30_P0));
 
-		ret = usb3h_u2_phy_power_on(p->usb3hreg);
+		ret = usb3h_u3_phy_power_on(p->usb3hreg);
 		if (ret)
 			goto err_usb3h_phy_on;
 
-		ret = usb3h_u3_phy_power_on(p->usb3hreg);
+		ret = usb3h_u2_phy_power_on(p->usb3hreg);
 		if (ret)
 			goto err_usb3h_phy_on;
 
@@ -479,11 +502,11 @@ static int sr_u3drd_phy_power_on(struct phy *gphy)
 			(DRDU3_DISABLE_EUSB_P0 |
 			DRDU3_DISABLE_USB30_P0));
 
-	ret = drdu3_u2_phy_power_on(p->drdu3reg);
+	ret = drdu3_u3_phy_power_on(p->drdu3reg);
 	if (ret)
 		goto err_drdu3_phy_on;
 
-	ret = drdu3_u3_phy_power_on(p->drdu3reg);
+	ret = drdu3_u2_phy_power_on(p->drdu3reg);
 	if (ret)
 		goto err_drdu3_phy_on;
 
