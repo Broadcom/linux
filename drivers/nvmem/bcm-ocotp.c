@@ -34,7 +34,7 @@
 #define OTPC_CMD_READ                0x0
 #define OTPC_CMD_OTP_PROG_ENABLE     0x2
 #define OTPC_CMD_OTP_PROG_DISABLE    0x3
-#define OTPC_CMD_PROGRAM             0xA
+#define OTPC_CMD_PROGRAM             0x8
 
 /* OTPC Status Bits */
 #define OTPC_STAT_CMD_DONE           BIT(1)
