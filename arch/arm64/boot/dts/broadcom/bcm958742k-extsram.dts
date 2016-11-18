@@ -175,6 +175,14 @@
 	};
 };
 
+&sata0_phy0 {
+	status = "ok";
+};
+
+&sata0 {
+	status = "ok";
+};
+
 &mdio_mux_iproc {
 	mdio@10 {
 		gphy0: eth-phy@10 {
