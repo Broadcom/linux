@@ -41,6 +41,7 @@
 
 	aliases {
 		serial0 = &uart3;
+		serial1 = &uart0;
 	};
 
 	chosen {
@@ -69,10 +70,34 @@
 		enable-active-high;
 		status = "okay";
 	};
+
+	bluetooth {
+		compatible = "brcm,bt-rfkill";
+
+		bt-dev-wake-gpio = <&gpio_asiu 42 0>;
+		bt-host-wake-gpio = <&gpio_asiu 41 0>;
+		brcm,rfkill-regulator = <&rf_reg0>;
+	};
+
+	rf_reg0: regulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "bt-rf-reg0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio_asiu 43 0>;
+		enable-active-high;
+	};
 };
 
 &usbphy0 {
 	vbus-p0-supply = <&vbus_p0>;
+};
+
+&uart0 {
+	dcd-override;
+	dsr-override;
+	ri-override;
+	status = "okay";
 };
 
 &uart3 {
