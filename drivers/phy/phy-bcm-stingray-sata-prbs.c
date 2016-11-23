@@ -37,20 +37,25 @@ enum sata_phy_regs {
 	 * For Gen 2 - 0x1400
 	 * For Gen 3 - 0x2400
 	 */
-	SAPIS_DATA_RATE_OVERRIDE_VAL	= 0x1400,
+	SAPIS_DATA_RATE_OVERRIDE_VAL	= 0x400,
+	SAPIS_DATA_RATE_GEN2_MASK	= BIT(12),
+	SAPIS_DATA_RATE_GEN3_MASK	= BIT(13),
 
 	/*
 	 * For Gen 1 - 0x10
 	 * For Gen 2 - 0x11
 	 * For Gen 3 - 0x12
 	 */
-	TX0_DATA_RATE_VAL		= 0x0011,
+	TX0_DATA_RATE_VAL		= 0x0010,
+	TX0_DATA_RATE_GEN2_MASK		= BIT(0),
+	TX0_DATA_RATE_GEN3_MASK		= BIT(1),
+
 	/*
-	 * 0x600 - 2   x REFCLK = 200 MHz
-	 * 0x601 - 1/2 x REFCLK = 50  MHz - Passed for Gen 1
-	 * 0x602 - 1   x REFCLK = 100 MHz - Passed for Gen 2
-	 * 0x603 - 1   x REFCLK = 100 MHz
-	 */
+	* 0x600 - 2   x REFCLK = 200 MHz
+	* 0x601 - 1/2 x REFCLK = 50  MHz
+	* 0x602 - 1   x REFCLK = 100 MHz
+	* 0x603 - 1   x REFCLK = 100 MHz
+	*/
 	OOB_REF_CLK_SEL			= 0x602,
 
 	BLOCK1_REG_BANK			= 0x0010,
@@ -72,7 +77,17 @@ enum sata_phy_regs {
 	RX_STATUS			= 0x80,
 	RX_GEN_CTRL1			= 0x81,
 	RX_GEN_CTRL2			= 0x89,
+
+	BLOCK1D0_REG_BANK		= 0x1D0,
+	TXRX_ACTRL_11			= 0x81,
+	TXRX_ACTRL_12			= 0x82,
+	TXRX_ACTRL_15			= 0x85,
+	TXRX_ACTRL_18			= 0x88,
+	TXRX_ACTRL_1B			= 0x8B,
 };
+
+enum sata_phy_regs sapis_data_rate;
+enum sata_phy_regs tx0_data_rate;
 
 /* SR PHY PLL1 registers values for shortening PLL Lock period */
 #define SR_PLL1_ACTRL2_MAGIC		0x32
@@ -88,6 +103,7 @@ struct sata_prbs_test {
 	unsigned int test_start;
 	unsigned int test_retries;
 	unsigned int err_status;
+	char sata_test_gen[4];
 };
 
 static void sata_phy_write(void __iomem *pcb_base, u32 bank,
@@ -143,17 +159,27 @@ static int sata_phy_bert_setup(struct sata_prbs_test *test)
 		return -ETIMEDOUT;
 	}
 
+	/* PRBS GEN3: TXRX_ACTRL Boost AFE parameter for swing boost */
+	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_11, 0x0, 0x80B9);
+	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_12, 0x0, 0x88A0);
+	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_15, 0x0, 0x7C12);
+	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_18, 0x0, 0x1D16);
+	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_1B, 0x0, 0x244);
+
 	/* override SAPIS_DATA_RATE input */
 	sata_phy_write(base, BLOCK0_REG_BANK, BLOCK0_SPEEDCTRL, 0x0,
-			SAPIS_DATA_RATE_OVERRIDE_VAL);
+			sapis_data_rate);
 	/* Software override SAPIS enable and enable tx0 driver */
 	sata_phy_write(base, BLOCK0_REG_BANK, BLOCK0_SPARE, 0x0,
 			OOB_REF_CLK_SEL);
+	/* Set tx0_data_rate_val for tx0 driver */
+	sata_phy_write(base, BLOCK1_REG_BANK, BLOCK1_TX_TEST, 0x0,
+		       tx0_data_rate);
 
 	/* Verifying that data has been written */
 	data_rd = sata_phy_read(base, BLOCK0_REG_BANK, BLOCK0_SPEEDCTRL);
 
-	if (data_rd == SAPIS_DATA_RATE_OVERRIDE_VAL) {
+	if (data_rd == sapis_data_rate) {
 		dev_info(test->dev, "Data read from 0x%x is correct- 0x%x\n",
 			 BLOCK0_SPEEDCTRL, data_rd);
 		dev_info(test->dev, "overridden SAPIS_DATA_RATE input");
@@ -162,7 +188,7 @@ static int sata_phy_bert_setup(struct sata_prbs_test *test)
 		dev_err(test->dev, "Data read from address 0x%x is incorrect\n",
 			BLOCK0_SPEEDCTRL);
 		dev_info(test->dev, "Expected is 0x%x, Received is 0x%x\n",
-			 SAPIS_DATA_RATE_OVERRIDE_VAL, data_rd);
+			 sapis_data_rate, data_rd);
 		return -EIO;
 	}
 
@@ -180,12 +206,8 @@ static int sata_phy_bert_setup(struct sata_prbs_test *test)
 		return -EIO;
 	}
 
-	/* Set tx0_data_rate_val for tx0 driver */
-	sata_phy_write(base, BLOCK1_REG_BANK, BLOCK1_TX_TEST, 0x0,
-			TX0_DATA_RATE_VAL);
-
 	data_rd = sata_phy_read(base, BLOCK1_REG_BANK, BLOCK1_TX_TEST);
-	if (data_rd == TX0_DATA_RATE_VAL) {
+	if (data_rd == tx0_data_rate) {
 		dev_info(test->dev, "Data read from 0x%x is correct- 0x%x\n",
 			 BLOCK1_TX_TEST, data_rd);
 		dev_info(test->dev, "Set tx0_data_rate_val for tx0 driver");
@@ -194,7 +216,7 @@ static int sata_phy_bert_setup(struct sata_prbs_test *test)
 		dev_err(test->dev, "Data read from address 0x%x is incorrect\n",
 			BLOCK1_TX_TEST);
 		dev_info(test->dev, "Expected is 0x%x, Received is 0x%x\n",
-			 TX0_DATA_RATE_VAL, data_rd);
+			 tx0_data_rate, data_rd);
 		return -EIO;
 	}
 	return 0;
@@ -238,11 +260,30 @@ static int sata_phy_begin_test(struct sata_prbs_test *test)
 static int do_prbs_test(struct sata_prbs_test *test)
 {
 	int ret = 0;
+	dev_info(test->dev, "SATA Test gen: %s", test->sata_test_gen);
+	if (!strncasecmp(test->sata_test_gen, "gen1",
+		sizeof(test->sata_test_gen))) {
+		sapis_data_rate = SAPIS_DATA_RATE_OVERRIDE_VAL;
+		tx0_data_rate = TX0_DATA_RATE_VAL;
+	} else if (!strncasecmp(test->sata_test_gen, "gen2",
+		sizeof(test->sata_test_gen))) {
+		sapis_data_rate = SAPIS_DATA_RATE_OVERRIDE_VAL |
+					SAPIS_DATA_RATE_GEN2_MASK;
+		tx0_data_rate = TX0_DATA_RATE_VAL | TX0_DATA_RATE_GEN2_MASK;
+	} else if (!strncasecmp(test->sata_test_gen, "gen3",
+		sizeof(test->sata_test_gen))) {
+		sapis_data_rate = SAPIS_DATA_RATE_OVERRIDE_VAL |
+					SAPIS_DATA_RATE_GEN3_MASK;
+		tx0_data_rate = TX0_DATA_RATE_VAL | TX0_DATA_RATE_GEN3_MASK;
+	} else {
+		dev_err(test->dev, "SATA GEN: Invalid option\n");
+		return -EINVAL;
+	}
 
 	ret = sata_phy_bert_setup(test);
 	if (ret) {
 		dev_err(test->dev, "SATA PHY BERT setup FAILED\n");
-		return 0;
+		return -EIO;
 	} else
 		dev_info(test->dev, "BERT setup done");
 
@@ -256,6 +297,35 @@ static int do_prbs_test(struct sata_prbs_test *test)
 }
 
 /* sysfs callbacks */
+static ssize_t sata_prbs_gen_show(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	ssize_t ret;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sata_prbs_test *test = platform_get_drvdata(pdev);
+
+	mutex_lock(&test->test_lock);
+	ret = sprintf(buf, "%s", test->sata_test_gen);
+	mutex_unlock(&test->test_lock);
+
+	return ret;
+}
+
+static ssize_t sata_prbs_gen_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sata_prbs_test *test = platform_get_drvdata(pdev);
+
+	mutex_lock(&test->test_lock);
+	sprintf(test->sata_test_gen, "%s", buf);
+	mutex_unlock(&test->test_lock);
+
+	return strnlen(buf, count);
+}
+
 static ssize_t sata_prbs_err_show(struct device *dev,
 				      struct device_attribute *attr,
 				      char *buf)
@@ -336,6 +406,7 @@ static ssize_t sata_prbs_start_store(struct device *dev,
 	mutex_lock(&test->test_lock);
 	test->test_start = state;
 	if (test->test_start) {
+		test->err_status = 0;
 		dev_info(test->dev, "SATA PHY test started\n");
 		ret = do_prbs_test(test);
 		if (ret)
@@ -352,6 +423,9 @@ static DEVICE_ATTR(test_retries, S_IRUGO | S_IWUSR,
 
 static DEVICE_ATTR(err_status, S_IRUGO,
 		   sata_prbs_err_show, NULL);
+
+static DEVICE_ATTR(sata_test_gen, S_IRUGO | S_IWUSR,
+		   sata_prbs_gen_show, sata_prbs_gen_store);
 
 static DEVICE_ATTR(test_start, S_IRUGO | S_IWUSR,
 		   sata_prbs_start_show, sata_prbs_start_store);
@@ -391,19 +465,25 @@ static int stingray_sata_phy_probe(struct platform_device *pdev)
 	ret = device_create_file(dev, &dev_attr_err_status);
 	if (ret < 0)
 		goto destroy_test_retries;
-	ret = device_create_file(dev, &dev_attr_test_start);
+	ret = device_create_file(dev, &dev_attr_sata_test_gen);
 	if (ret < 0)
 		goto destroy_err_status;
+	ret = device_create_file(dev, &dev_attr_test_start);
+	if (ret < 0)
+		goto destroy_sata_test_gen;
 
 	mutex_init(&test->test_lock);
 	test->test_retries = 0;
 	test->test_start = 0;
 	test->err_status = 0;
+	strcpy(test->sata_test_gen, "gen3");
 
 	dev_info(dev, "SATA PHY initialized for PRBS test\n");
 
 	return 0;
 
+destroy_sata_test_gen:
+	device_remove_file(dev, &dev_attr_sata_test_gen);
 destroy_err_status:
 	device_remove_file(dev, &dev_attr_err_status);
 destroy_test_retries:
