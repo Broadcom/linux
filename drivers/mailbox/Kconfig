@@ -87,33 +87,6 @@ config STI_MBOX
 	  Mailbox implementation for STMicroelectonics family chips with
 	  hardware for interprocessor communication.
 
-config BCM_FLEXDMA_MBOX
-	tristate "Broadcom FlexDMA Mailbox"
-	depends on ARM64
-	select GENERIC_MSI_IRQ_DOMAIN
-	default ARCH_BCM_IPROC
-	help
-	  Mailbox implementation of the Broadcom FlexDMA. It is used by
-	  offload engine drivers such as Crypto and RAID/XOR to offload
-	  work. Say Y here if you want to use the Broadcom FlexDMA Mailbox.
-
-config BCM_PDC_MBOX
-	tristate "Broadcom PDC Mailbox"
-	depends on ARM64 || COMPILE_TEST
-	depends on HAS_DMA
-	default ARCH_BCM_IPROC
-	help
-	  Mailbox implementation for the Broadcom PDC ring manager,
-	  which provides access to various offload engines on Broadcom
-	  SoCs. Say Y here if you want to use the Broadcom PDC.
-
-config BCM_FS4_MBOX_TEST
-	tristate "Broadcom FlexSparx4 Mailbox Test Client"
-	depends on (ARM64 && RAID6_PQ) || COMPILE_TEST
-	default ARCH_BCM_IPROC
-	help
-	  Test mailbox client for FlexSparx4 offload engines.
-
 config TI_MESSAGE_MANAGER
 	tristate "Texas Instruments Message Manager Driver"
 	depends on ARCH_KEYSTONE
@@ -169,4 +142,22 @@ config BCM_PDC_MBOX
 	  Mailbox implementation for the Broadcom PDC ring manager,
 	  which provides access to various offload engines on Broadcom
 	  SoCs. Say Y here if you want to use the Broadcom PDC.
+
+config BCM_FLEXRM_MBOX
+	tristate "Broadcom FlexRM Mailbox"
+	depends on ARM64 || COMPILE_TEST
+	depends on HAS_DMA
+	select GENERIC_MSI_IRQ_DOMAIN
+	default ARCH_BCM_IPROC
+	help
+	  Mailbox implementation of the Broadcom FlexRM ring manager,
+	  which provides access to various offload engines on Broadcom
+	  SoCs. Say Y here if you want to use the Broadcom FlexRM.
+
+config BCM_FS4_MBOX_TEST
+	tristate "Broadcom FlexSparx4 Mailbox Test Client"
+	depends on (ARM64 && RAID6_PQ) || COMPILE_TEST
+	default ARCH_BCM_IPROC
+	help
+	  Test mailbox client for FlexSparx4 offload engines.
 endif

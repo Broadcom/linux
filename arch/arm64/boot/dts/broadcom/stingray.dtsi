@@ -912,7 +912,7 @@
 		ranges = <0 0 0 0xffffffff>;
 
 		crypto_mbox: crypto_mbox@67000000 {
-			compatible = "brcm,flexdma-mbox";
+			compatible = "brcm,flexrm-mbox";
 			reg = <0x67000000 0x200000>;
 			msi-parent = <&gic_its 0x7ffd>;
 			#mbox-cells = <3>;
@@ -920,7 +920,7 @@
 		};
 
 		raid_mbox: raid_mbox@67400000 {
-			compatible = "brcm,flexdma-mbox";
+			compatible = "brcm,flexrm-mbox";
 			reg = <0x67400000 0x200000>;
 			msi-parent = <&gic_its 0x7ffe>;
 			#mbox-cells = <3>;

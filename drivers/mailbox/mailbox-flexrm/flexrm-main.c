@@ -1,4 +1,4 @@
-/* Broadcom FlexDMA Mailbox Driver
+/* Broadcom FlexRM Mailbox Driver
  *
  * Copyright (C) 2016 Broadcom
  *
@@ -7,12 +7,12 @@
  * published by the Free Software Foundation.
  *
  * Each Broadcom FlexSparx4 offload engine is implemented as an
- * extension to Broadcom FlexDMA engine. The FlexDMA engine provides
- * a set of rings which can be used to submit work to a FlexSparx4
- * offload engine.
+ * extension to Broadcom FlexRM ring manager. The FlexRM ring
+ * manager provides a set of rings which can be used to submit
+ * work to a FlexSparx4 offload engine.
  *
- * This driver creates a mailbox controller using a set of FlexDMA
- * rings where each mailbox channel represents a separate FlexDMA ring.
+ * This driver creates a mailbox controller using a set of FlexRM
+ * rings where each mailbox channel represents a separate FlexRM ring.
  */
 
 #include <linux/delay.h>
@@ -33,9 +33,9 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 
-#include "flexdma-desc.h"
+#include "flexrm-desc.h"
 
-/* FlexDMA configuration */
+/* FlexRM configuration */
 #define RING_REGS_SIZE					0x10000
 #define RING_DESC_SIZE					8
 #define RING_DESC_INDEX(offset)				\
@@ -123,10 +123,10 @@
 #define BD_READ_PTR_DDR_ENABLE_SHIFT			15
 #define BD_READ_PTR_DDR_ENABLE_MASK			0x1
 
-struct flexdma_ring {
+struct flexrm_ring {
 	/* Unprotected members */
 	int num;
-	struct flexdma_mbox *mbox;
+	struct flexrm_mbox *mbox;
 	void __iomem *regs;
 	bool irq_requested;
 	unsigned int irq;
@@ -145,18 +145,18 @@ struct flexdma_ring {
 	u32 cmpl_read_offset;
 };
 
-struct flexdma_mbox {
+struct flexrm_mbox {
 	struct device *dev;
 	void __iomem *regs;
 	u32 num_rings;
-	struct flexdma_ring *rings;
+	struct flexrm_ring *rings;
 	u64 dma_mask;
 	struct dma_pool *bd_pool;
 	struct dma_pool *cmpl_pool;
 	struct mbox_controller controller;
 };
 
-static int flexdma_new_request(struct flexdma_ring *ring,
+static int flexrm_new_request(struct flexrm_ring *ring,
 				struct brcm_message *batch_msg,
 				struct brcm_message *msg)
 {
@@ -168,7 +168,7 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 	int ret = 0, reqid;
 
 	/* Do sanity check on message */
-	if (!flexdma_sanity_check(msg))
+	if (!flexrm_sanity_check(msg))
 		return -EIO;
 	msg->error = 0;
 
@@ -187,7 +187,7 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 	ring->requests[reqid] = msg;
 
 	/* Do DMA mappings for the message */
-	ret = flexdma_dma_map(ring->mbox->dev, msg);
+	ret = flexrm_dma_map(ring->mbox->dev, msg);
 	if (ret < 0) {
 		ring->requests[reqid] = NULL;
 		ida_simple_remove(&ring->requests_ida, reqid);
@@ -216,13 +216,13 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 	 *				 number of header descriptors +
 	 *				 1x null descriptor
 	 */
-	nhcnt = flexdma_estimate_nonheader_desc_count(msg);
-	count = flexdma_estimate_header_desc_count(nhcnt) + nhcnt + 1;
+	nhcnt = flexrm_estimate_nonheader_desc_count(msg);
+	count = flexrm_estimate_header_desc_count(nhcnt) + nhcnt + 1;
 
 	/* Check for available descriptor space. */
 	write_offset = ring->bd_write_offset;
 	while (count) {
-		if (!flexdma_is_next_table_desc(ring->bd_base + write_offset))
+		if (!flexrm_is_next_table_desc(ring->bd_base + write_offset))
 			count--;
 		write_offset += RING_DESC_SIZE;
 		if (write_offset == RING_BD_SIZE)
@@ -243,7 +243,7 @@ static int flexdma_new_request(struct flexdma_ring *ring,
 	}
 
 	/* Write descriptors to ring */
-	next = flexdma_write_descs(msg, nhcnt, reqid,
+	next = flexrm_write_descs(msg, nhcnt, reqid,
 			ring->bd_base + ring->bd_write_offset,
 			RING_BD_TOGGLE_VALID(ring->bd_write_offset),
 			ring->bd_base, ring->bd_base + RING_BD_SIZE);
@@ -262,7 +262,7 @@ exit:
 
 	/* Cleanup if we failed */
 	if (exit_cleanup) {
-		flexdma_dma_unmap(ring->mbox->dev, msg);
+		flexrm_dma_unmap(ring->mbox->dev, msg);
 		ring->requests[reqid] = NULL;
 		ida_simple_remove(&ring->requests_ida, reqid);
 	}
@@ -270,7 +270,7 @@ exit:
 	return ret;
 }
 
-static int flexdma_process_completions(struct flexdma_ring *ring)
+static int flexrm_process_completions(struct flexrm_ring *ring)
 {
 	u64 desc;
 	int err, count = 0;
@@ -318,7 +318,7 @@ static int flexdma_process_completions(struct flexdma_ring *ring)
 			cmpl_read_offset = 0;
 
 		/* Decode error from completion descriptor */
-		err = flexdma_cmpl_desc_to_error(desc);
+		err = flexrm_cmpl_desc_to_error(desc);
 		if (err < 0) {
 			dev_warn(ring->mbox->dev,
 				 "got completion desc=0x%lx with error %d",
@@ -326,7 +326,7 @@ static int flexdma_process_completions(struct flexdma_ring *ring)
 		}
 
 		/* Determine request id from completion descriptor */
-		reqid = flexdma_cmpl_desc_to_reqid(desc);
+		reqid = flexrm_cmpl_desc_to_reqid(desc);
 
 		/* Determine message pointer based on reqid */
 		msg = ring->requests[reqid];
@@ -342,7 +342,7 @@ static int flexdma_process_completions(struct flexdma_ring *ring)
 		ida_simple_remove(&ring->requests_ida, reqid);
 
 		/* Unmap DMA mappings */
-		flexdma_dma_unmap(ring->mbox->dev, msg);
+		flexrm_dma_unmap(ring->mbox->dev, msg);
 
 		/* Give-back message to mailbox client */
 		msg->error = err;
@@ -355,7 +355,7 @@ static int flexdma_process_completions(struct flexdma_ring *ring)
 	return count;
 }
 
-static irqreturn_t flexdma_irq_event(int irq, void *dev_id)
+static irqreturn_t flexrm_irq_event(int irq, void *dev_id)
 {
 	/* We only have MSI for completions so just wakeup IRQ thread */
 	/* Ring related errors will be informed via completion descriptors */
@@ -363,23 +363,23 @@ static irqreturn_t flexdma_irq_event(int irq, void *dev_id)
 	return IRQ_WAKE_THREAD;
 }
 
-static irqreturn_t flexdma_irq_thread(int irq, void *dev_id)
+static irqreturn_t flexrm_irq_thread(int irq, void *dev_id)
 {
-	flexdma_process_completions(dev_id);
+	flexrm_process_completions(dev_id);
 
 	return IRQ_HANDLED;
 }
 
-static int flexdma_send_data(struct mbox_chan *chan, void *data)
+static int flexrm_send_data(struct mbox_chan *chan, void *data)
 {
 	int i, rc;
-	struct flexdma_ring *ring = chan->con_priv;
+	struct flexrm_ring *ring = chan->con_priv;
 	struct brcm_message *msg = data;
 
 	if (msg->type == BRCM_MESSAGE_BATCH) {
 		for (i = msg->batch.msgs_queued;
 		     i < msg->batch.msgs_count; i++) {
-			rc = flexdma_new_request(ring, msg,
+			rc = flexrm_new_request(ring, msg,
 						 &msg->batch.msgs[i]);
 			if (rc) {
 				msg->error = rc;
@@ -390,23 +390,23 @@ static int flexdma_send_data(struct mbox_chan *chan, void *data)
 		return 0;
 	}
 
-	return flexdma_new_request(ring, NULL, data);
+	return flexrm_new_request(ring, NULL, data);
 }
 
-static bool flexdma_peek_data(struct mbox_chan *chan)
+static bool flexrm_peek_data(struct mbox_chan *chan)
 {
-	int cnt = flexdma_process_completions(chan->con_priv);
+	int cnt = flexrm_process_completions(chan->con_priv);
 
 	return (cnt > 0) ? true : false;
 }
 
-static int flexdma_startup(struct mbox_chan *chan)
+static int flexrm_startup(struct mbox_chan *chan)
 {
 	u64 d;
 	u32 val, off;
 	int ret = 0;
 	dma_addr_t next_addr;
-	struct flexdma_ring *ring = chan->con_priv;
+	struct flexrm_ring *ring = chan->con_priv;
 
 	/* Allocate BD memory */
 	ring->bd_base = dma_pool_alloc(ring->mbox->bd_pool,
@@ -424,11 +424,11 @@ static int flexdma_startup(struct mbox_chan *chan)
 			next_addr = 0;
 		next_addr += ring->bd_dma_base;
 		if (RING_BD_ALIGN_CHECK(next_addr))
-			d = flexdma_next_table_desc(RING_BD_TOGGLE_VALID(off),
+			d = flexrm_next_table_desc(RING_BD_TOGGLE_VALID(off),
 						    next_addr);
 		else
-			d = flexdma_null_desc(RING_BD_TOGGLE_INVALID(off));
-		flexdma_write_desc(ring->bd_base + off, d);
+			d = flexrm_null_desc(RING_BD_TOGGLE_INVALID(off));
+		flexrm_write_desc(ring->bd_base + off, d);
 	}
 
 	/* Allocate completion memory */
@@ -448,8 +448,8 @@ static int flexdma_startup(struct mbox_chan *chan)
 		goto fail_free_cmpl_memory;
 	}
 	ret = request_threaded_irq(ring->irq,
-				   flexdma_irq_event,
-				   flexdma_irq_thread,
+				   flexrm_irq_event,
+				   flexrm_irq_thread,
 				   0, dev_name(ring->mbox->dev), ring);
 	if (ret) {
 		dev_err(ring->mbox->dev, "failed to request ring IRQ\n");
@@ -513,12 +513,12 @@ fail:
 	return ret;
 }
 
-static void flexdma_shutdown(struct mbox_chan *chan)
+static void flexrm_shutdown(struct mbox_chan *chan)
 {
 	u32 reqid;
 	unsigned int timeout;
 	struct brcm_message *msg;
-	struct flexdma_ring *ring = chan->con_priv;
+	struct flexrm_ring *ring = chan->con_priv;
 
 	/* Disable/inactivate ring */
 	writel_relaxed(0x0, ring->regs + RING_CONTROL);
@@ -545,7 +545,7 @@ static void flexdma_shutdown(struct mbox_chan *chan)
 		ida_simple_remove(&ring->requests_ida, reqid);
 
 		/* Unmap DMA mappings */
-		flexdma_dma_unmap(ring->mbox->dev, msg);
+		flexrm_dma_unmap(ring->mbox->dev, msg);
 
 		/* Give-back message to mailbox client */
 		msg->error = -EIO;
@@ -573,11 +573,11 @@ static void flexdma_shutdown(struct mbox_chan *chan)
 	}
 }
 
-static bool flexdma_last_tx_done(struct mbox_chan *chan)
+static bool flexrm_last_tx_done(struct mbox_chan *chan)
 {
 	bool ret;
 	unsigned long flags;
-	struct flexdma_ring *ring = chan->con_priv;
+	struct flexrm_ring *ring = chan->con_priv;
 
 	spin_lock_irqsave(&ring->lock, flags);
 	ret = (ring->last_pending_msg) ? false : true;
@@ -586,19 +586,19 @@ static bool flexdma_last_tx_done(struct mbox_chan *chan)
 	return ret;
 }
 
-static const struct mbox_chan_ops flexdma_mbox_chan_ops = {
-	.send_data	= flexdma_send_data,
-	.startup	= flexdma_startup,
-	.shutdown	= flexdma_shutdown,
-	.last_tx_done	= flexdma_last_tx_done,
-	.peek_data	= flexdma_peek_data,
+static const struct mbox_chan_ops flexrm_mbox_chan_ops = {
+	.send_data	= flexrm_send_data,
+	.startup	= flexrm_startup,
+	.shutdown	= flexrm_shutdown,
+	.last_tx_done	= flexrm_last_tx_done,
+	.peek_data	= flexrm_peek_data,
 };
 
-static void flexdma_mbox_msi_write(struct msi_desc *desc, struct msi_msg *msg)
+static void flexrm_mbox_msi_write(struct msi_desc *desc, struct msi_msg *msg)
 {
 	struct device *dev = msi_desc_to_dev(desc);
-	struct flexdma_mbox *mbox = dev_get_drvdata(dev);
-	struct flexdma_ring *ring = &mbox->rings[desc->platform.msi_index];
+	struct flexrm_mbox *mbox = dev_get_drvdata(dev);
+	struct flexrm_ring *ring = &mbox->rings[desc->platform.msi_index];
 
 	/* Configure per-Ring MSI registers */
 	writel_relaxed(msg->address_lo, ring->regs + RING_MSI_ADDR_LS);
@@ -606,11 +606,11 @@ static void flexdma_mbox_msi_write(struct msi_desc *desc, struct msi_msg *msg)
 	writel_relaxed(msg->data, ring->regs + RING_MSI_DATA_VALUE);
 }
 
-static struct mbox_chan *flexdma_mbox_of_xlate(struct mbox_controller *cntlr,
+static struct mbox_chan *flexrm_mbox_of_xlate(struct mbox_controller *cntlr,
 					const struct of_phandle_args *pa)
 {
 	struct mbox_chan *chan;
-	struct flexdma_ring *ring;
+	struct flexrm_ring *ring;
 
 	if (pa->args_count < 3)
 		return ERR_PTR(-EINVAL);
@@ -632,15 +632,15 @@ static struct mbox_chan *flexdma_mbox_of_xlate(struct mbox_controller *cntlr,
 	return chan;
 }
 
-static int flexdma_mbox_probe(struct platform_device *pdev)
+static int flexrm_mbox_probe(struct platform_device *pdev)
 {
 	int index, ret = 0;
 	void __iomem *regs;
 	void __iomem *regs_end;
 	struct msi_desc *desc;
 	struct resource *iomem;
-	struct flexdma_ring *ring;
-	struct flexdma_mbox *mbox;
+	struct flexrm_ring *ring;
+	struct flexrm_mbox *mbox;
 	struct device *dev = &pdev->dev;
 
 	/* Allocate driver mailbox struct */
@@ -717,7 +717,7 @@ static int flexdma_mbox_probe(struct platform_device *pdev)
 		ring->cmpl_read_offset = 0;
 	}
 
-	/* FlexDMA is capable of 40-bit physical addresses only */
+	/* FlexRM is capable of 40-bit physical addresses only */
 	mbox->dma_mask = DMA_BIT_MASK(40);
 	dev->dma_mask = &mbox->dma_mask;
 
@@ -739,7 +739,7 @@ static int flexdma_mbox_probe(struct platform_device *pdev)
 
 	/* Allocate platform MSIs for each ring */
 	ret = platform_msi_domain_alloc_irqs(dev, mbox->num_rings,
-						flexdma_mbox_msi_write);
+						flexrm_mbox_msi_write);
 	if (ret)
 		goto fail_destroy_cmpl_pool;
 
@@ -753,10 +753,10 @@ static int flexdma_mbox_probe(struct platform_device *pdev)
 	mbox->controller.txdone_irq = false;
 	mbox->controller.txdone_poll = true;
 	mbox->controller.txpoll_period = 1;
-	mbox->controller.ops = &flexdma_mbox_chan_ops;
+	mbox->controller.ops = &flexrm_mbox_chan_ops;
 	mbox->controller.dev = dev;
 	mbox->controller.num_chans = mbox->num_rings;
-	mbox->controller.of_xlate = flexdma_mbox_of_xlate;
+	mbox->controller.of_xlate = flexrm_mbox_of_xlate;
 	mbox->controller.chans = devm_kcalloc(dev, mbox->num_rings,
 				sizeof(*mbox->controller.chans), GFP_KERNEL);
 	if (!mbox->controller.chans) {
@@ -771,7 +771,7 @@ static int flexdma_mbox_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail_free_msis;
 
-	dev_info(dev, "registered flexdma mailbox with %d channels\n",
+	dev_info(dev, "registered flexrm mailbox with %d channels\n",
 			mbox->controller.num_chans);
 
 	return 0;
@@ -786,12 +786,12 @@ fail:
 	return ret;
 }
 
-static int flexdma_mbox_remove(struct platform_device *pdev)
+static int flexrm_mbox_remove(struct platform_device *pdev)
 {
 	int index;
 	struct device *dev = &pdev->dev;
-	struct flexdma_ring *ring;
-	struct flexdma_mbox *mbox = platform_get_drvdata(pdev);
+	struct flexrm_ring *ring;
+	struct flexrm_mbox *mbox = platform_get_drvdata(pdev);
 
 	mbox_controller_unregister(&mbox->controller);
 
@@ -808,22 +808,22 @@ static int flexdma_mbox_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id flexdma_mbox_of_match[] = {
-	{ .compatible = "brcm,flexdma-mbox", },
+static const struct of_device_id flexrm_mbox_of_match[] = {
+	{ .compatible = "brcm,flexrm-mbox", },
 	{},
 };
-MODULE_DEVICE_TABLE(of, flexdma_mbox_of_match);
+MODULE_DEVICE_TABLE(of, flexrm_mbox_of_match);
 
-static struct platform_driver flexdma_mbox_driver = {
+static struct platform_driver flexrm_mbox_driver = {
 	.driver = {
-		.name = "brcm-flexdma-mbox",
-		.of_match_table = flexdma_mbox_of_match,
+		.name = "brcm-flexrm-mbox",
+		.of_match_table = flexrm_mbox_of_match,
 	},
-	.probe		= flexdma_mbox_probe,
-	.remove		= flexdma_mbox_remove,
+	.probe		= flexrm_mbox_probe,
+	.remove		= flexrm_mbox_remove,
 };
-module_platform_driver(flexdma_mbox_driver);
+module_platform_driver(flexrm_mbox_driver);
 
 MODULE_AUTHOR("Anup Patel <anup.patel@broadcom.com>");
-MODULE_DESCRIPTION("Broadcom FlexDMA mailbox driver");
+MODULE_DESCRIPTION("Broadcom FlexRM mailbox driver");
 MODULE_LICENSE("GPL v2");
