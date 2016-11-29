@@ -89,7 +89,7 @@
 #define USB3H_U3PLL_REFCLK_OFFSET	4
 #define USB3H_U3PLL_SS_LOCK		BIT(3)
 #define USB3H_U3PLL_SEQ_START		BIT(2)
-#define DRDU3_U3SSPLL_SUSPEND_EN	BIT(1)
+#define USB3H_U3SSPLL_SUSPEND_EN	BIT(1)
 #define USB3H_U3PLL_RESETB		BIT(0)
 
 #define USB3H_PWR_CTRL			0x28
@@ -385,17 +385,20 @@ static int drdu3_u3_phy_power_on(void __iomem *regs)
 
 	msleep(30);
 
-	reg32_setbits(regs + DRDU3_U3PHY_PLL_CTRL,
-			DRDU3_U3PLL_RESETB);
-
 	/* Set pctl with mode and soft reset */
 	rd_data = readl(regs + DRDU3_U3PHY_CTRL);
 	rd_data &= ~(DRDU3_U3PHY_PCTL_MASK << DRDU3_U3PHY_PCTL_OFFSET);
 	rd_data |= (U3PHY_PCTL_VAL << DRDU3_U3PHY_PCTL_OFFSET);
 	writel(rd_data, regs + DRDU3_U3PHY_CTRL);
 
+	reg32_clrbits(regs + DRDU3_U3PHY_PLL_CTRL,
+			DRDU3_U3SSPLL_SUSPEND_EN);
 	reg32_setbits(regs + DRDU3_U3PHY_PLL_CTRL,
 			DRDU3_U3PLL_SEQ_START);
+	reg32_setbits(regs + DRDU3_U3PHY_PLL_CTRL,
+			DRDU3_U3PLL_RESETB);
+
+	msleep(30);
 
 	ret = pll_lock_check(regs + DRDU3_U3PHY_PLL_CTRL, DRDU3_U3PLL_SS_LOCK);
 
