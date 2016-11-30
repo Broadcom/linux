@@ -24,6 +24,8 @@ enum brcm_message_type {
 
 struct brcm_sba_command {
 	u64 cmd;
+	u64 *cmd_dma;
+	dma_addr_t cmd_dma_addr;
 #define BRCM_SBA_CMD_TYPE_A		BIT(0)
 #define BRCM_SBA_CMD_TYPE_B		BIT(1)
 #define BRCM_SBA_CMD_TYPE_C		BIT(2)
