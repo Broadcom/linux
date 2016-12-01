@@ -932,7 +932,7 @@
 		raid0: raid@0 {
 			compatible = "brcm,iproc-sba";
 			brcm,max-pq-disks = <12>;
-			brcm,max-requests = <256>;
+			brcm,max-requests = <128>;
 			brcm,request-size = <131072>;
 			mboxes = <&raid_mbox 0 0x1 0xff00>,
 				 <&raid_mbox 1 0x1 0xff00>,
@@ -947,7 +947,7 @@
 		raid1: raid@1 {
 			compatible = "brcm,iproc-sba";
 			brcm,max-pq-disks = <12>;
-			brcm,max-requests = <256>;
+			brcm,max-requests = <128>;
 			brcm,request-size = <131072>;
 			mboxes = <&raid_mbox 8 0x1 0xff00>,
 				 <&raid_mbox 9 0x1 0xff00>,
@@ -962,7 +962,7 @@
 		raid2: raid@2 {
 			compatible = "brcm,iproc-sba";
 			brcm,max-pq-disks = <12>;
-			brcm,max-requests = <256>;
+			brcm,max-requests = <128>;
 			brcm,request-size = <131072>;
 			mboxes = <&raid_mbox 16 0x1 0xff00>,
 				 <&raid_mbox 17 0x1 0xff00>,
@@ -977,7 +977,7 @@
 		raid3: raid@3 {
 			compatible = "brcm,iproc-sba";
 			brcm,max-pq-disks = <12>;
-			brcm,max-requests = <256>;
+			brcm,max-requests = <128>;
 			brcm,request-size = <131072>;
 			mboxes = <&raid_mbox 24 0x1 0xff00>,
 				 <&raid_mbox 25 0x1 0xff00>,
