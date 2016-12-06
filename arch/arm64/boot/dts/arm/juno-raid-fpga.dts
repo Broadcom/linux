@@ -217,7 +217,7 @@
 		};
 
 		raid0 {
-			compatible = "brcm,iproc-sba";
+			compatible = "brcm,iproc-sba-v2";
 			brcm,max-pq-disks = <12>;
 			brcm,max-requests = <256>;
 			brcm,request-size = <131072>;
@@ -232,7 +232,7 @@
 		};
 
 		raid1 {
-			compatible = "brcm,iproc-sba";
+			compatible = "brcm,iproc-sba-v2";
 			brcm,max-pq-disks = <12>;
 			brcm,max-requests = <256>;
 			brcm,request-size = <131072>;
@@ -247,7 +247,7 @@
 		};
 
 		raid2 {
-			compatible = "brcm,iproc-sba";
+			compatible = "brcm,iproc-sba-v2";
 			brcm,max-pq-disks = <12>;
 			brcm,max-requests = <256>;
 			brcm,request-size = <131072>;
