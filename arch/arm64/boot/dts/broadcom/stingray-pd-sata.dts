@@ -74,13 +74,13 @@
 	 * clock-frequency = <desired_baudrate> x 16
 	 */
 	clock-frequency = <76800>;
-	status = "ok";
+	status = "okay";
 };
 
 &sata0_phy0 {
-	status = "ok";
+	status = "okay";
 };
 
 &sata0 {
-	status = "ok";
+	status = "okay";
 };

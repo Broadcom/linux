@@ -107,49 +107,49 @@
 			compatible = "brcm,stingray-pcie-phy-prbs";
 			reg = <0x0>;
 			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "ok";
+			status = "okay";
 		};
 		pci_phy1: phy@1 {
 			compatible = "brcm,stingray-pcie-phy-prbs";
 			reg = <0x1>;
 			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "ok";
+			status = "okay";
 		};
 		pci_phy2: phy@2 {
 			compatible = "brcm,stingray-pcie-phy-prbs";
 			reg = <0x2>;
 			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "ok";
+			status = "okay";
 		};
 		pci_phy3: phy@3 {
 			compatible = "brcm,stingray-pcie-phy-prbs";
 			reg = <0x3>;
 			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "ok";
+			status = "okay";
 		};
 		pci_phy4: phy@4 {
 			compatible = "brcm,stingray-pcie-phy-prbs";
 			reg = <0x4>;
 			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "ok";
+			status = "okay";
 		};
 		pci_phy5: phy@5 {
 			compatible = "brcm,stingray-pcie-phy-prbs";
 			reg = <0x5>;
 			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "ok";
+			status = "okay";
 		};
 		pci_phy6: phy@6 {
 			compatible = "brcm,stingray-pcie-phy-prbs";
 			reg = <0x6>;
 			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "ok";
+			status = "okay";
 		};
 		pci_phy7: phy@7 {
 			compatible = "brcm,stingray-pcie-phy-prbs";
 			reg = <0x7>;
 			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "ok";
+			status = "okay";
 		};
 	};
 
@@ -161,11 +161,11 @@
 };
 
 &pwm {
-	status = "ok";
+	status = "okay";
 };
 
 &i2c0 {
-	status = "ok";
+	status = "okay";
 
 	pca9505: pca9505@20 {
 		compatible = "nxp,pca9505";
@@ -176,28 +176,28 @@
 };
 
 &i2c1 {
-	status = "ok";
+	status = "okay";
 };
 
 &uart0 {
-	status = "ok";
+	status = "okay";
 };
 
 &uart1 {
-	status = "ok";
+	status = "okay";
 };
 
 &uart2 {
-	status = "ok";
+	status = "okay";
 };
 
 &uart3 {
-	status = "ok";
+	status = "okay";
 };
 
 &ssp0 {
 	pinctrl-0 = <&spi0_pins>;
-	status = "ok";
+	status = "okay";
 
 	spi-flash@0 {
 		#address-cells = <1>;
@@ -220,7 +220,7 @@
 
 &ssp1 {
 	pinctrl-0 = <&spi1_pins>;
-	status = "ok";
+	status = "okay";
 
 	spi-flash@0 {
 		#address-cells = <1>;
@@ -292,13 +292,13 @@
 	non-removable;
 	vmmc-supply = <&sdio0_vcc_en_reg>;
 	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
-	status = "ok";
+	status = "okay";
 };
 
 &sdio1 {
 	vmmc-supply = <&sdio1_vcc_en_reg>;
 	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
-	status = "ok";
+	status = "okay";
 };
 
 &sata_phy0 {
@@ -470,29 +470,29 @@
 };
 
 &xhci0 {
-	status = "ok";
+	status = "okay";
 };
 
 &xhci1 {
-	status = "ok";
+	status = "okay";
 };
 
 &bdc0 {
-	status = "ok";
+	status = "okay";
 };
 
 &bdc1 {
-	status = "ok";
+	status = "okay";
 };
 
 &usb0_phy0 {
-	status = "ok";
+	status = "okay";
 };
 
 &usb1_phy0 {
-	status = "ok";
+	status = "okay";
 };
 
 &usb1_phy1 {
-	status = "ok";
+	status = "okay";
 };

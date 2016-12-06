@@ -76,11 +76,11 @@
 	 * clock-frequency = <desired_baudrate> x 16
 	 */
 	clock-frequency = <76800>;
-	status = "ok";
+	status = "okay";
 };
 
 &pcie8 {
-	status = "ok";
+	status = "okay";
 };
 
 /*

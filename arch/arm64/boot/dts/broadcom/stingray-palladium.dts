@@ -75,11 +75,11 @@
 	 * clock-frequency = <desired_baudrate> x 16
 	 */
 	clock-frequency = <76800>;
-	status = "ok";
+	status = "okay";
 };
 
 &ssp0 {
-	status = "ok";
+	status = "okay";
 
 	spidev@0 {
 		compatible = "spidev-test";
@@ -89,7 +89,7 @@
 };
 
 &ssp1 {
-	status = "ok";
+	status = "okay";
 
 	spidev@0 {
 		compatible = "spidev-test";
@@ -101,7 +101,7 @@
 &sdio0 {
 	/* For palladium eMMC is always present. */
 	non-removable;
-	status = "ok";
+	status = "okay";
 };
 
 &qspi {

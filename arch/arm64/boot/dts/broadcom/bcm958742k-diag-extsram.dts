@@ -117,23 +117,23 @@
 
 &uart0 {
 	pinctrl-0 = <&uart0_pins>;
-	status = "ok";
+	status = "okay";
 };
 
 &uart1 {
-	status = "ok";
+	status = "okay";
 };
 
 &uart2 {
-	status = "ok";
+	status = "okay";
 };
 
 &uart3 {
-	status = "ok";
+	status = "okay";
 };
 
 &i2c0 {
-	status = "ok";
+	status = "okay";
 	pca9505: pca9505@20 {
 		compatible = "nxp,pca9505";
 		gpio-controller;
@@ -143,7 +143,7 @@
 };
 
 &i2c1 {
-	status = "ok";
+	status = "okay";
 	pcf8574: pcf8574@20 {
 		compatible = "nxp,pcf8574a";
 		gpio-controller;
@@ -179,7 +179,7 @@
 &ssp0 {
 	pinctrl-0 = <&spi0_pins>;
 	cs-gpios = <&gpio_hsls 34 0>;
-	status = "ok";
+	status = "okay";
 
 	spi-flash@0 {
 		compatible = "jedec,spi-nor";
@@ -203,7 +203,7 @@
 &ssp1 {
 	pinctrl-0 = <&spi1_pins>;
 	cs-gpios = <&gpio_hsls 96 0>;
-	status = "ok";
+	status = "okay";
 
 	spi-flash@0 {
 		compatible = "jedec,spi-nor";
@@ -253,20 +253,20 @@
 };
 
 &pwm {
-	status = "ok";
+	status = "okay";
 };
 
 &sdio0 {
 	non-removable;
 	vmmc-supply = <&sdio0_vcc_en_reg>;
 	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
-	status = "ok";
+	status = "okay";
 };
 
 &sdio1 {
 	vmmc-supply = <&sdio1_vcc_en_reg>;
 	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
-	status = "ok";
+	status = "okay";
 };
 
 &sata_phy0 {

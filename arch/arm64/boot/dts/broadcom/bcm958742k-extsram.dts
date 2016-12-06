@@ -112,18 +112,18 @@
 };
 
 &uart1 {
-	status = "ok";
+	status = "okay";
 };
 
 &sdio0 {
 	non-removable;
 	dsr;
-	status = "ok";
+	status = "okay";
 };
 
 &sdio1 {
 	dsr;
-	status = "ok";
+	status = "okay";
 };
 
 &crypto_mbox {
@@ -165,7 +165,7 @@
 &ssp0 {
 	pinctrl-0 = <&spi0_pins>;
 	cs-gpios = <&gpio_hsls 34 0>;
-	status = "ok";
+	status = "okay";
 
 	spi-flash@0 {
 		compatible = "jedec,spi-nor";
@@ -177,7 +177,7 @@
 &ssp1 {
 	pinctrl-0 = <&spi1_pins>;
 	cs-gpios = <&gpio_hsls 96 0>;
-	status = "ok";
+	status = "okay";
 
 	spi-flash@0 {
 		compatible = "jedec,spi-nor";
@@ -187,11 +187,11 @@
 };
 
 &sata0_phy0 {
-	status = "ok";
+	status = "okay";
 };
 
 &sata0 {
-	status = "ok";
+	status = "okay";
 };
 
 &mdio_mux_iproc {
@@ -203,29 +203,29 @@
 };
 
 &usb0_phy0 {
-	status = "ok";
+	status = "okay";
 };
 
 &usb1_phy0 {
-	status = "ok";
+	status = "okay";
 };
 
 &usb1_phy1 {
-	status = "ok";
+	status = "okay";
 };
 
 &xhci0 {
-	status = "ok";
+	status = "okay";
 };
 
 &xhci1 {
-	status = "ok";
+	status = "okay";
 };
 
 &bdc0 {
-	status = "ok";
+	status = "okay";
 };
 
 &bdc1 {
-	status = "ok";
+	status = "okay";
 };
