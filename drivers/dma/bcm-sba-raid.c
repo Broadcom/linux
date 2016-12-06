@@ -98,10 +98,6 @@
 #define SBA_C_MDATA_LS(__c_mdata_val)	((__c_mdata_val) & 0xff)
 #define SBA_C_MDATA_MS(__c_mdata_val)	(((__c_mdata_val) >> 8) & 0x3)
 
-/* SBA hardware limits */
-#define SBA_HW_RESP_SIZE		0x8
-#define SBA_HW_BUF_SIZE			(4*1024)
-
 /* Driver helper macros */
 #define to_sba_request(tx)		\
 	container_of(tx, struct sba_request, tx)
@@ -130,19 +126,27 @@ struct sba_request {
 	struct dma_async_tx_descriptor tx;
 };
 
+enum sba_version {
+	SBA_VER_1 = 0,
+	SBA_VER_2
+};
+
 struct sba_device {
 	/* Underlying device */
 	struct device *dev;
 	/* DT configuration parameters */
-	u32 max_pq_disk;
+	enum sba_version ver;
 	u32 max_req;
 	u32 req_size;
 	/* Derived configuration parameters */
+	u32 hw_buf_size;
+	u32 hw_resp_size;
+	u32 max_pq_coefs;
+	u32 max_pq_srcs;
 	u32 max_msg_per_req;
 	u32 max_cmd_per_msg;
 	u32 max_cmd_per_req;
-	u32 max_src_per_xor;
-	u32 max_src_per_pq;
+	u32 max_xor_srcs;
 	u32 max_resp_pool_size;
 	u32 max_cmds_pool_size;
 	/* Maibox client and Mailbox channels */
@@ -475,10 +479,12 @@ static unsigned int sba_fillup_memcpy_msg(struct sba_request *req,
 		SBA_CMD_SHIFT, SBA_CMD_MASK);
 	cmds[cmds_count].cmd = cmd;
 	cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
-	cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+	if (req->sba->hw_resp_size) {
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmds[cmds_count].resp = req->resp_dma;
+		cmds[cmds_count].resp_len = req->sba->hw_resp_size;
+	}
 	cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
-	cmds[cmds_count].resp = req->resp_dma;
-	cmds[cmds_count].resp_len = SBA_HW_RESP_SIZE;
 	cmds[cmds_count].data = dst + msg_offset;
 	cmds[cmds_count].data_len = msg_len;
 	cmds_count++;
@@ -521,8 +527,7 @@ sba_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t src,
 
 	/* Fillup request messages */
 	while (len) {
-		msg_len = (len < SBA_HW_BUF_SIZE) ?
-					len : SBA_HW_BUF_SIZE;
+		msg_len = (len < sba->hw_buf_size) ? len : sba->hw_buf_size;
 		cmds_count = sba_fillup_memcpy_msg(req,
 					&req->cmds[cmds_idx],
 					&req->msgs[msgs_count],
@@ -603,10 +608,12 @@ static unsigned int sba_fillup_xor_msg(struct sba_request *req,
 		SBA_CMD_SHIFT, SBA_CMD_MASK);
 	cmds[cmds_count].cmd = cmd;
 	cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
-	cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+	if (req->sba->hw_resp_size) {
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmds[cmds_count].resp = req->resp_dma;
+		cmds[cmds_count].resp_len = req->sba->hw_resp_size;
+	}
 	cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
-	cmds[cmds_count].resp = req->resp_dma;
-	cmds[cmds_count].resp_len = SBA_HW_RESP_SIZE;
 	cmds[cmds_count].data = dst + msg_offset;
 	cmds[cmds_count].data_len = msg_len;
 	cmds_count++;
@@ -641,7 +648,7 @@ sba_prep_dma_xor(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t *src,
 	/* Sanity checks */
 	if (unlikely(len > sba->req_size))
 		return NULL;
-	if (unlikely(src_cnt > sba->max_src_per_xor))
+	if (unlikely(src_cnt > sba->max_xor_srcs))
 		return NULL;
 
 	/* Alloc new request */
@@ -651,8 +658,7 @@ sba_prep_dma_xor(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t *src,
 
 	/* Fillup request messages */
 	while (len) {
-		msg_len = (len < SBA_HW_BUF_SIZE) ?
-					len : SBA_HW_BUF_SIZE;
+		msg_len = (len < sba->hw_buf_size) ? len : sba->hw_buf_size;
 		cmds_count = sba_fillup_xor_msg(req,
 				     &req->cmds[cmds_idx],
 				     &req->msgs[msgs_count],
@@ -734,10 +740,12 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 			SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmds[cmds_count].cmd = cmd;
 		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
-		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+		if (req->sba->hw_resp_size) {
+			cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+			cmds[cmds_count].resp = req->resp_dma;
+			cmds[cmds_count].resp_len = req->sba->hw_resp_size;
+		}
 		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
-		cmds[cmds_count].resp = req->resp_dma;
-		cmds[cmds_count].resp_len = SBA_HW_RESP_SIZE;
 		cmds[cmds_count].data = *dst_p + msg_offset;
 		cmds[cmds_count].data_len = msg_len;
 		cmds_count++;
@@ -757,10 +765,12 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 			SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmds[cmds_count].cmd = cmd;
 		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
-		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+		if (req->sba->hw_resp_size) {
+			cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+			cmds[cmds_count].resp = req->resp_dma;
+			cmds[cmds_count].resp_len = req->sba->hw_resp_size;
+		}
 		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
-		cmds[cmds_count].resp = req->resp_dma;
-		cmds[cmds_count].resp_len = SBA_HW_RESP_SIZE;
 		cmds[cmds_count].data = *dst_q + msg_offset;
 		cmds[cmds_count].data_len = msg_len;
 		cmds_count++;
@@ -798,10 +808,10 @@ sba_prep_dma_pq(struct dma_chan *dchan, dma_addr_t *dst, dma_addr_t *src,
 	/* Sanity checks */
 	if (unlikely(len > sba->req_size))
 		return NULL;
-	if (unlikely(src_cnt > sba->max_src_per_pq))
+	if (unlikely(src_cnt > sba->max_pq_srcs))
 		return NULL;
 	for (i = 0; i < src_cnt; i++)
-		if (raid6_gfpow[scf[i]] >= sba->max_src_per_pq)
+		if (raid6_gfpow[scf[i]] > sba->max_pq_coefs)
 			return NULL;
 
 	/* Figure-out P and Q destination addresses */
@@ -818,8 +828,7 @@ sba_prep_dma_pq(struct dma_chan *dchan, dma_addr_t *dst, dma_addr_t *src,
 
 	/* Fillup request messages */
 	while (len) {
-		msg_len = (len < SBA_HW_BUF_SIZE) ?
-					len : SBA_HW_BUF_SIZE;
+		msg_len = (len < sba->hw_buf_size) ? len : sba->hw_buf_size;
 		cmds_count = sba_fillup_pq_msg(req,
 				    &req->cmds[cmds_idx],
 				    &req->msgs[msgs_count],
@@ -962,7 +971,7 @@ static int sba_prealloc_channel_resources(struct sba_device *sba)
 		req->state = SBA_REQUEST_STATE_FREE;
 		req->resp = sba->resp_base + p;
 		req->resp_dma = sba->resp_dma_base + p;
-		p += SBA_HW_RESP_SIZE;
+		p += sba->hw_resp_size;
 		req->cmds = devm_kcalloc(sba->dev, sba->max_cmd_per_req,
 					 sizeof(*req->cmds), GFP_KERNEL);
 		if (!req->cmds) {
@@ -1053,13 +1062,13 @@ static int sba_async_register(struct sba_device *sba)
 	/* Set xor routines and capability */
 	if (dma_has_cap(DMA_XOR, dma_dev->cap_mask)) {
 		dma_dev->device_prep_dma_xor = sba_prep_dma_xor;
-		dma_dev->max_xor = sba->max_src_per_xor;
+		dma_dev->max_xor = sba->max_xor_srcs;
 	}
 
 	/* Set pq routines and capability */
 	if (dma_has_cap(DMA_PQ, dma_dev->cap_mask)) {
 		dma_dev->device_prep_dma_pq = sba_prep_dma_pq;
-		dma_dev->max_pq = sba->max_src_per_pq;
+		dma_dev->max_pq = sba->max_pq_srcs;
 	}
 
 	/* Initialize DMA device channel list */
@@ -1095,11 +1104,14 @@ static int sba_probe(struct platform_device *pdev)
 	sba->dev = &pdev->dev;
 	platform_set_drvdata(pdev, sba);
 
-	/* Configuration parameters */
-	ret = of_property_read_u32(sba->dev->of_node, "brcm,max-pq-disks",
-				   &sba->max_pq_disk);
-	if (ret)
-		return ret;
+	/* DT Configuration parameters */
+	if (of_device_is_compatible(sba->dev->of_node, "brcm,iproc-sba"))
+		sba->ver = SBA_VER_1;
+	else if (of_device_is_compatible(sba->dev->of_node,
+					 "brcm,iproc-sba-v2"))
+		sba->ver = SBA_VER_2;
+	else
+		return -ENODEV;
 	ret = of_property_read_u32(sba->dev->of_node, "brcm,max-requests",
 				   &sba->max_req);
 	if (ret)
@@ -1108,14 +1120,31 @@ static int sba_probe(struct platform_device *pdev)
 				   &sba->req_size);
 	if (ret)
 		return ret;
-	sba->max_msg_per_req = sba->req_size / SBA_HW_BUF_SIZE;
-	if ((sba->max_msg_per_req * SBA_HW_BUF_SIZE) < sba->req_size)
+
+	/* Derived Configuration parameters */
+	switch (sba->ver) {
+	case SBA_VER_1:
+		sba->hw_buf_size = 4096;
+		sba->hw_resp_size = 8;
+		sba->max_pq_coefs = 5;
+		sba->max_pq_srcs = 5;
+		break;
+	case SBA_VER_2:
+		sba->hw_buf_size = 4096;
+		sba->hw_resp_size = 8;
+		sba->max_pq_coefs = 29;
+		sba->max_pq_srcs = 12;
+		break;
+	default:
+		return -EINVAL;
+	}
+	sba->max_msg_per_req = sba->req_size / sba->hw_buf_size;
+	if ((sba->max_msg_per_req * sba->hw_buf_size) < sba->req_size)
 		sba->max_msg_per_req++;
-	sba->max_cmd_per_msg = sba->max_pq_disk + 3;
+	sba->max_cmd_per_msg = sba->max_pq_srcs + 3;
 	sba->max_cmd_per_req = sba->max_msg_per_req * sba->max_cmd_per_msg;
-	sba->max_src_per_xor = sba->max_cmd_per_msg - 1;
-	sba->max_src_per_pq = sba->max_cmd_per_msg - 3;
-	sba->max_resp_pool_size = sba->max_req * SBA_HW_RESP_SIZE;
+	sba->max_xor_srcs = sba->max_cmd_per_msg - 1;
+	sba->max_resp_pool_size = sba->max_req * sba->hw_resp_size;
 	sba->max_cmds_pool_size = sba->max_req *
 				  sba->max_cmd_per_req * sizeof(u64);
 
@@ -1177,8 +1206,9 @@ static int sba_probe(struct platform_device *pdev)
 		goto fail_async_dev_unreg;
 
 	/* Print device info */
-	dev_info(sba->dev, "registered %s using %d mailbox channels",
-		 dma_chan_name(&sba->dma_chan), sba->mchans_count);
+	dev_info(sba->dev, "%s using SBAv%d and %d mailbox channels",
+		 dma_chan_name(&sba->dma_chan), sba->ver+1,
+		 sba->mchans_count);
 
 	return 0;
 
@@ -1207,6 +1237,7 @@ static int sba_remove(struct platform_device *pdev)
 
 static const struct of_device_id sba_of_match[] = {
 	{ .compatible = "brcm,iproc-sba", },
+	{ .compatible = "brcm,iproc-sba-v2", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, sba_of_match);
