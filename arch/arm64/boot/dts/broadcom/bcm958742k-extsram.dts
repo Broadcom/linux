@@ -65,10 +65,31 @@
 		linux,initrd-start = <0x0 0x75000000>;
 		linux,initrd-end = <0x0 0x75800000>;
 	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		amac_reserved: amacdma@66d10000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000000 0x66d10000 0x0 0x20000>;
+			no-map;
+		};
+	};
 };
 
 &memory {
 	reg = <0x00000000 0x74000000 0x0 0x04000000>; /* 64MB */
+};
+
+&enet {
+	compatible = "brcm,amac-enet-extsram";
+	phy-mode = "rgmii";
+	max-speed = <1000>;
+	phy-handle = <&gphy0>;
+	memory-region = <&amac_reserved>;
+	status = "okay";
 };
 
 &pcie0 {
