@@ -18,6 +18,15 @@
 #include <linux/netdevice.h>
 #include <linux/platform_device.h>
 
+/* SRAM specific DMA configuration. */
+#define AMAC_SRDMA_RX_DESC_CNT 4
+
+#define AMAC_SRDMA_TX_CHAIN_LEN_MAX   1 /* Limit TX DMA chain len */
+/* Must be power of two because of the use of kfifo */
+#define AMAC_SRDMA_TX_MAX_QUEUE_LEN (AMAC_SRDMA_TX_CHAIN_LEN_MAX * 4)
+/* Two descriptors per packet, one each for: config data and payload */
+#define AMAC_SRDMA_TX_DESC_CNT  (AMAC_SRDMA_TX_MAX_QUEUE_LEN * 2)
+
 #define AMAC_RX_BUF_SIZE      2048 /* MAX RX buffer size */
 #define AMAC_DMA_RX_DESC_CNT  512 /* Number of rx dma descriptors */
 #define AMAC_DMA_RXALIGN      16 /* Alignment for SKB */
@@ -63,14 +72,26 @@ struct amac_dma_cfg {
 /* SKB node data structure */
 struct skb_list_node {
 	struct sk_buff *skb;
+	void *skb_bounce;
 	dma_addr_t dma_addr;/* bus base address of region */
 	int len;
+};
+
+/* SRAM DMA private data for both RX and TX. */
+struct amac_srdma_priv {
+	struct amac_dma_cfg rx_bounce_data;
+	struct amac_dma_cfg tx_bounce_data;
+	int bounce_tx_len;
+	bool enable_bounce;
 };
 
 /* DMA private data for both RX and TX */
 struct amac_dma_priv {
 	struct amac_dma_cfg rx;
 	struct amac_dma_cfg tx;
+	struct amac_srdma_priv sr_dma;
+	int dma_rx_desc_count;
+	int dma_tx_desc_count;
 	struct kfifo txfifo;
 	u32 tx_max_pkts; /* max number of packets */
 	u32 tx_curr;     /* current packet index */

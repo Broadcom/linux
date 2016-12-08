@@ -14,6 +14,7 @@
 #include <linux/etherdevice.h>
 #include <linux/module.h>
 #include <linux/of_net.h>
+#include <linux/of_reserved_mem.h>
 
 #include "bcm-amac-core.h"
 #include "bcm-amac-enet.h"
@@ -457,9 +458,13 @@ static int bcm_amac_enet_hard_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct bcm_amac_priv *privp;
 	int len;
 	int rc;
+	void *bounce_skb;
+	struct amac_dma_priv *dma_p;
 
 	rc = NETDEV_TX_OK;
 	privp = netdev_priv(ndev);
+	if (privp->dma.sr_dma.enable_bounce)
+		dma_p = &privp->dma;
 
 	if (unlikely(skb->len < ETH_ZLEN)) {
 		/* Clear the padded memory to avoid 'etherleak'
@@ -469,21 +474,59 @@ static int bcm_amac_enet_hard_xmit(struct sk_buff *skb, struct net_device *ndev)
 		skb->len = ETH_ZLEN;
 	}
 
-	/* Insert skb pointer into fifo */
-	len = kfifo_in_locked(&privp->dma.txfifo, (unsigned char *)&skb,
-			      sizeof(skb), &privp->lock);
-	if (unlikely(len != sizeof(skb))) {
-		/* Not enough space, which shouldn't happen since the queue
-		 * should have been stopped already.
-		 */
-		netif_stop_queue(ndev);
-		netdev_info(privp->ndev,
-			    "xmit called with no tx desc avail!");
+	if (privp->dma.sr_dma.enable_bounce) {
+		dma_p->sr_dma.tx_bounce_data.alloc_size = skb->len;
+		bounce_skb = dma_alloc_coherent(&privp->pdev->dev,
+						dma_p->sr_dma.tx_bounce_data.
+						alloc_size,
+						&dma_p->sr_dma.tx_bounce_data.
+						raw_addr,
+						GFP_KERNEL | GFP_DMA);
+		if (!bounce_skb) {
+			rc = -ENOMEM;
+			goto err_enet_bounce_alloc;
+		}
 
-		ndev->stats.tx_fifo_errors++;
+		privp->dma.sr_dma.bounce_tx_len = skb->len;
+		memcpy(bounce_skb, (void *)(skb)->data, skb->len);
 
-		rc = NETDEV_TX_OK;
-		goto err_enet_hard_xmit;
+		len = kfifo_in_locked(&privp->dma.txfifo,
+				      (unsigned char *)&bounce_skb,
+				      sizeof(bounce_skb), &privp->lock);
+
+		if (unlikely(len != sizeof(bounce_skb))) {
+			/* Not enough space, which shouldn't
+			 * happen since the queue
+			 * should have been stopped already.
+			 */
+			netif_stop_queue(ndev);
+			netdev_info(privp->ndev,
+				    "xmit called with no tx desc avail!");
+
+			ndev->stats.tx_fifo_errors++;
+
+			rc = NETDEV_TX_OK;
+			goto err_enet_hard_xmit;
+		}
+	} else {
+		/* Insert skb pointer into fifo */
+		len = kfifo_in_locked(&privp->dma.txfifo, (unsigned char *)&skb,
+				      sizeof(skb), &privp->lock);
+
+		if (unlikely(len != sizeof(skb))) {
+			/* Not enough space, which shouldn't
+			 * happen since the queue
+			 * should have been stopped already.
+			 */
+			netif_stop_queue(ndev);
+			netdev_info(privp->ndev,
+				    "xmit called with no tx desc avail!");
+
+			ndev->stats.tx_fifo_errors++;
+
+			rc = NETDEV_TX_OK;
+			goto err_enet_hard_xmit;
+		}
 	}
 
 	tasklet_schedule(&privp->tx_tasklet);
@@ -495,11 +538,18 @@ static int bcm_amac_enet_hard_xmit(struct sk_buff *skb, struct net_device *ndev)
 	ndev->stats.tx_packets++;
 	ndev->stats.tx_bytes += skb->len;
 
+	if (privp->dma.sr_dma.enable_bounce)
+		kfree_skb(skb);
 	return rc;
 
 err_enet_hard_xmit:
-	kfree_skb(skb);
+	dma_free_coherent(&privp->pdev->dev,
+			  dma_p->sr_dma.tx_bounce_data.alloc_size,
+			  bounce_skb,
+			  dma_p->sr_dma.tx_bounce_data.raw_addr);
 
+err_enet_bounce_alloc:
+	kfree_skb(skb);
 	/* Update stats */
 	ndev->stats.tx_dropped++;
 	ndev->stats.tx_fifo_errors++;
@@ -726,6 +776,21 @@ static int bcm_amac_enet_probe(struct platform_device *pdev)
 	memset(privp, 0, sizeof(struct bcm_amac_priv));
 	privp->pdev = pdev;
 	privp->ndev = ndev;
+
+	privp->dma.dma_rx_desc_count = AMAC_DMA_RX_DESC_CNT;
+	privp->dma.dma_tx_desc_count = AMAC_DMA_TX_DESC_CNT;
+	privp->dma.tx_max_pkts = AMAC_DMA_TX_MAX_QUEUE_LEN;
+	privp->dma.sr_dma.enable_bounce = false;
+
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "brcm,amac-enet-extsram")) {
+		privp->dma.dma_rx_desc_count = AMAC_SRDMA_RX_DESC_CNT;
+		privp->dma.dma_tx_desc_count = AMAC_SRDMA_TX_DESC_CNT;
+		privp->dma.tx_max_pkts = AMAC_SRDMA_TX_MAX_QUEUE_LEN;
+		privp->dma.sr_dma.enable_bounce = true;
+		of_reserved_mem_device_init(&pdev->dev);
+		dev_info(&pdev->dev, "amac: enabled bounce\n");
+	}
 
 	/* Read DT data */
 	rc = bcm_amac_get_dt_data(privp);
@@ -964,6 +1029,7 @@ __setup("ethaddr=", bcm_amac_setup_ethaddr);
 static const struct of_device_id bcm_amac_of_enet_match[] = {
 	{.compatible = "brcm,amac-enet",},
 	{.compatible = "brcm,amac-enet-v2",},
+	{.compatible = "brcm,amac-enet-extsram",},
 	{},
 };
 

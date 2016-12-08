@@ -69,6 +69,11 @@ static int amac_alloc_rx_skb(struct bcm_amac_priv *privp,
 	struct sk_buff *skb;
 	struct net_device *ndev = privp->ndev;
 	dma_addr_t dma_addr;
+	void *bounce_rx_buf;
+	struct amac_dma_priv *dma_p;
+
+	if (privp->dma.sr_dma.enable_bounce)
+		dma_p = &privp->dma;
 
 	skb = __netdev_alloc_skb(ndev, (len + (2 * AMAC_DMA_RXALIGN)),
 				 GFP_ATOMIC | GFP_DMA);
@@ -80,20 +85,39 @@ static int amac_alloc_rx_skb(struct bcm_amac_priv *privp,
 	offset = PTR_ALIGN(skb->data, 16) - skb->data;
 	skb_reserve(skb, offset);
 
-	/* Set buffer ownership of the new skb pointer */
-	dma_addr = dma_map_single(&privp->pdev->dev, skb->data,
-				  len,
-				  DMA_FROM_DEVICE);
-	if (dma_mapping_error(&privp->pdev->dev, dma_addr)) {
-		netdev_err(privp->ndev, "RX: SKB DMA mapping error\n");
+	if (privp->dma.sr_dma.enable_bounce) {
+		/* set Rx bounce buffers. */
+		dma_p->sr_dma.rx_bounce_data.alloc_size = len;
+		bounce_rx_buf =
+			 dma_alloc_coherent(&privp->pdev->dev,
+					    dma_p->sr_dma.rx_bounce_data.
+					    alloc_size,
+					    &dma_p->sr_dma.rx_bounce_data.
+					    raw_addr,
+					    GFP_KERNEL | GFP_DMA);
+		if (!bounce_rx_buf)
+			return -ENOMEM;
+	} else {
+		/* Set buffer ownership of the new skb pointer */
+		dma_addr = dma_map_single(&privp->pdev->dev, skb->data,
+					  len,
+					  DMA_FROM_DEVICE);
+		if (dma_mapping_error(&privp->pdev->dev, dma_addr)) {
+			netdev_err(privp->ndev, "RX: SKB DMA mapping error\n");
 
-		dev_kfree_skb_any(skb);
-		return -EFAULT;
+			dev_kfree_skb_any(skb);
+			return -EFAULT;
+		}
 	}
 
 	node->skb = skb;
 	node->len = len;
 	node->dma_addr = dma_addr;
+
+	if (privp->dma.sr_dma.enable_bounce) {
+		node->skb_bounce = bounce_rx_buf;
+		node->dma_addr = dma_p->sr_dma.rx_bounce_data.raw_addr;
+	}
 
 	return 0;
 }
@@ -250,11 +274,11 @@ static int amac_dma_rx_init(struct bcm_amac_priv *privp)
 	int rc = 0;
 	u32 offset;
 
-	dma_p->rx.ring_len = AMAC_DMA_RX_DESC_CNT;
+	dma_p->rx.ring_len = privp->dma.dma_rx_desc_count;
 
 	/* Allocate rx descriptors */
 	dma_p->rx.index = 0;
-	dma_p->rx.alloc_size = (AMAC_DMA_RX_DESC_CNT *
+	dma_p->rx.alloc_size = (privp->dma.dma_rx_desc_count *
 			       sizeof(struct amac_dma64_desc)) + DMA_DESC_ALIGN;
 	dma_p->rx.raw_descp = dma_alloc_coherent(&privp->pdev->dev,
 					     dma_p->rx.alloc_size,
@@ -279,7 +303,7 @@ static int amac_dma_rx_init(struct bcm_amac_priv *privp)
 	}
 
 	/* Setup rx descriptor ring */
-	for (i = 0; i < AMAC_DMA_RX_DESC_CNT; i++) {
+	for (i = 0; i < privp->dma.dma_rx_desc_count; i++) {
 		descp = (struct amac_dma64_desc *)(dma_p->rx.descp) + i;
 
 		rc = amac_alloc_rx_skb(privp, AMAC_DMA_RX_BUF_LEN,
@@ -290,7 +314,7 @@ static int amac_dma_rx_init(struct bcm_amac_priv *privp)
 		ctrl = 0;
 
 		/* if last descr set endOfTable */
-		if (i == (AMAC_DMA_RX_DESC_CNT - 1))
+		if (i == (privp->dma.dma_rx_desc_count - 1))
 			ctrl = D64_CTRL1_EOT;
 
 		descp->ctrl1 = cpu_to_le32(ctrl);
@@ -307,7 +331,7 @@ static int amac_dma_rx_init(struct bcm_amac_priv *privp)
 
 rx_init_skb_err:
 
-	for (i = 0; i < AMAC_DMA_RX_DESC_CNT; i++) {
+	for (i = 0; i < privp->dma.dma_rx_desc_count; i++) {
 		if (dma_p->rx_skb_list[i].skb)
 			amac_free_rx_skb(privp, AMAC_DMA_RX_BUF_LEN,
 					 &dma_p->rx_skb_list[i]);
@@ -344,8 +368,7 @@ static int amac_dma_tx_init(struct bcm_amac_priv *privp)
 	u32 size;
 	u32 offset;
 
-	dma_p->tx.ring_len = AMAC_DMA_TX_DESC_CNT;
-	dma_p->tx_max_pkts = AMAC_DMA_TX_MAX_QUEUE_LEN;
+	dma_p->tx.ring_len = privp->dma.dma_tx_desc_count;
 
 	/* Allocate tx descriptors */
 	dma_p->tx.index = 0;
@@ -567,20 +590,34 @@ void bcm_amac_tx_clean(struct bcm_amac_priv *privp)
 	int i;
 
 	for (i = 0; i < dmap->tx_curr; i++) {
-		if (dmap->tx_skb_list[i].skb) {
-			dma_unmap_single(&privp->pdev->dev,
-					 dmap->tx_skb_list[i].dma_addr,
-					 dmap->tx_skb_list[i].len,
-					 DMA_TO_DEVICE);
-
-			dev_kfree_skb_any(dmap->tx_skb_list[i].skb);
+		if (privp->dma.sr_dma.enable_bounce) {
+			if (dmap->tx_skb_list[i].skb_bounce) {
+				dma_free_coherent(&privp->pdev->dev,
+						  dmap->sr_dma.tx_bounce_data.
+						  alloc_size,
+						  dmap->tx_skb_list[i].
+						  skb_bounce,
+						  dmap->sr_dma.tx_bounce_data.
+						  raw_addr);
+			}
 		} else {
-			netdev_err(ndev, "invalid skb?\n");
+			if (dmap->tx_skb_list[i].skb) {
+				dma_unmap_single(&privp->pdev->dev,
+						 dmap->tx_skb_list[i].dma_addr,
+						 dmap->tx_skb_list[i].len,
+						 DMA_TO_DEVICE);
+
+				dev_kfree_skb_any(dmap->tx_skb_list[i].skb);
+			} else {
+				netdev_err(ndev, "invalid skb?\n");
+			}
 		}
 
 		dmap->tx_skb_list[i].skb = NULL;
 		dmap->tx_skb_list[i].len = 0;
 		dmap->tx_skb_list[i].dma_addr = 0;
+		if (privp->dma.sr_dma.enable_bounce)
+			dmap->tx_skb_list[i].skb_bounce = NULL;
 	}
 
 	dmap->tx.index = 0;
@@ -717,7 +754,7 @@ int bcm_amac_enable_rx_dma(struct bcm_amac_priv *privp, bool enable)
 		 * set the lastdscr for the rx ring
 		 */
 		writel((unsigned long)((privp->dma.rx.descp) +
-			(AMAC_DMA_RX_DESC_CNT - 1) * AMAC_RX_BUF_SIZE) &
+			(privp->dma.dma_rx_desc_count - 1) * AMAC_RX_BUF_SIZE) &
 			 D64_XP_LD_MASK,
 			(privp->hw.reg.amac_core + GMAC_DMA_RX_PTR_REG));
 	} else {
@@ -748,7 +785,7 @@ void bcm_amac_dma_stop(struct bcm_amac_priv *privp)
 	bcm_amac_enable_intr(privp, BCM_AMAC_DIR_RX, false);
 
 	/* Free Rx buffers */
-	for (i = 0; i < AMAC_DMA_RX_DESC_CNT; i++)
+	for (i = 0; i < privp->dma.dma_rx_desc_count; i++)
 		if (privp->dma.rx_skb_list[i].skb)
 			amac_free_rx_skb(privp, AMAC_DMA_RX_BUF_LEN,
 					 &privp->dma.rx_skb_list[i]);
@@ -853,7 +890,7 @@ int bcm_amac_dma_get_rx_data(struct bcm_amac_priv *privp,
 {
 	u32 rd_offset;
 	int len;
-	char *bufp;
+	unsigned char *bufp;
 	u32 rx_ptr;
 	struct amac_dma64_desc *descp;
 	struct amac_dma64_desc *rx_ptr_desc;
@@ -901,9 +938,12 @@ int bcm_amac_dma_get_rx_data(struct bcm_amac_priv *privp,
 				DMA_FROM_DEVICE);
 
 	*skbp = read_skb_node.skb;
-
 	/* Process the SKB with data */
-	bufp = (*skbp)->data;
+
+	if (privp->dma.sr_dma.enable_bounce)
+		bufp = (unsigned char *)read_skb_node.skb_bounce;
+	else
+		bufp = (*skbp)->data;
 
 	len = cpu_to_le16(*((u16 *)bufp));
 
@@ -923,12 +963,19 @@ int bcm_amac_dma_get_rx_data(struct bcm_amac_priv *privp,
 	/* Realign the data in SKB */
 	memmove((void *)(*skbp)->data, (void *)bufp, len);
 
+	/* we are done with bounce buffer, give it back. */
+	if (privp->dma.sr_dma.enable_bounce)
+		dma_free_coherent(&privp->pdev->dev,
+				  AMAC_DMA_RX_BUF_LEN,
+				  bufp,
+				  read_skb_node.dma_addr);
+
 rx_dma_data_done:
 	/* Update RX pointer */
 	writel(rx_ptr, (privp->hw.reg.amac_core + GMAC_DMA_RX_PTR_REG));
 
 	/* Increment descp index */
-	if (++dmap->rx.index >= AMAC_DMA_RX_DESC_CNT)
+	if (++dmap->rx.index >= privp->dma.dma_rx_desc_count)
 		dmap->rx.index = 0;
 
 	return len;
@@ -951,36 +998,49 @@ void bcm_amac_tx_send_packet(struct bcm_amac_priv *privp)
 	struct amac_dma64_desc *descp = NULL;
 	u32 last_desc;
 	struct sk_buff *skb;
+	char *tx_skb_bounce;
+	void *p_skb;
 	u32 len;
 	dma_addr_t buf_dma;
 
 	/* Build descriptor chain */
 	while ((len = kfifo_out_spinlocked(&dmap->txfifo,
-					   (unsigned char *)&skb,
+					   (unsigned char *)&p_skb,
 					   sizeof(struct sk_buff *),
 					   &privp->lock)) ==
-		   sizeof(struct sk_buff *)) {
+		   sizeof(unsigned char *)) {
+		if (privp->dma.sr_dma.enable_bounce)
+			tx_skb_bounce = (unsigned char *)p_skb;
+		else
+			skb = (struct sk_buff *)p_skb;
 		/* Indicate we are busy sending a packet */
 		if (!atomic_read(&privp->dma.tx_dma_busy))
 			atomic_set(&privp->dma.tx_dma_busy, BCM_AMAC_DMA_BUSY);
 
-		len = skb->len;
+		if (privp->dma.sr_dma.enable_bounce) {
+			len = privp->dma.sr_dma.bounce_tx_len;
+			buf_dma = dmap->sr_dma.tx_bounce_data.raw_addr;
+		} else {
+			len = skb->len;
+		}
 
-		/* Timestamp the packet */
-		skb_tx_timestamp(skb);
+		if (!privp->dma.sr_dma.enable_bounce) {
+			/* Timestamp the packet */
+			skb_tx_timestamp(skb);
 
-		buf_dma = dma_map_single(&privp->pdev->dev, skb->data,
-					 len, DMA_TO_DEVICE);
-		if (dma_mapping_error(&privp->pdev->dev, buf_dma)) {
-			netdev_err(privp->ndev, "TX: DMA mapping Failed !!\n");
+			buf_dma = dma_map_single(&privp->pdev->dev, skb->data,
+						 len, DMA_TO_DEVICE);
+			if (dma_mapping_error(&privp->pdev->dev, buf_dma)) {
+				netdev_err(privp->ndev, "TX: DMA mapping Failed !!\n");
 
-			dev_kfree_skb_any(skb);
+				dev_kfree_skb_any(skb);
 
-			privp->ndev->stats.tx_bytes -= len;
-			privp->ndev->stats.tx_packets--;
-			privp->ndev->stats.tx_fifo_errors++;
-			privp->ndev->stats.tx_dropped++;
-			continue;
+				privp->ndev->stats.tx_bytes -= len;
+				privp->ndev->stats.tx_packets--;
+				privp->ndev->stats.tx_fifo_errors++;
+				privp->ndev->stats.tx_dropped++;
+				continue;
+			}
 		}
 
 		descp = (&((struct amac_dma64_desc *)
@@ -995,7 +1055,9 @@ void bcm_amac_tx_send_packet(struct bcm_amac_priv *privp)
 		dmap->tx_skb_list[curr].skb = skb;
 		dmap->tx_skb_list[curr].len = len;
 		dmap->tx_skb_list[curr].dma_addr = buf_dma;
-
+		if (privp->dma.sr_dma.enable_bounce)
+			dmap->tx_skb_list[curr].skb_bounce =
+						 (unsigned char *)tx_skb_bounce;
 		desc_idx++;
 		curr++;
 	}
