@@ -430,7 +430,7 @@
 			status = "disabled";
 		};
 
-		spi0@18028000 {
+		spi0: spi@18028000 {
 			compatible = "arm,pl022", "arm,primecell";
 			reg = <0x18028000 0x1000>;
 			#address-cells = <1>;
