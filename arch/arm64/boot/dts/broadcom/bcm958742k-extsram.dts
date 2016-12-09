@@ -194,6 +194,38 @@
 	status = "okay";
 };
 
+&sata4_phy0 {
+	status = "okay";
+};
+
+&sata4 {
+	status = "okay";
+};
+
+&sata8_phy0 {
+	status = "okay";
+};
+
+&sata8 {
+	status = "okay";
+};
+
+&sata12_phy0 {
+	status = "okay";
+};
+
+&sata12 {
+	status = "okay";
+};
+
+&sata16_phy0 {
+	status = "okay";
+};
+
+&sata16 {
+	status = "okay";
+};
+
 &mdio_mux_iproc {
 	mdio@10 {
 		gphy0: eth-phy@10 {

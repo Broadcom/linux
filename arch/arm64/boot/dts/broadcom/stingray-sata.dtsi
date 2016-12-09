@@ -70,7 +70,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x67d10000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -100,7 +100,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x67d20000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -130,7 +130,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x67d30000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -160,7 +160,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x67e00000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -190,7 +190,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x67e10000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 331 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -220,7 +220,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x67e20000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 333 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -250,7 +250,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x67e30000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -280,7 +280,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x67f00000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -310,7 +310,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x67f10000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -340,7 +340,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x67f20000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -370,7 +370,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x67f30000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -400,7 +400,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x68000000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -430,7 +430,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x68010000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -460,7 +460,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x68020000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -490,7 +490,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x68030000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -520,7 +520,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x68100000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -550,7 +550,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x68110000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 355 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -580,7 +580,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x68120000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 357 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -610,7 +610,7 @@
 			compatible = "brcm,iproc-ahci", "generic-ahci";
 			reg = <0x68130000 0x1000>;
 			reg-names = "ahci";
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
