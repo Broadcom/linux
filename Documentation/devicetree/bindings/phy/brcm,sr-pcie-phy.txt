@@ -1,0 +1,30 @@
+Broadcom Stingray PCIe PHY
+
+* TBD whether to upstream or not based on Stingray A1 and Stingray+ design
+
+Required properties:
+- compatible: must be "brcm,sr-pcie-phy"
+- brcm,sr-cdru: phandle to the CDRU syscon node
+- #phy-cells: Must be 1, denotes the PHY index
+
+Example:
+
+	cdru: syscon@6641d000 {
+		compatible = "brcm,sr-cdru", "syscon";
+		reg = <0 0x6641d000 0 0x400>;
+	};
+
+	pcie_phy: phy {
+		compatible = "brcm,sr-pcie-phy";
+		brcm,sr-cdru = <&cdru>;
+		#phy-cells = <1>;
+	};
+
+	/* users of the PCIe PHY */
+
+	pcie0: pcie@48000000 {
+		...
+		...
+		phys = <&pcie_phy 0>;
+		phy-names = "pcie-phy";
+	};
