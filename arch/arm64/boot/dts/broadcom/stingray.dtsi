@@ -433,6 +433,18 @@
 		status = "disabled";
 	};
 
+	pmi-bus {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pcie_phy: phy {
+			compatible = "brcm,sr-pcie-phy";
+			brcm,sr-cdru = <&cdru>;
+			#phy-cells = <1>;
+		};
+	};
+
 	scr {
 		compatible = "simple-bus";
 		#address-cells = <1>;
