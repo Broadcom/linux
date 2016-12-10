@@ -455,6 +455,16 @@ config PHY_CYGNUS_PCIE
 	  Enable this to support the Broadcom Cygnus PCIe PHY.
 	  If unsure, say N.
 
+config PHY_STINGRAY_PCIE
+	tristate "Broadcom Stingray PCIe PHY driver"
+	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
+	select GENERIC_PHY
+	select MFD_SYSCON
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Stingray PCIe PHY
+	  If unsure, say N.
+
 config PHY_STINGRAY_PCIE_PRBS
 	tristate "Broadcom Stingray PCIe PHY PRBS driver"
 	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
