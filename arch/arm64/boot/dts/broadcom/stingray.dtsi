@@ -535,6 +535,11 @@
 		};
 	};
 
+	cdru: syscon@6641d000 {
+		compatible = "brcm,sr-cdru", "syscon";
+		reg = <0 0x6641d000 0 0x400>;
+	};
+
 	hsls {
 		compatible = "simple-bus";
 		#address-cells = <1>;
