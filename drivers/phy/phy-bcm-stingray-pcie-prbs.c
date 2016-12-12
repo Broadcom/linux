@@ -17,37 +17,58 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
-#include <linux/mdio.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <linux/of_mdio.h>
+#include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/string.h>
 
 #define MAX_PHY_COUNT 8
-#define PIPE_MUX_CONFIG 0x10C
 
-/* PCIe SERDES Block Addresses */
-#define PCIE5_BLK_ADR 0x1500
-#define PCIE4_BLK_ADR 0x1400
-#define PCIE3_BLK_ADR 0x1300
-#define RX_DFE0_BLK_ADR 0x7000
-#define MERLIN16_ADDR_MDIO_MMDSEL_AER_COM 0xffd0
+#define CDRU_STRAP_DATA_LSW_OFFSET	0x5c
 
-/* PCIE SERDES Registers  */
-#define GEN2_CTRL1_A 0x11
-#define LANE_CTRL2_A 0x12
-#define LANE_PRBS0_A 0x11
-#define LANE_PRBS3_A 0x14
-#define LANE_PRBS4_A 0x15
-#define RX_DFE0_CTRL4_A 0x16
-#define RX_DFE0_CTRL1_A 0x13
-#define RX_DFE0_STATUS1_A 0x10
-#define MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A  0x1e
-#define RX_DFE0_PASS_VAL 0x8000
+#define PCIE_PIPEMUX_CFG_OFFSET		0x10c
+#define PCIE_PIPEMUX_SHIFT		19
+#define PCIE_PIPEMUX_MASK		0xf
+
+#define PCIE_CORE0_PMI_SEL_CFG		0x864
+#define PCIE_CORE1_PMI_SEL_CFG		0x964
+#define PCIE_CORE2_PMI_SEL_CFG		0xa64
+#define PCIE_CORE3_PMI_SEL_CFG		0xb64
+#define PCIE_CORE4_PMI_SEL_CFG		0xc64
+#define PCIE_CORE5_PMI_SEL_CFG		0xd64
+#define PCIE_CORE6_PMI_SEL_CFG		0xe64
+#define PCIE_CORE7_PMI_SEL_CFG		0xf64
+
+#define PAXB_CFG_CFG_TYPE_MASK		0x1
+#define PAXB_CFG_IND_ADDR_OFFSET	0x120
+#define PAXB_CFG_IND_ADDR_MASK		0x00001ffc
+#define PAXB_CFG_IND_DATA_OFFSET	0x124
+
+#define CFG_RC_PMI_ADDR			0x1130
+#define CFG_RC_PMI_WDATA		0x1134
+#define CFG_RC_WCMD_SHIFT		31
+#define CFG_RC_WCMD_MASK		(1 << CFG_RC_WCMD_SHIFT)
+#define CFG_RC_PMI_RDATA		0x1138
+#define CFG_RC_RCMD_SHIFT		30
+#define CFG_RC_RCMD_MASK		(1 << CFG_RC_RCMD_SHIFT)
+#define CFG_RC_RWCMD_MASK		(CFG_RC_WCMD_MASK | CFG_RC_RCMD_MASK)
+
+/* allow up to 5 ms for PMI read/write transaction to finish */
+#define PMI_TIMEOUT_MS			5
+#define SERDES_LANES_BCAST		0x1ff
+#define MAX_LANE_RETRIES		10
+#define PMI_PASS_STATUS			0x80008000
+
+#define EP_PERST_SOURCE_SELECT_SHIFT	2
+#define EP_PERST_SOURCE_SELECT		BIT(EP_PERST_SOURCE_SELECT_SHIFT)
+#define EP_MODE_SURVIVE_PERST_SHIFT	1
+#define EP_MODE_SURVIVE_PERST		BIT(EP_MODE_SURVIVE_PERST_SHIFT)
+#define RC_PCIE_RST_OUTPUT_SHIFT	0
+#define RC_PCIE_RST_OUTPUT		BIT(RC_PCIE_RST_OUTPUT_SHIFT)
 
 enum pcie_modes {
 	PCIE_MODE0 = 0,
@@ -67,199 +88,342 @@ enum pcie_modes {
 	PCIE_MODE_DEFAULT = -1,
 };
 
-static struct mdio_device *pcie[MAX_PHY_COUNT];
-static struct regmap *pcie_strap_map;
-static enum pcie_modes pcie_mode;
-static unsigned int test_retries;
-static unsigned int slot_num;
-static unsigned int err_count;
-static unsigned int test_start;
-static unsigned int phy_count;
-static DEFINE_MUTEX(test_lock);
+struct pcie_prbs_dev {
+	struct device *dev;
+	struct regmap *pipemux_strap_map;
+	void __iomem *pcie_ss_base;
+	void __iomem *paxb_base[MAX_PHY_COUNT];
+	unsigned int test_retries;
+	unsigned int slot_num;
+	unsigned int err_count;
+	unsigned int test_start;
+	unsigned int phy_count;
+	enum pcie_modes pcie_mode;
+	struct mutex test_lock;
+};
 
-static unsigned int phy_mask[15][8] = {
+union pmi_xfer_address {
+	struct {
+		unsigned int address : 16;
+		unsigned int lane_number : 11;
+		unsigned int device_id : 5;
+	};
+	unsigned int effective_addr;
+};
+
+/*
+ * Following table gives information about PHYs are wired to which
+ * core in given pcie RC mode.
+ */
+static unsigned int phy_mask[14][8] = {
 	/* Mode 0: 1x16(EP) */
-	[PCIE_MODE0] = {0xff},
+	[PCIE_MODE0] = {0x00},
 	/* Mode 1: 2x8 (EP) */
-	[PCIE_MODE1] = {0x0f, 0xf0},
+	[PCIE_MODE1] = {0x00},
 	/* Mode 2: 4x4 (EP) */
-	[PCIE_MODE2] = {0x03, 0x0c, 0x30, 0xc0},
+	[PCIE_MODE2] = {0x00},
 	/* Mode 3: 2x8 (RC) */
-	[PCIE_MODE3] = {0x0f, 0xf0},
+	[PCIE_MODE3] = {0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf0},
 	/* Mode 4: 4x4 (RC) */
-	[PCIE_MODE4] = {0x03, 0x0c, 0x30, 0xc0},
+	[PCIE_MODE4] = {0x03, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x30, 0xc0},
 	/* Mode 5: 8x2 (RC) */
 	[PCIE_MODE5] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80},
 	/* Mode 6: 3x4 , 2x2 (RC) */
-	[PCIE_MODE6] = {0x03, 0x0c, 0x30, 0x40, 0x80},
+	[PCIE_MODE6] = {0x03, 0x00, 0x04, 0x08, 0x00, 0x00, 0x30, 0xc0},
 	/* Mode 7: 1x4 , 6x2 (RC) */
-	[PCIE_MODE7] = {0x03, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80},
+	[PCIE_MODE7] = {0x03, 0x00, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80},
 	/* Mode 8: 1x8(EP), 4x2(RC) */
-	[PCIE_MODE8] = {0x0f, 0x10, 0x20, 0x40, 0x80},
+	[PCIE_MODE8] = {0x00, 0x00, 0x00, 0x00, 0x10, 0x20, 0x40, 0x80},
 	/* Mode 9: 1x8(EP), 2x4(RC) */
-	[PCIE_MODE9] = {0x0f, 0x30, 0xc0},
+	[PCIE_MODE9] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0xc0},
 	/* Mode 10: 2x4(EP), 2x4(RC) */
-	[PCIE_MODE10] = {0x03, 0x0c, 0x30, 0xc0},
+	[PCIE_MODE10] = {0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x30, 0x00},
 	/* Mode 11: 2x4(EP), 4x2(RC) */
-	[PCIE_MODE11] = {0x03, 0x0c, 0x10, 0x20, 0x40, 0x80},
+	[PCIE_MODE11] = {0x00, 0x00, 0x04, 0x08, 0x10, 0x20, 0x00, 0x00},
 	/* Mode 12: 1x4(EP), 6x2(RC) */
-	[PCIE_MODE12] = {0x03, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80},
+	[PCIE_MODE12] = {0x00, 0x00, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80},
 	/* Mode 13: 2x4(EP), 1x4(RC), 2x2(RC) */
-	[PCIE_MODE13] = {0x03, 0x0c, 0x30, 0x40, 0x80}
+	[PCIE_MODE13] = {0x00, 0x00, 0x04, 0x08, 0x00, 0x00, 0x30, 0x00}
 };
-/* PCIe PRBS loopback test sequence */
 
-static void pcie_phy_bert_setup(int phy_num)
+static uint32_t pcie_pipemux_strap_read(struct pcie_prbs_dev *pd)
 {
-	unsigned int phy_id = pcie[phy_num]->addr;
-	struct mii_bus *bus = pcie[phy_num]->bus;
+	uint32_t pipemux;
 
-	mdiobus_write(bus, phy_id, 0x1f, PCIE3_BLK_ADR);
-	mdiobus_write(bus, phy_id, GEN2_CTRL1_A, 0x05);
+	/* read the PCIe PIPEMUX strap setting */
+	regmap_read(pd->pipemux_strap_map,
+				CDRU_STRAP_DATA_LSW_OFFSET, &pipemux);
+	pipemux >>= PCIE_PIPEMUX_SHIFT;
+	pipemux &= PCIE_PIPEMUX_MASK;
 
-	mdiobus_write(bus, phy_id, 0x1f, PCIE4_BLK_ADR);
-	mdiobus_write(bus, phy_id, LANE_CTRL2_A, 0x00c0);
-
-	/*setup prbs test*/
-	mdiobus_write(bus, phy_id, 0x1f, PCIE5_BLK_ADR);
-	mdiobus_write(bus, phy_id, LANE_PRBS3_A, 0xe4e4);
-	mdiobus_write(bus, phy_id, LANE_PRBS4_A, 0xe4e4);
+	return pipemux;
 }
 
-static int pcie_phy_begin_test(int phy_num)
+static void paxb_rc_write_config(void __iomem *base, unsigned int where,
+				unsigned int val)
 {
-	uint16_t data_rd;
-	unsigned int phy_id = pcie[phy_num]->addr;
-	struct mii_bus *bus = pcie[phy_num]->bus;
-	struct device *dev = &pcie[phy_num]->dev;
+	writel((where & PAXB_CFG_IND_ADDR_MASK) | PAXB_CFG_CFG_TYPE_MASK,
+		base + PAXB_CFG_IND_ADDR_OFFSET);
+	writel(val, base + PAXB_CFG_IND_DATA_OFFSET);
+}
 
+static unsigned int paxb_rc_read_config(void __iomem *base, unsigned int where)
+{
+	unsigned int val;
+
+	writel((where & PAXB_CFG_IND_ADDR_MASK) | PAXB_CFG_CFG_TYPE_MASK,
+		base + PAXB_CFG_IND_ADDR_OFFSET);
+	val = readl(base + PAXB_CFG_IND_DATA_OFFSET);
+
+	return val;
+}
+
+/*
+ * Function for writes to the Serdes registers through the PMI interface
+ */
+static int pmi_write_via_paxb(struct pcie_prbs_dev *pd,
+				uint32_t pmi_addr, uint32_t data)
+{
+	void __iomem *base = pd->paxb_base[pd->slot_num];
+	uint32_t status;
+	unsigned int timeout = PMI_TIMEOUT_MS;
+
+	dev_info(pd->dev, "pmi_write_via_paxb: pmi = 0x%x, data = 0x%x\n",
+			pmi_addr, data);
+	paxb_rc_write_config(base, CFG_RC_PMI_ADDR, pmi_addr);
+
+	/* initiate pmi write transaction */
+	data &= ~CFG_RC_RWCMD_MASK;
+	data |= CFG_RC_WCMD_MASK;
+	paxb_rc_write_config(base, CFG_RC_PMI_WDATA, data);
+
+	/* poll for PMI write transaction completion */
+	do {
+		status = paxb_rc_read_config(base, CFG_RC_PMI_WDATA);
+		if ((status & CFG_RC_WCMD_MASK) == 0)
+			return 0;
+	} while (timeout--);
+
+	return 0;
+}
+
+/*
+ * Function to read the Serdes registers through the PMI interface
+ */
+static int pmi_read_via_paxb(struct pcie_prbs_dev *pd,
+				uint32_t pmi_addr, uint32_t *data)
+{
+	void __iomem *base = pd->paxb_base[pd->slot_num];
+	uint32_t status;
+	unsigned int timeout = PMI_TIMEOUT_MS;
+
+	dev_info(pd->dev, "pmi_read_via_paxb: 0x%x = 0x%x\n", pmi_addr, *data);
+	paxb_rc_write_config(base, CFG_RC_PMI_ADDR, pmi_addr);
+
+	/* initiate PMI read transaction */
+	*data &= ~CFG_RC_RWCMD_MASK;
+	*data |= CFG_RC_RCMD_MASK;
+	paxb_rc_write_config(base, CFG_RC_PMI_WDATA, *data);
+
+	/* poll for PMI read transaction completion */
+	do {
+		status = paxb_rc_read_config(base, CFG_RC_PMI_RDATA);
+		if ((status & CFG_RC_WCMD_MASK) == 1)
+			return 0;
+	} while (timeout--);
+
+	/* now read the data */
+	*data = paxb_rc_read_config(base, CFG_RC_PMI_RDATA);
+
+	return 0;
+}
+
+/* PCIe PRBS loopback test sequence */
+static void pcie_phy_bert_setup(struct pcie_prbs_dev *pd, int phy_num)
+{
+	struct device *dev = pd->dev;
+	void __iomem *pcie_ss_base = pd->pcie_ss_base;
+	union pmi_xfer_address pmi_addr;
+
+	/* First tie the serdes under test to the given core */
+	dev_info(dev, "pcie core=%d and phy=%d\n",
+				pd->slot_num, phy_num);
+	switch (pd->slot_num) {
+	case 0:
+		dev_info(dev, "phy %d wired to core0", phy_num);
+		writel(phy_num, pcie_ss_base + PCIE_CORE0_PMI_SEL_CFG);
+		break;
+	case 1:
+		writel(phy_num, pcie_ss_base + PCIE_CORE1_PMI_SEL_CFG);
+		dev_info(dev, "phy %d wired to core1", phy_num);
+		break;
+	case 2:
+		writel(phy_num, pcie_ss_base + PCIE_CORE2_PMI_SEL_CFG);
+		dev_info(dev, "phy %d wired to core2", phy_num);
+		break;
+	case 3:
+		writel(phy_num, pcie_ss_base + PCIE_CORE3_PMI_SEL_CFG);
+		dev_info(dev, "phy %d wired to core3", phy_num);
+		break;
+	case 4:
+		writel(phy_num, pcie_ss_base + PCIE_CORE4_PMI_SEL_CFG);
+		dev_info(dev, "phy %d wired to core4", phy_num);
+		break;
+	case 5:
+		writel(phy_num, pcie_ss_base + PCIE_CORE5_PMI_SEL_CFG);
+		dev_info(dev, "phy %d wired to core5", phy_num);
+		break;
+	case 6:
+		writel(phy_num, pcie_ss_base + PCIE_CORE6_PMI_SEL_CFG);
+		dev_info(dev, "phy %d wired to core6", phy_num);
+		break;
+	case 7:
+		writel(phy_num, pcie_ss_base + PCIE_CORE7_PMI_SEL_CFG);
+		dev_info(dev, "phy %d wired to core7", phy_num);
+		break;
+	};
+
+	/* Broadcasting PRBS settings to all lanes */
+	pmi_addr.device_id = 0x1;
+	pmi_addr.lane_number = SERDES_LANES_BCAST;
+
+	/* set gen2 speed */
+	pmi_addr.address = 0x1300;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0x2080);
+
+	/* Disable 8b10b & verify. */
+	pmi_addr.address =  0x1402;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0x0000);
+
+	/* PRBS7 is default order ;Set PRBS enable */
+	pmi_addr.address = 0x1501;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0xffff);
+
+	/* Set RX status = PRBS monitor on all lanes. */
+	pmi_addr.address = 0x7003;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0xe020);
+
+	/* Set sigdet, disable EIEOS in gen3. */
+	pmi_addr.address = 0x7007;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0xf010);
+}
+
+static int pcie_phy_lane_prbs_status(struct pcie_prbs_dev *pd, int lane_number)
+{
+	struct device *dev = pd->dev;
+	union pmi_xfer_address pmi_addr;
+	uint32_t data;
+	int lane_retries = 0;
+
+	pmi_addr.device_id = 0x1;
+	pmi_addr.lane_number = lane_number;
+	pmi_addr.address = 0x7000;
+	pmi_read_via_paxb(pd, pmi_addr.effective_addr, &data);
+
+	do {
+		pmi_addr.lane_number = lane_number;
+		pmi_addr.address = 0x7000;
+		pmi_read_via_paxb(pd, pmi_addr.effective_addr, &data);
+		dev_info(dev, "Status on Lane %d:[0x%x]\n", lane_number, data);
+		lane_retries++;
+	} while ((data != PMI_PASS_STATUS) &&
+				(lane_retries < MAX_LANE_RETRIES));
+
+	if (lane_retries == MAX_LANE_RETRIES)
+		return -EIO;
+
+	return 0;
+}
+
+static int pcie_phy_begin_test(struct pcie_prbs_dev *pd, int phy_num)
+{
 	int ret = 0;
+	struct device *dev = pd->dev;
 
-	/* Lane 0 */
-	mdiobus_write(bus, phy_id, 0x1f,
-			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
-			  0x0800);
-
-	mdiobus_write(bus, phy_id, 0x1f, RX_DFE0_BLK_ADR);
-	mdiobus_write(bus, phy_id, RX_DFE0_CTRL4_A, 0x1130);
-	mdiobus_write(bus, phy_id, RX_DFE0_CTRL1_A, 0xe002);
-
-	/* Lane 1 */
-	mdiobus_write(bus, phy_id, 0x1f,
-			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
-			  0x0801);
-
-	mdiobus_write(bus, phy_id, 0x1f, RX_DFE0_BLK_ADR);
-	mdiobus_write(bus, phy_id, RX_DFE0_CTRL4_A, 0x1130);
-	mdiobus_write(bus, phy_id, RX_DFE0_CTRL1_A, 0xe002);
-
-	mdiobus_write(bus, phy_id, 0x1f,
-			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
-			  0x0800);
-	mdiobus_write(bus, phy_id, 0x1f, PCIE5_BLK_ADR);
-	mdiobus_write(bus, phy_id, LANE_PRBS0_A, 0xffff);
-
-	ndelay(500);
-
-	/* Clear PRBS Error status */
-	mdiobus_write(bus, phy_id, 0x1f,
-			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
-			  0x0800);
-
-	mdiobus_write(bus, phy_id, 0x1f, RX_DFE0_BLK_ADR);
-	mdiobus_read(bus, phy_id, RX_DFE0_STATUS1_A);
-
-	udelay(20);
-
-	/* Read PRBS Error status */
-	mdiobus_write(bus, phy_id, 0x1f,
-
-			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
-			  0x0800);
-
-	mdiobus_write(bus, phy_id, 0x1f, RX_DFE0_BLK_ADR);
-	data_rd = mdiobus_read(bus, phy_id, RX_DFE0_STATUS1_A);
-
-	if (data_rd == RX_DFE0_PASS_VAL)
-		dev_info(dev, "Data read from DFE0 for phy-%d is correct- 0x%x",
-			 phy_id, data_rd);
-	else {
-		dev_err(dev, "Data read from DFE0 for phy-%d is incorrect",
-			phy_id);
-		dev_err(dev, "Expected is 0x%x, Received is 0x%x\n",
-			RX_DFE0_PASS_VAL, data_rd);
-		ret = 1;
+	/*
+	 * Flush PRBS monitor status prior to starting test,and then
+	 * check PRBS status on Lane 0
+	 */
+	ret = pcie_phy_lane_prbs_status(pd, 0);
+	if (ret) {
+		dev_err(dev, "PHY 0x%x: Lane 0 PRBS failed\n", phy_num);
+		return ret;
 	}
+	dev_info(dev, "PHY 0x%x: Lane 0 PRBS Passed\n", phy_num);
 
-	mdiobus_write(bus, phy_id, 0x1f,
-			  MERLIN16_ADDR_MDIO_MMDSEL_AER_COM);
-	mdiobus_write(bus, phy_id, MERLIN16_MDIO_MMDSEL_AER_COMMDIO_AER_A,
-			  0x0801);
-
-	mdiobus_write(bus, phy_id, 0x1f, RX_DFE0_BLK_ADR);
-	data_rd = mdiobus_read(bus, phy_id, RX_DFE0_STATUS1_A);
-
-	if (data_rd == RX_DFE0_PASS_VAL)
-		dev_info(dev, "Data read from DFE1 for phy-%d is correct - 0x%x",
-			 phy_id, data_rd);
-	else {
-		dev_err(dev, "Data read from DFE1 for phy-%d is incorrect",
-			phy_id);
-		dev_err(dev, "Expected is 0x%x, Received is 0x%x\n",
-			RX_DFE0_PASS_VAL, data_rd);
-		ret = 1;
+	/* Checking PRBS status on Lane 1 */
+	ret = pcie_phy_lane_prbs_status(pd, 1);
+	if (ret) {
+		dev_err(dev, "PHY 0x%x: Lane 1 PRBS failed\n", phy_num);
+		return ret;
 	}
+	dev_info(dev, "PHY 0x%x: Lane 1 PRBS Passed\n", phy_num);
+
 	return ret;
 }
 
-static int do_prbs_test(struct device *dev)
+static int do_prbs_test(struct pcie_prbs_dev *pd, unsigned int pipemux_mode)
 {
+	struct device *dev = pd->dev;
 	int phy_num, phy_err, ret, i;
 
-	if (phy_count < MAX_PHY_COUNT) {
-		dev_err(dev, "All the PCIe phys not registered\n");
-		return -EINVAL;
-	}
-	if (phy_mask[pcie_mode][slot_num] == 0x00) {
+	if (phy_mask[pipemux_mode][pd->slot_num] == 0x00) {
 		dev_info(dev, "pcie_mode(%d) and slot_num(%d)\n",
-			pcie_mode, slot_num);
-		dev_err(dev, "no such combination exists\n");
+			pipemux_mode, pd->slot_num);
+		dev_err(dev, "no such combination exists in PCIe RC modes!\n");
+		/* Set err_count in event of non-existent combination */
+		pd->err_count = 1;
 		return -EINVAL;
 	}
-	for (i = 0; i <= test_retries; i++) {
+
+	for (i = 0; i <= pd->test_retries; i++) {
 		phy_err = 0;
 
-		/* check pcie phys according to self loopback cable position */
-		for (phy_num = 0; phy_num < phy_count; phy_num++) {
-			if (!((phy_mask[pcie_mode][slot_num]) &
+		/*
+		 * check which pcie phys need to be tested
+		 * according to self loopback cable position
+		 */
+		for (phy_num = 0; phy_num < pd->phy_count; phy_num++) {
+			if (!((phy_mask[pipemux_mode][pd->slot_num]) &
 			     (1 << phy_num)))
 				continue;
-
-			pcie_phy_bert_setup(phy_num);
-			ret = pcie_phy_begin_test(phy_num);
+			pcie_phy_bert_setup(pd, phy_num);
+			ret = pcie_phy_begin_test(pd, phy_num);
 			if (ret) {
-				dev_err(dev, "PCIe PHY(0x%.2x) test failed\n",
-					pcie[phy_num]->addr);
+				dev_err(dev, "PCIe PHY(0x%.2x) test failed\n\n",
+					phy_num);
 				phy_err++;
 			} else
-				dev_info(dev, "PCIe PHY(0x%.2x) test passed\n",
-					pcie[phy_num]->addr);
+				dev_info(dev, "PCIe PHY(0x%.2x) test passed\n\n",
+					phy_num);
 		}
+		pd->err_count = phy_err;
 		if (phy_err == 0) {
-			dev_info(dev, "Try %d: PCIe PRBS test PASSED (error %d)\n",
-				i, phy_err);
+			dev_info(dev, "Try %d: PCIe PRBS test PASSED\n\n", i);
 			return 0;
 		}
-		dev_err(dev, "Try %d: PCIe PRBS test Failed (error %d)\n",
+		dev_err(dev, "Try %d: PCIe PRBS test FAILED (error %d)\n",
 			i, phy_err);
-		err_count = phy_err;
 	}
 	return 1;
+}
+
+static void iproc_pcie_reset(void __iomem *paxb_base)
+{
+	uint32_t val;
+       /*
+	* Select perst_b signal as reset source. Put the device into reset,
+	* and then bring it out of reset
+	*/
+	val = readl(paxb_base);
+	val &= ~EP_PERST_SOURCE_SELECT & ~EP_MODE_SURVIVE_PERST &
+			~RC_PCIE_RST_OUTPUT;
+	writel(val, paxb_base);
+	udelay(250);
+
+	val |= RC_PCIE_RST_OUTPUT;
+	writel(val, paxb_base);
+	msleep(100);
 }
 
 /* sysfs callbacks */
@@ -268,10 +432,12 @@ static ssize_t pcie_prbs_retries_show(struct device *dev,
 				      char *buf)
 {
 	ssize_t ret;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *test = platform_get_drvdata(pdev);
 
-	mutex_lock(&test_lock);
-	ret = sprintf(buf, "%u\n", test_retries);
-	mutex_unlock(&test_lock);
+	mutex_lock(&test->test_lock);
+	ret = sprintf(buf, "%u\n", test->test_retries);
+	mutex_unlock(&test->test_lock);
 	return ret;
 }
 
@@ -280,14 +446,16 @@ static ssize_t pcie_prbs_retries_store(struct device *dev,
 				    const char *buf, size_t count)
 {
 	int state;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *test = platform_get_drvdata(pdev);
 
 	if (kstrtoint(buf, 0, &state) != 0)
 		return -EINVAL;
-	if (state < 1)
+	if (state < 0)
 		return -EINVAL;
-	mutex_lock(&test_lock);
-	test_retries = state;
-	mutex_unlock(&test_lock);
+	mutex_lock(&test->test_lock);
+	test->test_retries = state;
+	mutex_unlock(&test->test_lock);
 	return strnlen(buf, count);
 }
 
@@ -296,10 +464,12 @@ static ssize_t pcie_prbs_pcie_mode_show(struct device *dev,
 				    char *buf)
 {
 	ssize_t ret;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *test = platform_get_drvdata(pdev);
 
-	mutex_lock(&test_lock);
-	ret = sprintf(buf, "%u\n", pcie_mode);
-	mutex_unlock(&test_lock);
+	mutex_lock(&test->test_lock);
+	ret = sprintf(buf, "%d\n", test->pcie_mode);
+	mutex_unlock(&test->test_lock);
 	return ret;
 }
 
@@ -308,14 +478,16 @@ static ssize_t pcie_prbs_pcie_mode_store(struct device *dev,
 				       const char *buf, size_t count)
 {
 	int state;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *test = platform_get_drvdata(pdev);
 
 	if (kstrtoint(buf, 0, &state) != 0)
 		return -EINVAL;
 	if (state < PCIE_MODE_DEFAULT || state > PCIE_MODE13)
 		return -EINVAL;
-	mutex_lock(&test_lock);
-	pcie_mode = state;
-	mutex_unlock(&test_lock);
+	mutex_lock(&test->test_lock);
+	test->pcie_mode = state;
+	mutex_unlock(&test->test_lock);
 	return strnlen(buf, count);
 }
 
@@ -324,10 +496,12 @@ static ssize_t pcie_prbs_slot_num_show(struct device *dev,
 				    char *buf)
 {
 	ssize_t ret;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *test = platform_get_drvdata(pdev);
 
-	mutex_lock(&test_lock);
-	ret = sprintf(buf, "%u\n", slot_num);
-	mutex_unlock(&test_lock);
+	mutex_lock(&test->test_lock);
+	ret = sprintf(buf, "%u\n", test->slot_num);
+	mutex_unlock(&test->test_lock);
 	return ret;
 }
 
@@ -336,14 +510,16 @@ static ssize_t pcie_prbs_slot_num_store(struct device *dev,
 				       const char *buf, size_t count)
 {
 	int state;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *test = platform_get_drvdata(pdev);
 
 	if (kstrtoint(buf, 0, &state) != 0)
 		return -EINVAL;
-	if (state < 0 || state > 8)
+	if (state < 0 || state > 7)
 		return -EINVAL;
-	mutex_lock(&test_lock);
-	slot_num = state;
-	mutex_unlock(&test_lock);
+	mutex_lock(&test->test_lock);
+	test->slot_num = state;
+	mutex_unlock(&test->test_lock);
 	return strnlen(buf, count);
 }
 
@@ -352,10 +528,12 @@ static ssize_t pcie_prbs_start_show(struct device *dev,
 				    char *buf)
 {
 	ssize_t ret;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *test = platform_get_drvdata(pdev);
 
-	mutex_lock(&test_lock);
-	ret = sprintf(buf, "%u\n", test_start);
-	mutex_unlock(&test_lock);
+	mutex_lock(&test->test_lock);
+	ret = sprintf(buf, "%u\n", test->test_start);
+	mutex_unlock(&test->test_lock);
 	return ret;
 }
 
@@ -364,23 +542,42 @@ static ssize_t pcie_prbs_start_store(struct device *dev,
 				     const char *buf, size_t count)
 {
 	int state;
-	unsigned int val;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *test = platform_get_drvdata(pdev);
+	void __iomem *pcie_ss_base = test->pcie_ss_base;
+	unsigned int pipemux_mode;
 
 	if (kstrtoint(buf, 0, &state) != 0)
 		return -EINVAL;
 	if (state < 1)
 		return -EINVAL;
-	mutex_lock(&test_lock);
-	test_start = state;
-	if (test_start) {
-		if (pcie_mode == PCIE_MODE_DEFAULT) {
-			/* read pcie pipemux configuration register */
-			regmap_read(pcie_strap_map, PIPE_MUX_CONFIG, &val);
-			pcie_mode = val;
+	mutex_lock(&test->test_lock);
+	test->test_start = state;
+	if (test->test_start) {
+		if (test->pcie_mode == PCIE_MODE_DEFAULT) {
+			/* read pipemux strap register */
+			dev_info(dev, "reading pipemux strap register\n");
+			pipemux_mode = pcie_pipemux_strap_read(test);
+		} else {
+			pipemux_mode =
+				readl(pcie_ss_base + PCIE_PIPEMUX_CFG_OFFSET);
+			if (pipemux_mode != test->pcie_mode) {
+				/*
+				 * If value read from PCIE_PIPEMUX_CFG Register
+				 * is not same as pcie_mode specified by user,
+				 * then configure the PIPE-MUX for pcie_mode
+				 */
+				pipemux_mode = test->pcie_mode;
+				dev_info(dev, "Configuring PIPE-MUX to mode %x\n",
+						pipemux_mode);
+				writel(pipemux_mode,
+					pcie_ss_base + PCIE_PIPEMUX_CFG_OFFSET);
+			}
 		}
-		do_prbs_test(dev);
+		dev_info(dev, "pcie mode = %d\n", pipemux_mode);
+		do_prbs_test(test, pipemux_mode);
 	}
-	mutex_unlock(&test_lock);
+	mutex_unlock(&test->test_lock);
 	return strnlen(buf, count);
 }
 
@@ -389,10 +586,12 @@ static ssize_t pcie_phy_err_count_show(struct device *dev,
 				    char *buf)
 {
 	ssize_t ret;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *test = platform_get_drvdata(pdev);
 
-	mutex_lock(&test_lock);
-	ret = sprintf(buf, "%u\n", err_count);
-	mutex_unlock(&test_lock);
+	mutex_lock(&test->test_lock);
+	ret = sprintf(buf, "%u\n", test->err_count);
+	mutex_unlock(&test->test_lock);
 	return ret;
 }
 
@@ -411,21 +610,73 @@ static DEVICE_ATTR(test_start, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(err_count, S_IRUGO,
 		   pcie_phy_err_count_show, NULL);
 
-static int stingray_pcie_phy_probe(struct mdio_device *mdiodev)
+static int stingray_pcie_phy_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
+	struct device_node *dn = dev->of_node, *child;
+	struct pcie_prbs_dev *pd;
+	struct resource reg;
+	uint32_t child_cnt = 0;
 	int ret = 0;
-	struct device *dev = &mdiodev->dev;
-	struct device_node *dn = dev->of_node;
 
-	if (mdiodev->addr >= MAX_PHY_COUNT)
-		return -ENODEV;
-	pcie_strap_map =
-		syscon_regmap_lookup_by_phandle(dn, "brcm, pcie-strap-syscon");
-	if (IS_ERR(pcie_strap_map))
-		return PTR_ERR(pcie_strap_map);
+	child_cnt = of_get_child_count(dn);
+	if (child_cnt < MAX_PHY_COUNT) {
+		dev_err(dev, "All the PCIe PHY nodes not present\n");
+		return -EINVAL;
+	}
 
-	pcie[mdiodev->addr] = mdiodev;
-	phy_count++;
+	pd = devm_kzalloc(dev, sizeof(*pd), GFP_KERNEL);
+	if (!pd)
+		return -ENOMEM;
+
+	platform_set_drvdata(pdev, pd);
+	pd->dev = dev;
+
+	/* Allocate PCIE_SS resources */
+	ret = of_address_to_resource(dn, 0, &reg);
+	if (ret < 0) {
+		dev_err(dev, "unable to obtain PCIE_SS resources\n");
+		return ret;
+	}
+
+	pd->pcie_ss_base = devm_ioremap(dev, reg.start, resource_size(&reg));
+	if (IS_ERR(pd->pcie_ss_base)) {
+		dev_err(dev, "unable to map controller registers\n");
+		return PTR_ERR(pd->pcie_ss_base);
+	}
+
+	pd->pipemux_strap_map = syscon_regmap_lookup_by_phandle(dn,
+					"brcm,pcie-pipemux-strap-syscon");
+	if (IS_ERR(pd->pipemux_strap_map)) {
+		dev_err(dev, "unable to find CDRU device\n");
+		return PTR_ERR(pd->pipemux_strap_map);
+	}
+
+	pd->phy_count = 0;
+	for_each_available_child_of_node(dn, child) {
+		/* Allocate resources for each PCIe PHY */
+		ret = of_address_to_resource(child, 0, &reg);
+		if (ret < 0) {
+			dev_err(dev, "unable to obtain PCIe core %d resources\n",
+					pd->phy_count);
+			of_node_put(child);
+			return -ENOMEM;
+		}
+
+		pd->paxb_base[pd->phy_count] =
+			devm_ioremap(dev, reg.start, resource_size(&reg));
+		if (IS_ERR(pd->paxb_base[pd->phy_count])) {
+			dev_err(dev, "unable to map PCIe core %d registers\n",
+					pd->phy_count);
+			of_node_put(child);
+			return PTR_ERR(pd->paxb_base[pd->phy_count]);
+		}
+
+		/* Reset PCIe core */
+		iproc_pcie_reset(pd->paxb_base[pd->phy_count]);
+		pd->phy_count++;
+	}
+
 
 	/* creating sysfs entries */
 	ret = device_create_file(dev, &dev_attr_test_retries);
@@ -444,12 +695,12 @@ static int stingray_pcie_phy_probe(struct mdio_device *mdiodev)
 	if (ret < 0)
 		goto destroy_err_count;
 
-	mutex_init(&test_lock);
-	test_retries = 0;
-	test_start = 0;
-	pcie_mode = PCIE_MODE_DEFAULT;
-	slot_num = 0;
-	dev_info(dev, "%s PHY registered\n", dev_name(dev));
+	mutex_init(&pd->test_lock);
+	pd->test_retries = 0;
+	pd->test_start = 0;
+	pd->pcie_mode = PCIE_MODE_DEFAULT;
+	pd->slot_num = 0;
+	dev_info(dev, "%d PCIe PHYs registered\n", pd->phy_count);
 	return 0;
 
 destroy_err_count:
@@ -469,16 +720,14 @@ static const struct of_device_id stingray_pcie_phy_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, stingray_pcie_phy_of_match);
 
-static struct mdio_driver stingray_pcie_prbs_driver = {
-	.mdiodrv = {
-		.driver = {
-			.name = "stingray-pcie-prbs",
-			.of_match_table = stingray_pcie_phy_of_match,
-		},
+static struct platform_driver stingray_pcie_prbs_driver = {
+	.driver = {
+		.name = "stingray-pcie-prbs",
+		.of_match_table = stingray_pcie_phy_of_match,
 	},
 	.probe = stingray_pcie_phy_probe,
 };
-mdio_module_driver(stingray_pcie_prbs_driver);
+module_platform_driver(stingray_pcie_prbs_driver);
 
 MODULE_DESCRIPTION("Broadcom Stingray PCIe PHY PRBS test driver");
 MODULE_LICENSE("GPL v2");
