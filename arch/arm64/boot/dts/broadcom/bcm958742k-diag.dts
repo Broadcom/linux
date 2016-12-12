@@ -153,9 +153,9 @@
 		};
 	};
 
-	mdio@11 {
-		gphy0: eth-phy@1 {
-			reg = <0x1>;
+	mdio@10 {
+		gphy0: eth-phy@10 {
+			reg = <0x10>;
 		};
 	};
 };
