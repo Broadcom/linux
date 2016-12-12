@@ -61,6 +61,55 @@
 		linux,initrd-end = <0x0 0x75800000>;
 	};
 
+	pcie {
+		compatible = "brcm,stingray-pcie-phy-prbs";
+		reg = <0x0 0x40000000 0x0 0x1000>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		brcm,pcie-pipemux-strap-syscon = <&cdru>;
+
+		pcie_phy0: phy@48000000 {
+			reg = <0x0 0x48000000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy1: phy@48004000 {
+			reg = <0x0 0x48004000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy2: phy@48008000 {
+			reg = <0x0 0x48008000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy3: phy@4800c000{
+			reg = <0x0 0x4800c000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy4: phy@48010000 {
+			reg = <0x0 0x48010000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy5: phy@48014000 {
+			reg = <0x0 0x48014000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy6: phy@48018000 {
+			reg = <0x0 0x48018000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy7: phy@4801c000 {
+			reg = <0x0 0x4801c000 0x0 0x4000>;
+			status = "okay";
+		};
+	};
+
 	sdio0_vcc_en_reg: sdio0_en {
 		compatible = "regulator-fixed";
 		regulator-name = "sdio0_vcc_en-reg";
