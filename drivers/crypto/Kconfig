@@ -318,6 +318,9 @@ config CRYPTO_DEV_OMAP_AES
 	select CRYPTO_AES
 	select CRYPTO_BLKCIPHER
 	select CRYPTO_ENGINE
+	select CRYPTO_CBC
+	select CRYPTO_ECB
+	select CRYPTO_CTR
 	help
 	  OMAP processors have AES module accelerator. Select this if you
 	  want to use the OMAP module for AES algorithms.
@@ -564,5 +567,6 @@ config CRYPTO_DEV_BCM_SPU
 	Secure Processing Unit (SPU). The SPU driver registers ablkcipher,
 	ahash, and aead algorithms with the kernel cryptographic API.
 
+source "drivers/crypto/chelsio/Kconfig"
 
 endif # CRYPTO_HW

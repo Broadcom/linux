@@ -10,7 +10,7 @@ Example:
 
 rng {
 	compatible = "brcm,bcm2835-rng";
-	reg = <0x7e104000 0x14>;
+        reg = <0x7e104000 0x10>;
 };
 
 rng@18033000 {

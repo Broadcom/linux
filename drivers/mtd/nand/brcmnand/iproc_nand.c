@@ -75,7 +75,7 @@ static void iproc_nand_intc_set(struct brcmnand_soc *soc, bool en)
 }
 
 static void iproc_nand_apb_access(struct brcmnand_soc *soc, bool prepare,
-					enum brcmnand_data_type_read mode)
+				  bool is_param)
 {
 	struct iproc_nand_soc *priv =
 			container_of(soc, struct iproc_nand_soc, soc);
@@ -86,23 +86,21 @@ static void iproc_nand_apb_access(struct brcmnand_soc *soc, bool prepare,
 	spin_lock_irqsave(&priv->idm_lock, flags);
 
 	val = brcmnand_readl(mmio);
-	if (mode == BRCMNAND_READ_DATA) {
+
+	/*
+	 * In the case of BE or when dealing with NAND data, alway configure
+	 * the APB bus to LE mode before accessing the FIFO and back to BE mode
+	 * after the access is done
+	 */
+	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN) || !is_param) {
 		if (prepare)
 			val |= IPROC_NAND_APB_LE_MODE;
 		else
 			val &= ~IPROC_NAND_APB_LE_MODE;
-	} else if (mode == BRCMNAND_READ_PARAM) {
-	/* After un prepare is called, APB mode should be always in BE mode */
-#ifndef CONFIG_CPU_BIG_ENDIAN
-		if (prepare)
-			val &= ~IPROC_NAND_APB_LE_MODE;
-#else
-		if (prepare)
-			val |= IPROC_NAND_APB_LE_MODE;
-		else
-			val &= ~IPROC_NAND_APB_LE_MODE;
-#endif
+	} else { /* when in LE accessing the parameter page, keep APB in BE */
+		val &= ~IPROC_NAND_APB_LE_MODE;
 	}
+
 	brcmnand_writel(val, mmio);
 
 	spin_unlock_irqrestore(&priv->idm_lock, flags);

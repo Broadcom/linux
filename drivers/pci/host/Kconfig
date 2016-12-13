@@ -170,15 +170,6 @@ config PCIE_IPROC
 	  iProc family of SoCs. An appropriate bus interface driver needs
 	  to be enabled to select this.
 
-config PCIE_IPROC_MSI
-	bool "Broadcom iProc PCIe MSI support"
-	depends on ARCH_BCM_IPROC && PCI_MSI
-	depends on PCI_MSI_IRQ_DOMAIN
-	default ARCH_BCM_IPROC
-	help
-	  Say Y here if you want to enable MSI support for Broadcom's iProc
-	  PCIe controller
-
 config PCIE_IPROC_PLATFORM
 	tristate "Broadcom iProc PCIe platform bus driver"
 	depends on ARCH_BCM_IPROC || (ARM && COMPILE_TEST)
@@ -194,6 +185,7 @@ config PCIE_IPROC_BCMA
 	depends on ARM && (ARCH_BCM_IPROC || COMPILE_TEST)
 	select PCIE_IPROC
 	select BCMA
+	select PCI_DOMAINS
 	default ARCH_BCM_5301X
 	help
 	  Say Y here if you want to use the Broadcom iProc PCIe controller
@@ -281,5 +273,32 @@ config PCIE_ARTPEC6
 	help
 	  Say Y here to enable PCIe controller support on Axis ARTPEC-6
 	  SoCs.  This PCIe controller uses the DesignWare core.
+
+config PCIE_ROCKCHIP
+	bool "Rockchip PCIe controller"
+	depends on ARCH_ROCKCHIP
+	depends on OF
+	depends on PCI_MSI_IRQ_DOMAIN
+	select MFD_SYSCON
+	help
+	  Say Y here if you want internal PCI support on Rockchip SoC.
+	  There is 1 internal PCIe port available to support GEN2 with
+	  4 slots.
+
+config VMD
+	depends on PCI_MSI && X86_64
+	tristate "Intel Volume Management Device Driver"
+	default N
+	---help---
+	  Adds support for the Intel Volume Management Device (VMD). VMD is a
+	  secondary PCI host bridge that allows PCI Express root ports,
+	  and devices attached to them, to be removed from the default
+	  PCI domain and placed within the VMD domain. This provides
+	  more bus resources than are otherwise possible with a
+	  single domain. If you know your system provides one of these and
+	  has devices attached to it, say Y; if you are not sure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called vmd.
 
 endmenu

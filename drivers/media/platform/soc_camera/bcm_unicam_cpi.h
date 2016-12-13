@@ -86,7 +86,7 @@ struct unicam_camera_dev {
 	struct completion stop;
 	atomic_t stopping;
 	enum buffer_mode b_mode;
-	struct v4l2_crop crop;
+	struct v4l2_selection sel;
 	u32 panic_count;
 	atomic_t cam_triggered;
 	struct v4l2_format active_fmt;

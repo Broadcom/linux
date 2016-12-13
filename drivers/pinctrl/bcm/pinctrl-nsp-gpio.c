@@ -310,8 +310,8 @@ static int nsp_gpio_direction_output(struct gpio_chip *gc, unsigned gpio,
 	unsigned long flags;
 
 	spin_lock_irqsave(&chip->lock, flags);
-	nsp_set_bit(chip, REG, NSP_GPIO_DATA_OUT, gpio, !!(val));
 	nsp_set_bit(chip, REG, NSP_GPIO_OUT_EN, gpio, true);
+	nsp_set_bit(chip, REG, NSP_GPIO_DATA_OUT, gpio, !!(val));
 	spin_unlock_irqrestore(&chip->lock, flags);
 
 	dev_dbg(chip->dev, "gpio:%u set output, value:%d\n", gpio, val);
@@ -741,6 +741,6 @@ static struct platform_driver nsp_gpio_driver = {
 
 static int __init nsp_gpio_init(void)
 {
-	return platform_driver_probe(&nsp_gpio_driver, nsp_gpio_probe);
+	return platform_driver_register(&nsp_gpio_driver);
 }
 arch_initcall_sync(nsp_gpio_init);

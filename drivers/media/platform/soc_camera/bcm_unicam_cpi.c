@@ -114,14 +114,14 @@ static void unicam_camera_update_buf(struct unicam_camera_dev *unicam_dev)
 	}
 
 	if (unicam_dev->icd->current_fmt->code != MEDIA_BUS_FMT_JPEG_1X8) {
-		if ((unicam_dev->crop.c.top == 0) ||
-				(unicam_dev->crop.c.left == 0)) {
+		if ((unicam_dev->sel.r.top == 0) ||
+				(unicam_dev->sel.r.left == 0)) {
 			line_stride = soc_mbus_bytes_per_line(
 					unicam_dev->icd->user_width,
 					unicam_dev->icd->current_fmt->host_fmt);
 		} else {
 			line_stride = soc_mbus_bytes_per_line(
-					unicam_dev->crop.c.width,
+					unicam_dev->sel.r.width,
 					unicam_dev->icd->current_fmt->host_fmt);
 		}
 
@@ -295,7 +295,7 @@ static void unicam_videobuf_stop_streaming_int(
 
 	unicam_dev->active = NULL;
 
-	memset(&unicam_dev->crop, 0x00, sizeof(struct v4l2_crop));
+	memset(&unicam_dev->sel, 0x00, sizeof(struct v4l2_selection));
 	unicam_dev->last_buffer_in_queue = false;
 	spin_unlock_irqrestore(&unicam_dev->lock, flags);
 
@@ -448,28 +448,28 @@ static int unicam_camera_try_fmt(struct soc_camera_device *icd,
 	return ret;
 }
 
-static int unicam_camera_get_crop(struct soc_camera_device *icd,
-						struct v4l2_crop *crop)
+static int unicam_camera_get_selection(struct soc_camera_device *icd,
+				       struct v4l2_selection *sel)
 {
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct unicam_camera_dev *unicam_dev = ici->priv;
 
-	if (crop != NULL)
-		*crop = unicam_dev->crop;
+	if (sel != NULL)
+		*sel = unicam_dev->sel;
 
 	return 0;
 }
 
-static int unicam_camera_set_crop(struct soc_camera_device *icd,
-		const struct v4l2_crop *crop)
+static int unicam_camera_set_selection(struct soc_camera_device *icd,
+				       struct v4l2_selection *sel)
 {
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct unicam_camera_dev *unicam_dev = ici->priv;
 
-	if (crop == NULL)
+	if (sel == NULL)
 		return -EINVAL;
 
-	unicam_dev->crop = *crop;
+	unicam_dev->sel = *sel;
 	return 0;
 }
 
@@ -517,10 +517,10 @@ static int unicam_camera_set_fmt_int(struct unicam_camera_dev *unicam_dev)
 	pix->field = mf->field;
 	pix->colorspace = mf->colorspace;
 	icd->current_fmt = xlate;
-	/* Initialize crop window for now */
-	unicam_dev->crop.c.width = pix->width;
-	unicam_dev->crop.c.height = pix->height;
-	unicam_dev->crop.c.top = unicam_dev->crop.c.left = 0;
+	/* Initialize selection window for now */
+	unicam_dev->sel.r.width = pix->width;
+	unicam_dev->sel.r.height = pix->height;
+	unicam_dev->sel.r.top = unicam_dev->sel.r.left = 0;
 
 	return ret;
 }
@@ -589,8 +589,8 @@ static struct soc_camera_host_ops unicam_soc_camera_host_ops = {
 	.poll = unicam_camera_poll,
 	.querycap = unicam_camera_querycap,
 	.set_bus_param = unicam_camera_set_bus_param,
-	.set_crop = unicam_camera_set_crop,
-	.get_crop = unicam_camera_get_crop,
+	.set_selection = unicam_camera_set_selection,
+	.get_selection = unicam_camera_get_selection,
 };
 
 static irqreturn_t unicam_camera_isr(int irq, void *arg)
