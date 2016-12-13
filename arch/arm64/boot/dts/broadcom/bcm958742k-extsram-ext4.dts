@@ -47,15 +47,9 @@
 / {
 	model = "Stingray Combo SVK (BCM958742K) w/External SRAM";
 
-	aliases {
-		serial1 = &uart1;
-		serial3 = &uart3;
-	};
-
 	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/mmcblk0p8 rootfstype=ext4 rw console=ttyS1,115200n8 \
+		bootargs = "root=/dev/mmcblk0p8 rootfstype=ext4 rw  \
 			    earlycon=uart8250,mmio32,0x68a10000 cma=8M maxcpus=2";
-		linux,stdout-path = "/soc/uart@68a10000:115200n8";
 	};
 };
 

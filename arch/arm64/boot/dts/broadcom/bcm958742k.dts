@@ -48,15 +48,9 @@
 / {
 	model = "Stingray Combo SVK (BCM958742K)";
 
-	aliases {
-		serial1 = &uart1;
-		serial3 = &uart3;
-	};
-
 	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/ram rw console=ttyS1,115200n8 \
+		bootargs = "root=/dev/ram rw \
 			    earlycon=uart8250,mmio32,0x68a10000 cma=64M";
-		linux,stdout-path = "/soc/uart@68a10000:115200n8";
 		linux,initrd-start = <0x0 0x81000000>;
 		linux,initrd-end = <0x0 0x81800000>;
 	};

@@ -39,6 +39,17 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	aliases {
+		serial0 = &uart1;
+		serial1 = &uart0;
+		serial2 = &uart2;
+		serial3 = &uart3;
+	};
+
+	chosen {
+		linux,stdout-path = "serial0:115200n8";
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
