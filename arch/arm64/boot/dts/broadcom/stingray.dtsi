@@ -180,6 +180,9 @@
 
 		msi-map = <0x100 &gic_its 0x040 0x8>;
 
+		phys = <&pcie_phy 0>;
+		phy-names = "pcie-phy";
+
 		status = "disabled";
 	};
 
@@ -211,6 +214,9 @@
 		dma-coherent;
 
 		msi-map = <0x100 &gic_its 0x440 0x8>;
+
+		phys = <&pcie_phy 1>;
+		phy-names = "pcie-phy";
 
 		status = "disabled";
 	};
@@ -244,6 +250,9 @@
 
 		msi-map = <0x100 &gic_its 0x840 0x8>;
 
+		phys = <&pcie_phy 2>;
+		phy-names = "pcie-phy";
+
 		status = "disabled";
 	};
 
@@ -275,6 +284,9 @@
 		dma-coherent;
 
 		msi-map = <0x100 &gic_its 0xc40 0x8>;
+
+		phys = <&pcie_phy 3>;
+		phy-names = "pcie-phy";
 
 		status = "disabled";
 	};
@@ -308,6 +320,9 @@
 
 		msi-map = <0x100 &gic_its 0x1040 0x8>;
 
+		phys = <&pcie_phy 4>;
+		phy-names = "pcie-phy";
+
 		status = "disabled";
 	};
 
@@ -339,6 +354,9 @@
 		dma-coherent;
 
 		msi-map = <0x100 &gic_its 0x1440 0x8>;
+
+		phys = <&pcie_phy 5>;
+		phy-names = "pcie-phy";
 
 		status = "disabled";
 	};
@@ -372,6 +390,9 @@
 
 		msi-map = <0x100 &gic_its 0x1840 0x8>;
 
+		phys = <&pcie_phy 6>;
+		phy-names = "pcie-phy";
+
 		status = "disabled";
 	};
 
@@ -403,6 +424,9 @@
 		dma-coherent;
 
 		msi-map = <0x100 &gic_its 0x1c40 0x8>;
+
+		phys = <&pcie_phy 7>;
+		phy-names = "pcie-phy";
 
 		status = "disabled";
 	};

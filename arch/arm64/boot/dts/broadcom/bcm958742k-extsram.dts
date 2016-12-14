@@ -95,41 +95,49 @@
 &pcie0 {
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
+	status = "okay";
 };
 
 &pcie1 {
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
+	status = "okay";
 };
 
 &pcie2 {
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
+	status = "okay";
 };
 
 &pcie3 {
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
+	status = "okay";
 };
 
 &pcie4 {
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
+	status = "okay";
 };
 
 &pcie5 {
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
+	status = "okay";
 };
 
 &pcie6 {
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
+	status = "okay";
 };
 
 &pcie7 {
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
+	status = "okay";
 };
 
 &uart1 {
