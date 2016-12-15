@@ -172,4 +172,16 @@
 	status = "okay";
 };
 
+&spi0 {
+	num-cs = <1>;
+	status = "okay";
+
+	panel@0 {
+		compatible = "wintek,wd-f6448x-eflwc";
+		spi-max-frequency = <500000>;
+		reg = <0>;
+		power-enable-gpio = <&gpio_asiu 64 0>;
+		reset-gpio = <&gpio_asiu 68 0>;
+	};
+};
 
