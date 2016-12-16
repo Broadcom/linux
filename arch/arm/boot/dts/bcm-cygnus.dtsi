@@ -96,6 +96,13 @@
 		status = "disabled";
 	};
 
+	firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+	};
+
 	iproc-reset {
 		compatible = "brcm,iproc-reset";
 		mboxes = <&mailbox 0>;
