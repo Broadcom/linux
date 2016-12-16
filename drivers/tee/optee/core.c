@@ -364,11 +364,6 @@ optee_config_shm_ioremap(struct device *dev, optee_invoke_fn *invoke_fn,
 		return ERR_PTR(-ENOENT);
 	}
 
-	if (res.result.settings != OPTEE_SMC_SHM_CACHED) {
-		dev_err(dev, "only normal cached shared memory supported\n");
-		return ERR_PTR(-EINVAL);
-	}
-
 	begin = roundup(res.result.start, PAGE_SIZE);
 	end = rounddown(res.result.start + res.result.size, PAGE_SIZE);
 	paddr = begin;
@@ -379,7 +374,11 @@ optee_config_shm_ioremap(struct device *dev, optee_invoke_fn *invoke_fn,
 		return ERR_PTR(-EINVAL);
 	}
 
-	va = ioremap_cache(paddr, size);
+	if (res.result.settings == OPTEE_SMC_SHM_CACHED)
+		va = ioremap_cache(paddr, size);
+	else
+		va = ioremap_nocache(paddr, size);
+
 	if (!va) {
 		dev_err(dev, "shared memory ioremap failed\n");
 		return ERR_PTR(-EINVAL);
