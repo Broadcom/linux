@@ -43,7 +43,8 @@ V=${V-0}
 #  default to arm64
 #
 #*****************************************************************************
-ARCH=arm64
+ARCH64=arm64
+ARCH32=arm
 
 #*****************************************************************************
 ###
@@ -77,19 +78,37 @@ main() {
 		set -x
 	fi
 
+	# 64 bit platforms
 	# iproc_defconfig, for both NS2 and Stingray
 	# for uses when NS2/Stingray run standalone without NB host
 	iproc_base="base-arm64 clocksource dbg mmu"
 	iproc_extra="blk net dma fs i2c iomux mailbox md misc mmc mtd mtd-spi rng spi virtio watchdog pwm usb bdc"
-	do_update iproc $iproc_base $iproc_extra
+	do_update ${ARCH64} iproc $iproc_base $iproc_extra
 
 	# sr_nitro_lite_defconfig. for PAXC/Nitro bring up on Stingray palladium
-	do_update sr_nitro_lite $iproc_base blk fs net
+	do_update ${ARCH64} sr_nitro_lite $iproc_base blk fs net
 
-	#Cleanup
-	make ARCH=${ARCH} mrproper > /dev/null
-	rm defconfig
-	echo "Done."
+	#Cleanup 64 bit
+	make ARCH=${ARCH64} mrproper > /dev/null
+	if [ -e defconfig ]; then
+		rm defconfig
+	fi
+	echo "Done 64 bit."
+
+	# 32 bit platforms
+	# cygnus
+	do_update ${ARCH32} bcm_cygnus base-arm32 blk dbg dma fs i2c mailbox \
+	md misc mmc mtd net pwm rng spi watchdog bt wifi regulator cygnus
+
+
+
+
+	#Cleanup 32 bit
+	make ARCH=${ARCH32} mrproper > /dev/null
+	if [ -e defconfig ]; then
+		rm defconfig
+	fi
+	echo "Done 32 bit."
 }
 
 #*****************************************************************************
@@ -104,18 +123,24 @@ main() {
 #*****************************************************************************
 do_update() {
 	local defcfg	# Destination file
-	local arg		# Argument iterator
-	local path		# Search path iterator
-	local tst		# Test path
+	local arg	# Argument iterator
+	local path	# Search path iterator
+	local tst	# Test path
 	local found	# File found flag
 	local -a bits	# Array of configuration files found.
+	local arch	# 32 or 64 bit architecture
 
 	if [ $# -lt 1 ]; then
 		echo "Error in $FUNCNAME: missing arguments!" >&2
 		return 1
 	fi
 
-	defcfg=arch/${ARCH}/configs/${1}_defconfig
+	arch=${1}
+
+	defcfg=arch/$arch/configs/${2}_defconfig
+	shift
+
+	# shift again to take out the arch parameter
 	shift
 
 	for arg in $*; do
@@ -134,10 +159,13 @@ do_update() {
 		fi
 	done
 
-	if ARCH=${ARCH} scripts/kconfig/merge_config.sh -m ${bits[@]}; then
-		rm defconfig
+	if ARCH=$arch scripts/kconfig/merge_config.sh -m ${bits[@]}; then
+		if [ -e defconfig ]; then
+			rm defconfig
+		fi
 		echo "Creating minimal defconfig from .config"
-		make ARCH=${ARCH} savedefconfig
+		echo "arch is $arch"
+		make ARCH=$arch savedefconfig
 		cp -v defconfig $defcfg # Save defconfig
 	else
 		return 1
