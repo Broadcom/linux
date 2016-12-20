@@ -37,16 +37,9 @@
 / {
 	model = "Stingray Combo SVK (BCM958742k) Diagnostics";
 
-	aliases {
-		serial0 = &uart1;
-		serial1 = &uart0;
-		serial2 = &uart2;
-		serial3 = &uart3;
-	};
-
 	chosen {
-		bootargs = "console=ttyS0,115200n8 earlycon=uart8250, \
-			    mmio32,0x66130000 maxcpus=2
+		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
+			    earlycon=uart8250,mmio32,0x68a10000 cma=64M \
 			    mtdparts=brcmnand.0:10m(nboot),16m(kernel),1m(dt-blob),940m(nroot),32m(nand-test)";
 	};
 

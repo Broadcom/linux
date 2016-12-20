@@ -54,9 +54,8 @@
 	model = "Stingray Combo SVK (BCM958742K) w/External SRAM";
 
 	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/ram rw \
-			    earlycon=uart8250,mmio32,0x68a10000 cma=8M maxcpus=2
-			    mtdparts=brcmnand.0:10m(nboot),16m(kernel),1m(dt-blob),940m(nroot),32m(nand-test)";
+		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
+			    earlycon=uart8250,mmio32,0x68a10000 cma=8M maxcpus=2";
 		linux,initrd-start = <0x0 0x75000000>;
 		linux,initrd-end = <0x0 0x75800000>;
 	};

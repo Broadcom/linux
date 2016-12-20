@@ -48,7 +48,8 @@
 	model = "Stingray Combo SVK (BCM958742K) w/External SRAM";
 
 	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/mmcblk0p8 rootfstype=ext4 rw  \
+		bootargs = "root=/dev/mmcblk0p8 rootfstype=ext4 rw \
+			    console=ttyS0,115200n8 \
 			    earlycon=uart8250,mmio32,0x68a10000 cma=8M maxcpus=2";
 	};
 };
