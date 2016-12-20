@@ -185,3 +185,9 @@
 	};
 };
 
+&mipipll {
+	assigned-clocks = <&mipipll 2>, <&mipipll 0>;
+	assigned-clock-parents = <&mipipll 0>;
+	assigned-clock-rates = <0>, <2100000000>;
+};
+
