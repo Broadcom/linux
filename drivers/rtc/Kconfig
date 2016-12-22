@@ -1721,5 +1721,13 @@ config RTC_DRV_HID_SENSOR_TIME
 	  If this driver is compiled as a module, it will be named
 	  rtc-hid-sensor-time.
 
+config BCM_IPROC_RTC
+	tristate "iProc RTC support"
+	depends on (ARCH_BCM_IPROC && ARM64) || COMPILE_TEST
+	default ARCH_BCM_IPROC
+	help
+	  This driver provides RTC support for iProc Based Broadcom SoCs
+	  with secure OS. This driver works as proxy and forward all calls
+	  to secure OS to perform the requested function.
 
 endif # RTC_CLASS
