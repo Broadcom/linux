@@ -1,0 +1,12 @@
+Broadcom RTC driver used for accessing RTC via smc calls
+
+Required properties:
+- compatible: "brcm,iproc-rtc"
+- interrupts: interrupt number for periodic interrupt
+
+Example:
+iproc_rtc: iproc_rtc {
+	compatible = "brcm,iproc-rtc";
+	interrupts = <GIC_SPI 17 IRQ_TYPE_NONE>;
+};
+
