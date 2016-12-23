@@ -866,10 +866,6 @@ static int __sba_memcpy_exec(struct fs4_test *test)
 				rc = cmsg->bmsg[i].error;
 				break;
 			}
-
-			if (test->poll &&
-			    (atomic_read(&cmsg->done_count) > 0))
-				mbox_client_peek_data(chan);
 		}
 		if (rc < 0)
 			break;
@@ -1442,10 +1438,6 @@ static int __sba_xor_exec(struct fs4_test *test)
 				rc = cmsg->bmsg[i].error;
 				break;
 			}
-
-			if (test->poll &&
-			    (atomic_read(&cmsg->done_count) > 0))
-				mbox_client_peek_data(chan);
 		}
 		if (rc < 0)
 			break;
