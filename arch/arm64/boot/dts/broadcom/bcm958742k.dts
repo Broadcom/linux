@@ -49,7 +49,7 @@
 	model = "Stingray Combo SVK (BCM958742K)";
 
 	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/ram rw \
+		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
 			    earlycon=uart8250,mmio32,0x68a10000 cma=64M";
 		linux,initrd-start = <0x0 0x81000000>;
 		linux,initrd-end = <0x0 0x81800000>;
@@ -98,73 +98,7 @@
 
 &memory {
 	reg = <0x00000000 0x80000000 0x0 0x80000000>, /* 2G @ 2G */
-	      <0x00000008 0x80000000 0x3 0x80000000>, /* 14G @ 34G */
-	      <0x00000090 0x00000000 0x4 0x00000000>, /* 16G @ 576G */
-	      <0x000000a0 0x00000000 0x4 0x00000000>; /* 16G @ 640G */
-};
-
-&pcie0 {
-	dma-ranges = <0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000
-		      0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000
-		      0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
-
-	status = "okay";
-};
-
-&pcie1 {
-	dma-ranges = <0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000
-		      0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000
-		      0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
-
-	status = "okay";
-};
-
-&pcie2 {
-	dma-ranges = <0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000
-		      0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000
-		      0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
-
-	status = "okay";
-};
-
-&pcie3 {
-	dma-ranges = <0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000
-		      0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000
-		      0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
-
-	status = "okay";
-};
-
-&pcie4 {
-	dma-ranges = <0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000
-		      0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000
-		      0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
-
-	status = "okay";
-};
-
-&pcie5 {
-	dma-ranges = <0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000
-		      0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000
-		      0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
-
-	status = "okay";
-};
-
-&pcie6 {
-	dma-ranges = <0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000
-		      0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000
-		      0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
-
-	status = "okay";
-};
-
-&pcie7 {
-	dma-ranges = <0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000
-		      0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000
-		      0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
-
-	status = "okay";
+	      <0x00000008 0x80000000 0x1 0x80000000>; /* 6G @ 34G */
 };
 
 &uart1 {
@@ -177,10 +111,11 @@
 
 &ssp0 {
 	pinctrl-0 = <&spi0_pins>;
+	cs-gpios = <&gpio_hsls 34 0>;
 	status = "okay";
 
 	spi-flash@0 {
-		compatible = "winbond,w25q32";
+		compatible = "jedec,spi-nor";
 		reg = <0>;
 		spi-max-frequency = <20000000>;
 	};
@@ -188,10 +123,11 @@
 
 &ssp1 {
 	pinctrl-0 = <&spi1_pins>;
+	cs-gpios = <&gpio_hsls 96 0>;
 	status = "okay";
 
 	spi-flash@0 {
-		compatible = "winbond,w25q32";
+		compatible = "jedec,spi-nor";
 		reg = <0>;
 		spi-max-frequency = <20000000>;
 	};
@@ -210,43 +146,14 @@
 
 &sdio0 {
 	non-removable;
-	vmmc-supply = <&sdio0_vcc_en_reg>;
-	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
+	dsr;
 	status = "okay";
 };
 
 &sdio1 {
-	vmmc-supply = <&sdio1_vcc_en_reg>;
-	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
+	dsr;
 	status = "okay";
 };
-
-&nand {
-	status = "okay";
-	nandcs@0 {
-		compatible = "brcm,nandcs";
-		reg = <0>;
-		nand-ecc-mode = "hw";
-		nand-ecc-strength = <8>;
-		nand-ecc-step-size = <512>;
-		nand-bus-width = <16>;
-		brcm,nand-oob-sector-size = <16>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-	};
-};
-
-&qspi {
-	bspi-sel = <0>;
-	flash: w25q64@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "jedec,spi-nor";
-		reg = <0x0>;
-		spi-max-frequency = <12500000>;
-	};
-};
-
 
 &mdio_mux_iproc {
 	mdio@10 {
@@ -254,11 +161,6 @@
 			reg = <0x10>;
 		};
 	};
-};
-
-&enet {
-	phy-mode = "mii";
-	phy-handle = <&gphy0>;
 };
 
 &usb0_phy0 {
