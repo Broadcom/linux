@@ -923,6 +923,7 @@
 			num-cs = <2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			status = "disabled";
 		};
 
 		enet: ethernet@68c40000{
