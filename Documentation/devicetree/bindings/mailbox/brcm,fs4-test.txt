@@ -13,6 +13,7 @@ Required properties:
 		"brcm,fs4-test-spu2"
 		"brcm,fs4-test-sba-memcpy"
 		"brcm,fs4-test-sba-xor"
+		"brcm,fs4-test-sba-pq"
 - mboxes:	List of phandle and mailbox channel specifiers
 
 Optional properties:
