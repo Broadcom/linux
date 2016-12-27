@@ -42,16 +42,19 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/raid/xor.h>
+#include <linux/raid/pq.h>
 
 #define FS4_ENGINE_REG_SIZE		0x1000
-#define FS4_MAX_BATCH_COUNT		256
-#define FS4_MAX_CHANNELS		32
+#define FS4_MAX_BATCH_COUNT		512
+#define FS4_MAX_CHANNELS		16
 
 struct fs4_test_msg {
 	void *src[FS4_MAX_BATCH_COUNT];
 	dma_addr_t src_dma[FS4_MAX_BATCH_COUNT];
 	void *dst[FS4_MAX_BATCH_COUNT];
 	dma_addr_t dst_dma[FS4_MAX_BATCH_COUNT];
+	void *dst1[FS4_MAX_BATCH_COUNT];
+	dma_addr_t dst1_dma[FS4_MAX_BATCH_COUNT];
 	void *dst_resp[FS4_MAX_BATCH_COUNT];
 	dma_addr_t dst_resp_dma[FS4_MAX_BATCH_COUNT];
 	struct brcm_sba_command *cmds[FS4_MAX_BATCH_COUNT];
@@ -423,6 +426,8 @@ static int __spu2_exec(struct fs4_test *test)
 #define SBA_USER_DEF_MASK			0xffff
 #define SBA_R_MDATA_SHIFT			24
 #define SBA_R_MDATA_MASK			0xff
+#define SBA_C_MDATA_MS_SHIFT			18
+#define SBA_C_MDATA_MS_MASK			0x3
 #define SBA_INT_SHIFT				17
 #define SBA_INT_MASK				0x1
 #define SBA_RESP_SHIFT				16
@@ -434,9 +439,26 @@ static int __spu2_exec(struct fs4_test *test)
 #define SBA_CMD_ZERO_ALL_BUFFERS		0x8
 #define SBA_CMD_LOAD_BUFFER			0x9
 #define SBA_CMD_XOR				0xa
-#define SBA_CMD_GALOIS_XOR			0xe
+#define SBA_CMD_GALOIS_XOR			0xb
 #define SBA_CMD_ZERO_BUFFER			0x4
 #define SBA_CMD_WRITE_BUFFER			0xc
+
+/* SBA C_MDATA helper macros */
+#define SBA_C_MDATA_LOAD_VAL(__bnum0)		((__bnum0) & 0x3)
+#define SBA_C_MDATA_WRITE_VAL(__bnum0)		((__bnum0) & 0x3)
+#define SBA_C_MDATA_XOR_VAL(__bnum1, __bnum0)			\
+			({	u32 __v = ((__bnum0) & 0x3);	\
+				__v |= ((__bnum1) & 0x3) << 2;	\
+				__v;				\
+			})
+#define SBA_C_MDATA_PQ_VAL(__dnum, __bnum1, __bnum0)		\
+			({	u32 __v = ((__bnum0) & 0x3);	\
+				__v |= ((__bnum1) & 0x3) << 2;	\
+				__v |= ((__dnum) & 0x1f) << 5;	\
+				__v;				\
+			})
+#define SBA_C_MDATA_LS(__c_mdata_val)	((__c_mdata_val) & 0xff)
+#define SBA_C_MDATA_MS(__c_mdata_val)	(((__c_mdata_val) >> 8) & 0x3)
 
 /* SBA response encoding */
 #define SBA_RESP_SIZE				0x8
@@ -942,35 +964,18 @@ skip_mailbox:
 
 static const u8 sba_xor_ref1[] = {
 0xa5, 0xa5, 0xa5, 0xa5, 0xa5, 0xa5, 0xa5, 0xa5,
-0x5a, 0x5a, 0x5a, 0x5a, 0x5a, 0x5a, 0x5a, 0x5a,
-0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
-0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
-0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,
-0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33,
 };
 
 static const u8 sba_xor_ref2[] = {
 0x5a, 0x5a, 0x5a, 0x5a, 0x5a, 0x5a, 0x5a, 0x5a,
-0xa5, 0xa5, 0xa5, 0xa5, 0xa5, 0xa5, 0xa5, 0xa5,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
-0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
-0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33,
-0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,
 };
 
 static const u8 sba_xor_ref3[] = {
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+};
+
+static const u8 sba_xor_ref4[] = {
+0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
 };
 
 #define SBA_XOR_MAX_SRC_COUNT		30
@@ -1174,13 +1179,20 @@ static struct fs4_test_msg *__sba_xor_alloc(struct fs4_test *test,
 		b, cmsg->src[b], b, (unsigned long)cmsg->src_dma[b]);
 
 		for (s = 0; s < test->src_count; s++) {
-			if (s & 0x1)
+			switch (s & 0x3) {
+			case 0:
 				ref_split = sba_xor_ref1;
-			else
+				break;
+			case 1:
 				ref_split = sba_xor_ref2;
-			if ((s == (test->src_count - 1)) &&
-			    (test->src_count & 0x1))
+				break;
+			case 2:
 				ref_split = sba_xor_ref3;
+				break;
+			case 3:
+				ref_split = sba_xor_ref4;
+				break;
+			}
 			for (i = 0; i < test->src_size / SBA_XOR_REF_SIZE; i++)
 				memcpy(cmsg->src[b] +
 				s * test->src_size + i * SBA_XOR_REF_SIZE,
@@ -1273,8 +1285,13 @@ static bool __sba_xor_verify(struct fs4_test *test,
 
 	for (b = 0; b < test->batch_count; b++) {
 		for (i = 0; i < (test->src_size / 8); i++)
-			if (((u64 *)cmsg->dst[b])[i] != ref_out_magic)
+			if (((u64 *)cmsg->dst[b])[i] != ref_out_magic) {
+				fs4_info(test, "got=0x%lx exp=0x%lx\n",
+				(unsigned long)((u64 *)cmsg->dst[b])[i],
+				(unsigned long)ref_out_magic);
+				ret = false;
 				break;
+			}
 		if (i != (test->src_size / 8)) {
 			i *= 8;
 			fs4_info(test, "iter=%u batch=%u mismatch at %d\n",
@@ -1290,7 +1307,6 @@ static bool __sba_xor_verify(struct fs4_test *test,
 					DUMP_PREFIX_ADDRESS,
 					8, 1, cmsg->dst[b] + i,
 					t, true);
-			ret = false;
 			break;
 		}
 	}
@@ -1380,17 +1396,10 @@ static int __sba_xor_exec(struct fs4_test *test)
 	if (!cmsg)
 		return -ENOMEM;
 
-	if (test->src_count & 0x1) {
-		if (((test->src_count - 1) / 2) & 0x1)
-			ref_out_magic = 0xffffffffffffffff;
-		else
-			ref_out_magic = 0x0000000000000000;
-	} else {
-		if ((test->src_count / 2) & 0x1)
-			ref_out_magic = 0xffffffffffffffff;
-		else
-			ref_out_magic = 0x0000000000000000;
-	}
+	ref_out_magic = 0x0;
+	for (i = 0; i < test->src_count; i++)
+		ref_out_magic = ref_out_magic ^
+				(*(u64 *)(cmsg->src[0] + i * test->src_size));
 
 	while (iter < test->iterations) {
 		fs4_info(test, "iter=%u started", iter);
@@ -1495,6 +1504,653 @@ skip_mailbox:
 	}
 
 	__sba_xor_free(test, cmsg, split_count);
+
+	if (iter) {
+		avg_usecs = avg_usecs / iter;
+		avg_KBs = avg_KBs / iter;
+	}
+
+	fs4_info(test, "completed %u/%u iterations\n",
+		 iter, test->iterations);
+	fs4_info(test, "min_usecs=%ld min_KBs=%llu",
+		 (long)min_usecs, min_KBs);
+	fs4_info(test, "max_usecs=%ld max_KBs=%llu",
+		 (long)max_usecs, max_KBs);
+	fs4_info(test, "avg_usecs=%ld avg_KBs=%llu",
+		 (long)avg_usecs, avg_KBs);
+
+	return rc;
+}
+
+static const u8 sba_pq_ref1[] = {
+0xa5, 0xa5, 0xa5, 0xa5, 0xa5, 0xa5, 0xa5, 0xa5,
+};
+
+static const u8 sba_pq_ref2[] = {
+0x5a, 0x5a, 0x5a, 0x5a, 0x5a, 0x5a, 0x5a, 0x5a,
+};
+
+static const u8 sba_pq_ref3[] = {
+0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+};
+
+static const u8 sba_pq_ref4[] = {
+0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+};
+
+#define SBA_PQ_MAX_SRC_COUNT		30
+#define SBA_PQ_SPLIT_CMD_COUNT(test, split_buf_count)	\
+		(((test)->src_count + 3) * (split_buf_count))
+#define SBA_PQ_REF_SIZE		sizeof(sba_pq_ref1)
+#define SBA_PQ_CMD_COUNT(test, split_count, split_buf_count)	\
+	((split_count) * SBA_PQ_SPLIT_CMD_COUNT(test, split_buf_count))
+
+/* Note: Must be called with test->lock held */
+static unsigned int __sba_pq_split_cmds(struct fs4_test *test,
+					struct brcm_sba_command *cmds,
+					unsigned int split,
+					unsigned int cur_split_size,
+					unsigned int split_size,
+					dma_addr_t src_dma_base,
+					dma_addr_t dst_dma_base,
+					dma_addr_t dst1_dma_base,
+					dma_addr_t dst_resp_dma_base)
+{
+	u64 cmd;
+	unsigned int s, cmds_count = 0;
+	unsigned int cpos = 0, c_mdata, csize;
+
+	while (cur_split_size) {
+		csize = (cur_split_size < SBA_HW_BUF_SIZE) ?
+					cur_split_size : SBA_HW_BUF_SIZE;
+
+		/* Type-A command to zero-out buffers */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, SBA_CMD_ZERO_ALL_BUFFERS,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
+		cmds_count++;
+
+		/* Type-B commands for generate P onto buf0 and Q onto buf1 */
+		for (s = 0; s < test->src_count; s++) {
+			cmd = 0;
+			SBA_ENC(cmd, SBA_TYPE_B,
+				SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+			SBA_ENC(cmd, csize,
+				SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+			SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
+			c_mdata = SBA_C_MDATA_PQ_VAL(s, 1, 0);
+			SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+				SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+			SBA_ENC(cmd, SBA_C_MDATA_MS(c_mdata),
+				SBA_C_MDATA_MS_SHIFT, SBA_C_MDATA_MS_MASK);
+			SBA_ENC(cmd, SBA_CMD_GALOIS_XOR,
+				SBA_CMD_SHIFT, SBA_CMD_MASK);
+			cmds[cmds_count].cmd = cmd;
+			cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
+			cmds[cmds_count].data =
+				src_dma_base + s * test->src_size +
+				split * split_size + cpos;
+			cmds[cmds_count].data_len = csize;
+			cmds_count++;
+		}
+
+		/* Type-A command to write buf0 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_A,
+			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = SBA_C_MDATA_WRITE_VAL(0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+		cmds[cmds_count].resp =
+				dst_resp_dma_base + split * SBA_RESP_SIZE;
+		cmds[cmds_count].resp_len = SBA_RESP_SIZE;
+		cmds[cmds_count].data =
+				dst_dma_base + split * split_size + cpos;
+		cmds[cmds_count].data_len = csize;
+		cmds_count++;
+
+		/* Type-A command to write buf1 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_A,
+			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = SBA_C_MDATA_WRITE_VAL(1);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+		cmds[cmds_count].resp =
+				dst_resp_dma_base + split * SBA_RESP_SIZE;
+		cmds[cmds_count].resp_len = SBA_RESP_SIZE;
+		cmds[cmds_count].data =
+				dst1_dma_base + split * split_size + cpos;
+		cmds[cmds_count].data_len = csize;
+		cmds_count++;
+
+		cpos += csize;
+		cur_split_size -= csize;
+	}
+
+	return cmds_count;
+}
+
+/* Note: Must be called with test->lock held */
+static void __sba_software_pq(struct fs4_test *test,
+			      void *dst, void *dst1, void *src)
+{
+	int s;
+	void *srcs[SBA_PQ_MAX_SRC_COUNT + 2];
+
+	for (s = 0; s < test->src_count; s++)
+		srcs[s] = src + s * test->src_size;
+	srcs[test->src_count] = dst;
+	srcs[test->src_count + 1] = dst1;
+
+	raid6_call.gen_syndrome(test->src_count + 2, test->src_size, srcs);
+}
+
+/* Note: Must be called with test->lock held */
+static void __sba_pq_free(struct fs4_test *test,
+			   struct fs4_test_msg *cmsg,
+			   unsigned int split_count)
+{
+	int b;
+
+	if (!test || !cmsg)
+		return;
+
+	for (b = 0; b < test->batch_count; b++) {
+		if (cmsg->dst_resp[b]) {
+			dma_free_coherent(
+				  mbox_channel_device(test->mchans[0]),
+				  SBA_RESP_SIZE * split_count,
+				  cmsg->dst_resp[b], cmsg->dst_resp_dma[b]);
+			cmsg->dst_resp[b] = NULL;
+		}
+		if (cmsg->dst1[b]) {
+			dma_free_coherent(
+					mbox_channel_device(test->mchans[0]),
+					test->src_size,
+					cmsg->dst1[b], cmsg->dst1_dma[b]);
+			cmsg->dst1[b] = NULL;
+		}
+		if (cmsg->dst[b]) {
+			dma_free_coherent(
+					mbox_channel_device(test->mchans[0]),
+					test->src_size,
+					cmsg->dst[b], cmsg->dst_dma[b]);
+			cmsg->dst[b] = NULL;
+		}
+		if (cmsg->src[b]) {
+			dma_free_coherent(
+					mbox_channel_device(test->mchans[0]),
+					test->src_count * test->src_size,
+					cmsg->src[b], cmsg->src_dma[b]);
+			cmsg->src[b] = NULL;
+		}
+		if (cmsg->cmds[b]) {
+			devm_kfree(test->dev, cmsg->cmds[b]);
+			cmsg->cmds[b] = NULL;
+		}
+	}
+
+	devm_kfree(test->dev, cmsg);
+}
+
+/* Note: Must be called with test->lock held */
+static struct fs4_test_msg *__sba_pq_alloc(struct fs4_test *test,
+					   unsigned int split_count,
+					   unsigned int split_size,
+					   unsigned int split_buf_count)
+{
+	unsigned int b, s, i;
+	const u8 *ref_split;
+	struct fs4_test_msg *cmsg = NULL;
+	unsigned int cmds_idx, cmds_count;
+	unsigned int cur_split_size, src_size;
+
+	if (!test)
+		return NULL;
+
+	cmsg = devm_kzalloc(test->dev, sizeof(*cmsg), GFP_KERNEL);
+	if (!cmsg)
+		return NULL;
+
+	for (b = 0; b < test->batch_count; b++) {
+		cmsg->cmds[b] = devm_kcalloc(test->dev,
+			SBA_PQ_CMD_COUNT(test, split_count, split_buf_count),
+			sizeof(*cmsg->cmds[b]), GFP_KERNEL);
+		if (!cmsg->cmds[b]) {
+			fs4_info(test, "failed to alloc sba command array\n");
+			__sba_pq_free(test, cmsg, split_count);
+			return NULL;
+		}
+
+		cmsg->src[b] = dma_alloc_coherent(
+				mbox_channel_device(test->mchans[0]),
+				test->src_count * test->src_size,
+				&cmsg->src_dma[b], GFP_KERNEL);
+		if (!cmsg->src[b]) {
+			fs4_info(test, "failed to alloc src buffer\n");
+			__sba_pq_free(test, cmsg, split_count);
+			return NULL;
+		}
+
+		fs4_debug(test, "src[%d]=0x%p src_dma[%d]=0x%lx\n",
+		b, cmsg->src[b], b, (unsigned long)cmsg->src_dma[b]);
+
+		for (s = 0; s < test->src_count; s++) {
+			switch (s & 0x3) {
+			case 0:
+				ref_split = sba_pq_ref1;
+				break;
+			case 1:
+				ref_split = sba_pq_ref2;
+				break;
+			case 2:
+				ref_split = sba_pq_ref3;
+				break;
+			case 3:
+				ref_split = sba_pq_ref4;
+				break;
+			}
+			for (i = 0; i < test->src_size / SBA_PQ_REF_SIZE; i++)
+				memcpy(cmsg->src[b] +
+				s * test->src_size + i * SBA_PQ_REF_SIZE,
+				ref_split, SBA_PQ_REF_SIZE);
+		}
+
+		cmsg->dst[b] = dma_alloc_coherent(
+					mbox_channel_device(test->mchans[0]),
+					test->src_size, &cmsg->dst_dma[b],
+					GFP_KERNEL);
+		if (!cmsg->dst[b]) {
+			fs4_info(test, "failed to alloc dst buffer\n");
+			__sba_pq_free(test, cmsg, split_count);
+			return NULL;
+		}
+
+		fs4_debug(test, "dst[%d]=0x%p dst_dma[%d]=0x%lx\n",
+		b, cmsg->dst[b], b, (unsigned long)cmsg->dst_dma[b]);
+
+		cmsg->dst1[b] = dma_alloc_coherent(
+					mbox_channel_device(test->mchans[0]),
+					test->src_size, &cmsg->dst1_dma[b],
+					GFP_KERNEL);
+		if (!cmsg->dst1[b]) {
+			fs4_info(test, "failed to alloc dst1 buffer\n");
+			__sba_pq_free(test, cmsg, split_count);
+			return NULL;
+		}
+
+		fs4_debug(test, "dst1[%d]=0x%p dst1_dma[%d]=0x%lx\n",
+		b, cmsg->dst1[b], b, (unsigned long)cmsg->dst1_dma[b]);
+
+		cmsg->dst_resp[b] = dma_alloc_coherent(
+					mbox_channel_device(test->mchans[0]),
+					SBA_RESP_SIZE * split_count,
+					&cmsg->dst_resp_dma[b], GFP_KERNEL);
+		if (!cmsg->dst_resp[b]) {
+			fs4_info(test, "failed to alloc dst_resp buffer\n");
+			__sba_pq_free(test, cmsg, split_count);
+			return NULL;
+		}
+
+		fs4_debug(test, "dst_resp[%d]=0x%p dst_resp_dma[%d]=0x%lx\n",
+		b, cmsg->dst_resp[b], b, (unsigned long)cmsg->dst_resp_dma[b]);
+
+		src_size = test->src_size;
+		for (s = 0; (s < split_count) && src_size; s++) {
+			cur_split_size = min(src_size, split_size);
+
+			cmds_idx =
+			s * SBA_PQ_SPLIT_CMD_COUNT(test, split_buf_count);
+			cmds_count = __sba_pq_split_cmds(test,
+					   &cmsg->cmds[b][cmds_idx],
+					   s, cur_split_size, split_size,
+					   cmsg->src_dma[b],
+					   cmsg->dst_dma[b],
+					   cmsg->dst1_dma[b],
+					   cmsg->dst_resp_dma[b]);
+
+			cmsg->msg[cmsg->msg_count + s].type =
+						BRCM_MESSAGE_SBA;
+			cmsg->msg[cmsg->msg_count + s].sba.cmds =
+						&cmsg->cmds[b][cmds_idx];
+			cmsg->msg[cmsg->msg_count + s].sba.cmds_count =
+						cmds_count;
+			cmsg->msg[cmsg->msg_count + s].ctx = cmsg;
+			cmsg->msg[cmsg->msg_count + s].error = 0;
+
+			src_size -= cur_split_size;
+		}
+
+		cmsg->msg_count += split_count;
+	}
+
+	b = cmsg->msg_count / test->mchans_count;
+	if ((b * test->mchans_count) < cmsg->msg_count)
+		b++;
+	s = 0;
+	cmsg->bmsg_count = 0;
+	while (s < cmsg->msg_count) {
+		i = min((cmsg->msg_count - s), b);
+		cmsg->bmsg[cmsg->bmsg_count].type = BRCM_MESSAGE_BATCH;
+		cmsg->bmsg[cmsg->bmsg_count].batch.msgs = &cmsg->msg[s];
+		cmsg->bmsg[cmsg->bmsg_count].batch.msgs_queued = 0;
+		cmsg->bmsg[cmsg->bmsg_count].batch.msgs_count = i;
+		fs4_debug(test, "batch%d msg_idx=%d msg_count=%d\n",
+			  cmsg->bmsg_count, s, i);
+		cmsg->bmsg_count++;
+		s += i;
+	}
+
+	fs4_debug(test, "msgs_count=%d msgs_per_chan=%d batch_msg_count=%d\n",
+		  cmsg->msg_count, b, cmsg->bmsg_count);
+
+	return cmsg;
+}
+
+/* Note: Must be called with test->lock held */
+static bool __sba_pq_verify(struct fs4_test *test,
+			    struct fs4_test_msg *cmsg, unsigned int iter,
+			    u64 ref_out_magic, u64 ref_out1_magic)
+{
+	int b, i, t;
+	bool ret = true;
+
+	for (b = 0; b < test->batch_count; b++) {
+		for (i = 0; i < (test->src_size / 8); i++)
+			if (((u64 *)cmsg->dst[b])[i] != ref_out_magic) {
+				fs4_info(test, "got=0x%lx exp=0x%lx\n",
+				(unsigned long)((u64 *)cmsg->dst[b])[i],
+				(unsigned long)ref_out_magic);
+				ret = false;
+				break;
+			}
+		if (i != (test->src_size / 8)) {
+			i *= 8;
+			fs4_info(test, "iter=%u batch=%u P mismatch at %d\n",
+				 iter, b, i);
+			t = test->src_size - i;
+			if (t >= SBA_PQ_REF_SIZE)
+				t = SBA_PQ_REF_SIZE;
+			print_hex_dump(KERN_INFO, "dst_resp: ",
+					DUMP_PREFIX_ADDRESS,
+					8, 1, cmsg->dst_resp[b],
+					SBA_RESP_SIZE, true);
+			print_hex_dump(KERN_INFO, "dst: ",
+					DUMP_PREFIX_ADDRESS,
+					8, 1, cmsg->dst[b] + i,
+					t, true);
+			break;
+		}
+	}
+	for (b = 0; b < test->batch_count; b++) {
+		for (i = 0; i < (test->src_size / 8); i++)
+			if (((u64 *)cmsg->dst1[b])[i] != ref_out1_magic) {
+				fs4_info(test, "got=0x%lx exp=0x%lx\n",
+				(unsigned long)((u64 *)cmsg->dst1[b])[i],
+				(unsigned long)ref_out1_magic);
+				ret = false;
+				break;
+			}
+		if (i != (test->src_size / 8)) {
+			i *= 8;
+			fs4_info(test, "iter=%u batch=%u Q mismatch at %d\n",
+				 iter, b, i);
+			t = test->src_size - i;
+			if (t >= SBA_PQ_REF_SIZE)
+				t = SBA_PQ_REF_SIZE;
+			print_hex_dump(KERN_INFO, "dst_resp: ",
+					DUMP_PREFIX_ADDRESS,
+					8, 1, cmsg->dst_resp[b],
+					SBA_RESP_SIZE, true);
+			print_hex_dump(KERN_INFO, "dst1: ",
+					DUMP_PREFIX_ADDRESS,
+					8, 1, cmsg->dst1[b] + i,
+					t, true);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+u64 raid6_gf_mul_uint64(int pos, u64 val)
+{
+	u64 ret = 0x0;
+	u8 coef = raid6_gfexp[pos];
+	u8 *valp = (u8 *)&val;
+	u8 *retp = (u8 *)&ret;
+	const u8 *mul_table = raid6_gfmul[coef];
+
+	retp[0] = mul_table[valp[0]];
+	retp[1] = mul_table[valp[1]];
+	retp[2] = mul_table[valp[2]];
+	retp[3] = mul_table[valp[3]];
+	retp[4] = mul_table[valp[4]];
+	retp[5] = mul_table[valp[5]];
+	retp[6] = mul_table[valp[6]];
+	retp[7] = mul_table[valp[7]];
+
+	return ret;
+}
+
+/* Note: Must be called with test->lock held */
+static int __sba_pq_exec(struct fs4_test *test)
+{
+	int rc = 0, i;
+	unsigned long tout;
+	struct mbox_chan *chan;
+	struct fs4_test_msg *cmsg;
+	u64 tmp, ref_out_magic, ref_out1_magic;
+	unsigned long long input_bytes_count;
+	unsigned int cur_split_size, src_size, iter = 0;
+	unsigned int split_count, split_size, split_buf_count;
+	s64 iter_usecs, min_usecs = 0, max_usecs = 0, avg_usecs = 0;
+	unsigned long long iter_KBs, min_KBs = 0, max_KBs = 0, avg_KBs = 0;
+
+	if (test->batch_count > FS4_MAX_BATCH_COUNT) {
+		fs4_info(test, "batch_count should be less than %d\n",
+			 (int)FS4_MAX_BATCH_COUNT);
+		return -EINVAL;
+	}
+	if ((SBA_HW_BUF_SIZE/4) > test->min_split_size) {
+		fs4_info(test, "min_split_size should be greater than %d\n",
+			 (int)(SBA_HW_BUF_SIZE/4 - 1));
+		return -EINVAL;
+	}
+	if (test->min_split_size > 0x10000) {
+		fs4_info(test, "min_split_size can be upto 1MB or less\n");
+		return -EINVAL;
+	}
+	if ((SBA_HW_BUF_SIZE/4) > test->src_size) {
+		fs4_info(test, "src_size should be greater than %d\n",
+			 (int)(SBA_HW_BUF_SIZE/4 - 1));
+		return -EINVAL;
+	}
+	if (test->src_size & (SBA_PQ_REF_SIZE - 1)) {
+		fs4_info(test, "src_size has to be multiple of %d\n",
+			 (int)SBA_PQ_REF_SIZE);
+		return -EINVAL;
+	}
+	if (test->src_count < 2) {
+		fs4_info(test, "src_count cannot be less than 2\n");
+		return -EINVAL;
+	}
+	if (test->src_count > SBA_PQ_MAX_SRC_COUNT) {
+		fs4_info(test, "src_count cannot be greater than %d\n",
+			 (int)SBA_PQ_MAX_SRC_COUNT);
+		return -EINVAL;
+	}
+	if ((test->src_size * test->src_count) > 0x200000) {
+		fs4_info(test, "memory requirement greater than 2M\n");
+		return -EINVAL;
+	}
+
+	if (test->src_size <= test->min_split_size) {
+		split_size = test->src_size;
+	} else {
+		split_size = test->src_size / test->mchans_count;
+		if (split_size * test->mchans_count < test->src_size)
+			split_size++;
+		if (split_size <= test->min_split_size)
+			split_size = test->min_split_size;
+		if (split_size > test->src_size)
+			split_size = test->src_size;
+	}
+	split_buf_count = split_size / SBA_HW_BUF_SIZE;
+	if ((split_buf_count * SBA_HW_BUF_SIZE) < split_size)
+		split_buf_count++;
+	split_count = 0;
+	src_size = test->src_size;
+	while (src_size) {
+		cur_split_size = min(src_size, split_size);
+		split_count++;
+		src_size -= cur_split_size;
+	}
+
+	fs4_info(test, "split_count=%u split_size=%u split_buf_count=%u\n",
+		 split_count, split_size, split_buf_count);
+
+	cmsg = __sba_pq_alloc(test,
+			split_count, split_size, split_buf_count);
+	if (!cmsg)
+		return -ENOMEM;
+
+	ref_out_magic = 0x0;
+	ref_out1_magic = 0x0;
+	for (i = 0; i < test->src_count; i++) {
+		tmp = *(u64 *)(cmsg->src[0] + i * test->src_size);
+		ref_out_magic = ref_out_magic ^ tmp;
+		ref_out1_magic = ref_out1_magic ^ raid6_gf_mul_uint64(i, tmp);
+	}
+
+	while (iter < test->iterations) {
+		fs4_info(test, "iter=%u started", iter);
+
+		input_bytes_count = test->src_size * test->src_count;
+		input_bytes_count *= test->batch_count;
+		for (i = 0; i < test->batch_count; i++) {
+			memset(cmsg->dst[i], 0, test->src_size);
+			memset(cmsg->dst1[i], 0, test->src_size);
+			memset(cmsg->dst_resp[i], 0,
+				SBA_RESP_SIZE * split_count);
+		}
+
+		cmsg->start_ktime = ktime_get();
+		cmsg->runtime_usecs = 0;
+
+		if (test->software) {
+			for (i = 0; i < test->batch_count; i++)
+				__sba_software_pq(test,
+				cmsg->dst[i], cmsg->dst1[i], cmsg->src[i]);
+			cmsg->runtime_usecs =
+			ktime_us_delta(ktime_get(), cmsg->start_ktime);
+			goto skip_mailbox;
+		}
+
+		atomic_set(&cmsg->done_count, cmsg->msg_count);
+		init_completion(&cmsg->done);
+
+		rc = 0;
+		for (i = 0; i < cmsg->bmsg_count; i++) {
+			chan = test->mchans[test->chan];
+			test->chan++;
+			if (test->chan >= test->mchans_count)
+				test->chan = 0;
+
+			cmsg->bmsg[i].batch.msgs_queued = 0;
+			rc = mbox_send_message(chan, &cmsg->bmsg[i]);
+			if (rc < 0) {
+				fs4_info(test, "iter=%u msg=%d send error %d\n",
+					 iter, i, rc);
+				break;
+			}
+			rc = 0;
+
+			if (cmsg->bmsg[i].error < 0) {
+				rc = cmsg->bmsg[i].error;
+				break;
+			}
+		}
+		if (rc < 0)
+			break;
+
+		if (test->poll) {
+			while (atomic_read(&cmsg->done_count) > 0)
+				for (i = 0; i < test->mchans_count; i++)
+					mbox_client_peek_data(test->mchans[i]);
+		} else {
+			tout = (unsigned long)test->timeout * 1000;
+			tout = msecs_to_jiffies(tout);
+			tout = wait_for_completion_timeout(&cmsg->done, tout);
+			if (!tout) {
+				fs4_info(test, "iter=%u wait timeout\n", iter);
+				rc = -ETIMEDOUT;
+				break;
+			}
+		}
+
+		rc = 0;
+		for (i = 0; i < cmsg->msg_count; i++)
+			if (cmsg->msg[i].error < 0) {
+				fs4_info(test, "iter=%u msg=%d rx error\n",
+					 iter, i);
+				rc = cmsg->msg[i].error;
+			}
+		if (rc < 0)
+			break;
+
+skip_mailbox:
+		if (test->verify) {
+			if (!__sba_pq_verify(test, cmsg,
+					iter, ref_out_magic, ref_out1_magic))
+				break;
+		}
+
+		iter_usecs = cmsg->runtime_usecs;
+		iter_KBs =
+		fs4_test_KBs(cmsg->runtime_usecs, input_bytes_count);
+		min_usecs = (iter == 0) ?
+			    iter_usecs : min(min_usecs, iter_usecs);
+		max_usecs = (iter == 0) ?
+			    iter_usecs : max(max_usecs, iter_usecs);
+		avg_usecs += iter_usecs;
+		min_KBs = (iter == 0) ?
+			  iter_KBs : min(min_KBs, iter_KBs);
+		max_KBs = (iter == 0) ?
+			  iter_KBs : max(max_KBs, iter_KBs);
+		avg_KBs += iter_KBs;
+
+		fs4_info(test, "iter=%u usecs=%ld KBs=%llu",
+			 iter, (long)iter_usecs, iter_KBs);
+
+		iter++;
+	}
+
+	__sba_pq_free(test, cmsg, split_count);
 
 	if (iter) {
 		avg_usecs = avg_usecs / iter;
@@ -1637,6 +2293,7 @@ static const struct of_device_id fs4_test_of_match[] = {
 { .compatible = "brcm,fs4-test-spu2", .data = __spu2_exec, },
 { .compatible = "brcm,fs4-test-sba-memcpy", .data = __sba_memcpy_exec, },
 { .compatible = "brcm,fs4-test-sba-xor", .data = __sba_xor_exec, },
+{ .compatible = "brcm,fs4-test-sba-pq", .data = __sba_pq_exec, },
 {},};
 MODULE_DEVICE_TABLE(of, fs4_test_of_match);
 
