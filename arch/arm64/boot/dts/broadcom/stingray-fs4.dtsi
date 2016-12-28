@@ -47,17 +47,27 @@
 
 		raid_mbox: raid_mbox@67400000 {
 			compatible = "brcm,flexrm-mbox";
+#if (USE_DDR == 1)
 			reg = <0x67400000 0x200000>;
+			dma-coherent;
+#else
+			/* Use only one ring to save memory */
+			reg = <0x67400000 0x10000>;
+#endif
 			msi-parent = <&gic_its 0x7ffe>;
 			#mbox-cells = <3>;
-			dma-coherent;
+#if (NUM_RAID > 0)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 		};
 
 		raid0: raid@0 {
 			compatible = "brcm,iproc-sba-v2";
 			brcm,max-requests = <128>;
 			brcm,request-size = <131072>;
+#if (USE_DDR == 1)
 			mboxes = <&raid_mbox 0 0x1 0xff00>,
 				 <&raid_mbox 1 0x1 0xff00>,
 				 <&raid_mbox 2 0x1 0xff00>,
@@ -66,7 +76,16 @@
 				 <&raid_mbox 5 0x1 0xff00>,
 				 <&raid_mbox 6 0x1 0xff00>,
 				 <&raid_mbox 7 0x1 0xff00>;
+#else
+			/* Use only one ring to save memory */
+			mboxes = <&raid_mbox 0 0x1 0xff00>;
+#endif
+
+#if (NUM_RAID > 0)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 		};
 
 		raid1: raid@1 {
@@ -81,7 +100,12 @@
 				 <&raid_mbox 13 0x1 0xff00>,
 				 <&raid_mbox 14 0x1 0xff00>,
 				 <&raid_mbox 15 0x1 0xff00>;
+
+#if (NUM_RAID > 1)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 		};
 
 		raid2: raid@2 {
@@ -96,7 +120,12 @@
 				 <&raid_mbox 21 0x1 0xff00>,
 				 <&raid_mbox 22 0x1 0xff00>,
 				 <&raid_mbox 23 0x1 0xff00>;
+
+#if (NUM_RAID > 2)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 		};
 
 		raid3: raid@3 {
@@ -111,7 +140,11 @@
 				 <&raid_mbox 29 0x1 0xff00>,
 				 <&raid_mbox 30 0x1 0xff00>,
 				 <&raid_mbox 31 0x1 0xff00>;
+#if (NUM_RAID > 3)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 		};
 
 		spu2: spu2 {

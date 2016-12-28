@@ -33,6 +33,7 @@
 /dts-v1/;
 
 #define NUM_SATA	5
+#define NUM_RAID	1
 
 /* HACK: Reserve initrd location
  * The memreserve entry for initrd is supposed

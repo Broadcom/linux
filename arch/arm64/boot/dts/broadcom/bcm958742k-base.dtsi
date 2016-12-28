@@ -220,25 +220,6 @@
 	status = "okay";
 };
 
-&raid_mbox {
-#if (USE_DDR == 1)
-#else
-	/* Use only one ring to save memory */
-	reg = <0x67400000 0x10000>;
-	/delete-property/ dma-coherent;
-	status = "okay";
-#endif
-};
-
-&raid0 {
-#if (USE_DDR == 1)
-#else
-	/* Use only one ring to save memory */
-	mboxes = <&raid_mbox 0 0x1 0xff00>;
-	status = "okay";
-#endif
-};
-
 &ssp0 {
 	pinctrl-0 = <&spi0_pins>;
 	cs-gpios = <&gpio_hsls 34 0>;
