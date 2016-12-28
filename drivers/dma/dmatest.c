@@ -328,10 +328,6 @@ static unsigned int dmatest_verify(u8 **bufs, unsigned int start,
 
 /* poor man's completion - we want to use wait_event_freezable() on it */
 struct dmatest_done {
-	ktime_t			ktime;
-	s64			runtime;
-	ktime_t			ktime_submit;
-	s64			runtime_submit;
 	bool			done;
 	wait_queue_head_t	*wait;
 };
@@ -339,10 +335,7 @@ struct dmatest_done {
 static void dmatest_callback(void *arg)
 {
 	struct dmatest_done *done = arg;
-	ktime_t kt = ktime_get();
 
-	done->runtime = ktime_us_delta(kt, done->ktime);
-	done->runtime_submit = ktime_us_delta(kt, done->ktime_submit);
 	done->done = true;
 	wake_up_all(done->wait);
 }
@@ -437,7 +430,6 @@ static int dmatest_func(void *data)
 	ktime_t			filltime = ktime_set(0, 0);
 	ktime_t			comparetime = ktime_set(0, 0);
 	s64			runtime = 0;
-	s64			runtime_submit = 0;
 	unsigned long long	total_len = 0;
 
 	set_freezable();
@@ -498,6 +490,7 @@ static int dmatest_func(void *data)
 	 */
 	flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
 
+	ktime = ktime_get();
 	while (!kthread_should_stop()
 	       && !(params->iterations && total_tests >= params->iterations)) {
 		struct dma_async_tx_descriptor *tx = NULL;
@@ -508,12 +501,6 @@ static int dmatest_func(void *data)
 		u8 align = 0;
 		struct scatterlist tx_sg[src_cnt];
 		struct scatterlist rx_sg[src_cnt];
-
-		done.ktime = ktime_get();
-		done.runtime = 0;
-		done.ktime_submit = done.ktime;
-		done.runtime_submit = 0;
-		done.done = false;
 
 		total_tests++;
 
@@ -650,8 +637,7 @@ static int dmatest_func(void *data)
 			continue;
 		}
 
-		done.ktime_submit = ktime_get();
-
+		done.done = false;
 		tx->callback = dmatest_callback;
 		tx->callback_param = &done;
 		cookie = tx->tx_submit(tx);
@@ -668,8 +654,6 @@ static int dmatest_func(void *data)
 
 		wait_event_freezable_timeout(done_wait, done.done,
 					     msecs_to_jiffies(params->timeout));
-		runtime += done.runtime;
-		runtime_submit += done.runtime_submit;
 
 		status = dma_async_is_tx_complete(chan, cookie, NULL, NULL);
 
@@ -756,14 +740,10 @@ err_srcbuf:
 err_srcs:
 	kfree(pq_coefs);
 err_thread_type:
-	pr_info("%s: summary %u tests, %u failures (%d)\n",
-		current->comm, total_tests, failed_tests, ret);
-	pr_info("%s: submit performance %llu iops %llu KB/s\n",
-		current->comm, dmatest_persec(runtime_submit, total_tests),
-		dmatest_KBs(runtime_submit, total_len));
-	pr_info("%s: overall performance %llu iops %llu KB/s\n",
-		current->comm, dmatest_persec(runtime, total_tests),
-		dmatest_KBs(runtime, total_len));
+	pr_info("%s: summary %u tests, %u failures %llu iops %llu KB/s (%d)\n",
+		current->comm, total_tests, failed_tests,
+		dmatest_persec(runtime, total_tests),
+		dmatest_KBs(runtime, total_len), ret);
 
 	/* terminate all transfers on specified channels */
 	if (ret)
