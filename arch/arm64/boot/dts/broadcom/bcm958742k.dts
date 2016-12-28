@@ -105,6 +105,17 @@
 	status = "okay";
 };
 
+&sdio0 {
+	non-removable;
+	dsr;
+	status = "okay";
+};
+
+&sdio1 {
+	dsr;
+	status = "okay";
+};
+
 &pwm {
 	status = "okay";
 };
@@ -142,53 +153,6 @@
 		#gpio-cells = <2>;
 		reg = <0x20>;
 	};
-};
-
-&sdio0 {
-	non-removable;
-	dsr;
-	status = "okay";
-};
-
-&sdio1 {
-	dsr;
-	status = "okay";
-};
-
-&mdio_mux_iproc {
-	mdio@10 {
-		gphy0: eth-phy@10 {
-			reg = <0x10>;
-		};
-	};
-};
-
-&usb0_phy0 {
-	status = "okay";
-};
-
-&usb1_phy0 {
-	status = "okay";
-};
-
-&usb1_phy1 {
-	status = "okay";
-};
-
-&xhci0 {
-	status = "okay";
-};
-
-&xhci1 {
-	status = "okay";
-};
-
-&bdc0 {
-	status = "okay";
-};
-
-&bdc1 {
-	status = "okay";
 };
 
 &sata0_phy0 {
@@ -349,4 +313,55 @@
 
 &sata19 {
 	status = "okay";
+};
+
+&mdio_mux_iproc {
+	mdio@10 {
+		gphy0: eth-phy@10 {
+			reg = <0x10>;
+		};
+	};
+};
+
+&usb0_phy0 {
+	status = "okay";
+};
+
+&usb1_phy0 {
+	status = "okay";
+};
+
+&usb1_phy1 {
+	status = "okay";
+};
+
+&xhci0 {
+	status = "okay";
+};
+
+&xhci1 {
+	status = "okay";
+};
+
+&bdc0 {
+	status = "okay";
+};
+
+&bdc1 {
+	status = "okay";
+};
+
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&qspi_pins>;
+	bspi-sel = <0>;
+	status = "okay";
+
+	flash: w25q64@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		reg = <0x0>;
+		spi-max-frequency = <12500000>;
+	};
 };
