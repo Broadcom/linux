@@ -32,7 +32,7 @@
 
 /dts-v1/;
 
-#define FULL_SATA	1
+#define NUM_SATA	20
 #define USE_DDR		1
 
 /* HACK: Reserve bl31 location

@@ -43,7 +43,11 @@
 			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 0)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata0_port0: sata-port@0 {
 				reg = <0>;
@@ -62,7 +66,11 @@
 			sata0_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 0)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -73,7 +81,11 @@
 			interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 1)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata1_port0: sata-port@0 {
 				reg = <0>;
@@ -92,7 +104,11 @@
 			sata1_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 1)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -103,7 +119,11 @@
 			interrupts = <GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 2)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata2_port0: sata-port@0 {
 				reg = <0>;
@@ -122,7 +142,11 @@
 			sata2_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 2)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -133,7 +157,11 @@
 			interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 3)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata3_port0: sata-port@0 {
 				reg = <0>;
@@ -152,7 +180,11 @@
 			sata3_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 3)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -163,7 +195,11 @@
 			interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 4)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata4_port0: sata-port@0 {
 				reg = <0>;
@@ -182,7 +218,11 @@
 			sata4_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 4)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -193,7 +233,11 @@
 			interrupts = <GIC_SPI 331 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 5)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata5_port0: sata-port@0 {
 				reg = <0>;
@@ -212,7 +256,11 @@
 			sata5_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 5)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -223,7 +271,11 @@
 			interrupts = <GIC_SPI 333 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 6)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata6_port0: sata-port@0 {
 				reg = <0>;
@@ -242,7 +294,11 @@
 			sata6_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 6)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -253,7 +309,11 @@
 			interrupts = <GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 7)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata7_port0: sata-port@0 {
 				reg = <0>;
@@ -272,7 +332,11 @@
 			sata7_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 7)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -283,7 +347,11 @@
 			interrupts = <GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 8)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata8_port0: sata-port@0 {
 				reg = <0>;
@@ -302,7 +370,11 @@
 			sata8_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 8)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -313,7 +385,11 @@
 			interrupts = <GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 9)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata9_port0: sata-port@0 {
 				reg = <0>;
@@ -332,7 +408,11 @@
 			sata9_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 9)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -343,7 +423,11 @@
 			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 10)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata10_port0: sata-port@0 {
 				reg = <0>;
@@ -362,7 +446,11 @@
 			sata10_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 10)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -373,7 +461,11 @@
 			interrupts = <GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 11)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata11_port0: sata-port@0 {
 				reg = <0>;
@@ -392,7 +484,11 @@
 			sata11_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 11)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -403,7 +499,11 @@
 			interrupts = <GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 12)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata12_port0: sata-port@0 {
 				reg = <0>;
@@ -422,7 +522,11 @@
 			sata12_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 12)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -433,7 +537,11 @@
 			interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 13)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata13_port0: sata-port@0 {
 				reg = <0>;
@@ -452,7 +560,11 @@
 			sata13_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 13)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -463,7 +575,11 @@
 			interrupts = <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 14)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata14_port0: sata-port@0 {
 				reg = <0>;
@@ -482,7 +598,11 @@
 			sata14_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 14)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -493,7 +613,11 @@
 			interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 15)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata15_port0: sata-port@0 {
 				reg = <0>;
@@ -512,7 +636,11 @@
 			sata15_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 15)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -523,7 +651,11 @@
 			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 16)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata16_port0: sata-port@0 {
 				reg = <0>;
@@ -542,7 +674,11 @@
 			sata16_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 16)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -553,7 +689,11 @@
 			interrupts = <GIC_SPI 355 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 17)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata17_port0: sata-port@0 {
 				reg = <0>;
@@ -572,7 +712,11 @@
 			sata17_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 17)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -583,7 +727,11 @@
 			interrupts = <GIC_SPI 357 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 18)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata18_port0: sata-port@0 {
 				reg = <0>;
@@ -602,7 +750,11 @@
 			sata18_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 18)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -613,7 +765,11 @@
 			interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+#if (NUM_SATA > 19)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 
 			sata19_port0: sata-port@0 {
 				reg = <0>;
@@ -632,8 +788,15 @@
 			sata19_phy0: sata-phy@0 {
 				reg = <0>;
 				#phy-cells = <0>;
+#if (NUM_SATA > 19)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
+#if (NUM_SATA > 20)
+#error "NUM_SATA > 20"
+#endif
 	};
 

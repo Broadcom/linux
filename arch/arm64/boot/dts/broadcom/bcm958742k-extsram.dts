@@ -32,6 +32,8 @@
 
 /dts-v1/;
 
+#define NUM_SATA	5
+
 /* HACK: Reserve initrd location
  * The memreserve entry for initrd is supposed
  * to be updated in DTB by bootloader before

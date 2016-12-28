@@ -32,6 +32,8 @@
 
 /dts-v1/;
 
+#define NUM_SATA	1
+
 /* HACK: Reserve initrd location
  * The memreserve entry for initrd is supposed
  * to be updated in DTB by bootloader before
@@ -74,13 +76,5 @@
 	 * clock-frequency = <desired_baudrate> x 16
 	 */
 	clock-frequency = <76800>;
-	status = "okay";
-};
-
-&sata0_phy0 {
-	status = "okay";
-};
-
-&sata0 {
 	status = "okay";
 };
