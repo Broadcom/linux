@@ -1082,6 +1082,7 @@
 				 <&crypto_mbox 29 0x1 0xff00>,
 				 <&crypto_mbox 30 0x1 0xff00>,
 				 <&crypto_mbox 31 0x1 0xff00>;
+			status = "disabled";
 		};
 	};
 
