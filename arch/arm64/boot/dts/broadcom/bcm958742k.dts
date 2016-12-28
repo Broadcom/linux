@@ -32,6 +32,9 @@
 
 /dts-v1/;
 
+#define FULL_SATA	1
+#define USE_DDR		1
+
 /* HACK: Reserve bl31 location
  * The memreserve entry for bl31 is supposed to
  * be updated in DTB by bootloader before handing
@@ -47,13 +50,37 @@
 
 / {
 	model = "Stingray Combo SVK (BCM958742K)";
+};
 
+/ {
 	chosen { /* HACK: hard-code kernel args and initrd location */
 		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
-			    earlycon=uart8250,mmio32,0x68a10000 cma=64M";
+			    earlycon=uart8250,mmio32,0x68a10000 \
+
+#if (USE_DDR == 1)
+			    cma=64M";
 		linux,initrd-start = <0x0 0x81000000>;
 		linux,initrd-end = <0x0 0x81800000>;
+#else
+			    cma=8M maxcpus=2";
+		linux,initrd-start = <0x0 0x75000000>;
+		linux,initrd-end = <0x0 0x75800000>;
+#endif
 	};
+
+#if (USE_DDR != 1)
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		amac_reserved: amacdma@66d10000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000000 0x66d10000 0x0 0x20000>;
+			no-map;
+		};
+	};
+#endif
 
 	sdio0_vcc_en_reg: sdio0_en {
 		compatible = "regulator-fixed";
@@ -97,8 +124,100 @@
 };
 
 &memory {
+#if (USE_DDR == 1)
 	reg = <0x00000000 0x80000000 0x0 0x80000000>, /* 2G @ 2G */
 	      <0x00000008 0x80000000 0x1 0x80000000>; /* 6G @ 34G */
+#else
+	reg = <0x00000000 0x74000000 0x0 0x04000000>; /* 64MB */
+#endif
+};
+
+&enet {
+#if (USE_DDR == 1)
+	compatible = "brcm,amac-enet-ext";
+#else
+	compatible = "brcm,amac-enet-extsram";
+	memory-region = <&amac_reserved>;
+#endif
+	phy-mode = "rgmii";
+	max-speed = <1000>;
+	phy-handle = <&gphy0>;
+	brcm,enet-phy-lswap;
+	status = "okay";
+};
+
+&pcie0 {
+#if (USE_DDR == 1)
+
+#else
+	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+	/delete-property/ dma-coherent;
+	status = "okay";
+#endif
+};
+
+&pcie1 {
+#if (USE_DDR == 1)
+
+#else
+	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+	/delete-property/ dma-coherent;
+	status = "okay";
+#endif
+};
+
+&pcie2 {
+#if (USE_DDR == 1)
+#else
+	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+	/delete-property/ dma-coherent;
+	status = "okay";
+#endif
+};
+
+&pcie3 {
+#if (USE_DDR == 1)
+#else
+	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+	/delete-property/ dma-coherent;
+	status = "okay";
+#endif
+};
+
+&pcie4 {
+#if (USE_DDR == 1)
+#else
+	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+	/delete-property/ dma-coherent;
+	status = "okay";
+#endif
+};
+
+&pcie5 {
+#if (USE_DDR == 1)
+#else
+	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+	/delete-property/ dma-coherent;
+	status = "okay";
+#endif
+};
+
+&pcie6 {
+#if (USE_DDR == 1)
+#else
+	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+	/delete-property/ dma-coherent;
+	status = "okay";
+#endif
+};
+
+&pcie7 {
+#if (USE_DDR == 1)
+#else
+	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+	/delete-property/ dma-coherent;
+	status = "okay";
+#endif
 };
 
 &uart1 {
@@ -118,6 +237,25 @@
 
 &pwm {
 	status = "okay";
+};
+
+&raid_mbox {
+#if (USE_DDR == 1)
+#else
+	/* Use only one ring to save memory */
+	reg = <0x67400000 0x10000>;
+	/delete-property/ dma-coherent;
+	status = "okay";
+#endif
+};
+
+&raid0 {
+#if (USE_DDR == 1)
+#else
+	/* Use only one ring to save memory */
+	mboxes = <&raid_mbox 0 0x1 0xff00>;
+	status = "okay";
+#endif
 };
 
 &ssp0 {
@@ -163,6 +301,7 @@
 	status = "okay";
 };
 
+#if (FULL_SATA == 1)
 &sata1_phy0 {
 	status = "okay";
 };
@@ -186,6 +325,7 @@
 &sata3 {
 	status = "okay";
 };
+#endif
 
 &sata4_phy0 {
 	status = "okay";
@@ -195,6 +335,7 @@
 	status = "okay";
 };
 
+#if (FULL_SATA == 1)
 &sata5_phy0 {
 	status = "okay";
 };
@@ -218,6 +359,7 @@
 &sata7 {
 	status = "okay";
 };
+#endif
 
 &sata8_phy0 {
 	status = "okay";
@@ -227,6 +369,7 @@
 	status = "okay";
 };
 
+#if (FULL_SATA == 1)
 &sata9_phy0 {
 	status = "okay";
 };
@@ -250,6 +393,7 @@
 &sata11 {
 	status = "okay";
 };
+#endif
 
 &sata12_phy0 {
 	status = "okay";
@@ -259,6 +403,7 @@
 	status = "okay";
 };
 
+#if (FULL_SATA == 1)
 &sata13_phy0 {
 	status = "okay";
 };
@@ -282,6 +427,7 @@
 &sata15 {
 	status = "okay";
 };
+#endif
 
 &sata16_phy0 {
 	status = "okay";
@@ -291,6 +437,7 @@
 	status = "okay";
 };
 
+#if FULL_SATA
 &sata17_phy0 {
 	status = "okay";
 };
@@ -314,6 +461,7 @@
 &sata19 {
 	status = "okay";
 };
+#endif
 
 &mdio_mux_iproc {
 	mdio@10 {
