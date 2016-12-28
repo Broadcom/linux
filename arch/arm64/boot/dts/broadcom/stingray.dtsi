@@ -980,6 +980,7 @@
 			msi-parent = <&gic_its 0x7ffe>;
 			#mbox-cells = <3>;
 			dma-coherent;
+			status = "disabled";
 		};
 
 		raid0: raid@0 {
@@ -994,6 +995,7 @@
 				 <&raid_mbox 5 0x1 0xff00>,
 				 <&raid_mbox 6 0x1 0xff00>,
 				 <&raid_mbox 7 0x1 0xff00>;
+			status = "disabled";
 		};
 
 		raid1: raid@1 {
@@ -1008,6 +1010,7 @@
 				 <&raid_mbox 13 0x1 0xff00>,
 				 <&raid_mbox 14 0x1 0xff00>,
 				 <&raid_mbox 15 0x1 0xff00>;
+			status = "disabled";
 		};
 
 		raid2: raid@2 {
@@ -1022,6 +1025,7 @@
 				 <&raid_mbox 21 0x1 0xff00>,
 				 <&raid_mbox 22 0x1 0xff00>,
 				 <&raid_mbox 23 0x1 0xff00>;
+			status = "disabled";
 		};
 
 		raid3: raid@3 {
@@ -1036,6 +1040,7 @@
 				 <&raid_mbox 29 0x1 0xff00>,
 				 <&raid_mbox 30 0x1 0xff00>,
 				 <&raid_mbox 31 0x1 0xff00>;
+			status = "disabled";
 		};
 
 		spu2: spu2 {
