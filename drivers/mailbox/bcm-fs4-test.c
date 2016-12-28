@@ -84,6 +84,7 @@ struct fs4_test {
 	unsigned int src_size;
 	unsigned int iterations;
 	unsigned int timeout;
+	unsigned int update;
 	unsigned int verify;
 	unsigned int verbose;
 	unsigned int poll;
@@ -440,6 +441,7 @@ static int __spu2_exec(struct fs4_test *test)
 #define SBA_CMD_LOAD_BUFFER			0x9
 #define SBA_CMD_XOR				0xa
 #define SBA_CMD_GALOIS_XOR			0xb
+#define SBA_CMD_GALOIS				0xe
 #define SBA_CMD_ZERO_BUFFER			0x4
 #define SBA_CMD_WRITE_BUFFER			0xc
 
@@ -978,7 +980,7 @@ static const u8 sba_xor_ref4[] = {
 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
 };
 
-#define SBA_XOR_MAX_SRC_COUNT		30
+#define SBA_XOR_MAX_SRC_COUNT		14
 #define SBA_XOR_SPLIT_CMD_COUNT(test, split_buf_count)	\
 		(((test)->src_count + 1) * (split_buf_count))
 #define SBA_XOR_REF_SIZE		sizeof(sba_xor_ref1)
@@ -1079,6 +1081,8 @@ static void __sba_software_xor(struct fs4_test *test, void *dst, void *src)
 	int s, src_off, src_cnt, xor_src_cnt;
 	void *srcs[SBA_XOR_MAX_SRC_COUNT];
 
+	preempt_disable();
+
 	for (s = 0; s < test->src_count; s++)
 		srcs[s] = src + s * test->src_size;
 
@@ -1093,6 +1097,8 @@ static void __sba_software_xor(struct fs4_test *test, void *dst, void *src)
 		src_cnt -= xor_src_cnt;
 		src_off += xor_src_cnt;
 	}
+
+	preempt_enable();
 }
 
 /* Note: Must be called with test->lock held */
@@ -1356,6 +1362,10 @@ static int __sba_xor_exec(struct fs4_test *test)
 		fs4_info(test, "src_count cannot be less than 2\n");
 		return -EINVAL;
 	}
+	if (test->update && (test->src_count != 3)) {
+		fs4_info(test, "src_count has to be 3 for update mode\n");
+		return -EINVAL;
+	}
 	if (test->src_count > SBA_XOR_MAX_SRC_COUNT) {
 		fs4_info(test, "src_count cannot be greater than %d\n",
 			 (int)SBA_XOR_MAX_SRC_COUNT);
@@ -1538,23 +1548,193 @@ static const u8 sba_pq_ref4[] = {
 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
 };
 
-#define SBA_PQ_MAX_SRC_COUNT		30
+#define SBA_PQ_MAX_SRC_COUNT		12
+#define SBA_UPD_PQ_NEW_D		0
+#define SBA_UPD_PQ_OLD_D		1
+#define SBA_UPD_PQ_OLD_P		2
+#define SBA_UPD_PQ_OLD_Q		3
+#define SBA_UPD_PQ_POS			(SBA_PQ_MAX_SRC_COUNT / 2)
 #define SBA_PQ_SPLIT_CMD_COUNT(test, split_buf_count)	\
 		(((test)->src_count + 3) * (split_buf_count))
 #define SBA_PQ_REF_SIZE		sizeof(sba_pq_ref1)
 #define SBA_PQ_CMD_COUNT(test, split_count, split_buf_count)	\
 	((split_count) * SBA_PQ_SPLIT_CMD_COUNT(test, split_buf_count))
 
-/* Note: Must be called with test->lock held */
-static unsigned int __sba_pq_split_cmds(struct fs4_test *test,
-					struct brcm_sba_command *cmds,
-					unsigned int split,
-					unsigned int cur_split_size,
-					unsigned int split_size,
-					dma_addr_t src_dma_base,
-					dma_addr_t dst_dma_base,
-					dma_addr_t dst1_dma_base,
-					dma_addr_t dst_resp_dma_base)
+static unsigned int __sba_upd_pq_split_cmds(struct fs4_test *test,
+					    struct brcm_sba_command *cmds,
+					    unsigned int split,
+					    unsigned int cur_split_size,
+					    unsigned int split_size,
+					    dma_addr_t src_dma_base,
+					    dma_addr_t dst_dma_base,
+					    dma_addr_t dst1_dma_base,
+					    dma_addr_t dst_resp_dma_base)
+{
+	u64 cmd;
+	unsigned int cmds_count = 0;
+	unsigned int cpos = 0, c_mdata, csize;
+
+	while (cur_split_size) {
+		csize = (cur_split_size < SBA_HW_BUF_SIZE) ?
+					cur_split_size : SBA_HW_BUF_SIZE;
+
+		/* Type-B command to load old data into buf0 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize, SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = SBA_C_MDATA_LOAD_VAL(0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
+		cmds[cmds_count].data = src_dma_base +
+					SBA_UPD_PQ_OLD_D * test->src_size +
+					split * split_size + cpos;
+		cmds[cmds_count].data_len = csize;
+		cmds_count++;
+
+		/* Type-B command to xor new data with buf0 and
+		 * store result in buf1
+		 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize, SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = SBA_C_MDATA_XOR_VAL(1, 0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_XOR,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
+		cmds[cmds_count].data = src_dma_base +
+					SBA_UPD_PQ_NEW_D * test->src_size +
+					split * split_size + cpos;
+		cmds[cmds_count].data_len = csize;
+		cmds_count++;
+
+		/* Type-B command to xor old parity with buf1 and
+		 * store result in buf0
+		 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize, SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = SBA_C_MDATA_XOR_VAL(0, 1);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_XOR,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
+		cmds[cmds_count].data = src_dma_base +
+					SBA_UPD_PQ_OLD_P * test->src_size +
+					split * split_size + cpos;
+		cmds[cmds_count].data_len = csize;
+		cmds_count++;
+
+		/* Type-A command to write buf0 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = SBA_C_MDATA_WRITE_VAL(0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+		cmds[cmds_count].resp = dst_resp_dma_base +
+					split * SBA_RESP_SIZE;
+		cmds[cmds_count].resp_len = SBA_RESP_SIZE;
+		cmds[cmds_count].data = dst_dma_base +
+					split * split_size + cpos;
+		cmds[cmds_count].data_len = csize;
+		cmds_count++;
+
+		/* Type-B command to load old Q into buf0 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize, SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = SBA_C_MDATA_LOAD_VAL(0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
+		cmds[cmds_count].data = src_dma_base +
+					SBA_UPD_PQ_OLD_Q * test->src_size +
+					split * split_size + cpos;
+		cmds[cmds_count].data_len = csize;
+		cmds_count++;
+
+		/* Type-A command to generate Q with buf1 and buf0.
+		 * The result will be stored in buf1.
+		 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = SBA_C_MDATA_PQ_VAL(SBA_UPD_PQ_POS, 1, 0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_C_MDATA_MS(c_mdata),
+			SBA_C_MDATA_MS_SHIFT, SBA_C_MDATA_MS_MASK);
+		SBA_ENC(cmd, SBA_CMD_GALOIS,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
+		cmds_count++;
+
+		/* Type-A command to write buf1 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = SBA_C_MDATA_WRITE_VAL(1);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+		cmds[cmds_count].resp = dst_resp_dma_base +
+					split * SBA_RESP_SIZE;
+		cmds[cmds_count].resp_len = SBA_RESP_SIZE;
+		cmds[cmds_count].data = dst1_dma_base +
+					split * split_size + cpos;
+		cmds[cmds_count].data_len = csize;
+		cmds_count++;
+
+		cpos += csize;
+		cur_split_size -= csize;
+	}
+
+	return cmds_count;
+}
+
+static unsigned int __sba_gen_pq_split_cmds(struct fs4_test *test,
+					    struct brcm_sba_command *cmds,
+					    unsigned int split,
+					    unsigned int cur_split_size,
+					    unsigned int split_size,
+					    dma_addr_t src_dma_base,
+					    dma_addr_t dst_dma_base,
+					    dma_addr_t dst1_dma_base,
+					    dma_addr_t dst_resp_dma_base)
 {
 	u64 cmd;
 	unsigned int s, cmds_count = 0;
@@ -1655,18 +1835,94 @@ static unsigned int __sba_pq_split_cmds(struct fs4_test *test,
 }
 
 /* Note: Must be called with test->lock held */
+static unsigned int __sba_pq_split_cmds(struct fs4_test *test,
+					struct brcm_sba_command *cmds,
+					unsigned int split,
+					unsigned int cur_split_size,
+					unsigned int split_size,
+					dma_addr_t src_dma_base,
+					dma_addr_t dst_dma_base,
+					dma_addr_t dst1_dma_base,
+					dma_addr_t dst_resp_dma_base)
+{
+	if (test->update)
+		return __sba_upd_pq_split_cmds(test,
+					       cmds,
+					       split,
+					       cur_split_size,
+					       split_size,
+					       src_dma_base,
+					       dst_dma_base,
+					       dst1_dma_base,
+					       dst_resp_dma_base);
+	else
+		return __sba_gen_pq_split_cmds(test,
+					       cmds,
+					       split,
+					       cur_split_size,
+					       split_size,
+					       src_dma_base,
+					       dst_dma_base,
+					       dst1_dma_base,
+					       dst_resp_dma_base);
+}
+
+/* Note: Must be called with test->lock held */
 static void __sba_software_pq(struct fs4_test *test,
 			      void *dst, void *dst1, void *src)
 {
 	int s;
-	void *srcs[SBA_PQ_MAX_SRC_COUNT + 2];
+	unsigned int pos = 0, size;
+	void *old, *new, *srcs[SBA_PQ_MAX_SRC_COUNT + 2];
 
-	for (s = 0; s < test->src_count; s++)
-		srcs[s] = src + s * test->src_size;
-	srcs[test->src_count] = dst;
-	srcs[test->src_count + 1] = dst1;
+	preempt_disable();
 
-	raid6_call.gen_syndrome(test->src_count + 2, test->src_size, srcs);
+	if (test->update) {
+		for (s = 0; s < SBA_PQ_MAX_SRC_COUNT; s++)
+			srcs[s] = (void *)raid6_empty_zero_page;
+		srcs[SBA_PQ_MAX_SRC_COUNT] = dst;
+		srcs[SBA_PQ_MAX_SRC_COUNT + 1] = dst1;
+		old = src + SBA_UPD_PQ_OLD_D * test->src_size;
+		new = src + SBA_UPD_PQ_NEW_D * test->src_size;
+	} else {
+		for (s = 0; s < test->src_count; s++)
+			srcs[s] = src + s * test->src_size;
+		srcs[test->src_count] = dst;
+		srcs[test->src_count + 1] = dst1;
+		old = new = NULL;
+	}
+
+	while (pos < test->src_size) {
+		size = ((test->src_size - pos) < PAGE_SIZE) ?
+			(test->src_size - pos) : PAGE_SIZE;
+
+		if (test->update) {
+			old += pos;
+			new += pos;
+			srcs[SBA_PQ_MAX_SRC_COUNT] += pos;
+			srcs[SBA_PQ_MAX_SRC_COUNT + 1] += pos;
+			srcs[SBA_UPD_PQ_POS] = old;
+			raid6_call.xor_syndrome(SBA_PQ_MAX_SRC_COUNT + 2,
+						SBA_UPD_PQ_POS,
+						SBA_UPD_PQ_POS + 1,
+						size, srcs);
+			srcs[SBA_UPD_PQ_POS] = new;
+			raid6_call.xor_syndrome(SBA_PQ_MAX_SRC_COUNT + 2,
+						SBA_UPD_PQ_POS,
+						SBA_UPD_PQ_POS + 1,
+						size, srcs);
+		} else {
+			for (s = 0; s < test->src_count + 2; s++)
+				srcs[s] += pos;
+
+			raid6_call.gen_syndrome(test->src_count + 2,
+						size, srcs);
+		}
+
+		pos += size;
+	}
+
+	preempt_enable();
 }
 
 /* Note: Must be called with test->lock held */
@@ -1999,6 +2255,10 @@ static int __sba_pq_exec(struct fs4_test *test)
 		fs4_info(test, "src_count cannot be less than 2\n");
 		return -EINVAL;
 	}
+	if (test->update && (test->src_count != 4)) {
+		fs4_info(test, "src_count has to be 4 for update mode\n");
+		return -EINVAL;
+	}
 	if (test->src_count > SBA_PQ_MAX_SRC_COUNT) {
 		fs4_info(test, "src_count cannot be greater than %d\n",
 			 (int)SBA_PQ_MAX_SRC_COUNT);
@@ -2039,12 +2299,27 @@ static int __sba_pq_exec(struct fs4_test *test)
 	if (!cmsg)
 		return -ENOMEM;
 
-	ref_out_magic = 0x0;
-	ref_out1_magic = 0x0;
-	for (i = 0; i < test->src_count; i++) {
-		tmp = *(u64 *)(cmsg->src[0] + i * test->src_size);
+	if (test->update) {
+		tmp = *(u64 *)(cmsg->src[0] +
+			       SBA_UPD_PQ_OLD_D * test->src_size);
+		tmp = tmp ^ *(u64 *)(cmsg->src[0] +
+				     SBA_UPD_PQ_NEW_D * test->src_size);
+		ref_out_magic =	*(u64 *)(cmsg->src[0] +
+					 SBA_UPD_PQ_OLD_P * test->src_size);
 		ref_out_magic = ref_out_magic ^ tmp;
-		ref_out1_magic = ref_out1_magic ^ raid6_gf_mul_uint64(i, tmp);
+		ref_out1_magic = *(u64 *)(cmsg->src[0] +
+					  SBA_UPD_PQ_OLD_Q * test->src_size);
+		ref_out1_magic = ref_out1_magic ^
+				 raid6_gf_mul_uint64(SBA_UPD_PQ_POS, tmp);
+	} else {
+		ref_out_magic = 0x0;
+		ref_out1_magic = 0x0;
+		for (i = 0; i < test->src_count; i++) {
+			tmp = *(u64 *)(cmsg->src[0] + i * test->src_size);
+			ref_out_magic = ref_out_magic ^ tmp;
+			ref_out1_magic = ref_out1_magic ^
+					 raid6_gf_mul_uint64(i, tmp);
+		}
 	}
 
 	while (iter < test->iterations) {
@@ -2053,8 +2328,19 @@ static int __sba_pq_exec(struct fs4_test *test)
 		input_bytes_count = test->src_size * test->src_count;
 		input_bytes_count *= test->batch_count;
 		for (i = 0; i < test->batch_count; i++) {
-			memset(cmsg->dst[i], 0, test->src_size);
-			memset(cmsg->dst1[i], 0, test->src_size);
+			if (test->update) {
+				memcpy(cmsg->dst[i],
+				       (cmsg->src[0] +
+					SBA_UPD_PQ_OLD_P * test->src_size),
+				       test->src_size);
+				memcpy(cmsg->dst1[i],
+				       (cmsg->src[0] +
+					SBA_UPD_PQ_OLD_Q * test->src_size),
+				       test->src_size);
+			} else {
+				memset(cmsg->dst[i], 0, test->src_size);
+				memset(cmsg->dst1[i], 0, test->src_size);
+			}
 			memset(cmsg->dst_resp[i], 0,
 				SBA_RESP_SIZE * split_count);
 		}
@@ -2230,8 +2516,8 @@ static void __fs4_do_test(struct fs4_test *test)
 			 test->verbose, test->poll, test->software);
 		fs4_info(test, "batch_count=%u min_split_size=%u\n",
 			 test->batch_count, test->min_split_size);
-		fs4_info(test, "src_size=%u src_count=%u\n",
-			 test->src_size, test->src_count);
+		fs4_info(test, "update=%u src_size=%u src_count=%u\n",
+			 test->update, test->src_size, test->src_count);
 		rc = test->exec_func(test);
 		test->start = 0;
 		fs4_info(test, "test finished (error %d)\n", rc);
@@ -2283,6 +2569,7 @@ static ssize_t __name##_store(struct device *dev, \
 static DEVICE_ATTR(__name, S_IRUGO | S_IWUSR, \
 		   __name##_show, __name##_store)
 
+FS4_TEST_DECLARE_DEV_ATTR_BOOL(update, NULL);
 FS4_TEST_DECLARE_DEV_ATTR_BOOL(verify, NULL);
 FS4_TEST_DECLARE_DEV_ATTR_BOOL(verbose, NULL);
 FS4_TEST_DECLARE_DEV_ATTR_BOOL(poll, NULL);
@@ -2355,9 +2642,12 @@ static int fs4_test_probe(struct platform_device *pdev)
 	ret = device_create_file(&pdev->dev, &dev_attr_timeout);
 	if (ret < 0)
 		goto fail_remove_attr_iterations;
-	ret = device_create_file(&pdev->dev, &dev_attr_verify);
+	ret = device_create_file(&pdev->dev, &dev_attr_update);
 	if (ret < 0)
 		goto fail_remove_attr_timeout;
+	ret = device_create_file(&pdev->dev, &dev_attr_verify);
+	if (ret < 0)
+		goto fail_remove_attr_update;
 	ret = device_create_file(&pdev->dev, &dev_attr_verbose);
 	if (ret < 0)
 		goto fail_remove_attr_verify;
@@ -2393,11 +2683,12 @@ static int fs4_test_probe(struct platform_device *pdev)
 	/* Default values of test parameters */
 	test->chan = 0;
 	test->batch_count = 32;
-	test->min_split_size = 8192;
+	test->min_split_size = 4096;
 	test->src_size = 8192;
 	test->src_count = 3;
 	test->iterations = 50;
 	test->timeout = 300;
+	test->update = 0;
 	test->verify = 0;
 	test->software = 0;
 	test->verbose = 1;
@@ -2426,6 +2717,8 @@ fail_remove_attr_verbose:
 	device_remove_file(&pdev->dev, &dev_attr_verbose);
 fail_remove_attr_verify:
 	device_remove_file(&pdev->dev, &dev_attr_verify);
+fail_remove_attr_update:
+	device_remove_file(&pdev->dev, &dev_attr_update);
 fail_remove_attr_timeout:
 	device_remove_file(&pdev->dev, &dev_attr_timeout);
 fail_remove_attr_iterations:
@@ -2459,6 +2752,7 @@ static int fs4_test_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_poll);
 	device_remove_file(&pdev->dev, &dev_attr_verbose);
 	device_remove_file(&pdev->dev, &dev_attr_verify);
+	device_remove_file(&pdev->dev, &dev_attr_update);
 	device_remove_file(&pdev->dev, &dev_attr_timeout);
 	device_remove_file(&pdev->dev, &dev_attr_iterations);
 	device_remove_file(&pdev->dev, &dev_attr_src_count);
