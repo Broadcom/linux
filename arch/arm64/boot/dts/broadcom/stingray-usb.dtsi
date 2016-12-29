@@ -1,0 +1,109 @@
+/*
+ *  BSD LICENSE
+ *
+ *  Copyright(c) 2016 Broadcom.  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above copyright
+ *      notice, this list of conditions and the following disclaimer in
+ *      the documentation and/or other materials provided with the
+ *      distribution.
+ *    * Neither the name of Broadcom Corporation nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ *  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ *  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ *  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ *  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+	usb {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		usbphy0: usb-phy@68500000 {
+			compatible = "brcm,sr-u3drd-phy";
+			reg = <0x68500000 0x100>;
+			reg-names = "drdu3";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			usb0_phy0: phy@0 {
+				reg = <0>;
+				#phy-cells = <1>;
+				status = "disabled";
+			};
+		};
+
+		xhci0: usb@68501000 {
+			compatible = "generic-xhci";
+			reg = <0x68501000 0x100>;
+			interrupts = <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb0_phy0 1>;
+			phy-names = "phy0";
+			status = "disabled";
+		};
+
+		bdc0: usb@68502000 {
+			compatible = "brcm,bdc-usb3";
+			reg = <0x68502000 0x1000>;
+			interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb0_phy0 2>;
+			phy-names = "bdc-phy";
+			status = "disabled";
+		};
+
+		xhci1: usb@68511000 {
+			compatible = "generic-xhci";
+			reg = <0x68511000 0x100>;
+			interrupts = <GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb1_phy0 1>, <&usb1_phy1 1>;
+			phy-names = "phy0","phy1";
+			status = "disabled";
+		};
+
+		usbphy1: usb-phy@68520000 {
+			compatible = "brcm,sr-u3h-u2drd-phy";
+			reg = <0x68510000 0x100>,
+			      <0x68520000 0x100>;
+			reg-names = "usb3h","drdu2";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			usb1_phy0: phy@0 {
+				reg = <0>;
+				#phy-cells = <1>;
+				status = "disabled";
+			};
+			usb1_phy1: phy@1 {
+				reg = <1>;
+				#phy-cells = <1>;
+				status = "disabled";
+			};
+		};
+
+		bdc1: usb@68521000 {
+			compatible = "brcm,bdc-usb3";
+			reg = <0x68521000 0x1000>;
+			interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb1_phy1 2>;
+			phy-names = "bdc-phy";
+			status = "disabled";
+		};
+	};
+};
