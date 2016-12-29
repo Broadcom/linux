@@ -63,10 +63,6 @@
 #define MAX_LANE_RETRIES		10
 #define PMI_PASS_STATUS			0x80008000
 
-#define EP_PERST_SOURCE_SELECT_SHIFT	2
-#define EP_PERST_SOURCE_SELECT		BIT(EP_PERST_SOURCE_SELECT_SHIFT)
-#define EP_MODE_SURVIVE_PERST_SHIFT	1
-#define EP_MODE_SURVIVE_PERST		BIT(EP_MODE_SURVIVE_PERST_SHIFT)
 #define RC_PCIE_RST_OUTPUT_SHIFT	0
 #define RC_PCIE_RST_OUTPUT		BIT(RC_PCIE_RST_OUTPUT_SHIFT)
 
@@ -144,6 +140,38 @@ static unsigned int phy_mask[14][8] = {
 	[PCIE_MODE12] = {0x00, 0x00, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80},
 	/* Mode 13: 2x4(EP), 1x4(RC), 2x2(RC) */
 	[PCIE_MODE13] = {0x00, 0x00, 0x04, 0x08, 0x00, 0x00, 0x30, 0x00}
+};
+
+/* Following table indicates the PHYs requiring work-around */
+static unsigned int phy_workaround_table[14] = {
+	/* Mode 0: 1x16(EP) */
+	0x00,
+	/* Mode 1: 2x8 (EP) */
+	0x00,
+	/* Mode 2: 4x4 (EP) */
+	0x00,
+	/* Mode 3: 2x8 (RC) */
+	0x88,		/* work-around is needed for serdes 3 and 7 */
+	/* Mode 4: 4x4 (RC) */
+	0x00,
+	/* Mode 5: 8x2 (RC) */
+	0x00,
+	/* Mode 6: 3x4 , 2x2 (RC) */
+	0x00,
+	/* Mode 7: 1x4 , 6x2 (RC) */
+	0x00,
+	/* Mode 8: 1x8(EP), 4x2(RC) */
+	0x00,
+	/* Mode 9: 1x8(EP), 2x4(RC) */
+	0x00,
+	/* Mode 10: 2x4(EP), 2x4(RC) */
+	0x00,
+	/* Mode 11: 2x4(EP), 4x2(RC) */
+	0x00,
+	/* Mode 12: 1x4(EP), 6x2(RC) */
+	0x00,
+	/* Mode 13: 2x4(EP), 1x4(RC), 2x2(RC) */
+	0x00
 };
 
 static uint32_t pcie_pipemux_strap_read(struct pcie_prbs_dev *pd)
@@ -238,13 +266,55 @@ static int pmi_read_via_paxb(struct pcie_prbs_dev *pd,
 	return 0;
 }
 
+static int workaround_needed_for_phy(struct pcie_prbs_dev *pd, int phy_num)
+{
+	if (phy_workaround_table[pd->pcie_mode] & (1 << phy_num))
+		return 1;
+	return 0;
+}
+
 /* PCIe PRBS loopback test sequence */
 static void pcie_phy_bert_setup(struct pcie_prbs_dev *pd, int phy_num)
 {
 	struct device *dev = pd->dev;
-	void __iomem *pcie_ss_base = pd->pcie_ss_base;
 	union pmi_xfer_address pmi_addr;
 
+	dev_info(dev, "Setting up BERT for PHY 0x%x\n", phy_num);
+	/* Broadcasting PRBS settings to all lanes */
+	pmi_addr.device_id = 0x1;
+	pmi_addr.lane_number = SERDES_LANES_BCAST;
+
+	/* set gen2 speed */
+	pmi_addr.address = 0x1300;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0x2080);
+
+	/* Disable 8b10b & verify. */
+	pmi_addr.address =  0x1402;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0x0000);
+
+	/* PRBS7 is default order ;Set PRBS enable */
+	pmi_addr.address = 0x1501;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0xffff);
+
+	/* Set RX status = PRBS monitor on all lanes. */
+	pmi_addr.address = 0x7003;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0xe020);
+
+	/* Set sigdet, disable EIEOS in gen3. */
+	pmi_addr.address = 0x7007;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0xf010);
+
+	/* workaround for PHY3 and PHY7 PRBS in x8 RC */
+	if (workaround_needed_for_phy(pd, phy_num)) {
+		pmi_addr.address = 0xd073;
+		pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0x7110);
+	}
+}
+
+static void connect_pcie_core_to_phy(struct pcie_prbs_dev *pd, int phy_num)
+{
+	struct device *dev = pd->dev;
+	void __iomem *pcie_ss_base = pd->pcie_ss_base;
 	/* First tie the serdes under test to the given core */
 	dev_info(dev, "pcie core=%d and phy=%d\n",
 				pd->slot_num, phy_num);
@@ -282,30 +352,19 @@ static void pcie_phy_bert_setup(struct pcie_prbs_dev *pd, int phy_num)
 		dev_info(dev, "phy %d wired to core7", phy_num);
 		break;
 	};
+}
 
-	/* Broadcasting PRBS settings to all lanes */
+static int pcie_phy_lane_prbs_flush(struct pcie_prbs_dev *pd, int lane_number)
+{
+	union pmi_xfer_address pmi_addr;
+	uint32_t data;
+
 	pmi_addr.device_id = 0x1;
-	pmi_addr.lane_number = SERDES_LANES_BCAST;
+	pmi_addr.lane_number = lane_number;
+	pmi_addr.address = 0x7000;
+	pmi_read_via_paxb(pd, pmi_addr.effective_addr, &data);
 
-	/* set gen2 speed */
-	pmi_addr.address = 0x1300;
-	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0x2080);
-
-	/* Disable 8b10b & verify. */
-	pmi_addr.address =  0x1402;
-	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0x0000);
-
-	/* PRBS7 is default order ;Set PRBS enable */
-	pmi_addr.address = 0x1501;
-	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0xffff);
-
-	/* Set RX status = PRBS monitor on all lanes. */
-	pmi_addr.address = 0x7003;
-	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0xe020);
-
-	/* Set sigdet, disable EIEOS in gen3. */
-	pmi_addr.address = 0x7007;
-	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0xf010);
+	return 0;
 }
 
 static int pcie_phy_lane_prbs_status(struct pcie_prbs_dev *pd, int lane_number)
@@ -314,13 +373,8 @@ static int pcie_phy_lane_prbs_status(struct pcie_prbs_dev *pd, int lane_number)
 	union pmi_xfer_address pmi_addr;
 	uint32_t data;
 	int lane_retries = 0;
-
-	pmi_addr.device_id = 0x1;
-	pmi_addr.lane_number = lane_number;
-	pmi_addr.address = 0x7000;
-	pmi_read_via_paxb(pd, pmi_addr.effective_addr, &data);
-
 	do {
+		pmi_addr.device_id = 0x1;
 		pmi_addr.lane_number = lane_number;
 		pmi_addr.address = 0x7000;
 		pmi_read_via_paxb(pd, pmi_addr.effective_addr, &data);
@@ -335,15 +389,17 @@ static int pcie_phy_lane_prbs_status(struct pcie_prbs_dev *pd, int lane_number)
 	return 0;
 }
 
-static int pcie_phy_begin_test(struct pcie_prbs_dev *pd, int phy_num)
+static int pcie_phy_prbs_status(struct pcie_prbs_dev *pd, int phy_num)
 {
 	int ret = 0;
 	struct device *dev = pd->dev;
 
-	/*
-	 * Flush PRBS monitor status prior to starting test,and then
-	 * check PRBS status on Lane 0
-	 */
+	dev_info(dev, "Checking PRBS status for PHY 0x%x\n", phy_num);
+	/* Flush PRBS monitor status */
+	pcie_phy_lane_prbs_flush(pd, 0);
+	pcie_phy_lane_prbs_flush(pd, 1);
+
+	/* Checking PRBS status on Lane 0 */
 	ret = pcie_phy_lane_prbs_status(pd, 0);
 	if (ret) {
 		dev_err(dev, "PHY 0x%x: Lane 0 PRBS failed\n", phy_num);
@@ -362,10 +418,32 @@ static int pcie_phy_begin_test(struct pcie_prbs_dev *pd, int phy_num)
 	return ret;
 }
 
+static void iproc_pcie_assert_reset(void __iomem *paxb_base)
+{
+	uint32_t val;
+       /*
+	* Select perst_b signal as reset source and put the device into reset
+	*/
+	val = readl(paxb_base);
+	val &= ~RC_PCIE_RST_OUTPUT;
+	writel(val, paxb_base);
+	udelay(250);
+}
+
+static void iproc_pcie_release_reset(void __iomem *paxb_base)
+{
+	uint32_t val;
+	/* Bring the device out of reset */
+	val = readl(paxb_base);
+	val |= RC_PCIE_RST_OUTPUT;
+	writel(val, paxb_base);
+	msleep(100);
+}
+
 static int do_prbs_test(struct pcie_prbs_dev *pd, unsigned int pipemux_mode)
 {
 	struct device *dev = pd->dev;
-	int phy_num, phy_err, ret, i;
+	int phy_num, ret, i;
 
 	if (phy_mask[pipemux_mode][pd->slot_num] == 0x00) {
 		dev_info(dev, "pcie_mode(%d) and slot_num(%d)\n",
@@ -377,53 +455,46 @@ static int do_prbs_test(struct pcie_prbs_dev *pd, unsigned int pipemux_mode)
 	}
 
 	for (i = 0; i <= pd->test_retries; i++) {
-		phy_err = 0;
-
+		pd->err_count = 0;
 		/*
-		 * check which pcie phys need to be tested
+		 * setup BERT on pcie phys that need to be tested
 		 * according to self loopback cable position
 		 */
+		iproc_pcie_assert_reset(pd->paxb_base[pd->slot_num]);
 		for (phy_num = 0; phy_num < pd->phy_count; phy_num++) {
 			if (!((phy_mask[pipemux_mode][pd->slot_num]) &
 			     (1 << phy_num)))
 				continue;
+			connect_pcie_core_to_phy(pd, phy_num);
 			pcie_phy_bert_setup(pd, phy_num);
-			ret = pcie_phy_begin_test(pd, phy_num);
-			if (ret) {
-				dev_err(dev, "PCIe PHY(0x%.2x) test failed\n\n",
-					phy_num);
-				phy_err++;
-			} else
-				dev_info(dev, "PCIe PHY(0x%.2x) test passed\n\n",
-					phy_num);
 		}
-		pd->err_count = phy_err;
-		if (phy_err == 0) {
+		iproc_pcie_release_reset(pd->paxb_base[pd->slot_num]);
+
+		/* Now check PRBS status for each PHY */
+		for (phy_num = 0; phy_num < pd->phy_count; phy_num++) {
+			if (!((phy_mask[pipemux_mode][pd->slot_num]) &
+			     (1 << phy_num)))
+				continue;
+			connect_pcie_core_to_phy(pd, phy_num);
+			ret = pcie_phy_prbs_status(pd, phy_num);
+			if (!ret)
+				dev_info(dev, "PHY 0x%x: PRBS test passed\n\n",
+						phy_num);
+			else {
+				dev_err(dev, "PHY 0x%x: PRBS test failed\n\n",
+						phy_num);
+				pd->err_count++;
+			}
+		}
+
+		if (pd->err_count == 0) {
 			dev_info(dev, "Try %d: PCIe PRBS test PASSED\n\n", i);
 			return 0;
 		}
 		dev_err(dev, "Try %d: PCIe PRBS test FAILED (error %d)\n",
-			i, phy_err);
+				i, pd->err_count);
 	}
 	return 1;
-}
-
-static void iproc_pcie_reset(void __iomem *paxb_base)
-{
-	uint32_t val;
-       /*
-	* Select perst_b signal as reset source. Put the device into reset,
-	* and then bring it out of reset
-	*/
-	val = readl(paxb_base);
-	val &= ~EP_PERST_SOURCE_SELECT & ~EP_MODE_SURVIVE_PERST &
-			~RC_PCIE_RST_OUTPUT;
-	writel(val, paxb_base);
-	udelay(250);
-
-	val |= RC_PCIE_RST_OUTPUT;
-	writel(val, paxb_base);
-	msleep(100);
 }
 
 /* sysfs callbacks */
@@ -672,8 +743,6 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 			return PTR_ERR(pd->paxb_base[pd->phy_count]);
 		}
 
-		/* Reset PCIe core */
-		iproc_pcie_reset(pd->paxb_base[pd->phy_count]);
 		pd->phy_count++;
 	}
 
