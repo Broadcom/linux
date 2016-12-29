@@ -46,7 +46,11 @@
 			usb0_phy0: phy@0 {
 				reg = <0>;
 				#phy-cells = <1>;
+#if (ENABLE_USB == 1)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -56,7 +60,11 @@
 			interrupts = <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usb0_phy0 1>;
 			phy-names = "phy0";
+#if (ENABLE_USB == 1)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 		};
 
 		bdc0: usb@68502000 {
@@ -65,7 +73,11 @@
 			interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usb0_phy0 2>;
 			phy-names = "bdc-phy";
+#if (ENABLE_USB == 1)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 		};
 
 		xhci1: usb@68511000 {
@@ -74,7 +86,11 @@
 			interrupts = <GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usb1_phy0 1>, <&usb1_phy1 1>;
 			phy-names = "phy0","phy1";
+#if (ENABLE_USB == 1)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 		};
 
 		usbphy1: usb-phy@68520000 {
@@ -88,12 +104,20 @@
 			usb1_phy0: phy@0 {
 				reg = <0>;
 				#phy-cells = <1>;
+#if (ENABLE_USB == 1)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 			usb1_phy1: phy@1 {
 				reg = <1>;
 				#phy-cells = <1>;
+#if (ENABLE_USB == 1)
+				status = "okay";
+#else
 				status = "disabled";
+#endif
 			};
 		};
 
@@ -103,7 +127,11 @@
 			interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usb1_phy1 2>;
 			phy-names = "bdc-phy";
+#if (ENABLE_USB == 1)
+			status = "okay";
+#else
 			status = "disabled";
+#endif
 		};
 	};
 };

@@ -30,6 +30,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define ENABLE_USB	1
+
 #include "stingray.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
@@ -133,7 +135,6 @@
 #else
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
-	status = "okay";
 #endif
 };
 
@@ -143,7 +144,6 @@
 #else
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
-	status = "okay";
 #endif
 };
 
@@ -152,7 +152,6 @@
 #else
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
-	status = "okay";
 #endif
 };
 
@@ -161,7 +160,6 @@
 #else
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
-	status = "okay";
 #endif
 };
 
@@ -170,7 +168,6 @@
 #else
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
-	status = "okay";
 #endif
 };
 
@@ -179,7 +176,6 @@
 #else
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
-	status = "okay";
 #endif
 };
 
@@ -188,7 +184,6 @@
 #else
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
-	status = "okay";
 #endif
 };
 
@@ -197,7 +192,6 @@
 #else
 	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 	/delete-property/ dma-coherent;
-	status = "okay";
 #endif
 };
 
