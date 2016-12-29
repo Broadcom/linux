@@ -83,6 +83,7 @@
 	max-speed = <1000>;
 	phy-handle = <&gphy0>;
 	memory-region = <&amac_reserved>;
+	brcm,enet-phy-lswap;
 	status = "okay";
 };
 
