@@ -102,6 +102,21 @@ static int amac_gphy_lswap(struct phy_device *phy_dev)
 	return 0;
 }
 
+static int amac_phy54810_lswap(struct phy_device *phy_dev)
+{
+	int rc = 0;
+
+	rc = phy_write(phy_dev, GPHY_EXP_SELECT_REG, 0x0F09);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_EXP_DATA_REG, 0x11B);
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
 void amac_gphy_rgmii_init(struct bcm_amac_priv *privp, bool enable)
 {
 	u32 val;
@@ -208,11 +223,17 @@ int bcm_amac_gphy_init(struct bcm_amac_priv *privp)
 	if (privp->hw.reg.rgmii_regs)
 		amac_gphy_rgmii_init(privp, true);
 
-	/* Register PHY Fix-ups */
+	/* Register PHY Fix-ups related to lane-swap */
 	if (privp->port.ext_port.lswap) {
 		rc = phy_register_fixup_for_uid(PHY_ID_BCM_CYGNUS,
 						PHY_BCM_OUI_MASK,
 						amac_gphy_lswap);
+		if (rc)
+			return rc;
+
+		rc = phy_register_fixup_for_uid(PHY_ID_BCM54810,
+						PHY_BCM_OUI_MASK,
+						amac_phy54810_lswap);
 		if (rc)
 			return rc;
 	}
