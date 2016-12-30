@@ -5,7 +5,7 @@ Required properties:
 - interrupts: interrupt number for periodic interrupt
 
 Example:
-iproc_rtc: iproc_rtc {
+rtc: rtc {
 	compatible = "brcm,iproc-rtc";
 	interrupts = <GIC_SPI 17 IRQ_TYPE_NONE>;
 };
