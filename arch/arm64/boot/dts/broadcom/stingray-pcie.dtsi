@@ -333,7 +333,11 @@
 			  <0x106 &gic_its 0x2300 0x1>,
 			  <0x107 &gic_its 0x2380 0x1>;
 
+#if (ENABLE_PAXC == 1)
+		status = "okay";
+#else
 		status = "disabled";
+#endif
 	};
 
 	pmi-bus {

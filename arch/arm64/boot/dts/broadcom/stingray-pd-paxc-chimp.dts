@@ -32,6 +32,8 @@
 
 /dts-v1/;
 
+#define ENABLE_PAXC	1
+
 /* HACK: Reserve initrd location
  * The memreserve entry for initrd is supposed
  * to be updated in DTB by bootloader before
@@ -76,10 +78,6 @@
 	 * clock-frequency = <desired_baudrate> x 16
 	 */
 	clock-frequency = <76800>;
-	status = "okay";
-};
-
-&pcie8 {
 	status = "okay";
 };
 
