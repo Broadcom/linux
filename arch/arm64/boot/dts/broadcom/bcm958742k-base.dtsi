@@ -214,12 +214,16 @@
 };
 
 &sdio0 {
+	vmmc-supply = <&sdio0_vcc_en_reg>;
+	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
 	non-removable;
 	dsr;
 	status = "okay";
 };
 
 &sdio1 {
+	vmmc-supply = <&sdio1_vcc_en_reg>;
+	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
 	dsr;
 	status = "okay";
 };
