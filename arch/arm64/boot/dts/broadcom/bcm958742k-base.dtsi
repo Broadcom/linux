@@ -255,6 +255,17 @@
 	};
 };
 
+&i2c1 {
+	status = "okay";
+
+	pcf8574: pcf8574@20 {
+		compatible = "nxp,pcf8574a";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x27>;
+	};
+};
+
 &mdio_mux_iproc {
 	mdio@10 {
 		gphy0: eth-phy@10 {
