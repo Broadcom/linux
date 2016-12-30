@@ -27,39 +27,12 @@
  *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
  *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/dts-v1/;
-
-/* HACK: Reserve initrd location
- * The memreserve entry for initrd is supposed
- * to be updated in DTB by bootloader before
- * handing over DTB to Linux kernel.
- */
-/memreserve/ 0x75000000 0x00800000;
-/* HACK: Reserve bl31 location
- * The memreserve entry for bl31 is supposed to
- * be updated in DTB by bootloader before handing
- * over DTB to Linux kernel. This is so because
- * only firmware (or bootloader) know the correct
- * location of bl31 and bl31 location can also
- * change in-future.
- */
-/memreserve/ 0x77f00000 0x00100000;
-
-#include "stingray.dtsi"
+#include "bcm958742k-extsram.dts"
 
 / {
-	model = "Stingray Combo SVK (BCM958742K) w/External SRAM";
-
-	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
-			    earlycon=uart8250,mmio32,0x68a10000 cma=8M maxcpus=2";
-		linux,initrd-start = <0x0 0x75000000>;
-		linux,initrd-end = <0x0 0x75800000>;
-	};
-
 	pcie {
 		compatible = "brcm,stingray-pcie-phy-prbs";
 		reg = <0x0 0x40000000 0x0 0x1000>;
@@ -108,126 +81,15 @@
 			status = "okay";
 		};
 	};
-
-	sdio0_vcc_en_reg: sdio0_en {
-		compatible = "regulator-fixed";
-		regulator-name = "sdio0_vcc_en-reg";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&pca9505 16 0>;
-		enable-active-high;
-	};
-
-	sdio1_vcc_en_reg: sdio1_en {
-		compatible = "regulator-fixed";
-		regulator-name = "sdio1_vcc_en-reg";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&pca9505 17 0>;
-		enable-active-high;
-	};
-
-	sdio0_vddo_ctrl_reg: sdio0_vddo_ctrl {
-		compatible = "regulator-gpio";
-		regulator-name = "sdio0_vddo_ctrl_reg";
-		regulator-type = "voltage";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <3300000>;
-		gpios = <&pca9505 18 0>;
-		states = <3300000 0x0
-			  1800000 0x1>;
-	};
-
-	sdio1_vddo_ctrl_reg: sdio1_vddo_ctrl {
-		compatible = "regulator-gpio";
-		regulator-name = "sdio1_vddo_ctrl_reg";
-		regulator-type = "voltage";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <3300000>;
-		gpios = <&pca9505 19 0>;
-		states = <3300000 0x0
-			  1800000 0x1>;
-	};
 };
-
-&memory {
-	reg = <0x00000000 0x74000000 0x0 0x04000000>; /* 64MB */
-};
-
 
 &uart0 {
 	pinctrl-0 = <&uart0_pins>;
 	status = "okay";
 };
 
-&uart1 {
-	status = "okay";
-};
-
-&uart2 {
-	status = "okay";
-};
-
-&uart3 {
-	status = "okay";
-};
-
-&i2c0 {
-	status = "okay";
-	pca9505: pca9505@20 {
-		compatible = "nxp,pca9505";
-		gpio-controller;
-		#gpio-cells = <2>;
-		reg = <0x20>;
-	};
-};
-
-&i2c1 {
-	status = "okay";
-	pcf8574: pcf8574@20 {
-		compatible = "nxp,pcf8574a";
-		gpio-controller;
-		#gpio-cells = <2>;
-		reg = <0x27>;
-	};
-};
-
-&raid_mbox {
-	status = "disabled";
-};
-
-&raid0 {
-	status = "disabled";
-};
-
-&raid1 {
-	status = "disabled";
-};
-
-&raid2 {
-	status = "disabled";
-};
-
-&raid3 {
-	status = "disabled";
-};
-
-&spu2 {
-	status = "disabled";
-};
-
 &ssp0 {
-	pinctrl-0 = <&spi0_pins>;
-	cs-gpios = <&gpio_hsls 34 0>;
-	status = "okay";
-
 	spi-flash@0 {
-		compatible = "jedec,spi-nor";
-		reg = <0>;
-		spi-max-frequency = <20000000>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-
 		partition@0 {				/* 2 MiB */
 			label = "spi0-user";
 			reg = <0x00000000 0x00200000>;
@@ -241,17 +103,7 @@
 };
 
 &ssp1 {
-	pinctrl-0 = <&spi1_pins>;
-	cs-gpios = <&gpio_hsls 96 0>;
-	status = "okay";
-
 	spi-flash@0 {
-		compatible = "jedec,spi-nor";
-		reg = <0>;
-		spi-max-frequency = <20000000>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-
 		partition@0 {				/* 2 MiB */
 			label = "spi1-user";
 			reg = <0x00000000 0x00200000>;
@@ -265,15 +117,7 @@
 };
 
 &qspi {
-	pinctrl-0 = <&qspi_pins>;
-	bspi-sel = <0>;
 	flash: w25q64@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "jedec,spi-nor";
-		reg = <0x0>;
-		spi-max-frequency = <12500000>;
-
 		partition@0 {
 			label = "sf-boot";		/* 4 MiB */
 			reg = <0x00000000 0x00400000>;
@@ -290,23 +134,6 @@
 		};
 
 	};
-};
-
-&pwm {
-	status = "okay";
-};
-
-&sdio0 {
-	non-removable;
-	vmmc-supply = <&sdio0_vcc_en_reg>;
-	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
-	status = "okay";
-};
-
-&sdio1 {
-	vmmc-supply = <&sdio1_vcc_en_reg>;
-	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
-	status = "okay";
 };
 
 &sata_phy0 {
@@ -474,33 +301,5 @@
 };
 
 &sata19_phy0 {
-	status = "okay";
-};
-
-&usb0_phy0 {
-	status = "okay";
-};
-
-&usb1_phy0 {
-	status = "okay";
-};
-
-&usb1_phy1 {
-	status = "okay";
-};
-
-&xhci0 {
-	status = "okay";
-};
-
-&xhci1 {
-	status = "okay";
-};
-
-&bdc0 {
-	status = "okay";
-};
-
-&bdc1 {
 	status = "okay";
 };

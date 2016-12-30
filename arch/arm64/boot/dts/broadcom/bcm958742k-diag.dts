@@ -30,22 +30,13 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/dts-v1/;
-
-#include "stingray.dtsi"
+#include "bcm958742k.dts"
 
 / {
-	model = "Stingray Combo SVK (BCM958742k) Diagnostics";
-
 	chosen {
 		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
 			    earlycon=uart8250,mmio32,0x68a10000 cma=64M \
 			    mtdparts=brcmnand.0:10m(nboot),16m(kernel),1m(dt-blob),940m(nroot),32m(nand-test)";
-	};
-
-	memory {
-		device_type = "memory";
-		reg = <0x000000000 0x80000000 0x00000000 0x40000000>;
 	};
 
 	pcie_ss_syscon: syscon@40000000 {
@@ -53,45 +44,6 @@
 		reg = <0x0 0x40000000 0x0 0x1000>;
 	};
 
-	sdio0_vcc_en_reg: sdio0_en {
-		compatible = "regulator-fixed";
-		regulator-name = "sdio0_vcc_en-reg";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&pca9505 16 0>;
-		enable-active-high;
-	};
-
-	sdio1_vcc_en_reg: sdio1_en {
-		compatible = "regulator-fixed";
-		regulator-name = "sdio1_vcc_en-reg";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&pca9505 17 0>;
-		enable-active-high;
-	};
-
-	sdio0_vddo_ctrl_reg: sdio0_vddo_ctrl {
-		compatible = "regulator-gpio";
-		regulator-name = "sdio0_vddo_ctrl_reg";
-		regulator-type = "voltage";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <3300000>;
-		gpios = <&pca9505 18 0>;
-		states = <3300000 0x0
-			  1800000 0x1>;
-	};
-
-	sdio1_vddo_ctrl_reg: sdio1_vddo_ctrl {
-		compatible = "regulator-gpio";
-		regulator-name = "sdio1_vddo_ctrl_reg";
-		regulator-type = "voltage";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <3300000>;
-		gpios = <&pca9505 19 0>;
-		states = <3300000 0x0
-			  1800000 0x1>;
-	};
 };
 
 &mdio_mux_iproc {
@@ -145,60 +97,15 @@
 			status = "okay";
 		};
 	};
-
-	mdio@10 {
-		gphy0: eth-phy@10 {
-			reg = <0x10>;
-		};
-	};
-};
-
-&pwm {
-	status = "okay";
-};
-
-&i2c0 {
-	status = "okay";
-
-	pca9505: pca9505@20 {
-		compatible = "nxp,pca9505";
-		gpio-controller;
-		#gpio-cells = <2>;
-		reg = <0x20>;
-	};
-};
-
-&i2c1 {
-	status = "okay";
 };
 
 &uart0 {
-	status = "okay";
-};
-
-&uart1 {
-	status = "okay";
-};
-
-&uart2 {
-	status = "okay";
-};
-
-&uart3 {
+	pinctrl-0 = <&uart0_pins>;
 	status = "okay";
 };
 
 &ssp0 {
-	pinctrl-0 = <&spi0_pins>;
-	status = "okay";
-
 	spi-flash@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "winbond,w25q32";
-		reg = <0x0>;
-		spi-max-frequency = <20000000>;
-
 		partition@0 {				/* 2 MiB */
 			label = "spi0-user";
 			reg = <0x00000000 0x00200000>;
@@ -212,16 +119,7 @@
 };
 
 &ssp1 {
-	pinctrl-0 = <&spi1_pins>;
-	status = "okay";
-
 	spi-flash@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "winbond,w25q32";
-		reg = <0x0>;
-		spi-max-frequency = <20000000>;
-
 		partition@0 {				/* 2 MiB */
 			label = "spi1-user";
 			reg = <0x00000000 0x00200000>;
@@ -248,16 +146,8 @@
 	};
 };
 
-
 &qspi {
-	bspi-sel = <0>;
 	flash: w25q64@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "jedec,spi-nor";
-		reg = <0x0>;
-		spi-max-frequency = <12500000>;
-
 		partition@0 {
 			label = "sf-boot";		/* 4 MiB */
 			reg = <0x00000000 0x00400000>;
@@ -274,24 +164,6 @@
 		};
 
 	};
-};
-
-&enet {
-	phy-mode = "rgmii";
-	phy-handle = <&gphy0>;
-};
-
-&sdio0 {
-	non-removable;
-	vmmc-supply = <&sdio0_vcc_en_reg>;
-	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
-	status = "okay";
-};
-
-&sdio1 {
-	vmmc-supply = <&sdio1_vcc_en_reg>;
-	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
-	status = "okay";
 };
 
 &sata_phy0 {
@@ -459,33 +331,5 @@
 };
 
 &sata19_phy0 {
-	status = "okay";
-};
-
-&xhci0 {
-	status = "okay";
-};
-
-&xhci1 {
-	status = "okay";
-};
-
-&bdc0 {
-	status = "okay";
-};
-
-&bdc1 {
-	status = "okay";
-};
-
-&usb0_phy0 {
-	status = "okay";
-};
-
-&usb1_phy0 {
-	status = "okay";
-};
-
-&usb1_phy1 {
 	status = "okay";
 };
