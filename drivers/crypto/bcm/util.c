@@ -344,6 +344,8 @@ char *spu_alg_name(enum spu_cipher_alg alg, enum spu_cipher_mode mode)
 			return "ctr(aes)";
 		case CIPHER_MODE_GCM:
 			return "gcm(aes)";
+		case CIPHER_MODE_XTS:
+			return "xts(aes)";
 		default:
 			return "";
 		}

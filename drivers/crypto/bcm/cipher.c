@@ -1649,6 +1649,7 @@ static int ablkcipher_enqueue(struct ablkcipher_request *req, bool encrypt)
 	if (ctx->cipher.mode == CIPHER_MODE_CBC ||
 	    ctx->cipher.mode == CIPHER_MODE_CTR ||
 	    ctx->cipher.mode == CIPHER_MODE_OFB ||
+	    ctx->cipher.mode == CIPHER_MODE_XTS ||
 	    ctx->cipher.mode == CIPHER_MODE_GCM) {
 		rctx->iv_ctr_len =
 		    crypto_ablkcipher_ivsize(crypto_ablkcipher_reqtfm(req));
@@ -1723,6 +1724,10 @@ static int aes_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
 		      unsigned int keylen)
 {
 	struct iproc_ctx_s *ctx = crypto_ablkcipher_ctx(cipher);
+
+	if (ctx->cipher.mode == CIPHER_MODE_XTS)
+		/* XTS includes two keys of equal length */
+		keylen = keylen / 2;
 
 	switch (keylen) {
 	case AES_KEYSIZE_128:
@@ -1799,6 +1804,15 @@ static int ablkcipher_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
 	if (ctx->cipher.alg != CIPHER_ALG_RC4) {
 		memcpy(ctx->enckey, key, keylen);
 		ctx->enckeylen = keylen;
+	}
+
+	/* SPU needs XTS keys in the reverse order the crypto API presents */
+	if ((ctx->cipher.alg == CIPHER_ALG_AES) &&
+	    (ctx->cipher.mode == CIPHER_MODE_XTS)) {
+		unsigned int xts_keylen = keylen / 2;
+
+		memcpy(ctx->enckey, key + xts_keylen, xts_keylen);
+		memcpy(ctx->enckey + xts_keylen, key, xts_keylen);
 	}
 
 	if (spu->spu_type == SPU_TYPE_SPUM)
@@ -2368,6 +2382,7 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	if (ctx->cipher.mode == CIPHER_MODE_CBC ||
 	    ctx->cipher.mode == CIPHER_MODE_CTR ||
 	    ctx->cipher.mode == CIPHER_MODE_OFB ||
+	    ctx->cipher.mode == CIPHER_MODE_XTS ||
 	    ctx->cipher.mode == CIPHER_MODE_GCM) {
 		rctx->iv_ctr_len =
 			ctx->salt_len +
@@ -3383,7 +3398,28 @@ static struct iproc_alg_s driver_algs[] = {
 		       .mode = HASH_MODE_NONE,
 		       },
 	 },
-
+	{
+	 .type = CRYPTO_ALG_TYPE_ABLKCIPHER,
+	 .alg.crypto = {
+			.cra_name = "xts(aes)",
+			.cra_driver_name = "xts-aes-iproc",
+			.cra_blocksize = AES_BLOCK_SIZE,
+			.cra_ablkcipher = {
+					   /* .geniv = "chainiv", */
+					   .min_keysize = 2 * AES_MIN_KEY_SIZE,
+					   .max_keysize = 2 * AES_MAX_KEY_SIZE,
+					   .ivsize = AES_BLOCK_SIZE,
+					}
+			},
+	 .cipher_info = {
+			 .alg = CIPHER_ALG_AES,
+			 .mode = CIPHER_MODE_XTS,
+			 },
+	 .auth_info = {
+		       .alg = HASH_ALG_NONE,
+		       .mode = HASH_MODE_NONE,
+		       },
+	 },
 /* AHASH algorithms. */
 	{
 	 .type = CRYPTO_ALG_TYPE_AHASH,
@@ -4423,6 +4459,12 @@ static int spu_register_ablkcipher(struct iproc_alg_s *driver_alg)
 	if ((driver_alg->cipher_info.alg == CIPHER_ALG_RC4) &&
 	    ((spu->spu_type == SPU_TYPE_SPU2) ||
 	    (spu->spu_type == SPU_TYPE_SPU2_V2)))
+		return 0;
+
+	/* AES-XTS is not currently implemented for SPU-M */
+	if ((driver_alg->cipher_info.alg == CIPHER_ALG_AES &&
+	     driver_alg->cipher_info.mode == CIPHER_MODE_XTS) &&
+	     spu->spu_type == SPU_TYPE_SPUM)
 		return 0;
 
 	crypto->cra_module = THIS_MODULE;
