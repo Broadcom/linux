@@ -50,7 +50,7 @@
  */
 /memreserve/ 0x8f000000 0x00100000;
 
-#include "stingray.dtsi"
+#include "../stingray.dtsi"
 
 / {
 	model = "Broadcom Stingray Palladium";
@@ -76,33 +76,5 @@
 	 * clock-frequency = <desired_baudrate> x 16
 	 */
 	clock-frequency = <76800>;
-	status = "okay";
-};
-
-&usb0_phy0 {
-	status = "okay";
-};
-
-&usb1_phy0 {
-	status = "okay";
-};
-
-&usb1_phy1 {
-	status = "okay";
-};
-
-&xhci0 {
-	status = "okay";
-};
-
-&xhci1 {
-	status = "okay";
-};
-
-&bdc0 {
-	status = "okay";
-};
-
-&bdc1 {
 	status = "okay";
 };

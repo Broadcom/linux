@@ -284,34 +284,6 @@
 	};
 };
 
-&usb0_phy0 {
-	status = "okay";
-};
-
-&usb1_phy0 {
-	status = "okay";
-};
-
-&usb1_phy1 {
-	status = "okay";
-};
-
-&xhci0 {
-	status = "okay";
-};
-
-&xhci1 {
-	status = "okay";
-};
-
-&bdc0 {
-	status = "okay";
-};
-
-&bdc1 {
-	status = "okay";
-};
-
 &qspi {
 	pinctrl-names = "default";
 	pinctrl-0 = <&qspi_pins>;

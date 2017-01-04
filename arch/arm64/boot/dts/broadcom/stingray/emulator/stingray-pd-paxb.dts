@@ -13,7 +13,7 @@
  *      notice, this list of conditions and the following disclaimer in
  *      the documentation and/or other materials provided with the
  *      distribution.
- *    * Neither the name of Broadcom nor the names of its
+ *    * Neither the name of Broadcom Corporation nor the names of its
  *      contributors may be used to endorse or promote products derived
  *      from this software without specific prior written permission.
  *
@@ -32,14 +32,13 @@
 
 /dts-v1/;
 
-#define NUM_SATA	1
-
 /* HACK: Reserve initrd location
  * The memreserve entry for initrd is supposed
  * to be updated in DTB by bootloader before
  * handing over DTB to Linux kernel.
  */
 /memreserve/ 0x81000000 0x00800000;
+
 /* HACK: Reserve bl31 location
  * The memreserve entry for bl31 is supposed to
  * be updated in DTB by bootloader before handing
@@ -50,10 +49,10 @@
  */
 /memreserve/ 0x8f000000 0x00100000;
 
-#include "stingray.dtsi"
+#include "../stingray.dtsi"
 
 / {
-	model = "Broadcom Stingray SATA Palladium";
+	model = "Broadcom Stingray PAXB Palladium";
 
 	aliases {
 		serial1 = &uart1;
@@ -61,20 +60,38 @@
 	};
 
 	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/ram rw console=ttyS1,4800n8 \
-			    earlycon=uart8250,mmio32,0x68a10000 cma=64M \
-			    maxcpus=2";
+		bootargs = "root=/dev/ram rw console=ttyS3,4800n8 \
+		earlycon=uart8250,mmio32,0x68a30000 cma=64M \
+		maxcpus=2";
+
 		linux,stdout-path = "/soc/uart@68a30000:4800n8";
 		linux,initrd-start = <0x0 0x81000000>;
 		linux,initrd-end = <0x0 0x81800000>;
 	};
+
 };
 
-&uart1 {
+&uart3 {
 	/* Hack: For palladium we force DLL=1 and DLM=0.
 	 * To achieve this, we set:
 	 * clock-frequency = <desired_baudrate> x 16
 	 */
 	clock-frequency = <76800>;
 	status = "okay";
+};
+
+&pcie1 {
+	dma-coherent;
+	dma-ranges = <0x43000000 0 0x80000000 0 0x80000000 0x0 0x80000000
+		      0x43000000 0x8 0x80000000 0x8 0x80000000 0x0 0x80000000>;
+
+	status = "okay";
+};
+
+/*
+ * HACK to disable fs4 bus to speed up paxb palladium kernel boot up
+ * speed, since this palladium is dedicated for PAXB bring up
+ */
+&fs4 {
+	status = "disabled";
 };
