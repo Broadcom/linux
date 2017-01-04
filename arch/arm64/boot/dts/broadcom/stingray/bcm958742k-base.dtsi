@@ -31,6 +31,9 @@
  */
 
 #define ENABLE_USB	1
+#ifndef NUM_PAXB
+#define NUM_PAXB	8
+#endif
 
 #include "stingray.dtsi"
 #include <dt-bindings/gpio/gpio.h>
@@ -127,80 +130,6 @@
 	phy-handle = <&gphy0>;
 	brcm,enet-phy-lswap;
 	status = "okay";
-};
-
-&pcie0 {
-#if (USE_DDR == 1)
-
-#else
-	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
-	/delete-property/ dma-coherent;
-	status = "okay";
-#endif
-};
-
-&pcie1 {
-#if (USE_DDR == 1)
-
-#else
-	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
-	/delete-property/ dma-coherent;
-	status = "okay";
-#endif
-};
-
-&pcie2 {
-#if (USE_DDR == 1)
-#else
-	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
-	/delete-property/ dma-coherent;
-	status = "okay";
-#endif
-};
-
-&pcie3 {
-#if (USE_DDR == 1)
-#else
-	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
-	/delete-property/ dma-coherent;
-	status = "okay";
-#endif
-};
-
-&pcie4 {
-#if (USE_DDR == 1)
-#else
-	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
-	/delete-property/ dma-coherent;
-	status = "okay";
-#endif
-};
-
-&pcie5 {
-#if (USE_DDR == 1)
-#else
-	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
-	/delete-property/ dma-coherent;
-	status = "okay";
-#endif
-};
-
-&pcie6 {
-#if (USE_DDR == 1)
-#else
-	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
-	/delete-property/ dma-coherent;
-	status = "okay";
-#endif
-};
-
-&pcie7 {
-#if (USE_DDR == 1)
-#else
-	dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
-	/delete-property/ dma-coherent;
-	status = "okay";
-#endif
 };
 
 &uart1 {

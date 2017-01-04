@@ -30,6 +30,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if (NUM_PAXB == 8)
+#define ENABLE_PCIE0	1
+#define ENABLE_PCIE1	1
+#define ENABLE_PCIE2	1
+#define ENABLE_PCIE3	1
+#define ENABLE_PCIE4	1
+#define ENABLE_PCIE5	1
+#define ENABLE_PCIE6	1
+#define ENABLE_PCIE7	1
+#endif
+
+#if (NUM_PAXB == 1)
+#define ENABLE_PCIE1	1
+#endif
+
 	pcie0: pcie@48000000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
 		reg = <0 0x48000000 0 0x4000>;
@@ -55,14 +70,22 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
+#if (USE_DDR == 1)
 		dma-coherent;
+#else
+		dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+#endif
 
 		msi-map = <0x100 &gic_its 0x040 0x8>;
 
 		phys = <&pcie_phy 0>;
 		phy-names = "pcie-phy";
 
+#if (ENABLE_PCIE0 == 1)
+		status = "okay";
+#else
 		status = "disabled";
+#endif
 	};
 
 	pcie1: pcie@48004000 {
@@ -90,14 +113,22 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
+#if (USE_DDR == 1)
 		dma-coherent;
+#else
+		dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+#endif
 
 		msi-map = <0x100 &gic_its 0x440 0x8>;
 
 		phys = <&pcie_phy 1>;
 		phy-names = "pcie-phy";
 
+#if (ENABLE_PCIE1 == 1)
+		status = "okay";
+#else
 		status = "disabled";
+#endif
 	};
 
 	pcie2: pcie@48008000 {
@@ -125,14 +156,22 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
+#if (USE_DDR == 1)
 		dma-coherent;
+#else
+		dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+#endif
 
 		msi-map = <0x100 &gic_its 0x840 0x8>;
 
 		phys = <&pcie_phy 2>;
 		phy-names = "pcie-phy";
 
+#if (ENABLE_PCIE2 == 1)
+		status = "okay";
+#else
 		status = "disabled";
+#endif
 	};
 
 	pcie3: pcie@4800c000 {
@@ -160,14 +199,22 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
+#if (USE_DDR == 1)
 		dma-coherent;
+#else
+		dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+#endif
 
 		msi-map = <0x100 &gic_its 0xc40 0x8>;
 
 		phys = <&pcie_phy 3>;
 		phy-names = "pcie-phy";
 
+#if (ENABLE_PCIE3 == 1)
+		status = "okay";
+#else
 		status = "disabled";
+#endif
 	};
 
 	pcie4: pcie@48010000 {
@@ -195,14 +242,22 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
+#if (USE_DDR == 1)
 		dma-coherent;
+#else
+		dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+#endif
 
 		msi-map = <0x100 &gic_its 0x1040 0x8>;
 
 		phys = <&pcie_phy 4>;
 		phy-names = "pcie-phy";
 
+#if (ENABLE_PCIE4 == 1)
+		status = "okay";
+#else
 		status = "disabled";
+#endif
 	};
 
 	pcie5: pcie@48014000 {
@@ -230,14 +285,22 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
+#if (USE_DDR == 1)
 		dma-coherent;
+#else
+		dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+#endif
 
 		msi-map = <0x100 &gic_its 0x1440 0x8>;
 
 		phys = <&pcie_phy 5>;
 		phy-names = "pcie-phy";
 
+#if (ENABLE_PCIE5 == 1)
+		status = "okay";
+#else
 		status = "disabled";
+#endif
 	};
 
 	pcie6: pcie@48018000 {
@@ -265,14 +328,22 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
+#if (USE_DDR == 1)
 		dma-coherent;
+#else
+		dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+#endif
 
 		msi-map = <0x100 &gic_its 0x1840 0x8>;
 
 		phys = <&pcie_phy 6>;
 		phy-names = "pcie-phy";
 
+#if (ENABLE_PCIE6 == 1)
+		status = "okay";
+#else
 		status = "disabled";
+#endif
 	};
 
 	pcie7: pcie@4801c000 {
@@ -300,14 +371,22 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
+#if (USE_DDR == 1)
 		dma-coherent;
+#else
+		dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+#endif
 
 		msi-map = <0x100 &gic_its 0x1c40 0x8>;
 
 		phys = <&pcie_phy 7>;
 		phy-names = "pcie-phy";
 
+#if (ENABLE_PCIE7 == 1)
+		status = "okay";
+#else
 		status = "disabled";
+#endif
 	};
 
 	pcie8: pcie@60400000 {
