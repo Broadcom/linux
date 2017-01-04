@@ -41,7 +41,7 @@
  * handing over DTB to Linux kernel.
  */
 /memreserve/ 0x75000000 0x00800000;
-/* HACK: Reserve bl31 location
+/* HACK: Reserve bl31/bl32 location
  * The memreserve entry for bl31 is supposed to
  * be updated in DTB by bootloader before handing
  * over DTB to Linux kernel. This is so because
@@ -49,7 +49,7 @@
  * location of bl31 and bl31 location can also
  * change in-future.
  */
-/memreserve/ 0x77f00000 0x00100000;
+/memreserve/ 0x77b00000 0x00500000;
 
 / {
 	model = "Stingray Combo SVK (BCM958742K) w/External SRAM";
