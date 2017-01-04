@@ -647,4 +647,10 @@
 	#include "stingray-fs4.dtsi"
 	#include "stingray-sata.dtsi"
 	#include "stingray-usb.dtsi"
+
+	rtc: rtc {
+		compatible = "brcm,iproc-rtc";
+		interrupts = <GIC_SPI 219 IRQ_TYPE_EDGE_RISING>;
+		status = "disabled";
+	};
 };

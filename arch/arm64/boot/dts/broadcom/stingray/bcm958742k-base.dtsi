@@ -257,3 +257,7 @@
 	};
 };
 #endif
+
+&rtc {
+	status = "okay";
+};
