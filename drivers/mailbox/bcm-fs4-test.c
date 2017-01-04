@@ -1578,7 +1578,7 @@ static unsigned int __sba_upd_pq_split_cmds(struct fs4_test *test,
 		csize = (cur_split_size < SBA_HW_BUF_SIZE) ?
 					cur_split_size : SBA_HW_BUF_SIZE;
 
-		/* Type-B command to load old data into buf0 */
+		/* Type-B command to load old P into buf0 */
 		cmd = 0;
 		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 		SBA_ENC(cmd, csize, SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
@@ -1591,80 +1591,17 @@ static unsigned int __sba_upd_pq_split_cmds(struct fs4_test *test,
 		cmds[cmds_count].cmd = cmd;
 		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
 		cmds[cmds_count].data = src_dma_base +
-					SBA_UPD_PQ_OLD_D * test->src_size +
-					split * split_size + cpos;
-		cmds[cmds_count].data_len = csize;
-		cmds_count++;
-
-		/* Type-B command to xor new data with buf0 and
-		 * store result in buf1
-		 */
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, csize, SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-		SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
-		c_mdata = SBA_C_MDATA_XOR_VAL(1, 0);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_CMD_XOR,
-			SBA_CMD_SHIFT, SBA_CMD_MASK);
-		cmds[cmds_count].cmd = cmd;
-		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-		cmds[cmds_count].data = src_dma_base +
-					SBA_UPD_PQ_NEW_D * test->src_size +
-					split * split_size + cpos;
-		cmds[cmds_count].data_len = csize;
-		cmds_count++;
-
-		/* Type-B command to xor old parity with buf1 and
-		 * store result in buf0
-		 */
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, csize, SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-		SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
-		c_mdata = SBA_C_MDATA_XOR_VAL(0, 1);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_CMD_XOR,
-			SBA_CMD_SHIFT, SBA_CMD_MASK);
-		cmds[cmds_count].cmd = cmd;
-		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-		cmds[cmds_count].data = src_dma_base +
 					SBA_UPD_PQ_OLD_P * test->src_size +
 					split * split_size + cpos;
 		cmds[cmds_count].data_len = csize;
 		cmds_count++;
 
-		/* Type-A command to write buf0 */
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, csize,
-			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-		SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
-		c_mdata = SBA_C_MDATA_WRITE_VAL(0);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
-			SBA_CMD_SHIFT, SBA_CMD_MASK);
-		cmds[cmds_count].cmd = cmd;
-		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
-		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
-		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
-		cmds[cmds_count].resp = dst_resp_dma_base +
-					split * SBA_RESP_SIZE;
-		cmds[cmds_count].resp_len = SBA_RESP_SIZE;
-		cmds[cmds_count].data = dst_dma_base +
-					split * split_size + cpos;
-		cmds[cmds_count].data_len = csize;
-		cmds_count++;
-
-		/* Type-B command to load old Q into buf0 */
+		/* Type-B command to load old Q into buf1 */
 		cmd = 0;
 		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 		SBA_ENC(cmd, csize, SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
-		c_mdata = SBA_C_MDATA_LOAD_VAL(0);
+		c_mdata = SBA_C_MDATA_LOAD_VAL(1);
 		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 		SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
@@ -1677,11 +1614,10 @@ static unsigned int __sba_upd_pq_split_cmds(struct fs4_test *test,
 		cmds[cmds_count].data_len = csize;
 		cmds_count++;
 
-		/* Type-A command to generate Q with buf1 and buf0.
-		 * The result will be stored in buf1.
-		 */
+		/* Type-B commands for generate P onto buf0 and Q onto buf1 */
 		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, SBA_TYPE_B,
+			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 		SBA_ENC(cmd, csize,
 			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
@@ -1690,15 +1626,66 @@ static unsigned int __sba_upd_pq_split_cmds(struct fs4_test *test,
 			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 		SBA_ENC(cmd, SBA_C_MDATA_MS(c_mdata),
 			SBA_C_MDATA_MS_SHIFT, SBA_C_MDATA_MS_MASK);
-		SBA_ENC(cmd, SBA_CMD_GALOIS,
+		SBA_ENC(cmd, SBA_CMD_GALOIS_XOR,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
+		cmds[cmds_count].data = src_dma_base +
+					SBA_UPD_PQ_OLD_D * test->src_size +
+					split * split_size + cpos;
+		cmds[cmds_count].data_len = csize;
+		cmds_count++;
+
+		/* Type-B commands for generate P onto buf0 and Q onto buf1 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_B,
+			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = SBA_C_MDATA_PQ_VAL(SBA_UPD_PQ_POS, 1, 0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_C_MDATA_MS(c_mdata),
+			SBA_C_MDATA_MS_SHIFT, SBA_C_MDATA_MS_MASK);
+		SBA_ENC(cmd, SBA_CMD_GALOIS_XOR,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmds[cmds_count].cmd = cmd;
+		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
+		cmds[cmds_count].data = src_dma_base +
+					SBA_UPD_PQ_NEW_D * test->src_size +
+					split * split_size + cpos;
+		cmds[cmds_count].data_len = csize;
+		cmds_count++;
+
+		/* Type-A command to write buf0 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_A,
+			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, csize,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = SBA_C_MDATA_WRITE_VAL(0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
 			SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmds[cmds_count].cmd = cmd;
 		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+		cmds[cmds_count].resp =
+				dst_resp_dma_base + split * SBA_RESP_SIZE;
+		cmds[cmds_count].resp_len = SBA_RESP_SIZE;
+		cmds[cmds_count].data =
+				dst_dma_base + split * split_size + cpos;
+		cmds[cmds_count].data_len = csize;
 		cmds_count++;
 
 		/* Type-A command to write buf1 */
 		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, SBA_TYPE_A,
+			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 		SBA_ENC(cmd, csize,
 			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
@@ -1711,11 +1698,11 @@ static unsigned int __sba_upd_pq_split_cmds(struct fs4_test *test,
 		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
 		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
 		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
-		cmds[cmds_count].resp = dst_resp_dma_base +
-					split * SBA_RESP_SIZE;
+		cmds[cmds_count].resp =
+				dst_resp_dma_base + split * SBA_RESP_SIZE;
 		cmds[cmds_count].resp_len = SBA_RESP_SIZE;
-		cmds[cmds_count].data = dst1_dma_base +
-					split * split_size + cpos;
+		cmds[cmds_count].data =
+				dst1_dma_base + split * split_size + cpos;
 		cmds[cmds_count].data_len = csize;
 		cmds_count++;
 
