@@ -186,7 +186,7 @@ static void iproc_mbox_irq_mask(struct irq_data *d)
 	 */
 }
 
-static const struct irq_chip iproc_mbox_irq_chip = {
+static struct irq_chip iproc_mbox_irq_chip = {
 	.name = "bcm-iproc-mbox",
 	.irq_mask = iproc_mbox_irq_mask,
 	.irq_unmask = iproc_mbox_irq_unmask,
@@ -213,7 +213,7 @@ static void iproc_mbox_irq_unmap(struct irq_domain *d, unsigned int irq)
 	irq_set_chip_data(irq, NULL);
 }
 
-static struct irq_domain_ops iproc_mbox_irq_ops = {
+static const struct irq_domain_ops iproc_mbox_irq_ops = {
 	.map = iproc_mbox_irq_map,
 	.unmap = iproc_mbox_irq_unmap,
 	.xlate = irq_domain_xlate_onecell,
@@ -402,7 +402,7 @@ static int iproc_mbox_resume(struct device *dev)
 static SIMPLE_DEV_PM_OPS(iproc_mbox_pm_ops, iproc_mbox_suspend,
 	iproc_mbox_resume);
 
-struct platform_driver iproc_mbox_driver = {
+static struct platform_driver iproc_mbox_driver __initdata = {
 	.driver = {
 		.name = "brcm,iproc-mailbox",
 		.of_match_table = iproc_mbox_of_match,
