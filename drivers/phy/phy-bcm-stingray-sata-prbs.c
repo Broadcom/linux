@@ -42,6 +42,18 @@ enum sata_phy_regs {
 	SAPIS_DATA_RATE_GEN3_MASK	= BIT(13),
 
 	/*
+	* 0x600 - 2   x REFCLK = 200 MHz
+	* 0x601 - 1/2 x REFCLK = 50  MHz
+	* 0x602 - 1   x REFCLK = 100 MHz
+	* 0x603 - 1   x REFCLK = 100 MHz
+	*/
+	OOB_REF_CLK_SEL			= 0x600,
+
+	BLOCK1_REG_BANK			= 0x0010,
+	BLOCK1_TX_TEST			= 0x83,
+	BLOCK1_PRBSCONTROL		= 0x88,
+
+	/*
 	 * For Gen 1 - 0x10
 	 * For Gen 2 - 0x11
 	 * For Gen 3 - 0x12
@@ -50,17 +62,10 @@ enum sata_phy_regs {
 	TX0_DATA_RATE_GEN2_MASK		= BIT(0),
 	TX0_DATA_RATE_GEN3_MASK		= BIT(1),
 
-	/*
-	* 0x600 - 2   x REFCLK = 200 MHz
-	* 0x601 - 1/2 x REFCLK = 50  MHz
-	* 0x602 - 1   x REFCLK = 100 MHz
-	* 0x603 - 1   x REFCLK = 100 MHz
-	*/
-	OOB_REF_CLK_SEL			= 0x602,
-
-	BLOCK1_REG_BANK			= 0x0010,
-	BLOCK1_TX_TEST			= 0x83,
-	BLOCK1_PRBSCONTROL		= 0x88,
+	PRBS7_EN_VAL			= 0x88,
+	PRBS15_EN_VAL			= 0x89,
+	PRBS23_EN_VAL			= 0x8a,
+	PRBS31_EN_VAL			= 0x8b,
 
 	PLL0_REG_BANK			= 0x0050,
 	PLL0_ACTRL6			= 0x86,
@@ -103,6 +108,7 @@ struct sata_prbs_test {
 	unsigned int test_start;
 	unsigned int test_retries;
 	unsigned int err_status;
+	unsigned int prbs_order;
 	char sata_test_gen[4];
 };
 
@@ -163,8 +169,13 @@ static int sata_phy_bert_setup(struct sata_prbs_test *test)
 	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_11, 0x0, 0x80B9);
 	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_12, 0x0, 0x88A0);
 	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_15, 0x0, 0x7C12);
-	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_18, 0x0, 0x1D16);
-	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_1B, 0x0, 0x244);
+	/*
+	 * 1.5 dB pre-emphasis:	0x1d17
+	 * 3 dB pre-emphasis:	0x1d27
+	 * 6 dB pre-emphasis:	0x1d37
+	 */
+	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_18, 0x0, 0x1D37);
+	sata_phy_write(base, BLOCK1D0_REG_BANK, TXRX_ACTRL_1B, 0x0, 0x25c);
 
 	/* override SAPIS_DATA_RATE input */
 	sata_phy_write(base, BLOCK0_REG_BANK, BLOCK0_SPEEDCTRL, 0x0,
@@ -234,10 +245,28 @@ static int sata_phy_begin_test(struct sata_prbs_test *test)
 
 	sata_phy_write(base, TX_REG_BANK, TX_GEN_CTRL1, 0x0, 0x42);
 
-	/* Enable PRBS7 monitor */
-	sata_phy_write(base, BLOCK1_REG_BANK, BLOCK1_PRBSCONTROL, 0x0, 0x88);
+	/* Enable PRBS monitor */
+	if (test->prbs_order == 7)
+		sata_phy_write(base, BLOCK1_REG_BANK,
+				BLOCK1_PRBSCONTROL, 0x0, PRBS7_EN_VAL);
+	else if (test->prbs_order == 15)
+		sata_phy_write(base, BLOCK1_REG_BANK,
+				BLOCK1_PRBSCONTROL, 0x0, PRBS15_EN_VAL);
+	else if (test->prbs_order == 23)
+		sata_phy_write(base, BLOCK1_REG_BANK,
+				BLOCK1_PRBSCONTROL, 0x0, PRBS23_EN_VAL);
+	else if (test->prbs_order == 31)
+		sata_phy_write(base, BLOCK1_REG_BANK,
+				BLOCK1_PRBSCONTROL, 0x0, PRBS31_EN_VAL);
+	else {
+		dev_warn(test->dev, "Incorrect PRBS order specified\n");
+		dev_warn(test->dev, "Defaulting to PRBS7\n");
+		test->prbs_order = 7;
+		sata_phy_write(base, BLOCK1_REG_BANK,
+				BLOCK1_PRBSCONTROL, 0x0, PRBS7_EN_VAL);
+	}
 	udelay(50);
-	dev_info(test->dev, "Enabled PRBS monitor\n");
+	dev_info(test->dev, "Enabled PRBS%d monitor\n", test->prbs_order);
 
 	sata_phy_write(base, RX_REG_BANK, RX_GEN_CTRL2, 0x0, 0x0800);
 	/* Select PRBS status register as RX_STATUS register input */
@@ -297,6 +326,40 @@ static int do_prbs_test(struct sata_prbs_test *test)
 }
 
 /* sysfs callbacks */
+static ssize_t sata_prbs_order_show(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	ssize_t ret;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sata_prbs_test *test = platform_get_drvdata(pdev);
+
+	mutex_lock(&test->test_lock);
+	ret = sprintf(buf, "%u", test->prbs_order);
+	mutex_unlock(&test->test_lock);
+
+	return ret;
+}
+
+static ssize_t sata_prbs_order_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	int state;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sata_prbs_test *test = platform_get_drvdata(pdev);
+
+	if (kstrtoint(buf, 0, &state) != 0)
+		return -EINVAL;
+	if (state < 1)
+		return -EINVAL;
+	mutex_lock(&test->test_lock);
+	test->prbs_order = state;
+	mutex_unlock(&test->test_lock);
+
+	return strnlen(buf, count);
+}
+
 static ssize_t sata_prbs_gen_show(struct device *dev,
 				      struct device_attribute *attr,
 				      char *buf)
@@ -430,6 +493,9 @@ static DEVICE_ATTR(sata_test_gen, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(test_start, S_IRUGO | S_IWUSR,
 		   sata_prbs_start_show, sata_prbs_start_store);
 
+static DEVICE_ATTR(prbs_order, S_IRUGO | S_IWUSR,
+		   sata_prbs_order_show, sata_prbs_order_store);
+
 static int stingray_sata_phy_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -468,20 +534,26 @@ static int stingray_sata_phy_probe(struct platform_device *pdev)
 	ret = device_create_file(dev, &dev_attr_sata_test_gen);
 	if (ret < 0)
 		goto destroy_err_status;
-	ret = device_create_file(dev, &dev_attr_test_start);
+	ret = device_create_file(dev, &dev_attr_prbs_order);
 	if (ret < 0)
 		goto destroy_sata_test_gen;
+	ret = device_create_file(dev, &dev_attr_test_start);
+	if (ret < 0)
+		goto destroy_prbs_order;
 
 	mutex_init(&test->test_lock);
 	test->test_retries = 0;
 	test->test_start = 0;
 	test->err_status = 0;
+	test->prbs_order = 7;
 	strcpy(test->sata_test_gen, "gen3");
 
 	dev_info(dev, "SATA PHY initialized for PRBS test\n");
 
 	return 0;
 
+destroy_prbs_order:
+	device_remove_file(dev, &dev_attr_prbs_order);
 destroy_sata_test_gen:
 	device_remove_file(dev, &dev_attr_sata_test_gen);
 destroy_err_status:
