@@ -120,7 +120,7 @@
 
 &enet {
 #if (USE_DDR == 1)
-	compatible = "brcm,amac-enet-ext";
+	compatible = "brcm,amac-enet";
 #else
 	compatible = "brcm,amac-enet-extsram";
 	memory-region = <&amac_reserved>;
