@@ -271,7 +271,7 @@ static struct mbox_chan_ops iproc_mbox_ops = {
 	.shutdown     = iproc_mbox_shutdown,
 };
 
-static int __init iproc_mbox_probe(struct platform_device *pdev)
+static int iproc_mbox_probe(struct platform_device *pdev)
 {
 	int virq;
 	struct device *dev = &pdev->dev;
@@ -402,7 +402,7 @@ static int iproc_mbox_resume(struct device *dev)
 static SIMPLE_DEV_PM_OPS(iproc_mbox_pm_ops, iproc_mbox_suspend,
 	iproc_mbox_resume);
 
-static struct platform_driver iproc_mbox_driver __initdata = {
+static struct platform_driver iproc_mbox_driver = {
 	.driver = {
 		.name = "brcm,iproc-mailbox",
 		.of_match_table = iproc_mbox_of_match,
