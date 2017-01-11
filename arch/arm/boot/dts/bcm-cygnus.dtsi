@@ -221,11 +221,18 @@
 
 		mailbox: mailbox@03024024 {
 			compatible = "brcm,iproc-mailbox";
-			reg = <0x03024024 0x40>;
+			reg = <0x03024024 0x8>;
+			#mbox-cells = <1>;
+		};
+
+		iproc_crmu_intc: interrupt-controller@0302402c {
+			compatible = "brcm,iproc-crmu-intc";
+			reg = <0x0302402c 0x8>,
+			      <0x03024058 0xc>;
 			interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
 			#interrupt-cells = <1>;
 			interrupt-controller;
-			#mbox-cells = <1>;
+			mboxes = <&mailbox 3>;
 		};
 
 		gpio_crmu: gpio@03024800 {
@@ -236,7 +243,7 @@
 			#gpio-cells = <2>;
 			gpio-controller;
 			interrupt-controller;
-			interrupt-parent = <&mailbox>;
+			interrupt-parent = <&iproc_crmu_intc>;
 			interrupts = <0>;
 			mboxes = <&mailbox 1>;
 		};
