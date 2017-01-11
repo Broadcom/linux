@@ -35,6 +35,15 @@
 #define NUM_PAXB	8
 #endif
 
+#if (USE_DDR == 1)
+#define PCIE_DMA_RANGES dma-ranges = <0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000 \
+				      0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000 \
+				      0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
+#else
+#define PCIE_DMA_RANGES dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
+#endif
+
+
 #include "stingray.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
@@ -116,6 +125,38 @@
 #else
 	reg = <0x00000000 0x74000000 0x0 0x04000000>; /* 64MB */
 #endif
+};
+
+&pcie0 {
+	PCIE_DMA_RANGES
+};
+
+&pcie1 {
+	PCIE_DMA_RANGES
+};
+
+&pcie2 {
+	PCIE_DMA_RANGES
+};
+
+&pcie3 {
+	PCIE_DMA_RANGES
+};
+
+&pcie4 {
+	PCIE_DMA_RANGES
+};
+
+&pcie5 {
+	PCIE_DMA_RANGES
+};
+
+&pcie6 {
+	PCIE_DMA_RANGES
+};
+
+&pcie7 {
+	PCIE_DMA_RANGES
 };
 
 &enet {
