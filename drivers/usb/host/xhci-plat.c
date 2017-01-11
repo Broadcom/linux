@@ -30,11 +30,13 @@ static struct hc_driver __read_mostly xhci_plat_hc_driver;
 
 static int xhci_plat_setup(struct usb_hcd *hcd);
 static int xhci_plat_start(struct usb_hcd *hcd);
+static int xhci_plat_portpower(struct usb_hcd *hcd, int portnum, bool enable);
 
 static const struct xhci_driver_overrides xhci_plat_overrides __initconst = {
 	.extra_priv_size = sizeof(struct xhci_plat_priv),
 	.reset = xhci_plat_setup,
 	.start = xhci_plat_start,
+	.port_power = xhci_plat_portpower,
 };
 
 static void xhci_priv_plat_start(struct usb_hcd *hcd)
@@ -63,6 +65,15 @@ static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 	 * dev struct in order to setup MSI
 	 */
 	xhci->quirks |= XHCI_PLAT;
+}
+static int xhci_plat_portpower(struct usb_hcd *hcd, int portnum, bool enable)
+{
+	struct xhci_plat_priv *priv = hcd_to_xhci_priv(hcd);
+
+	if (enable == false)
+		phy_reset(priv->phys[portnum]);
+
+	return 0;
 }
 
 /* called during probe() after chip reset completes */

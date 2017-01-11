@@ -1193,6 +1193,15 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		case USB_PORT_FEAT_C_PORT_CONFIG_ERROR:
 			xhci_clear_port_change_bit(xhci, wValue, wIndex,
 					port_array[wIndex], temp);
+			if ((wValue == USB_PORT_FEAT_C_CONNECTION) &&
+					!(temp & PORT_CONNECT) &&
+					(hcd->speed < HCD_USB3)) {
+
+				hcd->driver->port_power(hcd,
+							wIndex +
+							xhci->num_usb3_ports,
+							false);
+			}
 			break;
 		case USB_PORT_FEAT_ENABLE:
 			xhci_disable_port(hcd, xhci, wIndex,
