@@ -2,7 +2,7 @@ Broadcom AMAC Ethernet Controller Device Tree Bindings
 -------------------------------------------------------------
 
 Required properties:
- - compatible: "brcm,amac-enet" - For Cygnus SoC and NS2 A0/A1 SoC
+ - compatible: "brcm,amac-enet" - For Cygnus SoC, NS2 A0/A1 SoC, and Stingray SoC
 	       "brcm,amac-enet-v2" - For NS2 B0/B1 Soc
 	       "brcm,amac-enet-extsram" - for Stingray AMAC,
 		with limited support of DMA to internal SRAM.
