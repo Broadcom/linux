@@ -77,24 +77,6 @@
 	};
 #endif
 
-	sdio0_vcc_en_reg: sdio0_en {
-		compatible = "regulator-fixed";
-		regulator-name = "sdio0_vcc_en-reg";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&pca9505 16 0>;
-		enable-active-high;
-	};
-
-	sdio1_vcc_en_reg: sdio1_en {
-		compatible = "regulator-fixed";
-		regulator-name = "sdio1_vcc_en-reg";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&pca9505 17 0>;
-		enable-active-high;
-	};
-
 	sdio0_vddo_ctrl_reg: sdio0_vddo_ctrl {
 		compatible = "regulator-gpio";
 		regulator-name = "sdio0_vddo_ctrl_reg";
@@ -186,17 +168,13 @@
 };
 
 &sdio0 {
-	vmmc-supply = <&sdio0_vcc_en_reg>;
 	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
 	non-removable;
-	dsr;
 	status = "okay";
 };
 
 &sdio1 {
-	vmmc-supply = <&sdio1_vcc_en_reg>;
 	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
-	dsr;
 	status = "okay";
 };
 
