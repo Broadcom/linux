@@ -33,8 +33,11 @@
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinconf-generic.h>
+
+#if defined(CONFIG_MAILBOX)
 #include <linux/mailbox_client.h>
 #include <linux/bcm_iproc_mailbox.h>
+#endif
 
 #include "../pinctrl-utils.h"
 
@@ -118,8 +121,10 @@ struct iproc_gpio {
 	struct pinctrl_dev *pctl;
 	struct pinctrl_desc pctldesc;
 
+#if defined(CONFIG_MAILBOX)
 	struct mbox_client  client;
 	struct mbox_chan    *mbox_chan;
+#endif
 };
 
 /*
@@ -906,7 +911,9 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 	return 0;
 
 err_mbox:
+#if defined(CONFIG_MAILBOX)
 	mbox_free_channel(chip->mbox_chan);
+#endif
 err_rm_gpiochip:
 	gpiochip_remove(gc);
 
