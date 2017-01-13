@@ -840,7 +840,8 @@ static void handle_ahash_resp(struct iproc_reqctx_s *rctx)
 
 	atomic64_add(ctx->digestsize, &iproc_priv.bytes_in);
 
-	if (rctx->total_sent == rctx->total_todo)
+
+	if (rctx->is_final && (rctx->total_sent == rctx->total_todo))
 		ahash_req_done(rctx);
 }
 
@@ -854,27 +855,27 @@ static int spu_hmac_outer_hash(struct ahash_request *req,
 	switch (ctx->auth.alg) {
 	case HASH_ALG_MD5:
 		do_shash("md5", req->result, ctx->opad, blocksize,
-			 req->result, ctx->digestsize);
+			 req->result, ctx->digestsize, NULL, 0);
 		break;
 	case HASH_ALG_SHA1:
 		do_shash("sha1", req->result, ctx->opad, blocksize,
-			 req->result, ctx->digestsize);
+			 req->result, ctx->digestsize, NULL, 0);
 		break;
 	case HASH_ALG_SHA224:
 		do_shash("sha224", req->result, ctx->opad, blocksize,
-			 req->result, ctx->digestsize);
+			 req->result, ctx->digestsize, NULL, 0);
 		break;
 	case HASH_ALG_SHA256:
 		do_shash("sha256", req->result, ctx->opad, blocksize,
-			 req->result, ctx->digestsize);
+			 req->result, ctx->digestsize, NULL, 0);
 		break;
 	case HASH_ALG_SHA384:
 		do_shash("sha384", req->result, ctx->opad, blocksize,
-			 req->result, ctx->digestsize);
+			 req->result, ctx->digestsize, NULL, 0);
 		break;
 	case HASH_ALG_SHA512:
 		do_shash("sha512", req->result, ctx->opad, blocksize,
-			 req->result, ctx->digestsize);
+			 req->result, ctx->digestsize, NULL, 0);
 		break;
 	default:
 		pr_err("%s() Error : unknown hmac type\n", __func__);
@@ -1939,8 +1940,9 @@ static int ahash_enqueue(struct ahash_request *req)
 		alg_name = crypto_tfm_alg_name(crypto_ahash_tfm(tfm));
 		flow_log("Doing %sfinal %s zero-len hash request in software\n",
 			 rctx->is_final ? "" : "non-", alg_name);
-		err = do_shash((unsigned char *) alg_name, req->result, NULL, 0,
-			       NULL, 0);
+		err = do_shash((unsigned char *) alg_name, req->result,
+				NULL, 0, NULL, 0, ctx->authkey,
+				ctx->authkeylen);
 		if (err < 0)
 			flow_log("Hash request failed with error %d\n", err);
 		return err;
@@ -1969,14 +1971,14 @@ static int ahash_enqueue(struct ahash_request *req)
 	return err;
 }
 
-static int ahash_init(struct ahash_request *req)
+static int __ahash_init(struct ahash_request *req)
 {
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct iproc_ctx_s *ctx = crypto_ahash_ctx(tfm);
 
-	flow_log("%s()\n", __func__);
+	flow_log("%s() nbytes:%u\n", __func__, req->nbytes);
 
 	/* Initialize the context */
 	rctx->hash_carry_len = 0;
@@ -1999,11 +2001,90 @@ static int ahash_init(struct ahash_request *req)
 	return 0;
 }
 
-static int ahash_update(struct ahash_request *req)
+bool spu_no_incr_hash(struct iproc_ctx_s *ctx)
+{
+	struct spu_hw *spu = &iproc_priv.spu;
+
+	/* SPU-2 in Pegasus/Stingray A0 does not support incremental hashing
+	 * (we'll have to revisit and condition based on chip revision or
+	 * device tree entry if future versions do support incremental hash)
+	 */
+	if (spu->spu_type == SPU_TYPE_SPU2 ||
+		spu->spu_type == SPU_TYPE_SPU2_V2)
+		return true;
+
+	/* SPU-M also doesn't support incremental hashing of AES-XCBC */
+	if ((ctx->auth.alg == HASH_ALG_AES) &&
+	    (ctx->auth.mode == HASH_MODE_XCBC))
+		return true;
+
+	/* Otherwise, incremental hashing is supported */
+	return false;
+}
+
+static int ahash_init(struct ahash_request *req)
+{
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct iproc_ctx_s *ctx = crypto_ahash_ctx(tfm);
+	const char *alg_name;
+	struct crypto_shash *hash;
+	int ret;
+
+	flow_log("%s() nbytes:%u\n", __func__, req->nbytes);
+
+	if (spu_no_incr_hash(ctx)) {
+
+		/* If we get an incremental hashing request and it's not
+		 * supported by the hardware, we need to handle it in software
+		 * by calling synchronous hash functions.
+		 */
+		alg_name = crypto_tfm_alg_name(crypto_ahash_tfm(tfm));
+		hash = crypto_alloc_shash(alg_name, 0, 0);
+		if (IS_ERR(hash)) {
+			ret = PTR_ERR(hash);
+			return ret;
+		}
+
+		ctx->shash = kmalloc(sizeof(*ctx->shash) +
+				     crypto_shash_descsize(hash), GFP_KERNEL);
+		if (!ctx->shash) {
+			crypto_free_shash(hash);
+			return -ENOMEM;
+		}
+		ctx->shash->tfm = hash;
+		ctx->shash->flags = 0;
+
+		/* Set the key using data we already have from setkey */
+		if (ctx->authkeylen > 0) {
+			ret = crypto_shash_setkey(hash, ctx->authkey,
+						  ctx->authkeylen);
+			if (ret) {
+				crypto_free_shash(hash);
+				kfree(ctx->shash);
+				return ret;
+			}
+		}
+
+		/* Initialize hash w/ this key and other params */
+		ret = crypto_shash_init(ctx->shash);
+		if (ret) {
+			crypto_free_shash(hash);
+			kfree(ctx->shash);
+			return ret;
+		}
+	} else {
+		/* Otherwise call the internal function which uses SPU hw */
+		ret = __ahash_init(req);
+	}
+
+	return ret;
+}
+
+static int __ahash_update(struct ahash_request *req)
 {
 	struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
 
-	flow_log("ahash_update() nbytes:%u\n", req->nbytes);
+	flow_log("%s() nbytes:%u\n", __func__, req->nbytes);
 	/* dump_sg(req->src, req->nbytes); */
 
 	if (!req->nbytes)
@@ -2014,11 +2095,54 @@ static int ahash_update(struct ahash_request *req)
 	return ahash_enqueue(req);
 }
 
-static int ahash_final(struct ahash_request *req)
+static int ahash_update(struct ahash_request *req)
+{
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct iproc_ctx_s *ctx = crypto_ahash_ctx(tfm);
+	u8 *tmpbuf;
+	int ret;
+	int nents;
+
+	flow_log("%s() nbytes:%u\n", __func__, req->nbytes);
+
+	if (spu_no_incr_hash(ctx)) {
+
+		/* If we get an incremental hashing request and it's not
+		 * supported by the hardware, we need to handle it in software
+		 * by calling synchronous hash functions.
+		 */
+		if (req->src)
+			nents = sg_nents(req->src);
+		else
+			return -EINVAL;
+
+		/* Copy data from req scatterlist to tmp buffer */
+		tmpbuf = kmalloc(req->nbytes, GFP_KERNEL);
+		if (!tmpbuf)
+			return -ENOMEM;
+
+		if (sg_copy_to_buffer(req->src, nents, tmpbuf, req->nbytes) !=
+				req->nbytes) {
+			kfree(tmpbuf);
+			return -EINVAL;
+		}
+
+		/* Call synchronous update */
+		ret = crypto_shash_update(ctx->shash, tmpbuf, req->nbytes);
+		kfree(tmpbuf);
+	} else {
+		/* Otherwise call the internal function which uses SPU hw */
+		ret = __ahash_update(req);
+	}
+
+	return ret;
+}
+
+static int __ahash_final(struct ahash_request *req)
 {
 	struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
 
-	flow_log("ahash_final() nbytes:%u\n", req->nbytes);
+	flow_log("%s() nbytes:%u\n", __func__, req->nbytes);
 	/* dump_sg(req->src, req->nbytes); */
 
 	rctx->is_final = 1;
@@ -2026,11 +2150,39 @@ static int ahash_final(struct ahash_request *req)
 	return ahash_enqueue(req);
 }
 
-static int ahash_finup(struct ahash_request *req)
+static int ahash_final(struct ahash_request *req)
+{
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct iproc_ctx_s *ctx = crypto_ahash_ctx(tfm);
+	int ret;
+
+	flow_log("%s() nbytes:%u\n", __func__, req->nbytes);
+
+	if (spu_no_incr_hash(ctx)) {
+
+		/* If we get an incremental hashing request and it's not
+		 * supported by the hardware, we need to handle it in software
+		 * by calling synchronous hash functions.
+		 */
+		ret = crypto_shash_final(ctx->shash, req->result);
+
+		/* Done with hash, can deallocate it now */
+		crypto_free_shash(ctx->shash->tfm);
+		kfree(ctx->shash);
+
+	} else {
+		/* Otherwise call the internal function which uses SPU hw */
+		ret = __ahash_final(req);
+	}
+
+	return ret;
+}
+
+static int __ahash_finup(struct ahash_request *req)
 {
 	struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
 
-	flow_log("ahash_finup() nbytes:%u\n", req->nbytes);
+	flow_log("%s() nbytes:%u\n", __func__, req->nbytes);
 
 	rctx->total_todo += req->nbytes;
 	rctx->src_sent = 0;
@@ -2039,17 +2191,69 @@ static int ahash_finup(struct ahash_request *req)
 	return ahash_enqueue(req);
 }
 
+static int ahash_finup(struct ahash_request *req)
+{
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct iproc_ctx_s *ctx = crypto_ahash_ctx(tfm);
+	u8 *tmpbuf;
+	int ret;
+	int nents;
+
+	flow_log("%s() nbytes:%u\n", __func__, req->nbytes);
+
+	if (spu_no_incr_hash(ctx)) {
+
+		/* If we get an incremental hashing request and it's not
+		 * supported by the hardware, we need to handle it in software
+		 * by calling synchronous hash functions.
+		 */
+		if (req->src) {
+			nents = sg_nents(req->src);
+		} else {
+			ret = -EINVAL;
+			goto ahash_finup_exit;
+		}
+
+		/* Copy data from req scatterlist to tmp buffer */
+		tmpbuf = kmalloc(req->nbytes, GFP_KERNEL);
+		if (!tmpbuf) {
+			ret = -ENOMEM;
+			goto ahash_finup_exit;
+		}
+
+		if (sg_copy_to_buffer(req->src, nents, tmpbuf, req->nbytes) !=
+				req->nbytes) {
+			kfree(tmpbuf);
+			ret = -EINVAL;
+			goto ahash_finup_exit;
+		}
+
+		/* Call synchronous update */
+		ret = crypto_shash_finup(ctx->shash, tmpbuf, req->nbytes,
+					 req->result);
+		kfree(tmpbuf);
+	} else {
+		/* Otherwise call the internal function which uses SPU hw */
+		return __ahash_finup(req);
+	}
+
+ahash_finup_exit:
+	/* Done with hash, can deallocate it now */
+	crypto_free_shash(ctx->shash->tfm);
+	kfree(ctx->shash);
+	return ret;
+}
+
 static int ahash_digest(struct ahash_request *req)
 {
-	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
 	int err = 0;
 
 	flow_log("ahash_digest() nbytes:%u\n", req->nbytes);
 
 	/* whole thing at once */
-	err = ahash->init(req);
+	err = __ahash_init(req);
 	if (!err)
-		err = ahash->finup(req);
+		err = __ahash_finup(req);
 
 	return err;
 }
@@ -2122,38 +2326,44 @@ static int ahash_hmac_setkey(struct crypto_ahash *ahash, const u8 *key,
 	if (keylen > blocksize) {
 		switch (ctx->auth.alg) {
 		case HASH_ALG_MD5:
-			do_shash("md5", ctx->authkey, key, keylen, NULL, 0);
+			do_shash("md5", ctx->authkey, key, keylen, NULL, 0,
+				 NULL, 0);
 			break;
 		case HASH_ALG_SHA1:
-			do_shash("sha1", ctx->authkey, key, keylen, NULL, 0);
+			do_shash("sha1", ctx->authkey, key, keylen, NULL, 0,
+				 NULL, 0);
 			break;
 		case HASH_ALG_SHA224:
-			do_shash("sha224", ctx->authkey, key, keylen, NULL, 0);
+			do_shash("sha224", ctx->authkey, key, keylen, NULL, 0,
+				 NULL, 0);
 			break;
 		case HASH_ALG_SHA256:
-			do_shash("sha256", ctx->authkey, key, keylen, NULL, 0);
+			do_shash("sha256", ctx->authkey, key, keylen, NULL, 0,
+				 NULL, 0);
 			break;
 		case HASH_ALG_SHA384:
-			do_shash("sha384", ctx->authkey, key, keylen, NULL, 0);
+			do_shash("sha384", ctx->authkey, key, keylen, NULL, 0,
+				 NULL, 0);
 			break;
 		case HASH_ALG_SHA512:
-			do_shash("sha512", ctx->authkey, key, keylen, NULL, 0);
+			do_shash("sha512", ctx->authkey, key, keylen, NULL, 0,
+				 NULL, 0);
 			break;
 		case HASH_ALG_SHA3_224:
 			do_shash("sha3-224", ctx->authkey, key, keylen,
-				NULL, 0);
+				NULL, 0, NULL, 0);
 			break;
 		case HASH_ALG_SHA3_256:
 			do_shash("sha3-256", ctx->authkey, key, keylen,
-				NULL, 0);
+				NULL, 0, NULL, 0);
 			break;
 		case HASH_ALG_SHA3_384:
 			do_shash("sha3-384", ctx->authkey, key, keylen,
-				NULL, 0);
+				NULL, 0, NULL, 0);
 			break;
 		case HASH_ALG_SHA3_512:
 			do_shash("sha3-512", ctx->authkey, key, keylen,
-				NULL, 0);
+				NULL, 0, NULL, 0);
 			break;
 		default:
 			pr_err("%s() Error: unknown hash alg\n", __func__);
@@ -2207,19 +2417,8 @@ static int ahash_hmac_init(struct ahash_request *req)
 	/* init the context as a hash */
 	ahash_init(req);
 
-	if (((iproc_priv.spu.spu_type == SPU_TYPE_SPU2) ||
-	    (iproc_priv.spu.spu_type == SPU_TYPE_SPU2_V2))) {
-		/*
-		 * SPU2 supports full HMAC implementation in the
-		 * hardware, need not to generate IPAD, OPAD and
-		 * outer hash in software.
-		 * Only for hash key len > hash block size, SPU2
-		 * expects to perform hashing on the key, shorten
-		 * it to digest size and feed it as hash key.
-		 */
-		rctx->is_sw_hmac = false;
-		ctx->auth.mode = HASH_MODE_HMAC;
-	} else {
+	if (!spu_no_incr_hash(ctx)) {
+		/* SPU-M can do incr hashing but needs sw for outer HMAC */
 		rctx->is_sw_hmac = true;
 		ctx->auth.mode = HASH_MODE_HASH;
 		/* start with a prepended ipad */
@@ -2258,17 +2457,39 @@ static int ahash_hmac_finup(struct ahash_request *req)
 
 static int ahash_hmac_digest(struct ahash_request *req)
 {
-	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
-	int err = 0;
+	struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct iproc_ctx_s *ctx = crypto_ahash_ctx(tfm);
+	unsigned int blocksize =
+			crypto_tfm_alg_blocksize(crypto_ahash_tfm(tfm));
 
 	flow_log("ahash_hmac_digest() nbytes:%u\n", req->nbytes);
 
-	/* whole thing at once */
-	err = ahash->init(req);
-	if (!err)
-		err = ahash->finup(req);
+	/* Perform initialization and then call finup */
+	__ahash_init(req);
 
-	return err;
+	if (((iproc_priv.spu.spu_type == SPU_TYPE_SPU2) ||
+	    (iproc_priv.spu.spu_type == SPU_TYPE_SPU2_V2))) {
+		/*
+		 * SPU2 supports full HMAC implementation in the
+		 * hardware, need not to generate IPAD, OPAD and
+		 * outer hash in software.
+		 * Only for hash key len > hash block size, SPU2
+		 * expects to perform hashing on the key, shorten
+		 * it to digest size and feed it as hash key.
+		 */
+		rctx->is_sw_hmac = false;
+		ctx->auth.mode = HASH_MODE_HMAC;
+	} else {
+		rctx->is_sw_hmac = true;
+		ctx->auth.mode = HASH_MODE_HASH;
+		/* start with a prepended ipad */
+		memcpy(rctx->hash_carry, ctx->ipad, blocksize);
+		rctx->hash_carry_len = blocksize;
+		rctx->total_todo += blocksize;
+	}
+
+	return __ahash_finup(req);
 }
 
 /* aead helpers */

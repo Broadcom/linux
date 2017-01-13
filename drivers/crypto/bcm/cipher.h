@@ -211,6 +211,11 @@ struct iproc_ctx_s {
 
 	/* Expected length of SPU response header */
 	u16 spu_resp_hdr_len;
+
+	/* shash descriptor - needed to perform incremental hashing in
+	 * in software, when hw doesn't support it.
+	 */
+	struct shash_desc *shash;
 };
 
 struct iproc_reqctx_s {

@@ -104,7 +104,8 @@ int do_decrypt(char *alg_name,
 /* produce a message digest from data of length n bytes */
 int do_shash(unsigned char *name, unsigned char *result,
 	     const u8 *data1, unsigned int data1_len,
-	     const u8 *data2, unsigned int data2_len);
+	     const u8 *data2, unsigned int data2_len,
+	     const u8 *key, unsigned int key_len);
 
 char *spu_alg_name(enum spu_cipher_alg alg, enum spu_cipher_mode mode);
 

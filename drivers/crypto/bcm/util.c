@@ -246,6 +246,8 @@ int do_decrypt(char *alg_name,
  * @data1_len:  Length of data1, in bytes
  * @data2:      Second part of data to hash. May be NULL.
  * @data2_len:  Length of data2, in bytes
+ * @key:        Key (if keyed hash)
+ * @key_len:    Length of key, in bytes (or 0 if non-keyed hash)
  *
  * Note that the crypto API will not select this driver's own transform because
  * this driver only registers asynchronous algos.
@@ -256,7 +258,8 @@ int do_decrypt(char *alg_name,
  */
 int do_shash(unsigned char *name, unsigned char *result,
 	     const u8 *data1, unsigned int data1_len,
-	     const u8 *data2, unsigned int data2_len)
+	     const u8 *data2, unsigned int data2_len,
+	     const u8 *key, unsigned int key_len)
 {
 	int rc;
 	unsigned int size;
@@ -279,6 +282,14 @@ int do_shash(unsigned char *name, unsigned char *result,
 	}
 	sdesc->shash.tfm = hash;
 	sdesc->shash.flags = 0x0;
+
+	if (key_len > 0) {
+		rc = crypto_shash_setkey(hash, key, key_len);
+		if (rc) {
+			pr_err("%s: Could not setkey %s shash", __func__, name);
+			goto do_shash_err;
+		}
+	}
 
 	rc = crypto_shash_init(&sdesc->shash);
 	if (rc) {
