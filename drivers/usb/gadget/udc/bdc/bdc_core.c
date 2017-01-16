@@ -424,23 +424,38 @@ static void bdc_hw_exit(struct bdc *bdc)
 
 static int bdc_phy_init(struct bdc *bdc)
 {
-	int ret;
+	int ret, phy_num;
 
-	ret = phy_init(bdc->phy);
-	if (ret)
-		return ret;
+	for (phy_num = 0; phy_num < bdc->num_phys; phy_num++) {
+		ret = phy_init(bdc->phys[phy_num]);
+		if (ret)
+			goto err_exit_phy;
+		ret = phy_power_on(bdc->phys[phy_num]);
+		if (ret) {
+			phy_exit(bdc->phys[phy_num]);
+			goto err_exit_phy;
+		}
+	}
 
-	ret = phy_power_on(bdc->phy);
-	if (ret)
-		phy_exit(bdc->phy);
+	return 0;
+
+err_exit_phy:
+	while (--phy_num >= 0) {
+		phy_power_off(bdc->phys[phy_num]);
+		phy_exit(bdc->phys[phy_num]);
+	}
 
 	return ret;
 }
 
 static void bdc_phy_exit(struct bdc *bdc)
 {
-	phy_power_off(bdc->phy);
-	phy_exit(bdc->phy);
+	int phy_num;
+
+	for (phy_num = 0; phy_num < bdc->num_phys; phy_num++) {
+		phy_power_off(bdc->phys[phy_num]);
+		phy_exit(bdc->phys[phy_num]);
+	}
 }
 /* Initialize the bdc HW and memory */
 static int bdc_hw_init(struct bdc *bdc)
@@ -470,7 +485,7 @@ static int bdc_probe(struct platform_device *pdev)
 	struct bdc *bdc;
 	struct resource *res;
 	int ret = -ENOMEM;
-	int irq;
+	int irq, phy_num;
 	u32 temp;
 	struct device *dev = &pdev->dev;
 
@@ -491,10 +506,24 @@ static int bdc_probe(struct platform_device *pdev)
 		return irq;
 	}
 
-	bdc->phy = devm_phy_get(dev, "bdc-phy");
-	if (IS_ERR(bdc->phy)) {
-		dev_warn(dev, "no bdc usb3 phy configured\n");
-		bdc->phy = NULL;
+	bdc->num_phys = of_count_phandle_with_args(dev->of_node,
+			"phys", "#phy-cells");
+
+	if (bdc->num_phys > 0) {
+		bdc->phys = devm_kcalloc(dev, bdc->num_phys,
+				sizeof(struct phy *), GFP_KERNEL);
+		if (!bdc->phys)
+			return -ENOMEM;
+	} else
+		bdc->num_phys = 0;
+
+	for (phy_num = 0; phy_num < bdc->num_phys; phy_num++) {
+		bdc->phys[phy_num] = devm_of_phy_get_by_index(
+				dev, dev->of_node, phy_num);
+		if (IS_ERR(bdc->phys[phy_num])) {
+			ret = PTR_ERR(bdc->phys[phy_num]);
+			return ret;
+		}
 	}
 
 	spin_lock_init(&bdc->lock);
