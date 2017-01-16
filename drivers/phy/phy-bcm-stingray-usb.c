@@ -179,7 +179,7 @@
 #define U2PHY_PCTL_VAL	0x0806
 #define U3PHY_PCTL_VAL	0x0006
 
-#define MAX_NR_PORTS	2
+#define MAX_NR_PORTS	3
 
 #define USB3H_DRDU2_PHY	1
 #define DRDU3_PHY	2
@@ -187,8 +187,12 @@
 #define USB_HOST_MODE	1
 #define USB_DEV_MODE	2
 
-#define USB3H_PORT	0
+#define USB3SS_PORT	0
 #define DRDU2_PORT	1
+#define USB3HS_PORT	2
+
+#define DRD3SS_PORT	0
+#define DRD3HS_PORT	1
 
 struct sr_usb_phy {
 	void __iomem *drdu2reg;
@@ -401,6 +405,43 @@ static int drdu2_u2_phy_power_on(void __iomem *regs)
 
 	return ret;
 }
+static int sr_u3h_u2drd_phy_reset(struct phy *gphy)
+{
+	struct sr_usb_phy_port *phy_port = phy_get_drvdata(gphy);
+	struct sr_usb_phy *p = phy_port->p;
+
+	switch (phy_port->port_id) {
+	case USB3HS_PORT:
+		reg32_clrbits(p->usb3hreg + USB3H_U2PHY_CTRL,
+				USB3H_U2CTRL_CORERDY);
+		reg32_setbits(p->usb3hreg + USB3H_U2PHY_CTRL,
+				USB3H_U2CTRL_CORERDY);
+		break;
+	case DRDU2_PORT:
+		reg32_clrbits(p->drdu2reg + DRDU2_PHY_CTRL,
+				DRDU2_U2CTRL_CORERDY);
+		reg32_setbits(p->drdu2reg + DRDU2_PHY_CTRL,
+				DRDU2_U2CTRL_CORERDY);
+		break;
+	}
+	return 0;
+}
+
+static int sr_u3drd_phy_reset(struct phy *gphy)
+{
+	struct sr_usb_phy_port *phy_port = phy_get_drvdata(gphy);
+	struct sr_usb_phy *p = phy_port->p;
+
+	switch (phy_port->port_id) {
+	case DRD3HS_PORT:
+		reg32_clrbits(p->drdu3reg + DRDU3_U2PHY_CTRL,
+				DRDU3_U2CTRL_CORERDY);
+		reg32_setbits(p->drdu3reg + DRDU3_U2PHY_CTRL,
+				DRDU3_U2CTRL_CORERDY);
+		break;
+	}
+	return 0;
+}
 
 static int sr_u3h_u2drd_phy_power_on(struct phy *gphy)
 {
@@ -409,15 +450,16 @@ static int sr_u3h_u2drd_phy_power_on(struct phy *gphy)
 	int ret = 0;
 
 	switch (phy_port->port_id) {
-	case USB3H_PORT:
+	case USB3SS_PORT:
 		reg32_clrbits(p->usb3hreg + USB3H_PHY_PWR_CTRL,
-				(USB3H_DISABLE_EUSB_P1 |
-				 USB3H_DISABLE_USB30_P0));
-
+				 USB3H_DISABLE_USB30_P0);
 		ret = usb3h_u3_phy_power_on(p->usb3hreg);
 		if (ret)
 			goto err_usb3h_phy_on;
-
+		break;
+	case USB3HS_PORT:
+		reg32_clrbits(p->usb3hreg + USB3H_PHY_PWR_CTRL,
+				USB3H_DISABLE_EUSB_P1);
 		ret = usb3h_u2_phy_power_on(p->usb3hreg);
 		if (ret)
 			goto err_usb3h_phy_on;
@@ -465,18 +507,23 @@ static int sr_u3drd_phy_power_on(struct phy *gphy)
 	struct sr_usb_phy *p = phy_port->p;
 	int ret = 0;
 
-	reg32_clrbits(p->drdu3reg + USB3H_PHY_PWR_CTRL,
-			(DRDU3_DISABLE_EUSB_P0 |
-			DRDU3_DISABLE_USB30_P0));
+	switch (phy_port->port_id) {
+	case DRD3SS_PORT:
+		reg32_clrbits(p->drdu3reg + USB3H_PHY_PWR_CTRL,
+				DRDU3_DISABLE_USB30_P0);
 
-	ret = drdu3_u3_phy_power_on(p->drdu3reg);
-	if (ret)
-		goto err_drdu3_phy_on;
-
-	ret = drdu3_u2_phy_power_on(p->drdu3reg);
-	if (ret)
-		goto err_drdu3_phy_on;
-
+		ret = drdu3_u3_phy_power_on(p->drdu3reg);
+		if (ret)
+			goto err_drdu3_phy_on;
+		break;
+	case DRD3HS_PORT:
+		reg32_clrbits(p->drdu3reg + USB3H_PHY_PWR_CTRL,
+				DRDU3_DISABLE_EUSB_P0);
+			ret = drdu3_u2_phy_power_on(p->drdu3reg);
+		if (ret)
+			goto err_drdu3_phy_on;
+		break;
+	}
 	/* Host Mode */
 	reg32_setbits(p->drdu3reg + DRDU3_SOFT_RESET_CTRL,
 			DRDU3_XHC_AXI_SOFT_RST_N);
@@ -503,12 +550,15 @@ static int sr_u3h_u2drd_phy_power_off(struct phy *gphy)
 	struct sr_usb_phy *p = phy_port->p;
 
 	switch (phy_port->port_id) {
-	case 0:
+	case USB3SS_PORT:
 		reg32_setbits(p->usb3hreg + USB3H_PHY_PWR_CTRL,
-				(USB3H_DISABLE_EUSB_P1 |
-				 USB3H_DISABLE_USB30_P0));
+				 USB3H_DISABLE_USB30_P0);
 		break;
-	case 1:
+	case USB3HS_PORT:
+		reg32_setbits(p->usb3hreg + USB3H_PHY_PWR_CTRL,
+				USB3H_DISABLE_EUSB_P1);
+		break;
+	case DRDU2_PORT:
 		reg32_setbits(p->usb3hreg + USB3H_PHY_PWR_CTRL,
 				USB3H_DISABLE_EUSB_P0);
 		break;
@@ -522,22 +572,30 @@ static int sr_u3drd_phy_power_off(struct phy *gphy)
 	struct sr_usb_phy_port *phy_port = phy_get_drvdata(gphy);
 	struct sr_usb_phy *p = phy_port->p;
 
-	reg32_setbits(p->drdu3reg + DRDU3_PHY_PWR_CTRL,
-			(DRDU3_DISABLE_EUSB_P0 |
-			DRDU3_DISABLE_USB30_P0));
-
+	switch (phy_port->port_id) {
+	case DRD3SS_PORT:
+		reg32_setbits(p->drdu3reg + DRDU3_PHY_PWR_CTRL,
+				 DRDU3_DISABLE_USB30_P0);
+		break;
+	case DRD3HS_PORT:
+		reg32_setbits(p->drdu3reg + DRDU3_PHY_PWR_CTRL,
+				DRDU3_DISABLE_EUSB_P0);
+		break;
+	}
 	return 0;
 }
 
 static struct phy_ops sr_u3h_u2drd_phy_ops = {
 	.power_on	= sr_u3h_u2drd_phy_power_on,
 	.power_off	= sr_u3h_u2drd_phy_power_off,
+	.reset		= sr_u3h_u2drd_phy_reset,
 	.owner		= THIS_MODULE,
 };
 
 static struct phy_ops sr_u3drd_phy_ops = {
 	.power_on	= sr_u3drd_phy_power_on,
 	.power_off	= sr_u3drd_phy_power_off,
+	.reset		= sr_u3drd_phy_reset,
 	.owner		= THIS_MODULE,
 };
 
