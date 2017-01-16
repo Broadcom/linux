@@ -544,6 +544,101 @@ static void recov_datap_test_cleanup(struct async_tx_test_request *req)
 	/* For now nothing to do here. */
 }
 
+static unsigned int recov_2data_test_io_size(struct async_tx_test *test)
+{
+	return test->block_size * test->disk_count;
+}
+
+static int recov_2data_test_prep_input(struct async_tx_test_request *req)
+{
+	u64 *data;
+	unsigned int i, j;
+	u64 ref, out_ref, out_gf_ref;
+	struct async_tx_test *test = req->test;
+
+	out_ref = out_gf_ref = 0x0;
+	for (i = 0; i < test->disk_count; i++) {
+		ref = async_tx_test_ref64(i);
+		out_ref = out_ref ^ ref;
+		out_gf_ref = out_gf_ref ^ async_tx_test_gfmul64(i, ref);
+		data = (u64 *)page_address(req->disk[i]);
+		for (j = 0; j < test->block_size / sizeof(u64); j++)
+			data[j] = ref;
+	}
+
+	data = (u64 *)page_address(req->p);
+	for (j = 0; j < test->block_size / sizeof(u64); j++)
+		data[j] = out_ref;
+
+	data = (u64 *)page_address(req->q);
+	for (j = 0; j < test->block_size / sizeof(u64); j++)
+		data[j] = out_gf_ref;
+
+	return 0;
+}
+
+static int recov_2data_test_prep_output(int iter,
+					struct async_tx_test_request *req)
+{
+	struct async_tx_test *test = req->test;
+	unsigned int faila = req->num % test->disk_count;
+	unsigned int failb = (req->num + 1) % test->disk_count;
+
+	memset(page_address(req->disk[faila]), 0, test->block_size);
+	memset(page_address(req->disk[failb]), 0, test->block_size);
+
+	return 0;
+}
+
+static int recov_2data_test_submit(int iter,
+				   struct async_tx_test_request *req)
+{
+	struct async_submit_ctl submit;
+	struct dma_async_tx_descriptor *tx;
+	struct async_tx_test *test = req->test;
+	unsigned int faila = req->num % test->disk_count;
+	unsigned int failb = (req->num + 1) % test->disk_count;
+
+	init_async_submit(&submit, ASYNC_TX_ACK, NULL,
+			  async_tx_test_callback, req, req->addr_conv);
+	tx = async_raid6_2data_recov(test->disk_count + 2, test->block_size,
+				     faila, failb, req->disk, &submit);
+	async_tx_issue_pending(tx);
+
+	return 0;
+}
+
+static int recov_2data_test_verify_output(int iter,
+					  struct async_tx_test_request *req)
+{
+	u64 *data;
+	unsigned int i;
+	u64 out_data_ref, out_data1_ref;
+	struct async_tx_test *test = req->test;
+	unsigned int faila = req->num % test->disk_count;
+	unsigned int failb = (req->num + 1) % test->disk_count;
+
+	out_data_ref = async_tx_test_ref64(faila);
+	out_data1_ref = async_tx_test_ref64(failb);
+
+	data = (u64 *)page_address(req->disk[faila]);
+	for (i = 0; i < test->block_size / sizeof(u64); i++)
+		if (data[i] != out_data_ref)
+			return 0;
+
+	data = (u64 *)page_address(req->disk[failb]);
+	for (i = 0; i < test->block_size / sizeof(u64); i++)
+		if (data[i] != out_data1_ref)
+			return 0;
+
+	return 1;
+}
+
+static void recov_2data_test_cleanup(struct async_tx_test_request *req)
+{
+	/* For now nothing to do here. */
+}
+
 static struct async_tx_test_ops ops_table[] = {
 	{
 		.name = "xor",
@@ -588,6 +683,17 @@ static struct async_tx_test_ops ops_table[] = {
 		.submit = recov_datap_test_submit,
 		.verify_output = recov_datap_test_verify_output,
 		.cleanup = recov_datap_test_cleanup,
+	},
+	{
+		.name = "recov_2data",
+		.min_disk_count = 2,
+		.max_disk_count = MAX_DISKS,
+		.io_size = recov_2data_test_io_size,
+		.prep_input = recov_2data_test_prep_input,
+		.prep_output = recov_2data_test_prep_output,
+		.submit = recov_2data_test_submit,
+		.verify_output = recov_2data_test_verify_output,
+		.cleanup = recov_2data_test_cleanup,
 	},
 };
 
