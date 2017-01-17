@@ -89,9 +89,9 @@ struct async_tx_test_ops {
 	unsigned int max_disk_count;
 	unsigned int (*io_size)(struct async_tx_test *test);
 	int (*prep_input)(struct async_tx_test_request *req);
-	int (*prep_output)(int iter, struct async_tx_test_request *req);
-	int (*submit)(int iter, struct async_tx_test_request *req);
-	int (*verify_output)(int iter, struct async_tx_test_request *req);
+	int (*prep_output)(struct async_tx_test_request *req);
+	int (*submit)(struct async_tx_test_request *req);
+	int (*verify_output)(struct async_tx_test_request *req);
 	void (*cleanup)(struct async_tx_test_request *req);
 };
 
@@ -211,7 +211,7 @@ static int memcpy_test_prep_input(struct async_tx_test_request *req)
 	return 0;
 }
 
-static int memcpy_test_prep_output(int iter, struct async_tx_test_request *req)
+static int memcpy_test_prep_output(struct async_tx_test_request *req)
 {
 	struct async_tx_test *test = req->test;
 
@@ -220,7 +220,7 @@ static int memcpy_test_prep_output(int iter, struct async_tx_test_request *req)
 	return 0;
 }
 
-static int memcpy_test_submit(int iter, struct async_tx_test_request *req)
+static int memcpy_test_submit(struct async_tx_test_request *req)
 {
 	struct async_submit_ctl submit;
 	struct dma_async_tx_descriptor *tx;
@@ -235,8 +235,7 @@ static int memcpy_test_submit(int iter, struct async_tx_test_request *req)
 	return 0;
 }
 
-static int memcpy_test_verify_output(int iter,
-				     struct async_tx_test_request *req)
+static int memcpy_test_verify_output(struct async_tx_test_request *req)
 {
 	u64 *data;
 	unsigned int i;
@@ -271,7 +270,7 @@ static int xor_test_prep_input(struct async_tx_test_request *req)
 	return 0;
 }
 
-static int xor_test_prep_output(int iter, struct async_tx_test_request *req)
+static int xor_test_prep_output(struct async_tx_test_request *req)
 {
 	struct async_tx_test *test = req->test;
 
@@ -280,7 +279,7 @@ static int xor_test_prep_output(int iter, struct async_tx_test_request *req)
 	return 0;
 }
 
-static int xor_test_submit(int iter, struct async_tx_test_request *req)
+static int xor_test_submit(struct async_tx_test_request *req)
 {
 	struct async_submit_ctl submit;
 	struct dma_async_tx_descriptor *tx;
@@ -295,7 +294,7 @@ static int xor_test_submit(int iter, struct async_tx_test_request *req)
 	return 0;
 }
 
-static int xor_test_verify_output(int iter, struct async_tx_test_request *req)
+static int xor_test_verify_output(struct async_tx_test_request *req)
 {
 	u64 *data;
 	u64 out_ref;
@@ -334,7 +333,7 @@ static int pq_test_prep_input(struct async_tx_test_request *req)
 	return 0;
 }
 
-static int pq_test_prep_output(int iter, struct async_tx_test_request *req)
+static int pq_test_prep_output(struct async_tx_test_request *req)
 {
 	struct async_tx_test *test = req->test;
 
@@ -344,7 +343,7 @@ static int pq_test_prep_output(int iter, struct async_tx_test_request *req)
 	return 0;
 }
 
-static int pq_test_submit(int iter, struct async_tx_test_request *req)
+static int pq_test_submit(struct async_tx_test_request *req)
 {
 	struct async_submit_ctl submit;
 	struct dma_async_tx_descriptor *tx;
@@ -359,7 +358,7 @@ static int pq_test_submit(int iter, struct async_tx_test_request *req)
 	return 0;
 }
 
-static int pq_test_verify_output(int iter, struct async_tx_test_request *req)
+static int pq_test_verify_output(struct async_tx_test_request *req)
 {
 	u64 *data;
 	unsigned int i;
@@ -414,8 +413,7 @@ static int update_pq_test_prep_input(struct async_tx_test_request *req)
 	return 0;
 }
 
-static int update_pq_test_prep_output(int iter,
-				      struct async_tx_test_request *req)
+static int update_pq_test_prep_output(struct async_tx_test_request *req)
 {
 	u64 *data;
 	unsigned int i;
@@ -432,8 +430,7 @@ static int update_pq_test_prep_output(int iter,
 	return 0;
 }
 
-static int update_pq_test_submit(int iter,
-				 struct async_tx_test_request *req)
+static int update_pq_test_submit(struct async_tx_test_request *req)
 {
 	int i, pos = req->num % UPDATE_PQ_DISKS;
 	struct async_submit_ctl submit;
@@ -465,8 +462,7 @@ static int update_pq_test_submit(int iter,
 	return 0;
 }
 
-static int update_pq_test_verify_output(int iter,
-					struct async_tx_test_request *req)
+static int update_pq_test_verify_output(struct async_tx_test_request *req)
 {
 	u64 *data;
 	u64 ref, out_ref, out_gf_ref;
@@ -530,8 +526,7 @@ static int recov_datap_test_prep_input(struct async_tx_test_request *req)
 	return 0;
 }
 
-static int recov_datap_test_prep_output(int iter,
-					struct async_tx_test_request *req)
+static int recov_datap_test_prep_output(struct async_tx_test_request *req)
 {
 	struct async_tx_test *test = req->test;
 	unsigned int faila = req->num % test->disk_count;
@@ -542,8 +537,7 @@ static int recov_datap_test_prep_output(int iter,
 	return 0;
 }
 
-static int recov_datap_test_submit(int iter,
-				   struct async_tx_test_request *req)
+static int recov_datap_test_submit(struct async_tx_test_request *req)
 {
 	struct async_submit_ctl submit;
 	struct dma_async_tx_descriptor *tx;
@@ -559,8 +553,7 @@ static int recov_datap_test_submit(int iter,
 	return 0;
 }
 
-static int recov_datap_test_verify_output(int iter,
-					  struct async_tx_test_request *req)
+static int recov_datap_test_verify_output(struct async_tx_test_request *req)
 {
 	u64 *data;
 	unsigned int i;
@@ -621,8 +614,7 @@ static int recov_2data_test_prep_input(struct async_tx_test_request *req)
 	return 0;
 }
 
-static int recov_2data_test_prep_output(int iter,
-					struct async_tx_test_request *req)
+static int recov_2data_test_prep_output(struct async_tx_test_request *req)
 {
 	struct async_tx_test *test = req->test;
 	unsigned int faila = req->num % test->disk_count;
@@ -634,8 +626,7 @@ static int recov_2data_test_prep_output(int iter,
 	return 0;
 }
 
-static int recov_2data_test_submit(int iter,
-				   struct async_tx_test_request *req)
+static int recov_2data_test_submit(struct async_tx_test_request *req)
 {
 	struct async_submit_ctl submit;
 	struct dma_async_tx_descriptor *tx;
@@ -652,8 +643,7 @@ static int recov_2data_test_submit(int iter,
 	return 0;
 }
 
-static int recov_2data_test_verify_output(int iter,
-					  struct async_tx_test_request *req)
+static int recov_2data_test_verify_output(struct async_tx_test_request *req)
 {
 	u64 *data;
 	unsigned int i;
@@ -859,7 +849,7 @@ static int async_tx_test_run(void)
 	for (i = 0; i < test.iteration_count; i++) {
 		/* Prepare output data for iteration */
 		for (r = 0; r < test.request_count; r++) {
-			ret = test.ops->prep_output(i, &test.reqs[r]);
+			ret = test.ops->prep_output(&test.reqs[r]);
 			if (ret) {
 				pr("prepare output failed iter=%u req=%u\n",
 				   i, r);
@@ -875,7 +865,7 @@ static int async_tx_test_run(void)
 
 		/* Submit all request */
 		for (r = 0; r < test.request_count; r++) {
-			ret = test.ops->submit(i, &test.reqs[r]);
+			ret = test.ops->submit(&test.reqs[r]);
 			if (ret) {
 				pr("submit failed for iter=%u req=%u\n",
 				   i, r);
@@ -895,7 +885,7 @@ static int async_tx_test_run(void)
 
 		/* Verify output data for iteration */
 		for (r = 0; r < test.request_count; r++) {
-			if (!test.ops->verify_output(i, &test.reqs[r])) {
+			if (!test.ops->verify_output(&test.reqs[r])) {
 				ret = -EIO;
 				pr("verify output failed iter=%u req=%u\n",
 				   i, r);
