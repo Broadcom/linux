@@ -54,8 +54,16 @@ module_param(timeout, uint, 0644);
 MODULE_PARM_DESC(timeout,
 "Timeout in msec (default: 30000), Pass -1 for infinite timeout");
 
+static int async_tx_test_type_set(const char *val,
+				 const struct kernel_param *kp);
+static int async_tx_test_type_get(char *val,
+				 const struct kernel_param *kp);
+static const struct kernel_param_ops type_ops = {
+	.set = async_tx_test_type_set,
+	.get = async_tx_test_type_get,
+};
 static char test_type[20] = "pq";
-module_param_string(type, test_type, sizeof(test_type), 0644);
+module_param_cb(type, &type_ops, test_type, 0644);
 MODULE_PARM_DESC(type, "Type of test (default: pq)");
 
 static int async_tx_test_run_set(const char *val,
@@ -952,6 +960,60 @@ free_reqs_data:
 	kfree(test.reqs);
 
 	return ret;
+}
+
+static int async_tx_test_type_set(const char *val,
+				  const struct kernel_param *kp)
+{
+	char str[20];
+	struct async_tx_test_ops *ops;
+
+	mutex_lock(&test_lock);
+
+	strncpy(str, val, sizeof(str));
+	str[sizeof(str) - 1] = '\0';
+	strim(str);
+
+	ops = async_tx_test_find(str);
+	if (!ops) {
+		pr("invalid test type %s\n", str);
+		mutex_unlock(&test_lock);
+		return -EINVAL;
+	}
+
+	strncpy(test_type, ops->name, sizeof(ops->name));
+
+	mutex_unlock(&test_lock);
+
+	return 0;
+}
+
+static int async_tx_test_type_get(char *val,
+				  const struct kernel_param *kp)
+{
+	int i, r = 0;
+	struct async_tx_test_ops *ops;
+
+	mutex_lock(&test_lock);
+
+	for (i = 0; i < ARRAY_SIZE(ops_table); i++) {
+		ops = &ops_table[i];
+		if (!strncmp(ops->name, test_type, sizeof(ops->name))) {
+			if (!i)
+				r += sprintf(val + r, "[%s]", ops->name);
+			else
+				r += sprintf(val + r, " [%s]", ops->name);
+		} else {
+			if (!i)
+				r += sprintf(val + r, "%s", ops->name);
+			else
+				r += sprintf(val + r, " %s", ops->name);
+		}
+	}
+
+	mutex_unlock(&test_lock);
+
+	return r;
 }
 
 static int async_tx_test_run_set(const char *val,
