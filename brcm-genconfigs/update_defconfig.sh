@@ -98,7 +98,8 @@ main() {
 	# 32 bit platforms
 	# cygnus
 	do_update ${ARCH32} bcm_cygnus base-arm32 blk dbg dma fs i2c mailbox \
-	md misc mmc mtd net pwm rng spi watchdog bt wifi regulator cygnus lcd
+	md misc mmc mtd net pwm rng spi watchdog bt wifi regulator cygnus lcd \
+	sound
 
 
 
