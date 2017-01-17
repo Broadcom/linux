@@ -187,6 +187,11 @@ u64 async_tx_test_gfmul64(int pos, u64 val)
 	return ret;
 }
 
+static void async_tx_test_dummy_cleanup(struct async_tx_test_request *req)
+{
+	/* Nothing to do here. */
+}
+
 static unsigned int memcpy_test_io_size(struct async_tx_test *test)
 {
 	return test->block_size;
@@ -244,11 +249,6 @@ static int memcpy_test_verify_output(int iter,
 			return 0;
 
 	return 1;
-}
-
-static void memcpy_test_cleanup(struct async_tx_test_request *req)
-{
-	/* For now nothing to do here. */
 }
 
 static unsigned int xor_test_io_size(struct async_tx_test *test)
@@ -312,11 +312,6 @@ static int xor_test_verify_output(int iter, struct async_tx_test_request *req)
 			return 0;
 
 	return 1;
-}
-
-static void xor_test_cleanup(struct async_tx_test_request *req)
-{
-	/* For now nothing to do here. */
 }
 
 static unsigned int pq_test_io_size(struct async_tx_test *test)
@@ -389,11 +384,6 @@ static int pq_test_verify_output(int iter, struct async_tx_test_request *req)
 			return 0;
 
 	return 1;
-}
-
-static void pq_test_cleanup(struct async_tx_test_request *req)
-{
-	/* For now nothing to do here. */
 }
 
 #define UPDATE_PQ_DISKS		16
@@ -507,11 +497,6 @@ static int update_pq_test_verify_output(int iter,
 	return 1;
 }
 
-static void update_pq_test_cleanup(struct async_tx_test_request *req)
-{
-	/* For now nothing to do here. */
-}
-
 static unsigned int recov_datap_test_io_size(struct async_tx_test *test)
 {
 	return test->block_size * test->disk_count;
@@ -601,11 +586,6 @@ static int recov_datap_test_verify_output(int iter,
 			return 0;
 
 	return 1;
-}
-
-static void recov_datap_test_cleanup(struct async_tx_test_request *req)
-{
-	/* For now nothing to do here. */
 }
 
 static unsigned int recov_2data_test_io_size(struct async_tx_test *test)
@@ -698,11 +678,6 @@ static int recov_2data_test_verify_output(int iter,
 	return 1;
 }
 
-static void recov_2data_test_cleanup(struct async_tx_test_request *req)
-{
-	/* For now nothing to do here. */
-}
-
 static struct async_tx_test_ops ops_table[] = {
 	{
 		.name = "memcpy",
@@ -713,7 +688,7 @@ static struct async_tx_test_ops ops_table[] = {
 		.prep_output = memcpy_test_prep_output,
 		.submit = memcpy_test_submit,
 		.verify_output = memcpy_test_verify_output,
-		.cleanup = memcpy_test_cleanup,
+		.cleanup = async_tx_test_dummy_cleanup,
 	},
 	{
 		.name = "xor",
@@ -724,7 +699,7 @@ static struct async_tx_test_ops ops_table[] = {
 		.prep_output = xor_test_prep_output,
 		.submit = xor_test_submit,
 		.verify_output = xor_test_verify_output,
-		.cleanup = xor_test_cleanup,
+		.cleanup = async_tx_test_dummy_cleanup,
 	},
 	{
 		.name = "pq",
@@ -735,7 +710,7 @@ static struct async_tx_test_ops ops_table[] = {
 		.prep_output = pq_test_prep_output,
 		.submit = pq_test_submit,
 		.verify_output = pq_test_verify_output,
-		.cleanup = pq_test_cleanup,
+		.cleanup = async_tx_test_dummy_cleanup,
 	},
 	{
 		.name = "update_pq",
@@ -746,7 +721,7 @@ static struct async_tx_test_ops ops_table[] = {
 		.prep_output = update_pq_test_prep_output,
 		.submit = update_pq_test_submit,
 		.verify_output = update_pq_test_verify_output,
-		.cleanup = update_pq_test_cleanup,
+		.cleanup = async_tx_test_dummy_cleanup,
 	},
 	{
 		.name = "recov_datap",
@@ -757,7 +732,7 @@ static struct async_tx_test_ops ops_table[] = {
 		.prep_output = recov_datap_test_prep_output,
 		.submit = recov_datap_test_submit,
 		.verify_output = recov_datap_test_verify_output,
-		.cleanup = recov_datap_test_cleanup,
+		.cleanup = async_tx_test_dummy_cleanup,
 	},
 	{
 		.name = "recov_2data",
@@ -768,7 +743,7 @@ static struct async_tx_test_ops ops_table[] = {
 		.prep_output = recov_2data_test_prep_output,
 		.submit = recov_2data_test_submit,
 		.verify_output = recov_2data_test_verify_output,
-		.cleanup = recov_2data_test_cleanup,
+		.cleanup = async_tx_test_dummy_cleanup,
 	},
 };
 
