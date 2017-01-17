@@ -106,11 +106,21 @@ static int amac_phy54810_lswap(struct phy_device *phy_dev)
 {
 	int rc = 0;
 
-	rc = phy_write(phy_dev, GPHY_EXP_SELECT_REG, 0x0F09);
+	rc = phy_write(phy_dev, GPHY_EXP_SELECT_REG,
+		       GPHY_EXP_SELECT_REG_VAL_BROADREACH_OFF);
 	if (rc < 0)
 		return rc;
 
-	rc = phy_write(phy_dev, GPHY_EXP_DATA_REG, 0x11B);
+	rc = phy_write(phy_dev, GPHY_EXP_DATA_REG, 0);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_EXP_SELECT_REG,
+		       GPHY_EXP_SELECT_REG_VAL_LANE_SWAP);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_EXP_DATA_REG, GPHY_EXP_DATA_REG_VAL);
 	if (rc < 0)
 		return rc;
 
