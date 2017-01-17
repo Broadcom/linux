@@ -187,6 +187,70 @@ u64 async_tx_test_gfmul64(int pos, u64 val)
 	return ret;
 }
 
+static unsigned int memcpy_test_io_size(struct async_tx_test *test)
+{
+	return test->block_size;
+}
+
+static int memcpy_test_prep_input(struct async_tx_test_request *req)
+{
+	u64 *data;
+	unsigned int i;
+	struct async_tx_test *test = req->test;
+	u64 ref = async_tx_test_ref64(req->num);
+
+	data = (u64 *)page_address(req->disk[0]);
+	for (i = 0; i < test->block_size / sizeof(u64); i++)
+		data[i] = ref;
+
+	return 0;
+}
+
+static int memcpy_test_prep_output(int iter, struct async_tx_test_request *req)
+{
+	struct async_tx_test *test = req->test;
+
+	memset(page_address(req->p), 0, test->block_size);
+
+	return 0;
+}
+
+static int memcpy_test_submit(int iter, struct async_tx_test_request *req)
+{
+	struct async_submit_ctl submit;
+	struct dma_async_tx_descriptor *tx;
+	struct async_tx_test *test = req->test;
+
+	init_async_submit(&submit, ASYNC_TX_ACK, NULL,
+			  async_tx_test_callback, req, req->addr_conv);
+	tx = async_memcpy(req->p, req->disk[0], 0, 0,
+			  test->block_size, &submit);
+	async_tx_issue_pending(tx);
+
+	return 0;
+}
+
+static int memcpy_test_verify_output(int iter,
+				     struct async_tx_test_request *req)
+{
+	u64 *data;
+	unsigned int i;
+	struct async_tx_test *test = req->test;
+	u64 out_ref = async_tx_test_ref64(req->num);
+
+	data = (u64 *)page_address(req->p);
+	for (i = 0; i < test->block_size / sizeof(u64); i++)
+		if (data[i] != out_ref)
+			return 0;
+
+	return 1;
+}
+
+static void memcpy_test_cleanup(struct async_tx_test_request *req)
+{
+	/* For now nothing to do here. */
+}
+
 static unsigned int xor_test_io_size(struct async_tx_test *test)
 {
 	return test->block_size * test->disk_count;
@@ -640,6 +704,17 @@ static void recov_2data_test_cleanup(struct async_tx_test_request *req)
 }
 
 static struct async_tx_test_ops ops_table[] = {
+	{
+		.name = "memcpy",
+		.min_disk_count = 1,
+		.max_disk_count = 1,
+		.io_size = memcpy_test_io_size,
+		.prep_input = memcpy_test_prep_input,
+		.prep_output = memcpy_test_prep_output,
+		.submit = memcpy_test_submit,
+		.verify_output = memcpy_test_verify_output,
+		.cleanup = memcpy_test_cleanup,
+	},
 	{
 		.name = "xor",
 		.min_disk_count = 2,
