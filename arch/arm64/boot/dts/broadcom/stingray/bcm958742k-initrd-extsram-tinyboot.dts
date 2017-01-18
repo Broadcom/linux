@@ -30,35 +30,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/dts-v1/;
+/* For tinyboot use hard code initrd location */
+#define HARD_CODE_INITRD_LOCATION 1
 
-#ifndef NUM_SATA
-#define NUM_SATA	5
-#endif
-#define NUM_RAID	1
-#define NUM_CRYPTO	1
-
-#if HARD_CODE_INITRD_LOCATION
-/* HACK: Reserve initrd location
- * The memreserve entry for initrd is supposed
- * to be updated in DTB by bootloader before
- * handing over DTB to Linux kernel.
- */
-/memreserve/ 0x75000000 0x00800000;
-#endif
-
-/* HACK: Reserve bl31/bl32 location
- * The memreserve entry for bl31 is supposed to
- * be updated in DTB by bootloader before handing
- * over DTB to Linux kernel. This is so because
- * only firmware (or bootloader) know the correct
- * location of bl31 and bl31 location can also
- * change in-future.
- */
-/memreserve/ 0x77b00000 0x00500000;
-
-/ {
-	model = "Stingray Combo SVK (BCM958742K) w/External SRAM";
-};
-
-#include "bcm958742k-base.dtsi"
+#include "bcm958742k-extsram.dts"
