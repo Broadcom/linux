@@ -14,9 +14,10 @@
 #include <linux/gfp.h>
 #include <linux/slab.h>
 #include <linux/completion.h>
+#include <linux/math64.h>
 #include <linux/mutex.h>
-#include <linux/raid/pq.h>
 #include <linux/module.h>
+#include <linux/raid/pq.h>
 
 #undef pr
 #define pr(fmt, args...) pr_info("async_tx_test: " fmt, ##args)
@@ -661,8 +662,8 @@ static int async_tx_test_run(void)
 
 	/* Compute average usecs and average KBs */
 	if (i) {
-		avg_usecs = avg_usecs / i;
-		avg_KBs = avg_KBs / i;
+		avg_usecs = div_s64(avg_usecs, i);
+		avg_KBs = div_u64(avg_KBs, i);
 	}
 
 	/* Print final summary */
