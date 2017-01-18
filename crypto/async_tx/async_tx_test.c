@@ -924,6 +924,11 @@ static int async_tx_test_run(void)
 	   (long long)min_usecs, (long long)max_usecs, (long long)avg_usecs);
 	pr("min_KBs=%llu max_KBs=%llu avg_KBs=%llu\n",
 	   min_KBs, max_KBs, avg_KBs);
+	min_KBs = div_u64(min_KBs * 1024, io_size);
+	max_KBs = div_u64(max_KBs * 1024, io_size);
+	avg_KBs = div_u64(avg_KBs * 1024, io_size);
+	pr("min_IOPS=%llu max_IOPS=%llu avg_IOPS=%llu\n",
+	   min_KBs, max_KBs, avg_KBs);
 
 	/* Cleanup all requests */
 cleanup_reqs:
