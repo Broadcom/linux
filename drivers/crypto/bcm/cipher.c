@@ -143,14 +143,14 @@ spu_ablkcipher_rx_sg_create(struct brcm_message *mssg,
 	u32 datalen;		/* Number of bytes of response data expected */
 
 	mssg->spu.dst = kcalloc(rx_frag_num, sizeof(struct scatterlist),
-				GFP_KERNEL);
+				rctx->gfp);
 	if (mssg->spu.dst == NULL)
 		return -ENOMEM;
 
 	sg = mssg->spu.dst;
 	sg_init_table(sg, rx_frag_num);
 	/* Space for SPU message header */
-	sg_set_buf(sg++, rctx->msg_buf->spu_resp_hdr, ctx->spu_resp_hdr_len);
+	sg_set_buf(sg++, rctx->msg_buf.spu_resp_hdr, ctx->spu_resp_hdr_len);
 
 	/* Copy in each dst sg entry from request, up to chunksize */
 	datalen = spu_msg_sg_add(&sg, &rctx->dst_sg, &rctx->dst_skip,
@@ -164,12 +164,13 @@ spu_ablkcipher_rx_sg_create(struct brcm_message *mssg,
 
 	if (ctx->cipher.alg == CIPHER_ALG_RC4)
 		/* Add buffer to catch 260-byte SUPDT field for RC4 */
-		sg_set_buf(sg++, rctx->msg_buf->c.supdt, SPU_SUPDT_LEN);
+		sg_set_buf(sg++, rctx->msg_buf.c.supdt, SPU_SUPDT_LEN);
 
 	if (stat_pad_len)
-		sg_set_buf(sg++, rctx->msg_buf->rx_stat_pad, stat_pad_len);
+		sg_set_buf(sg++, rctx->msg_buf.rx_stat_pad, stat_pad_len);
 
-	sg_set_buf(sg, rctx->msg_buf->rx_stat, spu->spu_rx_status_len());
+	memset(rctx->msg_buf.rx_stat, 0, SPU_RX_STATUS_LEN);
+	sg_set_buf(sg, rctx->msg_buf.rx_stat, spu->spu_rx_status_len());
 
 	return 0;
 }
@@ -201,14 +202,14 @@ spu_ablkcipher_tx_sg_create(struct brcm_message *mssg,
 	u32 datalen;		/* Number of bytes of response data expected */
 
 	mssg->spu.src = kcalloc(tx_frag_num, sizeof(struct scatterlist),
-				GFP_KERNEL);
+				rctx->gfp);
 	if (unlikely(mssg->spu.src == NULL))
 		return -ENOMEM;
 
 	sg = mssg->spu.src;
 	sg_init_table(sg, tx_frag_num);
 
-	sg_set_buf(sg++, rctx->msg_buf->bcm_spu_req_hdr,
+	sg_set_buf(sg++, rctx->msg_buf.bcm_spu_req_hdr,
 		   BCM_HDR_LEN + ctx->spu_req_hdr_len);
 
 	/* Copy in each src sg entry from request, up to chunksize */
@@ -221,11 +222,13 @@ spu_ablkcipher_tx_sg_create(struct brcm_message *mssg,
 	}
 
 	if (pad_len)
-		sg_set_buf(sg++, rctx->msg_buf->spu_req_pad, pad_len);
+		sg_set_buf(sg++, rctx->msg_buf.spu_req_pad, pad_len);
 
-	if (spu->spu_tx_status_len())
-		sg_set_buf(sg, rctx->msg_buf->tx_stat,
+	if (spu->spu_tx_status_len()) {
+		memset(rctx->msg_buf.tx_stat, 0, spu->spu_tx_status_len());
+		sg_set_buf(sg, rctx->msg_buf.tx_stat,
 			   spu->spu_tx_status_len());
+	}
 	return 0;
 }
 
@@ -296,36 +299,39 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 	rctx->dst_nents = spu_sg_count(rctx->dst_sg, rctx->dst_skip, chunksize);
 
 	if ((ctx->cipher.mode == CIPHER_MODE_CBC) &&
-	    rctx->is_encrypt && chunk_start) {
+	    rctx->is_encrypt && chunk_start)
 		/* Encrypting non-first first chunk. Copy last block of
 		 * previous result to IV for this chunk.
 		 */
-		sg_copy_part_to_buf(req->dst, rctx->iv_ctr, rctx->iv_ctr_len,
+		sg_copy_part_to_buf(req->dst, rctx->msg_buf.iv_ctr,
+				    rctx->iv_ctr_len,
 				    chunk_start - rctx->iv_ctr_len);
-	}
 
-	if (rctx->iv_ctr)
+	if (rctx->iv_ctr_len) {
 		/* get our local copy of the iv */
-		__builtin_memcpy(local_iv_ctr, rctx->iv_ctr, rctx->iv_ctr_len);
+		__builtin_memcpy(local_iv_ctr, rctx->msg_buf.iv_ctr,
+				 rctx->iv_ctr_len);
 
 	/* generate the next IV if possible */
-	if ((ctx->cipher.mode == CIPHER_MODE_CBC) && !rctx->is_encrypt) {
+		if ((ctx->cipher.mode == CIPHER_MODE_CBC) &&
+		     !rctx->is_encrypt) {
 		/* CBC Decrypt: next IV is the last ciphertext block in
 		 * this chunk
 		 */
-		sg_copy_part_to_buf(req->src, rctx->iv_ctr,
+			sg_copy_part_to_buf(req->src, rctx->msg_buf.iv_ctr,
 				    rctx->iv_ctr_len,
 				    rctx->src_sent - rctx->iv_ctr_len);
-	} else if (ctx->cipher.mode == CIPHER_MODE_CTR) {
+	} else if (ctx->cipher.mode == CIPHER_MODE_CTR)
 		/*
-		 * The SPU hardware increments the counter once for each AES
-		 * block of 16 bytes. So update the counter for the next chunk,
-		 * if there is one. Note that for this chunk, the counter has
-		 * already been copied to local_iv_ctr. We can assume a block
-		 * size of 16, because we only support CTR mode for AES, not for
+		 * The SPU hardware increments the counter once for
+		 * each AES block of 16 bytes. So update the counter
+		 * for the next chunk, if there is one. Note that for
+		 * this chunk, the counter has already been copied to
+		 * local_iv_ctr. We can assume a block size of 16,
+		 * because we only support CTR mode for AES, not for
 		 * any other cipher alg.
 		 */
-		add_to_ctr(rctx->iv_ctr, chunksize >> 4);
+		add_to_ctr(rctx->msg_buf.iv_ctr, chunksize >> 4);
 	}
 
 	if (ctx->cipher.alg == CIPHER_ALG_RC4) {
@@ -334,7 +340,7 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 			/* for non-first RC4 chunks, use SUPDT from previous
 			 * response as key for this chunk.
 			 */
-			cipher_parms.key_buf = rctx->msg_buf->c.supdt;
+			cipher_parms.key_buf = rctx->msg_buf.c.supdt;
 			update_key = true;
 			cipher_parms.type = CIPHER_TYPE_UPDT;
 		} else if (!rctx->is_encrypt) {
@@ -357,15 +363,15 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 		 rctx->src_sent, chunk_start, remaining, chunksize);
 
 	/* Copy SPU header template created at setkey time */
-	memcpy(rctx->msg_buf->bcm_spu_req_hdr, ctx->bcm_spu_req_hdr,
-	       sizeof(rctx->msg_buf->bcm_spu_req_hdr));
+	memcpy(rctx->msg_buf.bcm_spu_req_hdr, ctx->bcm_spu_req_hdr,
+	       sizeof(rctx->msg_buf.bcm_spu_req_hdr));
 
 	/*
 	 * Pass SUPDT field as key. Key field in finish() call is only used
 	 * when update_key has been set above for RC4. Will be ignored in
 	 * all other cases.
 	 */
-	spu->spu_cipher_req_finish(rctx->msg_buf->bcm_spu_req_hdr + BCM_HDR_LEN,
+	spu->spu_cipher_req_finish(rctx->msg_buf.bcm_spu_req_hdr + BCM_HDR_LEN,
 				   ctx->spu_req_hdr_len, !(rctx->is_encrypt),
 				   &cipher_parms, update_key, chunksize);
 
@@ -379,16 +385,16 @@ static int handle_ablkcipher_req(struct iproc_reqctx_s *rctx)
 	pad_len = data_pad_len + stat_pad_len;
 	if (pad_len) {
 		tx_frag_num++;
-		spu->spu_request_pad(rctx->msg_buf->spu_req_pad, data_pad_len,
+		spu->spu_request_pad(rctx->msg_buf.spu_req_pad, data_pad_len,
 				     0, ctx->auth.alg, rctx->total_sent,
 				     stat_pad_len);
 	}
 
-	spu->spu_dump_msg_hdr(rctx->msg_buf->bcm_spu_req_hdr + BCM_HDR_LEN,
+	spu->spu_dump_msg_hdr(rctx->msg_buf.bcm_spu_req_hdr + BCM_HDR_LEN,
 			      ctx->spu_req_hdr_len);
 	packet_log("payload:\n");
 	dump_sg(rctx->src_sg, rctx->src_skip, chunksize);
-	packet_dump("   pad: ", rctx->msg_buf->spu_req_pad, pad_len);
+	packet_dump("   pad: ", rctx->msg_buf.spu_req_pad, pad_len);
 
 	/* Build mailbox message containing SPU request msg and rx buffers
 	 * to catch response message
@@ -439,7 +445,7 @@ static void handle_ablkcipher_resp(struct iproc_reqctx_s *rctx)
 	u32 payload_len;
 
 	/* See how much data was returned */
-	payload_len = spu->spu_payload_length(rctx->msg_buf->spu_resp_hdr);
+	payload_len = spu->spu_payload_length(rctx->msg_buf.spu_resp_hdr);
 
 	atomic64_add(payload_len, &iproc_priv.bytes_in);
 
@@ -480,22 +486,23 @@ spu_ahash_rx_sg_create(struct brcm_message *mssg,
 	struct iproc_ctx_s *ctx = rctx->ctx;
 
 	mssg->spu.dst = kcalloc(rx_frag_num, sizeof(struct scatterlist),
-				GFP_KERNEL);
+				rctx->gfp);
 	if (mssg->spu.dst == NULL)
 		return -ENOMEM;
 
 	sg = mssg->spu.dst;
 	sg_init_table(sg, rx_frag_num);
 	/* Space for SPU message header */
-	sg_set_buf(sg++, rctx->msg_buf->spu_resp_hdr, ctx->spu_resp_hdr_len);
+	sg_set_buf(sg++, rctx->msg_buf.spu_resp_hdr, ctx->spu_resp_hdr_len);
 
 	/* Space for digest */
-	sg_set_buf(sg++, rctx->msg_buf->digest, digestsize);
+	sg_set_buf(sg++, rctx->msg_buf.digest, digestsize);
 
 	if (stat_pad_len)
-		sg_set_buf(sg++, rctx->msg_buf->rx_stat_pad, stat_pad_len);
+		sg_set_buf(sg++, rctx->msg_buf.rx_stat_pad, stat_pad_len);
 
-	sg_set_buf(sg, rctx->msg_buf->rx_stat, spu->spu_rx_status_len());
+	memset(rctx->msg_buf.rx_stat, 0, SPU_RX_STATUS_LEN);
+	sg_set_buf(sg, rctx->msg_buf.rx_stat, spu->spu_rx_status_len());
 	return 0;
 }
 
@@ -530,14 +537,14 @@ spu_ahash_tx_sg_create(struct brcm_message *mssg,
 	u32 datalen;		/* Number of bytes of response data expected */
 
 	mssg->spu.src = kcalloc(tx_frag_num, sizeof(struct scatterlist),
-				GFP_KERNEL);
+				rctx->gfp);
 	if (mssg->spu.src == NULL)
 		return -ENOMEM;
 
 	sg = mssg->spu.src;
 	sg_init_table(sg, tx_frag_num);
 
-	sg_set_buf(sg++, rctx->msg_buf->bcm_spu_req_hdr,
+	sg_set_buf(sg++, rctx->msg_buf.bcm_spu_req_hdr,
 		   BCM_HDR_LEN + spu_hdr_len);
 
 	if (hash_carry_len)
@@ -556,11 +563,13 @@ spu_ahash_tx_sg_create(struct brcm_message *mssg,
 	}
 
 	if (pad_len)
-		sg_set_buf(sg++, rctx->msg_buf->spu_req_pad, pad_len);
+		sg_set_buf(sg++, rctx->msg_buf.spu_req_pad, pad_len);
 
-	if (spu->spu_tx_status_len())
-		sg_set_buf(sg, rctx->msg_buf->tx_stat,
+	if (spu->spu_tx_status_len()) {
+		memset(rctx->msg_buf.tx_stat, 0, spu->spu_tx_status_len());
+		sg_set_buf(sg, rctx->msg_buf.tx_stat,
 			   spu->spu_tx_status_len());
+	}
 
 	return 0;
 }
@@ -740,10 +749,10 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	flow_log("chunk_start: %u chunk_size: %u\n", chunk_start, chunksize);
 
 	/* Prepend SPU header with type 3 BCM header */
-	memcpy(rctx->msg_buf->bcm_spu_req_hdr, BCMHEADER, BCM_HDR_LEN);
+	memcpy(rctx->msg_buf.bcm_spu_req_hdr, BCMHEADER, BCM_HDR_LEN);
 
 	hash_parms.prebuf_len = local_nbuf;
-	spu_hdr_len = spu->spu_create_request(rctx->msg_buf->bcm_spu_req_hdr +
+	spu_hdr_len = spu->spu_create_request(rctx->msg_buf.bcm_spu_req_hdr +
 					      BCM_HDR_LEN,
 					      &req_opts, &cipher_parms,
 					      &hash_parms, &aead_parms,
@@ -767,17 +776,17 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	pad_len = hash_parms.pad_len + data_pad_len + stat_pad_len;
 	if (pad_len) {
 		tx_frag_num++;
-		spu->spu_request_pad(rctx->msg_buf->spu_req_pad, data_pad_len,
+		spu->spu_request_pad(rctx->msg_buf.spu_req_pad, data_pad_len,
 				     hash_parms.pad_len, ctx->auth.alg,
 				     rctx->total_sent, stat_pad_len);
 	}
 
-	spu->spu_dump_msg_hdr(rctx->msg_buf->bcm_spu_req_hdr + BCM_HDR_LEN,
+	spu->spu_dump_msg_hdr(rctx->msg_buf.bcm_spu_req_hdr + BCM_HDR_LEN,
 			      spu_hdr_len);
 	packet_dump("    prebuf: ", rctx->hash_carry, local_nbuf);
 	flow_log("Data:\n");
 	dump_sg(rctx->src_sg, rctx->src_skip, new_data_len);
-	packet_dump("   pad: ", rctx->msg_buf->spu_req_pad, pad_len);
+	packet_dump("   pad: ", rctx->msg_buf.spu_req_pad, pad_len);
 
 	/* Build mailbox message containing SPU request msg and rx buffers
 	 * to catch response message
@@ -833,7 +842,7 @@ static void handle_ahash_resp(struct iproc_reqctx_s *rctx)
 	 * Save hash to use as input to next op if incremental. Might be copying
 	 * too much, but that's easier than figuring out actual digest size here
 	 */
-	memcpy(rctx->incr_hash, rctx->msg_buf->digest, MAX_DIGEST_SIZE);
+	memcpy(rctx->incr_hash, rctx->msg_buf.digest, MAX_DIGEST_SIZE);
 
 	flow_log("%s() blocksize:%u digestsize:%u\n",
 		 __func__, blocksize, ctx->digestsize);
@@ -895,7 +904,7 @@ static int ahash_req_done(struct iproc_reqctx_s *rctx)
 	struct iproc_ctx_s *ctx = rctx->ctx;
 	int err;
 
-	memcpy(req->result, rctx->msg_buf->digest, ctx->digestsize);
+	memcpy(req->result, rctx->msg_buf.digest, ctx->digestsize);
 
 	if (spu->spu_type == SPU_TYPE_SPUM) {
 		/* byte swap the output from the UPDT function to network byte
@@ -1059,7 +1068,7 @@ spu_aead_rx_sg_create(struct brcm_message *mssg,
 		rx_frag_num++;
 
 	mssg->spu.dst = kcalloc(rx_frag_num, sizeof(struct scatterlist),
-				GFP_KERNEL);
+				rctx->gfp);
 	if (mssg->spu.dst == NULL)
 		return -ENOMEM;
 
@@ -1067,13 +1076,15 @@ spu_aead_rx_sg_create(struct brcm_message *mssg,
 	sg_init_table(sg, rx_frag_num);
 
 	/* Space for SPU message header */
-	sg_set_buf(sg++, rctx->msg_buf->spu_resp_hdr, ctx->spu_resp_hdr_len);
+	sg_set_buf(sg++, rctx->msg_buf.spu_resp_hdr, ctx->spu_resp_hdr_len);
 
-	if (assoc_buf_len)
+	if (assoc_buf_len) {
 		/* Don't write directly to req->dst, because SPU may pad the
 		 * assoc data in the response
 		 */
-		sg_set_buf(sg++, rctx->msg_buf->a.resp_aad, assoc_buf_len);
+		memset(rctx->msg_buf.a.resp_aad, 0, assoc_buf_len);
+		sg_set_buf(sg++, rctx->msg_buf.a.resp_aad, assoc_buf_len);
+	}
 
 	/* Copy in each dst sg entry from request, up to chunksize.
 	 * dst sg catches just the data. digest caught in separate buf.
@@ -1089,17 +1100,22 @@ spu_aead_rx_sg_create(struct brcm_message *mssg,
 
 
 	/* If GCM/CCM data is padded, catch padding in separate buffer */
-	if (data_padlen)
-		sg_set_buf(sg++, rctx->msg_buf->a.gcmpad, data_padlen);
+	if (data_padlen) {
+		memset(rctx->msg_buf.a.gcmpad, 0, data_padlen);
+		sg_set_buf(sg++, rctx->msg_buf.a.gcmpad, data_padlen);
+	}
 
 	/* Always catch ICV in separate buffer */
-	sg_set_buf(sg++, rctx->msg_buf->digest, digestsize);
+	sg_set_buf(sg++, rctx->msg_buf.digest, digestsize);
 
 	flow_log("stat_pad_len %u\n", stat_pad_len);
-	if (stat_pad_len)
-		sg_set_buf(sg++, rctx->msg_buf->rx_stat_pad, stat_pad_len);
+	if (stat_pad_len) {
+		memset(rctx->msg_buf.rx_stat_pad, 0, stat_pad_len);
+		sg_set_buf(sg++, rctx->msg_buf.rx_stat_pad, stat_pad_len);
+	}
 
-	sg_set_buf(sg, rctx->msg_buf->rx_stat, spu->spu_rx_status_len());
+	memset(rctx->msg_buf.rx_stat, 0, SPU_RX_STATUS_LEN);
+	sg_set_buf(sg, rctx->msg_buf.rx_stat, spu->spu_rx_status_len());
 
 	return 0;
 }
@@ -1149,14 +1165,14 @@ spu_aead_tx_sg_create(struct brcm_message *mssg,
 	u32 assoc_offset = 0;
 
 	mssg->spu.src = kcalloc(tx_frag_num, sizeof(struct scatterlist),
-				GFP_KERNEL);
+				rctx->gfp);
 	if (mssg->spu.src == NULL)
 		return -ENOMEM;
 
 	sg = mssg->spu.src;
 	sg_init_table(sg, tx_frag_num);
 
-	sg_set_buf(sg++, rctx->msg_buf->bcm_spu_req_hdr,
+	sg_set_buf(sg++, rctx->msg_buf.bcm_spu_req_hdr,
 		   BCM_HDR_LEN + spu_hdr_len);
 
 	if (assoc_len) {
@@ -1172,10 +1188,12 @@ spu_aead_tx_sg_create(struct brcm_message *mssg,
 	}
 
 	if (aead_iv_len)
-		sg_set_buf(sg++, rctx->iv_ctr, aead_iv_len);
+		sg_set_buf(sg++, rctx->msg_buf.iv_ctr, aead_iv_len);
 
-	if (aad_pad_len)
-		sg_set_buf(sg++, rctx->msg_buf->a.req_aad_pad, aad_pad_len);
+	if (aad_pad_len) {
+		memset(rctx->msg_buf.a.req_aad_pad, 0, aad_pad_len);
+		sg_set_buf(sg++, rctx->msg_buf.a.req_aad_pad, aad_pad_len);
+	}
 
 	datalen = chunksize;
 	if ((chunksize > ctx->digestsize) && incl_icv)
@@ -1191,15 +1209,19 @@ spu_aead_tx_sg_create(struct brcm_message *mssg,
 		}
 	}
 
-	if (pad_len)
-		sg_set_buf(sg++, rctx->msg_buf->spu_req_pad, pad_len);
+	if (pad_len) {
+		memset(rctx->msg_buf.spu_req_pad, 0, pad_len);
+		sg_set_buf(sg++, rctx->msg_buf.spu_req_pad, pad_len);
+	}
 
 	if (incl_icv)
-		sg_set_buf(sg++, rctx->msg_buf->digest, ctx->digestsize);
+		sg_set_buf(sg++, rctx->msg_buf.digest, ctx->digestsize);
 
-	if (spu->spu_tx_status_len())
-		sg_set_buf(sg, rctx->msg_buf->tx_stat,
+	if (spu->spu_tx_status_len()) {
+		memset(rctx->msg_buf.tx_stat, 0, spu->spu_tx_status_len());
+		sg_set_buf(sg, rctx->msg_buf.tx_stat,
 			   spu->spu_tx_status_len());
+	}
 	return 0;
 }
 
@@ -1261,7 +1283,7 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 	cipher_parms.type = ctx->cipher_type;
 	cipher_parms.key_buf = ctx->enckey;
 	cipher_parms.key_len = ctx->enckeylen;
-	cipher_parms.iv_buf = rctx->iv_ctr;
+	cipher_parms.iv_buf = rctx->msg_buf.iv_ctr;
 	cipher_parms.iv_len = rctx->iv_ctr_len;
 
 	hash_parms.alg = ctx->auth.alg;
@@ -1363,7 +1385,7 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 		incl_icv = true;
 		tx_frag_num++;
 		/* Copy ICV from end of src scatterlist to digest buf */
-		sg_copy_part_to_buf(req->src, rctx->msg_buf->digest, digestsize,
+		sg_copy_part_to_buf(req->src, rctx->msg_buf.digest, digestsize,
 				    req->assoclen + rctx->total_sent -
 				    digestsize);
 	}
@@ -1374,9 +1396,9 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 		 __func__, chunksize, hash_parms.hmac_offset);
 
 	/* Prepend SPU header with type 3 BCM header */
-	memcpy(rctx->msg_buf->bcm_spu_req_hdr, BCMHEADER, BCM_HDR_LEN);
+	memcpy(rctx->msg_buf.bcm_spu_req_hdr, BCMHEADER, BCM_HDR_LEN);
 
-	spu_hdr_len = spu->spu_create_request(rctx->msg_buf->bcm_spu_req_hdr +
+	spu_hdr_len = spu->spu_create_request(rctx->msg_buf.bcm_spu_req_hdr +
 					      BCM_HDR_LEN, &req_opts,
 					      &cipher_parms, &hash_parms,
 					      &aead_parms, chunksize);
@@ -1393,19 +1415,19 @@ static int handle_aead_req(struct iproc_reqctx_s *rctx)
 	pad_len = aead_parms.data_pad_len + stat_pad_len;
 	if (pad_len) {
 		tx_frag_num++;
-		spu->spu_request_pad(rctx->msg_buf->spu_req_pad,
+		spu->spu_request_pad(rctx->msg_buf.spu_req_pad,
 				     aead_parms.data_pad_len, 0,
 				     ctx->auth.alg, rctx->total_sent,
 				     stat_pad_len);
 	}
 
-	spu->spu_dump_msg_hdr(rctx->msg_buf->bcm_spu_req_hdr + BCM_HDR_LEN,
+	spu->spu_dump_msg_hdr(rctx->msg_buf.bcm_spu_req_hdr + BCM_HDR_LEN,
 			      spu_hdr_len);
 	dump_sg(rctx->assoc, 0, aead_parms.assoc_size);
-	packet_dump("    aead iv: ", rctx->iv_ctr, aead_parms.iv_len);
+	packet_dump("    aead iv: ", rctx->msg_buf.iv_ctr, aead_parms.iv_len);
 	packet_log("BD:\n");
 	dump_sg(rctx->src_sg, rctx->src_skip, chunksize);
-	packet_dump("   pad: ", rctx->msg_buf->spu_req_pad, pad_len);
+	packet_dump("   pad: ", rctx->msg_buf.spu_req_pad, pad_len);
 
 	/* Build mailbox message containing SPU request msg and rx buffers
 	 * to catch response message
@@ -1480,14 +1502,14 @@ static void handle_aead_resp(struct iproc_reqctx_s *rctx)
 	u32 result_len;
 
 	/* See how much data was returned */
-	payload_len = spu->spu_payload_length(rctx->msg_buf->spu_resp_hdr);
+	payload_len = spu->spu_payload_length(rctx->msg_buf.spu_resp_hdr);
 	flow_log("payload_len %u\n", payload_len);
 
 	/* only count payload */
 	atomic64_add(payload_len, &iproc_priv.bytes_in);
 
-	if (rctx->msg_buf->a.resp_aad && req->assoclen)
-		packet_dump("  assoc_data ", rctx->msg_buf->a.resp_aad,
+	if (req->assoclen)
+		packet_dump("  assoc_data ", rctx->msg_buf.a.resp_aad,
 			    req->assoclen);
 
 	/* Copy the ICV back to the destination
@@ -1497,9 +1519,9 @@ static void handle_aead_resp(struct iproc_reqctx_s *rctx)
 	result_len = req->cryptlen;
 	if (rctx->is_encrypt) {
 		icv_offset = req->assoclen + rctx->total_sent;
-		packet_dump("  ICV: ", rctx->msg_buf->digest, ctx->digestsize);
+		packet_dump("  ICV: ", rctx->msg_buf.digest, ctx->digestsize);
 		flow_log("copying ICV to dst sg at offset %u\n", icv_offset);
-		sg_copy_part_from_buf(req->dst, rctx->msg_buf->digest,
+		sg_copy_part_from_buf(req->dst, rctx->msg_buf.digest,
 				      ctx->digestsize, icv_offset);
 		result_len += ctx->digestsize;
 	}
@@ -1528,18 +1550,6 @@ static void spu_chunk_cleanup(struct iproc_reqctx_s *rctx)
 }
 
 /**
- * spu_req_cleanup() - Do cleanup after a SPU request is complete
- * @rctx:  request context
- */
-static void spu_req_cleanup(struct iproc_reqctx_s *rctx)
-{
-	kfree(rctx->msg_buf);
-	rctx->msg_buf = NULL;
-	kfree(rctx->iv_ctr);
-	rctx->iv_ctr = NULL;
-}
-
-/**
  * finish_req() - Used to invoke the complete callback from the requester when
  * a request has been handled asynchronously.
  * @rctx:  Request context
@@ -1553,9 +1563,8 @@ static void finish_req(struct iproc_reqctx_s *rctx, int err)
 
 	flow_log("%s() err:%d\n\n", __func__, err);
 
-	/* No harm done if these were already called */
+	/* No harm done if already called */
 	spu_chunk_cleanup(rctx);
-	spu_req_cleanup(rctx);
 
 	if (areq)
 		areq->complete(areq, err);
@@ -1596,7 +1605,7 @@ static void spu_rx_callback(struct mbox_client *cl, void *msg)
 	}
 
 	/* process the SPU status */
-	err = spu->spu_status_process(rctx->msg_buf->rx_stat);
+	err = spu->spu_status_process(rctx->msg_buf.rx_stat);
 	if (err != 0) {
 		if (err == SPU_INVALID_ICV)
 			atomic_inc(&iproc_priv.bad_icv);
@@ -1669,6 +1678,8 @@ static int ablkcipher_enqueue(struct ablkcipher_request *req, bool encrypt)
 
 	flow_log("%s() enc:%u\n", __func__, encrypt);
 
+	rctx->gfp = (req->base.flags & (CRYPTO_TFM_REQ_MAY_BACKLOG |
+		       CRYPTO_TFM_REQ_MAY_SLEEP)) ? GFP_KERNEL : GFP_ATOMIC;
 	rctx->parent = &req->base;
 	rctx->is_encrypt = encrypt;
 	rctx->bd_suppress = false;
@@ -1687,11 +1698,6 @@ static int ablkcipher_enqueue(struct ablkcipher_request *req, bool encrypt)
 	rctx->dst_nents = 0;
 	rctx->dst_skip = 0;
 
-	/* Allocate a set of buffers to be used as SPU message fragments */
-	rctx->msg_buf = kzalloc(sizeof(*rctx->msg_buf), GFP_KERNEL);
-	if (rctx->msg_buf == NULL)
-		return -ENOMEM;
-
 	if (ctx->cipher.mode == CIPHER_MODE_CBC ||
 	    ctx->cipher.mode == CIPHER_MODE_CTR ||
 	    ctx->cipher.mode == CIPHER_MODE_OFB ||
@@ -1700,23 +1706,18 @@ static int ablkcipher_enqueue(struct ablkcipher_request *req, bool encrypt)
 	    ctx->cipher.mode == CIPHER_MODE_CCM) {
 		rctx->iv_ctr_len =
 		    crypto_ablkcipher_ivsize(crypto_ablkcipher_reqtfm(req));
-		rctx->iv_ctr = kmalloc(rctx->iv_ctr_len, GFP_KERNEL);
-		if (rctx->iv_ctr == NULL)
-			return -ENOMEM;
-		memcpy(rctx->iv_ctr, req->info, rctx->iv_ctr_len);
+		memcpy(rctx->msg_buf.iv_ctr, req->info, rctx->iv_ctr_len);
 	} else {
-		rctx->iv_ctr = NULL;
 		rctx->iv_ctr_len = 0;
 	}
 
 	/* Choose a SPU to process this request */
 	rctx->chan_idx = select_channel();
 	err = handle_ablkcipher_req(rctx);
-	if (err != -EINPROGRESS) {
+	if (err != -EINPROGRESS)
 		/* synchronous result */
 		spu_chunk_cleanup(rctx);
-		spu_req_cleanup(rctx);
-	}
+
 	return err;
 }
 
@@ -1918,10 +1919,10 @@ static int ahash_enqueue(struct ahash_request *req)
 
 	flow_log("ahash_enqueue() nbytes:%u\n", req->nbytes);
 
+	rctx->gfp = (req->base.flags & (CRYPTO_TFM_REQ_MAY_BACKLOG |
+		       CRYPTO_TFM_REQ_MAY_SLEEP)) ? GFP_KERNEL : GFP_ATOMIC;
 	rctx->parent = &req->base;
-	rctx->msg_buf = NULL;
 	rctx->ctx = ctx;
-	rctx->iv_ctr = NULL;
 	rctx->bd_suppress = true;
 	memset(&rctx->mb_mssg, 0, sizeof(struct brcm_message));
 
@@ -1947,21 +1948,14 @@ static int ahash_enqueue(struct ahash_request *req)
 			flow_log("Hash request failed with error %d\n", err);
 		return err;
 	}
-
-	/* Allocate a set of buffers to be used as SPU message fragments */
-	rctx->msg_buf = kzalloc(sizeof(*rctx->msg_buf), GFP_KERNEL);
-	if (rctx->msg_buf == NULL)
-		return -ENOMEM;
-
 	/* Choose a SPU to process this request */
 	rctx->chan_idx = select_channel();
 
 	err = handle_ahash_req(rctx);
-	if (err != -EINPROGRESS) {
+	if (err != -EINPROGRESS)
 		/* synchronous result */
 		spu_chunk_cleanup(rctx);
-		spu_req_cleanup(rctx);
-	}
+
 	if (err == -EAGAIN)
 		/* we saved data in hash carry, but tell crypto API
 		 * we successfully completed request.
@@ -2029,6 +2023,7 @@ static int ahash_init(struct ahash_request *req)
 	const char *alg_name;
 	struct crypto_shash *hash;
 	int ret;
+	gfp_t gfp;
 
 	flow_log("%s() nbytes:%u\n", __func__, req->nbytes);
 
@@ -2045,8 +2040,10 @@ static int ahash_init(struct ahash_request *req)
 			return ret;
 		}
 
+		gfp = (req->base.flags & (CRYPTO_TFM_REQ_MAY_BACKLOG |
+		       CRYPTO_TFM_REQ_MAY_SLEEP)) ? GFP_KERNEL : GFP_ATOMIC;
 		ctx->shash = kmalloc(sizeof(*ctx->shash) +
-				     crypto_shash_descsize(hash), GFP_KERNEL);
+				     crypto_shash_descsize(hash), gfp);
 		if (!ctx->shash) {
 			crypto_free_shash(hash);
 			return -ENOMEM;
@@ -2102,6 +2099,7 @@ static int ahash_update(struct ahash_request *req)
 	u8 *tmpbuf;
 	int ret;
 	int nents;
+	gfp_t gfp;
 
 	flow_log("%s() nbytes:%u\n", __func__, req->nbytes);
 
@@ -2117,7 +2115,9 @@ static int ahash_update(struct ahash_request *req)
 			return -EINVAL;
 
 		/* Copy data from req scatterlist to tmp buffer */
-		tmpbuf = kmalloc(req->nbytes, GFP_KERNEL);
+		gfp = (req->base.flags & (CRYPTO_TFM_REQ_MAY_BACKLOG |
+		       CRYPTO_TFM_REQ_MAY_SLEEP)) ? GFP_KERNEL : GFP_ATOMIC;
+		tmpbuf = kmalloc(req->nbytes, gfp);
 		if (!tmpbuf)
 			return -ENOMEM;
 
@@ -2198,8 +2198,7 @@ static int ahash_finup(struct ahash_request *req)
 	u8 *tmpbuf;
 	int ret;
 	int nents;
-
-	flow_log("%s() nbytes:%u\n", __func__, req->nbytes);
+	gfp_t gfp;
 
 	if (spu_no_incr_hash(ctx)) {
 
@@ -2215,7 +2214,9 @@ static int ahash_finup(struct ahash_request *req)
 		}
 
 		/* Copy data from req scatterlist to tmp buffer */
-		tmpbuf = kmalloc(req->nbytes, GFP_KERNEL);
+		gfp = (req->base.flags & (CRYPTO_TFM_REQ_MAY_BACKLOG |
+		       CRYPTO_TFM_REQ_MAY_SLEEP)) ? GFP_KERNEL : GFP_ATOMIC;
+		tmpbuf = kmalloc(req->nbytes, gfp);
 		if (!tmpbuf) {
 			ret = -ENOMEM;
 			goto ahash_finup_exit;
@@ -2296,7 +2297,7 @@ static int ahash_export(struct ahash_request *req, void *out)
 {
 	const struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
 
-	memcpy(out, rctx, sizeof(*rctx));
+	memcpy(out, rctx, offsetof(struct iproc_reqctx_s, msg_buf));
 	return 0;
 }
 
@@ -2304,7 +2305,7 @@ static int ahash_import(struct ahash_request *req, const void *in)
 {
 	struct iproc_reqctx_s *rctx = ahash_request_ctx(req);
 
-	memcpy(rctx, in, sizeof(*rctx));
+	memcpy(rctx, in, offsetof(struct iproc_reqctx_s, msg_buf));
 	return 0;
 }
 
@@ -2612,6 +2613,8 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 		return -EINVAL;
 	}
 
+	rctx->gfp = (req->base.flags & (CRYPTO_TFM_REQ_MAY_BACKLOG |
+		       CRYPTO_TFM_REQ_MAY_SLEEP)) ? GFP_KERNEL : GFP_ATOMIC;
 	rctx->parent = &req->base;
 	rctx->is_encrypt = is_encrypt;
 	rctx->bd_suppress = false;
@@ -2622,7 +2625,6 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	rctx->is_sw_hmac = false;
 	rctx->ctx = ctx;
 	memset(&rctx->mb_mssg, 0, sizeof(struct brcm_message));
-	rctx->iv_ctr = NULL;
 
 	/* assoc data is at start of src sg */
 	rctx->assoc = req->src;
@@ -2698,30 +2700,21 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	 * Do memory allocations for request after fallback check, because if we
 	 * do fallback, we won't call finish_req() to dealloc.
 	 */
-
-	/* Allocate a set of buffers to be used as SPU message fragments */
-	rctx->msg_buf = kzalloc(sizeof(struct spu_msg_buf), GFP_KERNEL);
-	if (rctx->msg_buf == NULL)
-		return -ENOMEM;
-
 	if (rctx->iv_ctr_len) {
-		rctx->iv_ctr = kmalloc(rctx->iv_ctr_len, GFP_KERNEL);
-		if (rctx->iv_ctr == NULL)
-			return -ENOMEM;
 		if (ctx->salt_len)
-			memcpy(rctx->iv_ctr + ctx->salt_offset, ctx->salt,
-			       ctx->salt_len);
-		memcpy(rctx->iv_ctr + ctx->salt_offset + ctx->salt_len, req->iv,
+			memcpy(rctx->msg_buf.iv_ctr + ctx->salt_offset,
+			       ctx->salt, ctx->salt_len);
+		memcpy(rctx->msg_buf.iv_ctr + ctx->salt_offset + ctx->salt_len,
+		       req->iv,
 		       rctx->iv_ctr_len - ctx->salt_len - ctx->salt_offset);
 	}
 
 	rctx->chan_idx = select_channel();
 	err = handle_aead_req(rctx);
-	if (err != -EINPROGRESS) {
+	if (err != -EINPROGRESS)
 		/* synchronous result */
 		spu_chunk_cleanup(rctx);
-		spu_req_cleanup(rctx);
-	}
+
 	return err;
 }
 
@@ -4477,12 +4470,12 @@ static int handle_rabin_req(struct iproc_reqctx_s *rctx)
 	req_opts.bd_suppress = true;
 
 	/* allocate sg for spu2 header. one for fmd and other for chaining */
-	sg = kcalloc(2, sizeof(struct scatterlist), GFP_KERNEL);
+	sg = kcalloc(2, sizeof(struct scatterlist), rctx->gfp);
 	if (unlikely(sg == NULL))
 		return -ENOMEM;
 	sg_init_table(sg, 2);
 
-	fmd = kzalloc(sizeof(*fmd), GFP_KERNEL);
+	fmd = kzalloc(sizeof(*fmd), rctx->gfp);
 	if (unlikely(fmd == NULL)) {
 		err = -ENOMEM;
 		goto fmd_fail;
@@ -4548,7 +4541,8 @@ static int rabin_get_finger_print(struct rabin_request *req)
 		}
 	}
 
-
+	rctx->gfp = (req->base.flags & (CRYPTO_TFM_REQ_MAY_BACKLOG |
+		       CRYPTO_TFM_REQ_MAY_SLEEP)) ? GFP_KERNEL : GFP_ATOMIC;
 	rctx->parent = &req->base;
 	rctx->rabin_tag_idx = rabintag_to_hash_index(req->tag);
 	strcpy(rctx->rabin_tag, req->tag);
@@ -4883,7 +4877,11 @@ static int spu_register_ahash(struct iproc_alg_s *driver_alg)
 	hash->halg.base.cra_exit = generic_cra_exit;
 	hash->halg.base.cra_type = &crypto_ahash_type;
 	hash->halg.base.cra_flags = CRYPTO_ALG_TYPE_AHASH | CRYPTO_ALG_ASYNC;
-	hash->halg.statesize = sizeof(struct iproc_reqctx_s);
+	/*
+	 * export state size has to be < 512 bytes. So don't include msg bufs
+	 * in state size.
+	 */
+	hash->halg.statesize = offsetof(struct iproc_reqctx_s, msg_buf);
 
 	if (driver_alg->auth_info.mode != HASH_MODE_HMAC) {
 		hash->setkey = ahash_setkey;

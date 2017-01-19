@@ -118,6 +118,9 @@ struct spu_msg_buf {
 	 */
 	u8 bcm_spu_req_hdr[ALIGN(SPU2_HEADER_ALLOC_LEN, SPU_MSG_ALIGN)];
 
+	/* IV or counter. Size to include salt. Also used for XTS tweek. */
+	u8 iv_ctr[ALIGN(2 * AES_BLOCK_SIZE, SPU_MSG_ALIGN)];
+
 	/* Hash digest. request and response. */
 	u8 digest[ALIGN(MAX_DIGEST_SIZE, SPU_MSG_ALIGN)];
 
@@ -225,9 +228,6 @@ struct iproc_reqctx_s {
 	/* only valid after enqueue() */
 	struct iproc_ctx_s *ctx;
 
-	/* Set of buffers used as SPU message fragments */
-	struct spu_msg_buf *msg_buf;
-
 	u8 chan_idx;   /* Mailbox channel to be used to submit this request */
 
 	/* total todo, rx'd, and sent for this request */
@@ -315,6 +315,12 @@ struct iproc_reqctx_s {
 	void *old_data;
 	u32 rabin_tag_idx;
 	char rabin_tag[CRYPTO_MAX_ALG_NAME];
+
+	gfp_t gfp;
+
+	/* Buffers used to build SPU request and response messages */
+	/* MUST BE LAST */
+	struct spu_msg_buf msg_buf;
 };
 
 /*
