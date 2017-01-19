@@ -26,8 +26,6 @@
 #define MAX_BLOCK_SIZE	PAGE_SIZE
 #define MIN_DISKS	2
 #define MAX_DISKS	256
-#define MIN_REQUESTS	1
-#define MAX_REQUESTS	512
 
 static unsigned int disk_block_size = PAGE_SIZE;
 module_param(disk_block_size, uint, 0644);
@@ -37,17 +35,17 @@ MODULE_PARM_DESC(disk_block_size,
 static unsigned int disk_count = 4;
 module_param(disk_count, uint, 0644);
 MODULE_PARM_DESC(disk_count,
-"Number of the test disks, Should be between 2 to 256");
+"Number of test disks, Should be between 2 to 256");
 
-static unsigned int request_count = 8;
+static unsigned int request_count = 1;
 module_param(request_count, uint, 0644);
 MODULE_PARM_DESC(request_count,
-"Number of the request submitted in one-shot, Should be between 1 to 512");
+"Number of request submitted in one iteration, Should be atleast 1");
 
-static unsigned int iteration_count = 8;
+static unsigned int iteration_count = 1;
 module_param(iteration_count, uint, 0644);
 MODULE_PARM_DESC(iteration_count,
-"Number of the iterations, Should be atleast 1");
+"Number of iterations, Should be atleast 1");
 
 static int timeout = 30000;
 module_param(timeout, uint, 0644);
@@ -795,7 +793,7 @@ static int async_tx_test_run(void)
 	}
 	test.disk_count = disk_count;
 
-	if (request_count < MIN_REQUESTS || request_count > MAX_REQUESTS) {
+	if (!request_count) {
 		pr("invalid request_count %u\n", request_count);
 		return -EINVAL;
 	}
