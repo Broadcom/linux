@@ -52,6 +52,11 @@ module_param(timeout, uint, 0644);
 MODULE_PARM_DESC(timeout,
 "Timeout in msec (default: 30000), Pass -1 for infinite timeout");
 
+static bool disable_issue_pending;
+module_param(disable_issue_pending, bool, 0644);
+MODULE_PARM_DESC(disable_issue_pending,
+"Disable async_tx_issue_pending() after every request submit");
+
 static int async_tx_test_type_set(const char *val,
 				 const struct kernel_param *kp);
 static int async_tx_test_type_get(char *val,
@@ -107,6 +112,7 @@ struct async_tx_test {
 	unsigned int request_count;
 	unsigned int iteration_count;
 	int timeout;
+	bool disable_issue_pending;
 	struct async_tx_test_ops *ops;
 	struct async_tx_test_request *reqs;
 	ktime_t iter_start_ktime;
@@ -236,7 +242,8 @@ static int memcpy_test_submit(struct async_tx_test_request *req)
 			  async_tx_test_callback, req, req->addr_conv);
 	tx = async_memcpy(req->p, req->disk[0], 0, 0,
 			  test->block_size, &submit);
-	async_tx_issue_pending(tx);
+	if (!test->disable_issue_pending)
+		async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -295,7 +302,8 @@ static int xor_test_submit(struct async_tx_test_request *req)
 			  async_tx_test_callback, req, req->addr_conv);
 	tx = async_xor(req->p, req->disk, 0, test->disk_count,
 		       test->block_size, &submit);
-	async_tx_issue_pending(tx);
+	if (!test->disable_issue_pending)
+		async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -359,7 +367,8 @@ static int pq_test_submit(struct async_tx_test_request *req)
 			  async_tx_test_callback, req, req->addr_conv);
 	tx = async_gen_syndrome(req->disk, 0, test->disk_count + 2,
 				test->block_size, &submit);
-	async_tx_issue_pending(tx);
+	if (!test->disable_issue_pending)
+		async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -463,7 +472,8 @@ static int update_pq_test_submit(struct async_tx_test_request *req)
 	tx = async_gen_syndrome(srcs, 0, UPDATE_PQ_DISKS + 2,
 				test->block_size, &submit);
 
-	async_tx_issue_pending(tx);
+	if (!test->disable_issue_pending)
+		async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -554,7 +564,8 @@ static int recov_datap_test_submit(struct async_tx_test_request *req)
 			  async_tx_test_callback, req, req->addr_conv);
 	tx = async_raid6_datap_recov(test->disk_count + 2, test->block_size,
 				     faila, req->disk, &submit);
-	async_tx_issue_pending(tx);
+	if (!test->disable_issue_pending)
+		async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -644,7 +655,8 @@ static int recov_2data_test_submit(struct async_tx_test_request *req)
 			  async_tx_test_callback, req, req->addr_conv);
 	tx = async_raid6_2data_recov(test->disk_count + 2, test->block_size,
 				     faila, failb, req->disk, &submit);
-	async_tx_issue_pending(tx);
+	if (!test->disable_issue_pending)
+		async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -805,6 +817,8 @@ static int async_tx_test_run(void)
 	}
 	test.iteration_count = iteration_count;
 
+	test.disable_issue_pending = disable_issue_pending;
+
 	test.reqs = kcalloc(test.request_count,
 			    sizeof(*test.reqs), GFP_KERNEL);
 	if (!test.reqs) {
@@ -817,6 +831,8 @@ static int async_tx_test_run(void)
 	   test.ops->name, test.block_size, test.disk_count);
 	pr("request_count=%u iteration_count=%u\n",
 	   test.request_count, test.iteration_count);
+	pr("timeout=%d disable_issue_pending=%s\n",
+	   test.timeout, (test.disable_issue_pending) ? "true" : "false");
 
 	/* Calculate IO size and total input bytes */
 	io_size = test.ops->io_size(&test);
