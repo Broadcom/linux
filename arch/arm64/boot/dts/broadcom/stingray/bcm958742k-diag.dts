@@ -30,6 +30,9 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define NUM_PAXB 0
+#define NUM_SATA 0
+
 #include "bcm958742k.dts"
 
 #include "stingray-diag.dtsi"
@@ -40,63 +43,5 @@
 			    earlycon=uart8250,mmio32,0x68a10000 cma=64M \
 			    mtdparts=brcmnand.0:10m(nboot),16m(kernel),1m(dt-blob),940m(nroot),32m(nand-test)";
 	};
-
-	pcie_ss_syscon: syscon@40000000 {
-		compatible = "syscon";
-		reg = <0x0 0x40000000 0x0 0x1000>;
-	};
-
 };
 
-&mdio_mux_iproc {
-	mdio@0 {
-		pci_phy0: phy@0 {
-			compatible = "brcm,stingray-pcie-phy-prbs";
-			reg = <0x0>;
-			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "okay";
-		};
-		pci_phy1: phy@1 {
-			compatible = "brcm,stingray-pcie-phy-prbs";
-			reg = <0x1>;
-			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "okay";
-		};
-		pci_phy2: phy@2 {
-			compatible = "brcm,stingray-pcie-phy-prbs";
-			reg = <0x2>;
-			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "okay";
-		};
-		pci_phy3: phy@3 {
-			compatible = "brcm,stingray-pcie-phy-prbs";
-			reg = <0x3>;
-			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "okay";
-		};
-		pci_phy4: phy@4 {
-			compatible = "brcm,stingray-pcie-phy-prbs";
-			reg = <0x4>;
-			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "okay";
-		};
-		pci_phy5: phy@5 {
-			compatible = "brcm,stingray-pcie-phy-prbs";
-			reg = <0x5>;
-			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "okay";
-		};
-		pci_phy6: phy@6 {
-			compatible = "brcm,stingray-pcie-phy-prbs";
-			reg = <0x6>;
-			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "okay";
-		};
-		pci_phy7: phy@7 {
-			compatible = "brcm,stingray-pcie-phy-prbs";
-			reg = <0x7>;
-			brcm,pcie-strap-syscon = <&pcie_ss_syscon>;
-			status = "okay";
-		};
-	};
-};

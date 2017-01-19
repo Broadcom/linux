@@ -32,7 +32,9 @@
 
 /dts-v1/;
 
+#ifndef NUM_SATA
 #define NUM_SATA	5
+#endif
 #define NUM_RAID	1
 #define NUM_CRYPTO	1
 

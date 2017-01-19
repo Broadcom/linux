@@ -30,6 +30,9 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define NUM_PAXB 0
+#define NUM_SATA 0
+
 #include "bcm958742k-extsram.dts"
 
 #include "stingray-diag.dtsi"
