@@ -189,7 +189,6 @@ static struct sba_request *sba_alloc_request(struct sba_device *sba)
 				       node);
 
 		req->state = SBA_REQUEST_STATE_ALLOCED;
-		memset(&req->bmsg, 0, sizeof(req->bmsg));
 		atomic_set(&req->msgs_pending_count, 0);
 		list_move_tail(&req->node, &sba->reqs_alloc_list);
 		sba->reqs_free_count--;
@@ -448,7 +447,7 @@ static unsigned int sba_fillup_memcpy_msg(struct sba_request *req,
 {
 	u64 cmd;
 	u32 c_mdata;
-	unsigned int i, cmds_count = 0;
+	struct brcm_sba_command *cmdsp = cmds;
 
 	/* Type-B command to load data into buf0 */
 	cmd = 0;
@@ -460,11 +459,12 @@ static unsigned int sba_fillup_memcpy_msg(struct sba_request *req,
 		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 	SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
 		SBA_CMD_SHIFT, SBA_CMD_MASK);
-	cmds[cmds_count].cmd = cmd;
-	cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-	cmds[cmds_count].data = src + msg_offset;
-	cmds[cmds_count].data_len = msg_len;
-	cmds_count++;
+	cmdsp->cmd = cmd;
+	*cmdsp->cmd_dma = cpu_to_le64(cmd);
+	cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+	cmdsp->data = src + msg_offset;
+	cmdsp->data_len = msg_len;
+	cmdsp++;
 
 	/* Type-A command to write buf0 */
 	cmd = 0;
@@ -477,33 +477,27 @@ static unsigned int sba_fillup_memcpy_msg(struct sba_request *req,
 		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 	SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
 		SBA_CMD_SHIFT, SBA_CMD_MASK);
-	cmds[cmds_count].cmd = cmd;
-	cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
+	cmdsp->cmd = cmd;
+	*cmdsp->cmd_dma = cpu_to_le64(cmd);
+	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
 	if (req->sba->hw_resp_size) {
-		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
-		cmds[cmds_count].resp = req->resp_dma;
-		cmds[cmds_count].resp_len = req->sba->hw_resp_size;
+		cmdsp->flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmdsp->resp = req->resp_dma;
+		cmdsp->resp_len = req->sba->hw_resp_size;
 	}
-	cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
-	cmds[cmds_count].data = dst + msg_offset;
-	cmds[cmds_count].data_len = msg_len;
-	cmds_count++;
+	cmdsp->flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+	cmdsp->data = dst + msg_offset;
+	cmdsp->data_len = msg_len;
+	cmdsp++;
 
 	/* Fillup brcm_message */
 	msg->type = BRCM_MESSAGE_SBA;
 	msg->sba.cmds = cmds;
-	msg->sba.cmds_count = cmds_count;
+	msg->sba.cmds_count = cmdsp - cmds;
 	msg->ctx = req;
 	msg->error = 0;
 
-	/*
-	 * Write commands to their DMAble location
-	 * Note: This is required for some mailbox controllers
-	 */
-	for (i = 0; i < cmds_count; i++)
-		*(cmds[i].cmd_dma) = cpu_to_le64(cmds[i].cmd);
-
-	return cmds_count;
+	return cmdsp - cmds;
 }
 
 static struct dma_async_tx_descriptor *
@@ -560,7 +554,8 @@ static unsigned int sba_fillup_xor_msg(struct sba_request *req,
 {
 	u64 cmd;
 	u32 c_mdata;
-	unsigned int i, cmds_count = 0;
+	unsigned int i;
+	struct brcm_sba_command *cmdsp = cmds;
 
 	/* Type-B command to load data into buf0 */
 	cmd = 0;
@@ -572,11 +567,12 @@ static unsigned int sba_fillup_xor_msg(struct sba_request *req,
 		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 	SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
 		SBA_CMD_SHIFT, SBA_CMD_MASK);
-	cmds[cmds_count].cmd = cmd;
-	cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-	cmds[cmds_count].data = src[0] + msg_offset;
-	cmds[cmds_count].data_len = msg_len;
-	cmds_count++;
+	cmdsp->cmd = cmd;
+	*cmdsp->cmd_dma = cpu_to_le64(cmd);
+	cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+	cmdsp->data = src[0] + msg_offset;
+	cmdsp->data_len = msg_len;
+	cmdsp++;
 
 	/* Type-B commands to xor data with buf0 and put it back in buf0 */
 	for (i = 1; i < src_cnt; i++) {
@@ -588,11 +584,12 @@ static unsigned int sba_fillup_xor_msg(struct sba_request *req,
 		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 		SBA_ENC(cmd, SBA_CMD_XOR, SBA_CMD_SHIFT, SBA_CMD_MASK);
-		cmds[cmds_count].cmd = cmd;
-		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-		cmds[cmds_count].data = src[i] + msg_offset;
-		cmds[cmds_count].data_len = msg_len;
-		cmds_count++;
+		cmdsp->cmd = cmd;
+		*cmdsp->cmd_dma = cpu_to_le64(cmd);
+		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+		cmdsp->data = src[i] + msg_offset;
+		cmdsp->data_len = msg_len;
+		cmdsp++;
 	}
 
 	/* Type-A command to write buf0 */
@@ -606,33 +603,27 @@ static unsigned int sba_fillup_xor_msg(struct sba_request *req,
 		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 	SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
 		SBA_CMD_SHIFT, SBA_CMD_MASK);
-	cmds[cmds_count].cmd = cmd;
-	cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
+	cmdsp->cmd = cmd;
+	*cmdsp->cmd_dma = cpu_to_le64(cmd);
+	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
 	if (req->sba->hw_resp_size) {
-		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
-		cmds[cmds_count].resp = req->resp_dma;
-		cmds[cmds_count].resp_len = req->sba->hw_resp_size;
+		cmdsp->flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmdsp->resp = req->resp_dma;
+		cmdsp->resp_len = req->sba->hw_resp_size;
 	}
-	cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
-	cmds[cmds_count].data = dst + msg_offset;
-	cmds[cmds_count].data_len = msg_len;
-	cmds_count++;
+	cmdsp->flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+	cmdsp->data = dst + msg_offset;
+	cmdsp->data_len = msg_len;
+	cmdsp++;
 
 	/* Fillup brcm_message */
 	msg->type = BRCM_MESSAGE_SBA;
 	msg->sba.cmds = cmds;
-	msg->sba.cmds_count = cmds_count;
+	msg->sba.cmds_count = cmdsp - cmds;
 	msg->ctx = req;
 	msg->error = 0;
 
-	/*
-	 * Write commands to their DMAble location
-	 * Note: This is required for some mailbox controllers
-	 */
-	for (i = 0; i < cmds_count; i++)
-		*(cmds[i].cmd_dma) = cpu_to_le64(cmds[i].cmd);
-
-	return cmds_count;
+	return cmdsp - cmds;
 }
 
 static struct dma_async_tx_descriptor *
@@ -693,7 +684,8 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 {
 	u64 cmd;
 	u32 c_mdata;
-	unsigned int i, cmds_count = 0;
+	unsigned int i;
+	struct brcm_sba_command *cmdsp = cmds;
 
 	/* Type-A command to load data into buf0 */
 	cmd = 0;
@@ -702,9 +694,10 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 	SBA_ENC(cmd, SBA_CMD_ZERO_ALL_BUFFERS,
 		SBA_CMD_SHIFT, SBA_CMD_MASK);
-	cmds[cmds_count].cmd = cmd;
-	cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
-	cmds_count++;
+	cmdsp->cmd = cmd;
+	*cmdsp->cmd_dma = cpu_to_le64(cmd);
+	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
+	cmdsp++;
 
 	/* Type-B commands for generate P onto buf0 and Q onto buf1 */
 	for (i = 0; i < src_cnt; i++) {
@@ -719,11 +712,12 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 			SBA_C_MDATA_MS_SHIFT, SBA_C_MDATA_MS_MASK);
 		SBA_ENC(cmd, SBA_CMD_GALOIS_XOR,
 			SBA_CMD_SHIFT, SBA_CMD_MASK);
-		cmds[cmds_count].cmd = cmd;
-		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_B;
-		cmds[cmds_count].data = src[i] + msg_offset;
-		cmds[cmds_count].data_len = msg_len;
-		cmds_count++;
+		cmdsp->cmd = cmd;
+		*cmdsp->cmd_dma = cpu_to_le64(cmd);
+		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+		cmdsp->data = src[i] + msg_offset;
+		cmdsp->data_len = msg_len;
+		cmdsp++;
 	}
 
 	/* Type-A command to write buf0 */
@@ -738,17 +732,18 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
 			SBA_CMD_SHIFT, SBA_CMD_MASK);
-		cmds[cmds_count].cmd = cmd;
-		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
+		cmdsp->cmd = cmd;
+		*cmdsp->cmd_dma = cpu_to_le64(cmd);
+		cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
 		if (req->sba->hw_resp_size) {
-			cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
-			cmds[cmds_count].resp = req->resp_dma;
-			cmds[cmds_count].resp_len = req->sba->hw_resp_size;
+			cmdsp->flags |= BRCM_SBA_CMD_HAS_RESP;
+			cmdsp->resp = req->resp_dma;
+			cmdsp->resp_len = req->sba->hw_resp_size;
 		}
-		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
-		cmds[cmds_count].data = *dst_p + msg_offset;
-		cmds[cmds_count].data_len = msg_len;
-		cmds_count++;
+		cmdsp->flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+		cmdsp->data = *dst_p + msg_offset;
+		cmdsp->data_len = msg_len;
+		cmdsp++;
 	}
 
 	/* Type-A command to write buf1 */
@@ -763,34 +758,28 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
 			SBA_CMD_SHIFT, SBA_CMD_MASK);
-		cmds[cmds_count].cmd = cmd;
-		cmds[cmds_count].flags = BRCM_SBA_CMD_TYPE_A;
+		cmdsp->cmd = cmd;
+		*cmdsp->cmd_dma = cpu_to_le64(cmd);
+		cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
 		if (req->sba->hw_resp_size) {
-			cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_RESP;
-			cmds[cmds_count].resp = req->resp_dma;
-			cmds[cmds_count].resp_len = req->sba->hw_resp_size;
+			cmdsp->flags |= BRCM_SBA_CMD_HAS_RESP;
+			cmdsp->resp = req->resp_dma;
+			cmdsp->resp_len = req->sba->hw_resp_size;
 		}
-		cmds[cmds_count].flags |= BRCM_SBA_CMD_HAS_OUTPUT;
-		cmds[cmds_count].data = *dst_q + msg_offset;
-		cmds[cmds_count].data_len = msg_len;
-		cmds_count++;
+		cmdsp->flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+		cmdsp->data = *dst_q + msg_offset;
+		cmdsp->data_len = msg_len;
+		cmdsp++;
 	}
 
 	/* Fillup brcm_message */
 	msg->type = BRCM_MESSAGE_SBA;
 	msg->sba.cmds = cmds;
-	msg->sba.cmds_count = cmds_count;
+	msg->sba.cmds_count = cmdsp - cmds;
 	msg->ctx = req;
 	msg->error = 0;
 
-	/*
-	 * Write commands to their DMAble location
-	 * Note: This is required for some mailbox controllers
-	 */
-	for (i = 0; i < cmds_count; i++)
-		*(cmds[i].cmd_dma) = cpu_to_le64(cmds[i].cmd);
-
-	return cmds_count;
+	return cmdsp - cmds;
 }
 
 static struct dma_async_tx_descriptor *
