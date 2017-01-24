@@ -1,0 +1,18 @@
+Broadcom Cygnus CRMU Timer
+
+The always on Cortex-M0 MCU processor provides a timer that can be read using
+the mailbox controller. It is used on Cygnus as a persistent clock across power
+management state transitions.
+
+Required properties:
+
+- compatible: Must be "brcm,cygnus-crmu-timer"
+- mboxes: A phandle specifying the mailbox controller and channel used to
+  communicate with the M0 processor.
+
+Example:
+
+	cygnus_crmu_timer: cygnus_crmu_timer {
+		compatible = "brcm,cygnus-crmu-timer";
+		mboxes = <&mailbox 4>;
+	};
