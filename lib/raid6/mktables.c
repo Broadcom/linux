@@ -125,9 +125,9 @@ int main(int argc, char *argv[])
 	printf("EXPORT_SYMBOL(raid6_gfexp);\n");
 	printf("#endif\n");
 
-	/* Compute log-of-2 table (power) */
+	/* Compute log-of-2 table */
 	printf("\nconst u8 __attribute__((aligned(256)))\n"
-	       "raid6_gfpow[256] =\n" "{\n");
+	       "raid6_gflog[256] =\n" "{\n");
 	for (i = 0; i < 256; i += 8) {
 		printf("\t");
 		for (j = 0; j < 8; j++) {
@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
 	}
 	printf("};\n");
 	printf("#ifdef __KERNEL__\n");
-	printf("EXPORT_SYMBOL(raid6_gfpow);\n");
+	printf("EXPORT_SYMBOL(raid6_gflog);\n");
 	printf("#endif\n");
 
 	/* Compute inverse table x^-1 == x^254 */

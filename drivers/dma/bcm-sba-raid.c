@@ -705,7 +705,7 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 		SBA_ENC(cmd, msg_len,
 			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-		c_mdata = SBA_C_MDATA_PQ_VAL(raid6_gfpow[scf[i]], 1, 0);
+		c_mdata = SBA_C_MDATA_PQ_VAL(raid6_gflog[scf[i]], 1, 0);
 		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 		SBA_ENC(cmd, SBA_C_MDATA_MS(c_mdata),
@@ -800,7 +800,7 @@ sba_prep_dma_pq(struct dma_chan *dchan, dma_addr_t *dst, dma_addr_t *src,
 	if (unlikely(src_cnt > sba->max_pq_srcs))
 		return NULL;
 	for (i = 0; i < src_cnt; i++)
-		if (raid6_gfpow[scf[i]] > sba->max_pq_coefs)
+		if (raid6_gflog[scf[i]] > sba->max_pq_coefs)
 			return NULL;
 
 	/* Figure-out P and Q destination addresses */
