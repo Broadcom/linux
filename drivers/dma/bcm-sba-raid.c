@@ -800,7 +800,7 @@ sba_prep_dma_pq(struct dma_chan *dchan, dma_addr_t *dst, dma_addr_t *src,
 	if (unlikely(src_cnt > sba->max_pq_srcs))
 		return NULL;
 	for (i = 0; i < src_cnt; i++)
-		if (raid6_gflog[scf[i]] > sba->max_pq_coefs)
+		if (sba->max_pq_coefs <= raid6_gflog[scf[i]])
 			return NULL;
 
 	/* Figure-out P and Q destination addresses */
@@ -1057,7 +1057,8 @@ static int sba_async_register(struct sba_device *sba)
 	/* Set pq routines and capability */
 	if (dma_has_cap(DMA_PQ, dma_dev->cap_mask)) {
 		dma_dev->device_prep_dma_pq = sba_prep_dma_pq;
-		dma_dev->max_pq = sba->max_pq_srcs;
+		dma_set_maxpq(dma_dev, sba->max_pq_srcs, 0);
+		dma_set_maxpqcoef(dma_dev, sba->max_pq_coefs);
 	}
 
 	/* Initialize DMA device channel list */
@@ -1115,13 +1116,18 @@ static int sba_probe(struct platform_device *pdev)
 	case SBA_VER_1:
 		sba->hw_buf_size = 4096;
 		sba->hw_resp_size = 8;
-		sba->max_pq_coefs = 5;
-		sba->max_pq_srcs = 5;
+		sba->max_pq_coefs = 6;
+		sba->max_pq_srcs = 6;
 		break;
 	case SBA_VER_2:
 		sba->hw_buf_size = 4096;
 		sba->hw_resp_size = 8;
-		sba->max_pq_coefs = 29;
+		sba->max_pq_coefs = 30;
+		/*
+		 * We can support max_pq_srcs == max_pq_coefs because
+		 * we are limited by number of SBA commands that we can
+		 * fit in one message for underlying ring manager HW.
+		 */
 		sba->max_pq_srcs = 12;
 		break;
 	default:
