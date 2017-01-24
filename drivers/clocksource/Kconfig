@@ -541,4 +541,12 @@ config CLKSRC_ST_LPC
 	  Enable this option to use the Low Power controller timer
 	  as clocksource.
 
+config BCM_CYGNUS_CRMU_TIMER
+	bool "Broadcom Cygnus CRMU Timer support"
+	depends on (ARCH_BCM_CYGNUS && BCM_IPROC_MBOX) || COMPILE_TEST
+	default ARCH_BCM_CYGNUS
+	help
+	  Persistent timer support for Cygnus. This driver requires the iProc
+	  mailbox controller to communicate with the Cortex-M0 MCU processor.
+
 endmenu
