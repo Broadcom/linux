@@ -1,0 +1,32 @@
+Cypress Bluetooth voice audio codec driver
+
+This driver does not actual interface with a Bluetooth device it just
+creates an ASoC dai that is used to model the properties for the
+voice interface on Cypress Bluetooth chips.
+
+Required properties:
+- compatible : "cypress,bt_voice_codec"
+-cypress,bt-voice-link-mode : "i2s" or "tdm"
+
+  If "tdm" is specificed
+  - cypress,bt-voice-tdm-kbps : bit per second on the link. The BT chip expects
+                            a constants bps regardless for frame rate.
+			    For example, 2048 kbps would have 256 bpf at 8kHz
+			    but 128 bpf at 16 kHz.
+
+Example:
+
+bt_voice_codec {
+	compatible = "cypress,bt_voice_codec";
+
+	cypress,bt-voice-link-mode = "i2s";
+};
+
+Example using TDM:
+
+bt_voice_codec {
+	compatible = "cypress,bt_voice_codec";
+
+	cypress,bt-voice-link-mode = "tdm";
+	cypress,bt-voice-tdm-kbps = <2048>;
+};
