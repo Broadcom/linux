@@ -90,6 +90,12 @@
 		};
 	};
 
+	cygnus_crmu_timer: cygnus_crmu_timer {
+		compatible = "brcm,cygnus-crmu-timer";
+		mboxes = <&mailbox 4>;
+		status = "disabled";
+	};
+
 	iproc-reset {
 		compatible = "brcm,iproc-reset";
 		mboxes = <&mailbox 0>;
