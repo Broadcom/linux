@@ -33,7 +33,7 @@
 /dts-v1/;
 
 #define NUM_CRYPTO	32
-#define NUM_RAID	4
+#define NUM_RAID	8
 #define NUM_SATA	20
 #define USE_DDR		1
 

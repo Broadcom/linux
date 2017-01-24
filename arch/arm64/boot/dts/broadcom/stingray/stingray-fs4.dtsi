@@ -71,17 +71,11 @@
 
 		raid0: raid@0 {
 			compatible = "brcm,iproc-sba-v2";
-			brcm,max-requests = <128>;
-			brcm,request-size = <131072>;
 #if (USE_DDR == 1)
 			mboxes = <&raid_mbox 0 0x1 0xff00>,
 				 <&raid_mbox 1 0x1 0xff00>,
 				 <&raid_mbox 2 0x1 0xff00>,
-				 <&raid_mbox 3 0x1 0xff00>,
-				 <&raid_mbox 4 0x1 0xff00>,
-				 <&raid_mbox 5 0x1 0xff00>,
-				 <&raid_mbox 6 0x1 0xff00>,
-				 <&raid_mbox 7 0x1 0xff00>;
+				 <&raid_mbox 3 0x1 0xff00>;
 #else
 			/* Use only one ring to save memory */
 			mboxes = <&raid_mbox 0 0x1 0xff00>;
@@ -96,16 +90,10 @@
 
 		raid1: raid@1 {
 			compatible = "brcm,iproc-sba-v2";
-			brcm,max-requests = <128>;
-			brcm,request-size = <131072>;
-			mboxes = <&raid_mbox 8 0x1 0xff00>,
-				 <&raid_mbox 9 0x1 0xff00>,
-				 <&raid_mbox 10 0x1 0xff00>,
-				 <&raid_mbox 11 0x1 0xff00>,
-				 <&raid_mbox 12 0x1 0xff00>,
-				 <&raid_mbox 13 0x1 0xff00>,
-				 <&raid_mbox 14 0x1 0xff00>,
-				 <&raid_mbox 15 0x1 0xff00>;
+			mboxes = <&raid_mbox 4 0x1 0xff00>,
+				 <&raid_mbox 5 0x1 0xff00>,
+				 <&raid_mbox 6 0x1 0xff00>,
+				 <&raid_mbox 7 0x1 0xff00>;
 
 #if (NUM_RAID > 1)
 			status = "okay";
@@ -116,16 +104,10 @@
 
 		raid2: raid@2 {
 			compatible = "brcm,iproc-sba-v2";
-			brcm,max-requests = <128>;
-			brcm,request-size = <131072>;
-			mboxes = <&raid_mbox 16 0x1 0xff00>,
-				 <&raid_mbox 17 0x1 0xff00>,
-				 <&raid_mbox 18 0x1 0xff00>,
-				 <&raid_mbox 19 0x1 0xff00>,
-				 <&raid_mbox 20 0x1 0xff00>,
-				 <&raid_mbox 21 0x1 0xff00>,
-				 <&raid_mbox 22 0x1 0xff00>,
-				 <&raid_mbox 23 0x1 0xff00>;
+			mboxes = <&raid_mbox 8 0x1 0xff00>,
+				 <&raid_mbox 9 0x1 0xff00>,
+				 <&raid_mbox 10 0x1 0xff00>,
+				 <&raid_mbox 11 0x1 0xff00>;
 
 #if (NUM_RAID > 2)
 			status = "okay";
@@ -136,17 +118,63 @@
 
 		raid3: raid@3 {
 			compatible = "brcm,iproc-sba-v2";
-			brcm,max-requests = <128>;
-			brcm,request-size = <131072>;
+			mboxes = <&raid_mbox 12 0x1 0xff00>,
+				 <&raid_mbox 13 0x1 0xff00>,
+				 <&raid_mbox 14 0x1 0xff00>,
+				 <&raid_mbox 15 0x1 0xff00>;
+#if (NUM_RAID > 3)
+			status = "okay";
+#else
+			status = "disabled";
+#endif
+		};
+
+		raid4: raid@4 {
+			compatible = "brcm,iproc-sba-v2";
+			mboxes = <&raid_mbox 16 0x1 0xff00>,
+				 <&raid_mbox 17 0x1 0xff00>,
+				 <&raid_mbox 18 0x1 0xff00>,
+				 <&raid_mbox 19 0x1 0xff00>;
+#if (NUM_RAID > 4)
+			status = "okay";
+#else
+			status = "disabled";
+#endif
+		};
+
+		raid5: raid@5 {
+			compatible = "brcm,iproc-sba-v2";
+			mboxes = <&raid_mbox 20 0x1 0xff00>,
+				 <&raid_mbox 21 0x1 0xff00>,
+				 <&raid_mbox 22 0x1 0xff00>,
+				 <&raid_mbox 23 0x1 0xff00>;
+#if (NUM_RAID > 5)
+			status = "okay";
+#else
+			status = "disabled";
+#endif
+		};
+
+		raid6: raid@6 {
+			compatible = "brcm,iproc-sba-v2";
 			mboxes = <&raid_mbox 24 0x1 0xff00>,
 				 <&raid_mbox 25 0x1 0xff00>,
 				 <&raid_mbox 26 0x1 0xff00>,
-				 <&raid_mbox 27 0x1 0xff00>,
-				 <&raid_mbox 28 0x1 0xff00>,
+				 <&raid_mbox 27 0x1 0xff00>;
+#if (NUM_RAID > 6)
+			status = "okay";
+#else
+			status = "disabled";
+#endif
+		};
+
+		raid7: raid@7 {
+			compatible = "brcm,iproc-sba-v2";
+			mboxes = <&raid_mbox 28 0x1 0xff00>,
 				 <&raid_mbox 29 0x1 0xff00>,
 				 <&raid_mbox 30 0x1 0xff00>,
 				 <&raid_mbox 31 0x1 0xff00>;
-#if (NUM_RAID > 3)
+#if (NUM_RAID > 7)
 			status = "okay";
 #else
 			status = "disabled";
