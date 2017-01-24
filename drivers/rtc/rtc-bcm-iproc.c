@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Broadcom
+ * Copyright 2017 Broadcom
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2, as
@@ -43,13 +43,9 @@ struct bcm_iproc_rtc {
 
 static irqreturn_t rtc_sec_smc_irq(int irq, void *pdev_data)
 {
-	u32 data = 0;
-	unsigned long events = 0;
 	struct bcm_iproc_rtc *rtc = pdev_data;
 
-	events = data;
-	if (events)
-		rtc_update_irq(rtc->rtc, 1, events);
+	rtc_update_irq(rtc->rtc, 1, (RTC_IRQF | RTC_PF));
 
 	return IRQ_HANDLED;
 }
