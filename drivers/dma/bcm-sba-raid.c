@@ -1094,7 +1094,7 @@ static int sba_probe(struct platform_device *pdev)
 	sba->dev = &pdev->dev;
 	platform_set_drvdata(pdev, sba);
 
-	/* DT Configuration parameters */
+	/* Determine SBA version from DT compatible string */
 	if (of_device_is_compatible(sba->dev->of_node, "brcm,iproc-sba"))
 		sba->ver = SBA_VER_1;
 	else if (of_device_is_compatible(sba->dev->of_node,
@@ -1102,24 +1102,20 @@ static int sba_probe(struct platform_device *pdev)
 		sba->ver = SBA_VER_2;
 	else
 		return -ENODEV;
-	ret = of_property_read_u32(sba->dev->of_node, "brcm,max-requests",
-				   &sba->max_req);
-	if (ret)
-		return ret;
-	ret = of_property_read_u32(sba->dev->of_node, "brcm,request-size",
-				   &sba->req_size);
-	if (ret)
-		return ret;
 
 	/* Derived Configuration parameters */
 	switch (sba->ver) {
 	case SBA_VER_1:
+		sba->max_req = 128;
+		sba->req_size = PAGE_SIZE;
 		sba->hw_buf_size = 4096;
 		sba->hw_resp_size = 8;
 		sba->max_pq_coefs = 6;
 		sba->max_pq_srcs = 6;
 		break;
 	case SBA_VER_2:
+		sba->max_req = 128;
+		sba->req_size = PAGE_SIZE;
 		sba->hw_buf_size = 4096;
 		sba->hw_resp_size = 8;
 		sba->max_pq_coefs = 30;
