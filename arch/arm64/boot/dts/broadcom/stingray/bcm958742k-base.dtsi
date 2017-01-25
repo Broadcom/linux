@@ -49,7 +49,7 @@
 
 / {
 	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
+		bootargs = "root=/dev/ram rw rootwait console=ttyS0,115200n8 \
 			    earlycon=uart8250,mmio32,0x68a10000 \
 
 #if (USE_DDR == 1)
