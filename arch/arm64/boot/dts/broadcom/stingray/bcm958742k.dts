@@ -34,7 +34,9 @@
 
 #define NUM_CRYPTO	32
 #define NUM_RAID	8
+#ifndef NUM_SATA
 #define NUM_SATA	20
+#endif
 #define USE_DDR		1
 
 /* HACK: Reserve bl31 location
