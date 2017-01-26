@@ -1,6 +1,5 @@
-/* Broadcom SBA RAID Driver
- *
- * Copyright (C) 2016 Broadcom
+/*
+ * Copyright (C) 2017 Broadcom
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -8,6 +7,8 @@
  */
 
 /*
+ * Broadcom SBA RAID Driver
+ *
  * The Broadcom stream buffer accelerator (SBA) provides offloading
  * capabilities for RAID operations. The SBA offload engine is accessible
  * via Broadcom SoC specific ring manager. Two or more offload engines
@@ -117,6 +118,7 @@ struct sba_request {
 	struct list_head node;
 	struct sba_device *sba;
 	enum sba_request_state state;
+	bool fence;
 	void *resp;
 	dma_addr_t resp_dma;
 	struct brcm_sba_command *cmds;
@@ -165,6 +167,7 @@ struct sba_device {
 	dma_addr_t cmds_dma_base;
 	spinlock_t reqs_lock;
 	struct sba_request *reqs;
+	bool reqs_fence;
 	struct list_head reqs_alloc_list;
 	struct list_head reqs_pending_list;
 	struct list_head reqs_active_list;
@@ -189,6 +192,7 @@ static struct sba_request *sba_alloc_request(struct sba_device *sba)
 				       node);
 
 		req->state = SBA_REQUEST_STATE_ALLOCED;
+		req->fence = false;
 		atomic_set(&req->msgs_pending_count, 0);
 		list_move_tail(&req->node, &sba->reqs_alloc_list);
 		sba->reqs_free_count--;
@@ -207,14 +211,23 @@ static void _sba_pending_request(struct sba_device *sba,
 {
 	req->state = SBA_REQUEST_STATE_PENDING;
 	list_move_tail(&req->node, &sba->reqs_pending_list);
+	if (list_empty(&sba->reqs_active_list))
+		sba->reqs_fence = false;
 }
 
 /* Note: Must be called with sba->reqs_lock held */
-static void _sba_active_request(struct sba_device *sba,
+static bool _sba_active_request(struct sba_device *sba,
 				struct sba_request *req)
 {
+	if (list_empty(&sba->reqs_active_list))
+		sba->reqs_fence = false;
+	if (sba->reqs_fence)
+		return false;
 	req->state = SBA_REQUEST_STATE_ACTIVE;
 	list_move_tail(&req->node, &sba->reqs_active_list);
+	if (req->fence)
+		sba->reqs_fence = true;
+	return true;
 }
 
 /* Note: Must be called with sba->reqs_lock held */
@@ -223,6 +236,8 @@ static void _sba_abort_request(struct sba_device *sba,
 {
 	req->state = SBA_REQUEST_STATE_ABORTED;
 	list_move_tail(&req->node, &sba->reqs_aborted_list);
+	if (list_empty(&sba->reqs_active_list))
+		sba->reqs_fence = false;
 }
 
 /* Note: Must be called with sba->reqs_lock held */
@@ -231,6 +246,8 @@ static void _sba_free_request(struct sba_device *sba,
 {
 	req->state = SBA_REQUEST_STATE_FREE;
 	list_move_tail(&req->node, &sba->reqs_free_list);
+	if (list_empty(&sba->reqs_active_list))
+		sba->reqs_fence = false;
 	sba->reqs_free_count++;
 }
 
@@ -242,6 +259,8 @@ static void sba_complete_request(struct sba_request *req)
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 	req->state = SBA_REQUEST_STATE_COMPLETED;
 	list_move_tail(&req->node, &sba->reqs_completed_list);
+	if (list_empty(&sba->reqs_active_list))
+		sba->reqs_fence = false;
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 }
 
@@ -372,8 +391,9 @@ static void sba_issue_pending(struct dma_chan *dchan)
 
 	/* Process all pending request */
 	list_for_each_entry_safe(req, req1, &sba->reqs_pending_list, node) {
-		/* Make request active */
-		_sba_active_request(sba, req);
+		/* Try to make request active */
+		if (!_sba_active_request(sba, req))
+			break;
 
 		/* Send request to mailbox channel */
 		spin_unlock_irqrestore(&sba->reqs_lock, flags);
@@ -392,7 +412,6 @@ static void sba_issue_pending(struct dma_chan *dchan)
 
 static dma_cookie_t sba_tx_submit(struct dma_async_tx_descriptor *tx)
 {
-	int ret;
 	unsigned long flags;
 	dma_cookie_t cookie;
 	struct sba_request *req;
@@ -404,19 +423,14 @@ static dma_cookie_t sba_tx_submit(struct dma_async_tx_descriptor *tx)
 	sba = to_sba_device(tx->chan);
 	req = to_sba_request(tx);
 
-	/* Assign cookie and mark request active */
+	/* Assign cookie and mark request pending */
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 	cookie = dma_cookie_assign(tx);
-	_sba_active_request(sba, req);
+	_sba_pending_request(sba, req);
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 
-	/* Send request to mailbox channel */
-	ret = sba_send_mbox_request(sba, req);
-	if (ret < 0) {
-		spin_lock_irqsave(&sba->reqs_lock, flags);
-		_sba_pending_request(sba, req);
-		spin_unlock_irqrestore(&sba->reqs_lock, flags);
-	}
+	/* Try to submit pending request */
+	sba_issue_pending(&sba->dma_chan);
 
 	return cookie;
 }
@@ -518,6 +532,7 @@ sba_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t src,
 	req = sba_alloc_request(sba);
 	if (!req)
 		return NULL;
+	req->fence = (flags & DMA_PREP_FENCE) ? true : false;
 
 	/* Fillup request messages */
 	while (len) {
@@ -646,6 +661,7 @@ sba_prep_dma_xor(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t *src,
 	req = sba_alloc_request(sba);
 	if (!req)
 		return NULL;
+	req->fence = (flags & DMA_PREP_FENCE) ? true : false;
 
 	/* Fillup request messages */
 	while (len) {
@@ -676,6 +692,7 @@ sba_prep_dma_xor(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t *src,
 }
 
 static unsigned int sba_fillup_pq_msg(struct sba_request *req,
+				bool pq_continue,
 				struct brcm_sba_command *cmds,
 				struct brcm_message *msg,
 				dma_addr_t msg_offset, size_t msg_len,
@@ -687,17 +704,59 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 	unsigned int i;
 	struct brcm_sba_command *cmdsp = cmds;
 
-	/* Type-A command to load data into buf0 */
-	cmd = 0;
-	SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-	SBA_ENC(cmd, msg_len,
-		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-	SBA_ENC(cmd, SBA_CMD_ZERO_ALL_BUFFERS,
-		SBA_CMD_SHIFT, SBA_CMD_MASK);
-	cmdsp->cmd = cmd;
-	*cmdsp->cmd_dma = cpu_to_le64(cmd);
-	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
-	cmdsp++;
+	if (pq_continue) {
+		/* Type-B command to load old P into buf0 */
+		if (dst_p) {
+			cmd = 0;
+			SBA_ENC(cmd, SBA_TYPE_B,
+				SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+			SBA_ENC(cmd, msg_len,
+				SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+			c_mdata = SBA_C_MDATA_LOAD_VAL(0);
+			SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+				SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+			SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
+				SBA_CMD_SHIFT, SBA_CMD_MASK);
+			cmdsp->cmd = cmd;
+			*cmdsp->cmd_dma = cpu_to_le64(cmd);
+			cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+			cmdsp->data = *dst_p + msg_offset;
+			cmdsp->data_len = msg_len;
+			cmdsp++;
+		}
+
+		/* Type-B command to load old Q into buf1 */
+		if (dst_q) {
+			cmd = 0;
+			SBA_ENC(cmd, SBA_TYPE_B,
+				SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+			SBA_ENC(cmd, msg_len,
+				SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+			c_mdata = SBA_C_MDATA_LOAD_VAL(1);
+			SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+				SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+			SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
+				SBA_CMD_SHIFT, SBA_CMD_MASK);
+			cmdsp->cmd = cmd;
+			*cmdsp->cmd_dma = cpu_to_le64(cmd);
+			cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+			cmdsp->data = *dst_q + msg_offset;
+			cmdsp->data_len = msg_len;
+			cmdsp++;
+		}
+	} else {
+		/* Type-A command to load data into buf0 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, msg_len,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, SBA_CMD_ZERO_ALL_BUFFERS,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmdsp->cmd = cmd;
+		*cmdsp->cmd_dma = cpu_to_le64(cmd);
+		cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
+		cmdsp++;
+	}
 
 	/* Type-B commands for generate P onto buf0 and Q onto buf1 */
 	for (i = 0; i < src_cnt; i++) {
@@ -814,11 +873,12 @@ sba_prep_dma_pq(struct dma_chan *dchan, dma_addr_t *dst, dma_addr_t *src,
 	req = sba_alloc_request(sba);
 	if (!req)
 		return NULL;
+	req->fence = (flags & DMA_PREP_FENCE) ? true : false;
 
 	/* Fillup request messages */
 	while (len) {
 		msg_len = (len < sba->hw_buf_size) ? len : sba->hw_buf_size;
-		cmds_count = sba_fillup_pq_msg(req,
+		cmds_count = sba_fillup_pq_msg(req, dmaf_continue(flags),
 				    &req->cmds[cmds_idx],
 				    &req->msgs[msgs_count],
 				    msg_offset, msg_len,
@@ -913,7 +973,7 @@ static void sba_receive_message(struct mbox_client *cl, void *msg)
 
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 
-	/* Re-issue pending request */
+	/* Try to submit pending request */
 	sba_issue_pending(&sba->dma_chan);
 }
 
@@ -939,6 +999,7 @@ static int sba_prealloc_channel_resources(struct sba_device *sba)
 	}
 
 	spin_lock_init(&sba->reqs_lock);
+	sba->reqs_fence = false;
 	INIT_LIST_HEAD(&sba->reqs_alloc_list);
 	INIT_LIST_HEAD(&sba->reqs_pending_list);
 	INIT_LIST_HEAD(&sba->reqs_active_list);
@@ -958,6 +1019,7 @@ static int sba_prealloc_channel_resources(struct sba_device *sba)
 		INIT_LIST_HEAD(&req->node);
 		req->sba = sba;
 		req->state = SBA_REQUEST_STATE_FREE;
+		req->fence = false;
 		req->resp = sba->resp_base + p;
 		req->resp_dma = sba->resp_dma_base + p;
 		p += sba->hw_resp_size;
