@@ -106,6 +106,10 @@
 	status = "okay";
 };
 
+&cygnus_crmu_timer {
+	status = "okay";
+};
+
 &gpio_asiu {
 	pinctrl-names = "default";
 	pinctrl-0 = <&key_grps>;
