@@ -602,6 +602,7 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie, struct pci_bus *bus)
 #define PCI_BRIDGE_CTRL_REG_OFFSET 0x43c
 #define PCI_CLASS_BRIDGE_MASK      0xffff00
 #define PCI_CLASS_BRIDGE_SHIFT     8
+
 	pci_bus_read_config_dword(bus, 0, PCI_BRIDGE_CTRL_REG_OFFSET, &class);
 	class &= ~PCI_CLASS_BRIDGE_MASK;
 	class |= (PCI_CLASS_BRIDGE_PCI << PCI_CLASS_BRIDGE_SHIFT);
@@ -612,11 +613,13 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie, struct pci_bus *bus)
 	if (link_status & PCI_EXP_LNKSTA_NLW)
 		link_is_active = true;
 
+#define PCI_TARGET_LINK_SPEED_MASK	0xf
+#define PCI_TARGET_LINK_SPEED_GEN2	0x2
+#define PCI_TARGET_LINK_SPEED_GEN1	0x1
+#define PCI_TARGET_LINK_WIDTH_MASK	0x3f
+#define PCI_TARGET_LINK_WIDTH_OFFSET	0x4
 	if (!link_is_active) {
 		/* try GEN 1 link speed */
-#define PCI_TARGET_LINK_SPEED_MASK    0xf
-#define PCI_TARGET_LINK_SPEED_GEN2    0x2
-#define PCI_TARGET_LINK_SPEED_GEN1    0x1
 		pci_bus_read_config_dword(bus, 0,
 					  pos + PCI_EXP_LNKCTL2,
 					  &link_ctrl);
@@ -636,7 +639,13 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie, struct pci_bus *bus)
 		}
 	}
 
-	dev_info(dev, "link: %s\n", link_is_active ? "UP" : "DOWN");
+	if (link_is_active)
+		dev_info(dev, "link UP @ Speed Gen-%d and width-x%d\n",
+				link_status & PCI_TARGET_LINK_SPEED_MASK,
+				(link_status >> PCI_TARGET_LINK_WIDTH_OFFSET) &
+				PCI_TARGET_LINK_WIDTH_MASK);
+	else
+		dev_info(dev, "link DOWN\n");
 
 	return link_is_active ? 0 : -ENODEV;
 }
