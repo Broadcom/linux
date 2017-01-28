@@ -102,7 +102,7 @@ static void iproc_crmu_intc_irq_mask(struct irq_data *d)
 	 */
 }
 
-static const struct irq_chip iproc_crmu_intc_irq_chip = {
+static struct irq_chip iproc_crmu_intc_irq_chip = {
 	.name = "bcm-iproc-crmu-intc",
 	.irq_mask = iproc_crmu_intc_irq_mask,
 	.irq_unmask = iproc_crmu_intc_irq_unmask,
