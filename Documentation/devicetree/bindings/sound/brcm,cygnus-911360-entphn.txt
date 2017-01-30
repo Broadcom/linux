@@ -1,0 +1,53 @@
+Cygnus Enterprise Phone reference design
+
+Required properties:
+- compatible: "brcm,bcm911360_entphn-machine"
+- brcm,cygnus-pcm: the phandle of the audio DMA node
+- brcm,gpio-handsfree-amp-en: gpio used to conrol the enabling of the
+	handsfree speaker amplifier.
+
+In addition to these properties, the device follows the general construct
+of the multi-dai generic "simple audio card".  Refer to simple-card.txt.
+
+The only valid dai properties for this design are
+ - format
+ - bitclock-master
+ - frame-master
+
+
+Example:
+ipp_sound {
+	compatible = "brcm,bcm911360_entphn-machine";
+	brcm,cygnus-pcm = <&cygnus_audio>;
+	brcm,gpio-handsfree-amp-en = <&gpio_asiu 41 0>;
+
+	ipp-primary-link {
+		format = "i2s";
+		bitclock-master = <&dailink0_master>;
+		frame-master = <&dailink0_master>;
+
+		dailink0_master: cpu {
+			sound-dai = <&cygnus_audio 0>;
+		};
+
+		codec {
+			sound-dai = <&cs42l73 0>;
+		};
+	} ;
+
+	ipp-bluetooth-voice-link {
+		format = "i2s";
+		bitclock-master = <&dailink1_master>;
+		frame-master = <&dailink1_master>;
+
+		dailink1_master: cpu {
+			sound-dai = <&cygnus_audio 2>;
+		};
+
+		codec {
+			sound-dai = <&bt_codec>;
+		};
+	};
+
+	status = "okay";
+};
