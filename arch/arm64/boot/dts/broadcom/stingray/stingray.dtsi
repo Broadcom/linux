@@ -259,7 +259,7 @@
 				     <GIC_SPI 772 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 773 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 774 IRQ_TYPE_LEVEL_HIGH>;
-			#iommu-cells = <1>;
+			#iommu-cells = <2>;
 		};
 	};
 
@@ -571,7 +571,7 @@
 			#dma-requests = <32>;
 			clocks = <&hsls_div2_clk>;
 			clock-names = "apb_pclk";
-			iommus = <&smmu 0x6000>;
+			iommus = <&smmu 0x6000 0x0000>;
 		};
 
 		nand: nand@68c60000 {
@@ -624,7 +624,7 @@
 			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 			clocks = <&sdio0_clk>;
-			iommus = <&smmu 0x6002>;
+			iommus = <&smmu 0x6002 0x0000>;
 			status = "disabled";
 		};
 
@@ -634,7 +634,7 @@
 			interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 			clocks = <&sdio1_clk>;
-			iommus = <&smmu 0x6003>;
+			iommus = <&smmu 0x6003 0x0000>;
 			status = "disabled";
 		};
 	};
