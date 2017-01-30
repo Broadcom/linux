@@ -36,7 +36,6 @@
 #define NUM_SATA	5
 #endif
 #define NUM_RAID	1
-#define NUM_CRYPTO	1
 
 #if HARD_CODE_INITRD_LOCATION
 /* HACK: Reserve initrd location
