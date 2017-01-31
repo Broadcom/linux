@@ -35,6 +35,13 @@
 #include "bcm-cygnus.dtsi"
 #include "bcm9hmidc.dtsi"
 
+/* Have all the supported panel dt files included here and let dsi_panel
+ * node to point to the default panel node, so that without rebuilding
+ * we can support multiple panels
+ */
+#include "hx8389b-lcd-panel.dtsi"
+#include "hx8389c-lcd-panel.dtsi"
+
 / {
 	model = "Cygnus SVK (BCM958300K)";
 	compatible = "brcm,bcm58300", "brcm,cygnus";
@@ -88,6 +95,10 @@
 			bus-width = <8>;
 		};
 	};
+};
+
+&iproc_dsi {
+	dsi_panel = <&panel_hx8389c>;
 };
 
 &pcie0 {
