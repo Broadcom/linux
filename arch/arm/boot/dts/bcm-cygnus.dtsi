@@ -719,6 +719,26 @@
 			status = "disabled";
 		};
 
+		iproc_dsi: dsi@180a9000 {
+			compatible = "brcm,iproc-dsi";
+			id = <0>;
+			reg = <0x180c0000 0x80>,
+				<0x180a9000 0x60>,
+				<0x180a9400 0x40>,
+				<0x180a9800 0x50>,
+				<0x0301d074 0x04>;
+			reg-names = "dsi-phy", "axipv", "pv", "gen-pll",
+							"crmu_ext_reset";
+			interrupts = <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 156 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&mipipll 0>;
+			clock-names = "mipidsi_clk";
+			brcm,num-fb = <3>;
+			brcm,iproc-mipi-reg-errata;
+			status = "disabled";
+		};
+
 		cygnus_audio: audio@180ae000 {
 			compatible = "brcm,cygnus-audio";
 			#address-cells = <1>;
