@@ -1,0 +1,60 @@
+Broadcom IPROC DSI Controller driver
+------------------------------
+Overview
+This is the brcm DSI controller driver for iProc SOC family
+which hooks itself onto the Linux standard framebuffer framework
+and receives user space ioctl commands. It configures the DSI,
+AXIPV and PV hardware blocks which transports the framebuffer
+contents onto the dsi panel attached.
+A series of instructions/commands are sent to the panel in the form of
+short/long packets during initialisation, suspend and resume.
+
+Required properties:
+- compatible		: "brcm,iproc-dsi"
+- dsic-crmu-syscon	: phandle of dsic_crmu syscon register
+- id			: Display ID
+- reg			: Four register sets listed below.
+			MIPI DSI PHY Register set
+			MIPI AXIPV Controller Register set
+			MIPI PV Controller Register set
+			MIPI DSI GENERIC PLL Register set
+			Register to generate software Controlled
+			external device(panel) reset
+- reg-names		: Values are "dsi-phy", "axipv", "pv", "gen-pll"
+- interrupts		: Interrupts for DSI, AXIPV and PV.
+- clocks		: DSI controller's clock registered to mipipll clock
+			framework and the channel registered.
+- clock-names		: DSI controller's clock name.
+- brcm,num-fb		: Number of FrameBuffers used.
+- brcm,iproc-mipi-reg-errata : Boolean entry, when set indicates that the
+			dsi pll and phy register value corruption errata exist
+			in this device. Due to this errata, write enable for a
+			register is asserted for more than a cycle. So if
+			address changes in the next cycle, same data can get
+			written to another register. When this entry is set
+			register is read back after every write if it falls
+			in the errata address range. To make sure address stay
+			constant for at least two cycles so that we will not
+			be corrupting any other register.
+
+Example:
+
+	dsi {
+		compatible	= "brcm,iproc-dsi";
+		id		= <0>;
+		brcm,num-fb	= <3>;
+		reg 		= <0x180c0000 0x80>,
+					<0x180a9000 0x60>,
+					<0x180a9400 0x40>,
+					<0x180a9800 0x50>,
+					<0x0301d074 0x04>;
+		reg-names	= "dsi-phy", "axipv", "pv", "gen-pll",
+					"crmu_ext_reset";
+		interrupts 	= <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 156 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
+		clocks		= <&mipipll_clks 0>;
+		clock-names	= "mipidsi_clk";
+		brcm,iproc-mipi-reg-errata;
+		status   	= "okay";
+	};

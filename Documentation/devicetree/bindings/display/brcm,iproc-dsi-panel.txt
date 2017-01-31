@@ -1,0 +1,165 @@
+DSI Panel Node For Broadcom DSI Driver
+--------------------------------------
+
+Required properties:
+- brcm,module-name  	: The name of the display panel module.
+- brcm,col-mod-i	: Input colour format (Refer enum DISPDRV_FB_FORMAT_T).
+- brcm,col-mod-o	: Output colour format (Refer enum DISPDRV_FB_FORMAT_T).
+- brcm,panel-width-mm	: Physical width of the panel.
+- brcm,panel-height-mm	: Physical height of the panel.
+- brcm,vmode		: If this parameter is present,then video mode is enabled.
+			(Otherwise command mode).
+- brcm,fps		: Frames per second expected.
+- brcm,lanes		: Number of DSI data lanes to enable.
+- brcm,cmd-lp		: Denotes whether the commands are sent in LP or HS mode.
+			If this parameter is present, then the commands are sent
+			in LP mode.
+- brcm,hs-bitrate	: High-Speed data rate in bps.
+- brcm,lp-bitrate	: Low-power data rate in bps.
+- brcm,dsi-timing	: DSI Phy timing related information.
+			Array of u32 elemnts for to calculating the following.
+
+	1. DSI_C_ESC2LP_RATIO	: width of mark-1 and mark-0 states during
+				LP data transmission in escape clock periods
+	2. DSI_C_HS_INIT	: time required for the slave to enter RX_STOP
+				and includes the initialization time of the
+				slave in HS bit clock periods
+	3. DSI_C_HS_WAKEUP	: minimum time interval before exiting ULPS
+				mode in HS bit clock period
+	4. DSI_C_LP_WAKEUP	: minimun time interval for recovering from ULPS
+	5. DSI_C_HS_CLK_PRE	: minimum time interval of HS clock before data
+				lane HS entry in HS bit clock period
+	6. DSI_C_HS_CLK_PREPARE	: minimum time interval of LP-00 prior to
+				HS-ZERO state in HS bit clock period
+	7. DSI_C_HS_CLK_ZERO	: minimum time interval of HS -0 before HS clock
+				in HS bit clock period
+	8. DSI_C_HS_CLK_POST	: minimum time interval of HS clock after all
+				data lanes enter LP stop in HS bit clock period
+	9. DSI_C_HS_CLK_TRAIL	: minimum time interval of HS differential state
+				of clock lane in HS bit clock period
+	10. DSI_C_HS_LPX	: minimum time interval of any LP state in HS
+				bit clock periods
+	11. DSI_C_HS_PRE	: minimum time interval to drive LP-00 prior to
+				the HS-Zero state in HS bit clock periods
+	12. DSI_C_HS_ZERO	: minimum time interval to drive HS-0 prior to
+				the sync sequence in HS bit clock periods
+	13. DSI_C_HS_TRAIL	: minimum time interval to drive flipped state
+				after last bit of HS data in HS bit clock period
+	14. DSI_C_HS_EXIT	: minimum time interval of LP-11 state after a
+				HS burst transmission in HS bit clock periods.
+	15. DSI_C_LPX		: minimum time interval of any LP state in HS
+				bit clock periods
+	16. DSI_C_LP_TA_GO	: minimum time to drive LP-00 after turn request
+	17. DSI_C_LP_TA_SURE	: minimun time to confirm bus turn around
+	18. DSI_C_LP_TA_GET	: minimum time to drive LP-00 by new transmitter
+
+	Each of the above will have 16 of the following u32 entries to
+		calculate their values,
+		type		: Type corresponding to each of the above
+		time_base	: Gives the time base for the calculations,
+				0 : DSI_C_TIME_ESC2LPDT
+				1 : DSI_C_TIME_HS
+				2 : DSI_C_TIME_ESC
+		mode		: Counter mode flag
+				1: Record has MAX value set
+				2: record MIN value is MAX of 2 values
+		time_lpx	: LP esc counters in LP LPX units (LP data clk unit)
+		time_min1_ns	: Minimun1 time in ns
+		time_min1_ui	: Minimum1 time in ui
+		time_min2_ns	: Minimum2 time in ns
+		time_min2_ui	: Minimum2 time in ui
+		time_max_ns	: Maximum time in ns
+		time_max_ui	: Maximum time in ui
+		counter_min	: Minimum possible value of the counter
+		counter_max	: Maximum possible value of the counter
+		counter_step	: Counter step
+		counter_offs	: Counter offset
+		counter		: Counter value
+		period		: Period
+
+- brcm,scrn-on	: Panel on commands.
+		Array of bytes where each command takes two bytes.
+		First byte specifies the command type (Refer DSI DCS spec)
+		Second byte is the actual command.
+- brcm,scrn-off	: Panel off commands.
+		Array of bytes where each command takes two bytes.
+		First byte specifies the command type (Refer DSI DCS spec)
+		Second byte is the actual command.
+- brcm,slp-in	: Sleep in commands for the panel.
+		Array of bytes where each command takes two bytes.
+		First byte specifies the command type (Refer DSI DCS spec)
+		Second byte is the actual command.
+- brcm,slp-out	: Sleep out commands for the panel.
+		Array of bytes where each command takes two bytes.
+		First byte specifies the command type (Refer DSI DCS spec)
+		Second byte is the actual command.
+- brcm,init-panel: Panel initialization commands.
+		Array of bytes where each command takes two bytes.
+		First byte specifies the command type (Refer DSI DCS spec)
+		Second byte is the actual command.
+- panel-timing	: Display timing information (Refer to panel/display-timing.txt)
+
+Example:
+
+	dsi_panel {
+		brcm,module-name = "HX8389B";
+		brcm,col-mod-i = <3>;
+		brcm,col-mod-o = <2>;
+		brcm,panel-width-mm = <54>;
+		brcm,panel-height-mm = <95>;
+		brcm,vmode;
+		brcm,fps = <60>;
+		brcm,lanes = <2>;
+		brcm,cmd-lp;
+		brcm,hs-bitrate = <420000000>;
+		brcm,lp-bitrate = <5000000>;
+
+		brcm,dsi-timing = <0 0 0 0 00 00 00 00 00 0 0 0x0000003F 1 1 0 0
+			1 1 0 0 1000000 00 00 00 00 0 0 0x00FFFFFF 0 0 0 0
+			2 1 0 0 1000000 00 00 00 00 0 0 0x00FFFFFF 0 0 0 0
+			3 2 0 0 1000000 00 00 00 00 0 0 0x00FFFFFF 1 1 0 0
+			4 1 0 0 00 12 00 00 00 0 0 0x000001FF 0 0 0 0
+			5 1 1 0 48 00 00 00 95 0 0 0x000001FF 0 0 0 0
+			6 1 0 0 262 00 00 00 00 0 0 0x000001FF 0 0 0 0
+			7 1 0 0 70 52 00 00 00 0 0 0x000001FF 0 0 0 0
+			8 1 0 0 70 00 00 00 00 0 0 0x000001FF 0 0 0 0
+			9 1 0 0 60 00 00 00 75 0 0 0x000001FF 0 0 0 0
+			10 1 1 0 50 04 00 00 85 6 0 0x000001FF 0 0 0 0
+			11 1 0 0 105 06 00 00 00 0 0 0x000001FF 0 0 0 0
+			12 1 2 0 0 32 60 16 00 0 0 0x000001FF 0 0 0 0
+			13 1 0 0 110 00 00 00 00 0 0 0x000001FF 0 0 0 0
+			14 2 0 1 0 00 00 00 00 0 0 0x000000FF 1 1 0 0
+			15 2 0 4 0 00 00 00 00 0 0 0x000000FF 1 1 0 0
+			16 2 0 2 0 00 00 00 00 0 0 0x000000FF 1 1 0 0
+			17 2 0 5 0 00 00 00 00 0 0 0x000000FF 1 1 0 0>;
+
+		brcm,scrn-on = [ 01 29
+				00 00 ];
+		brcm,scrn-off = [ 01 28
+				00 00 ];
+		brcm,slp-in = [ 01 28
+				01 10
+				04 78
+				00 00 ];
+		brcm,slp-out = [ 01 11
+				04 78
+				00 00 ];
+		brcm,init-panel = [ 01 B9
+				03 FF
+				03 83
+				03 89
+				01 B1
+				00 00 ];
+
+		panel-timing {
+			clock-frequency = <17239800>;
+			hactive = <540>;
+			vactive = <960>;
+			hfront-porch = <22>;
+			hback-porch = <20>;
+			hsync-len = <8>;
+			vfront-porch = <2>;
+			vback-porch = <10>;
+			vsync-len = <2>;
+		};
+	};
