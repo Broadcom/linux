@@ -1,0 +1,11 @@
+config FB_BRCM_IPROC
+	tristate "Broadcom Platform Framebuffer support"
+	depends on (FB && (ARCH_BCM_IPROC || COMPILE_TEST))
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	default ARCH_BCM_IPROC
+	help
+	This is dsi display driver for the broadcom platform
+	display panels. This driver registers itself with the
+	linux fbmem framework and drives the display controller.
