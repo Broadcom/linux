@@ -17,3 +17,14 @@ config SND_SOC_CYGNUS
 	  Cygnus chips (bcm958300, bcm958305, bcm911360)
 
 	  If you don't know what to do here, say N.
+
+config SND_SOC_CYGNUS_VOIPPHONE_MACHINE
+	tristate "SoC Audio support for Broadcom Cygnus enterprise VoIP phone"
+	depends on SND_SOC_CYGNUS
+	select SND_SOC_CS42L73
+	select SND_SOC_CYPRESS_BT_VOICE
+	help
+	  Say Y if you want to add support for Cygnus SoC enterprise voip phone
+	  reference board (bcm911360_entphn).
+	  Attached to the Cygnus SoC are a CS42L73 codec and also an optional
+	  Bluetooth module.
