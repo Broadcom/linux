@@ -187,9 +187,10 @@ int dsi_parse_panel_cmds(struct platform_device *pdev,
 	uint8_t *cmds;
 
 	of_get_property(pnode, "brcm,slp-in", &count);
-	cmds = devm_kcalloc(&pdev->dev, count, sizeof(uint8_t), GFP_KERNEL);
+	cmds = devm_kcalloc(&pdev->dev, count, sizeof(*cmds), GFP_KERNEL);
 	if (!cmds)
 		return -ENOMEM;
+
 	of_property_read_u8_array(pnode, "brcm,slp-in", cmds, count);
 	panel.disp_info->slp_in_seq = get_seq(pdev, cmds);
 	devm_kfree(&pdev->dev, cmds);
@@ -197,9 +198,10 @@ int dsi_parse_panel_cmds(struct platform_device *pdev,
 		return -EINVAL;
 
 	of_get_property(pnode, "brcm,slp-out", &count);
-	cmds = devm_kcalloc(&pdev->dev, count, sizeof(uint8_t), GFP_KERNEL);
+	cmds = devm_kcalloc(&pdev->dev, count, sizeof(*cmds), GFP_KERNEL);
 	if (!cmds)
 		return -ENOMEM;
+
 	of_property_read_u8_array(pnode, "brcm,slp-out", cmds, count);
 	panel.disp_info->slp_out_seq = get_seq(pdev, cmds);
 	devm_kfree(&pdev->dev, cmds);
@@ -207,9 +209,10 @@ int dsi_parse_panel_cmds(struct platform_device *pdev,
 		return -EINVAL;
 
 	of_get_property(pnode, "brcm,scrn-on", &count);
-	cmds = devm_kcalloc(&pdev->dev, count, sizeof(uint8_t), GFP_KERNEL);
+	cmds = devm_kcalloc(&pdev->dev, count, sizeof(*cmds), GFP_KERNEL);
 	if (!cmds)
 		return -ENOMEM;
+
 	of_property_read_u8_array(pnode, "brcm,scrn-on", cmds, count);
 	panel.disp_info->scrn_on_seq = get_seq(pdev, cmds);
 	devm_kfree(&pdev->dev, cmds);
@@ -217,9 +220,10 @@ int dsi_parse_panel_cmds(struct platform_device *pdev,
 		return -EINVAL;
 
 	of_get_property(pnode, "brcm,scrn-off", &count);
-	cmds = devm_kcalloc(&pdev->dev, count, sizeof(uint8_t), GFP_KERNEL);
+	cmds = devm_kcalloc(&pdev->dev, count, sizeof(*cmds), GFP_KERNEL);
 	if (!cmds)
 		return -ENOMEM;
+
 	of_property_read_u8_array(pnode, "brcm,scrn-off", cmds, count);
 	panel.disp_info->scrn_off_seq = get_seq(pdev, cmds);
 	devm_kfree(&pdev->dev, cmds);
@@ -227,9 +231,10 @@ int dsi_parse_panel_cmds(struct platform_device *pdev,
 		return -EINVAL;
 
 	of_get_property(pnode, "brcm,init-panel", &count);
-	cmds = devm_kcalloc(&pdev->dev, count, sizeof(uint8_t), GFP_KERNEL);
+	cmds = devm_kcalloc(&pdev->dev, count, sizeof(*cmds), GFP_KERNEL);
 	if (!cmds)
 		return -ENOMEM;
+
 	of_property_read_u8_array(pnode, "brcm,init-panel", cmds, count);
 	panel.disp_info->init_seq = get_seq(pdev, cmds);
 	devm_kfree(&pdev->dev, cmds);
@@ -241,6 +246,7 @@ int dsi_parse_panel_cmds(struct platform_device *pdev,
 			count / sizeof(uint32_t), sizeof(uint32_t), GFP_KERNEL);
 	if (!panel.disp_info->phy_timing)
 		return -ENOMEM;
+
 	of_property_read_u32_array(pnode, "brcm,dsi-timing",
 				(panel.disp_info->phy_timing),
 					count / sizeof(uint32_t));
