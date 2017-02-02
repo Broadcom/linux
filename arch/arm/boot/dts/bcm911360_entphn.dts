@@ -97,6 +97,50 @@
 		gpio = <&gpio_asiu 43 0>;
 		enable-active-high;
 	};
+
+	ipp_sound: ipp_sound {
+		compatible = "brcm,bcm911360_entphn-machine";
+		brcm,cygnus-pcm = <&cygnus_audio>;
+
+		brcm,handsfree-amp-en-gpio = <&gpio_asiu 41 0>;
+
+		ipp-primary-link {
+			format = "i2s";
+			bitclock-master = <&dailink0_master>;
+			frame-master = <&dailink0_master>;
+
+			dailink0_master: cpu {
+				sound-dai = <&cygnus_audio 0>;
+			};
+
+			codec {
+				sound-dai = <&cs42l73 0>;
+			};
+		} ;
+
+		ipp-bluetooth-voice-link {
+			format = "i2s";
+			bitclock-master = <&dailink1_master>;
+			frame-master = <&dailink1_master>;
+
+			dailink1_master: cpu {
+				sound-dai = <&cygnus_audio 2>;
+			};
+
+			codec {
+				sound-dai = <&bt_codec>;
+			};
+		};
+	};
+
+	bt_codec: bt_voice_codec {
+		#sound-dai-cells = <0>;
+		status = "okay";
+		compatible = "cypress,bt_voice_codec";
+
+		cypress,bt-voice-link-mode = "i2s";
+		cypress,bt-voice-tdm-bps = <2048000>;
+	};
 };
 
 &sdhci1 {
@@ -228,3 +272,37 @@
 	};
 };
 
+&pinctrl {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2s0_default_mux &i2s1_default_mux &i2s2_default_mux>;
+};
+
+&i2c1 {
+	status = "okay";
+	cs42l73: cs42l73@4A {
+		#sound-dai-cells = <1>;
+		compatible = "cirrus,cs42l73";
+		reg = <0x4a>;
+		reset-gpio = <&gpio_asiu 103 0>;
+	};
+};
+
+&cygnus_audio {
+	#sound-dai-cells = <1>;
+
+	ssp0: ssp_port@0 {
+		status = "okay";
+	};
+
+	ssp1: ssp_port@1 {
+		status = "okay";
+	};
+
+	ssp2: ssp_port@2 {
+		status = "okay";
+	};
+
+	spdif: spdif_port@3 {
+		status = "okay";
+	};
+};
