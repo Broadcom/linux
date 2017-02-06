@@ -35,7 +35,7 @@
 #define NUM_CRYPTO	32
 #define NUM_RAID	8
 #ifndef NUM_SATA
-#define NUM_SATA	20
+#define NUM_SATA	8
 #endif
 #define USE_DDR		1
 
