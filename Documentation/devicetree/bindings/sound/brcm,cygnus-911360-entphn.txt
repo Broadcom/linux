@@ -3,7 +3,7 @@ Cygnus Enterprise Phone reference design
 Required properties:
 - compatible: "brcm,bcm911360_entphn-machine"
 - brcm,cygnus-pcm: the phandle of the audio DMA node
-- brcm,gpio-handsfree-amp-en: gpio used to conrol the enabling of the
+- brcm,handsfree-amp-en-gpio: gpio used to conrol the enabling of the
 	handsfree speaker amplifier.
 
 In addition to these properties, the device follows the general construct
@@ -19,7 +19,7 @@ Example:
 ipp_sound {
 	compatible = "brcm,bcm911360_entphn-machine";
 	brcm,cygnus-pcm = <&cygnus_audio>;
-	brcm,gpio-handsfree-amp-en = <&gpio_asiu 41 0>;
+	brcm,handsfree-amp-en-gpio = <&gpio_asiu 41 0>;
 
 	ipp-primary-link {
 		format = "i2s";
