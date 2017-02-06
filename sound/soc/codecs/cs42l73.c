@@ -656,12 +656,12 @@ static const struct snd_soc_dapm_route cs42l73_audio_map[] = {
 	{"EAR Amp", "Switch", "ESL DAC"},
 	{"SPKLO Amp", "Switch", "ESL DAC"},
 
-	{"ESL DAC", "ESL-ASP Mono Volume", "ESL Mixer"},
-	{"ESL DAC", "ESL-XSP Mono Volume", "ESL Mixer"},
-	{"ESL DAC", "ESL-VSP Mono Volume", "VSPINOUT"},
+	{"ESL DAC", NULL, "ESL Mixer"},
+	{"ESL DAC", NULL, "ESL Mixer"},
+	{"ESL DAC", NULL, "VSPINOUT"},
 	/* Loopback */
-	{"ESL DAC", "ESL-IP Mono Volume", "Input Left Capture"},
-	{"ESL DAC", "ESL-IP Mono Volume", "Input Right Capture"},
+	{"ESL DAC", NULL, "Input Left Capture"},
+	{"ESL DAC", NULL, "Input Right Capture"},
 
 	{"ESL Mixer", NULL, "ESL-ASP Mux"},
 	{"ESL Mixer", NULL, "ESL-XSP Mux"},
@@ -678,12 +678,12 @@ static const struct snd_soc_dapm_route cs42l73_audio_map[] = {
 	{"SPKOUT", NULL, "SPK Amp"},
 	{"SPK Amp", "Switch", "SPK DAC"},
 
-	{"SPK DAC", "SPK-ASP Mono Volume", "SPK Mixer"},
-	{"SPK DAC", "SPK-XSP Mono Volume", "SPK Mixer"},
-	{"SPK DAC", "SPK-VSP Mono Volume", "VSPINOUT"},
+	{"SPK DAC", NULL, "SPK Mixer"},
+	{"SPK DAC", NULL, "SPK Mixer"},
+	{"SPK DAC", NULL, "VSPINOUT"},
 	/* Loopback */
-	{"SPK DAC", "SPK-IP Mono Volume", "Input Left Capture"},
-	{"SPK DAC", "SPK-IP Mono Volume", "Input Right Capture"},
+	{"SPK DAC", NULL, "Input Left Capture"},
+	{"SPK DAC", NULL, "Input Right Capture"},
 
 	{"SPK Mixer", NULL, "SPK-ASP Mux"},
 	{"SPK Mixer", NULL, "SPK-XSP Mux"},
@@ -707,15 +707,15 @@ static const struct snd_soc_dapm_route cs42l73_audio_map[] = {
 	{"LO Amp", "Switch", "HL Left DAC"},
 	{"LO Amp", "Switch", "HL Right DAC"},
 
-	{"HL Left DAC", "HL-XSP Volume", "HL Left Mixer"},
-	{"HL Right DAC", "HL-XSP Volume", "HL Right Mixer"},
-	{"HL Left DAC", "HL-ASP Volume", "HL Left Mixer"},
-	{"HL Right DAC", "HL-ASP Volume", "HL Right Mixer"},
-	{"HL Left DAC", "HL-VSP Volume", "HL Left Mixer"},
-	{"HL Right DAC", "HL-VSP Volume", "HL Right Mixer"},
+	{"HL Left DAC",  NULL, "HL Left Mixer"},
+	{"HL Right DAC", NULL, "HL Right Mixer"},
+	{"HL Left DAC",  NULL, "HL Left Mixer"},
+	{"HL Right DAC", NULL, "HL Right Mixer"},
+	{"HL Left DAC",  NULL, "HL Left Mixer"},
+	{"HL Right DAC", NULL, "HL Right Mixer"},
 	/* Loopback */
-	{"HL Left DAC", "HL-IP Volume", "HL Left Mixer"},
-	{"HL Right DAC", "HL-IP Volume", "HL Right Mixer"},
+	{"HL Left DAC",  NULL, "HL Left Mixer"},
+	{"HL Right DAC", NULL, "HL Right Mixer"},
 	{"HL Left Mixer", NULL, "Input Left Capture"},
 	{"HL Right Mixer", NULL, "Input Right Capture"},
 
@@ -760,15 +760,15 @@ static const struct snd_soc_dapm_route cs42l73_audio_map[] = {
 	{"ASPL Output Mixer", NULL, "Input Left Capture"},
 	{"ASPR Output Mixer", NULL, "Input Right Capture"},
 
-	{"ASPOUTL", "ASP-IP Volume", "ASPL Output Mixer"},
-	{"ASPOUTR", "ASP-IP Volume", "ASPR Output Mixer"},
+	{"ASPOUTL", NULL, "ASPL Output Mixer"},
+	{"ASPOUTR", NULL, "ASPR Output Mixer"},
 
 	/* Auxillary Capture */
 	{"XSPL Output Mixer", NULL, "Input Left Capture"},
 	{"XSPR Output Mixer", NULL, "Input Right Capture"},
 
-	{"XSPOUTL", "XSP-IP Volume", "XSPL Output Mixer"},
-	{"XSPOUTR", "XSP-IP Volume", "XSPR Output Mixer"},
+	{"XSPOUTL", NULL, "XSPL Output Mixer"},
+	{"XSPOUTR", NULL, "XSPR Output Mixer"},
 
 	{"XSPOUTL", NULL, "XSPL Output Mixer"},
 	{"XSPOUTR", NULL, "XSPR Output Mixer"},
@@ -777,7 +777,7 @@ static const struct snd_soc_dapm_route cs42l73_audio_map[] = {
 	{"VSP Output Mixer", NULL, "Input Left Capture"},
 	{"VSP Output Mixer", NULL, "Input Right Capture"},
 
-	{"VSPINOUT", "VSP-IP Volume", "VSP Output Mixer"},
+	{"VSPINOUT", NULL, "VSP Output Mixer"},
 
 	{"VSPINOUT", NULL, "VSP Output Mixer"},
 
