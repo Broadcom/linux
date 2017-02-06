@@ -434,22 +434,28 @@ static unsigned long iproc_pll_recalc_rate(struct clk_hw *hw,
 static long iproc_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 				 unsigned long *parent_rate)
 {
-	unsigned i;
+	unsigned int  i;
 	struct iproc_clk *clk = to_iproc_clk(hw);
 	struct iproc_pll *pll = clk->pll;
+	unsigned long  diff, best_diff;
+	unsigned int  best_idx = 0;
 
 	if (rate == 0 || *parent_rate == 0 || !pll->vco_param)
 		return -EINVAL;
 
+	best_diff = ULONG_MAX;
 	for (i = 0; i < pll->num_vco_entries; i++) {
-		if (rate <= pll->vco_param[i].rate)
+		diff = abs(rate - pll->vco_param[i].rate);
+		if (diff <= best_diff) {
+			best_diff = diff;
+			best_idx = i;
+		}
+		/* break now if perfect match */
+		if (diff == 0)
 			break;
 	}
 
-	if (i == pll->num_vco_entries)
-		i--;
-
-	return pll->vco_param[i].rate;
+	return pll->vco_param[best_idx].rate;
 }
 
 static int iproc_pll_set_rate(struct clk_hw *hw, unsigned long rate,
