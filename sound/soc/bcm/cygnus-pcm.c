@@ -329,24 +329,24 @@ static void enable_intr(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Clear interrupt status before enabling them */
-		writel(clear_mask, aio->cygaud->audio + ESR0_STATUS_CLR_OFFSET);
-		writel(clear_mask, aio->cygaud->audio + ESR1_STATUS_CLR_OFFSET);
-		writel(clear_mask, aio->cygaud->audio + ESR3_STATUS_CLR_OFFSET);
+		writel(clear_mask, aio->audio + ESR0_STATUS_CLR_OFFSET);
+		writel(clear_mask, aio->audio + ESR1_STATUS_CLR_OFFSET);
+		writel(clear_mask, aio->audio + ESR3_STATUS_CLR_OFFSET);
 		/* Unmask the interrupts of the given port*/
-		writel(clear_mask, aio->cygaud->audio + ESR0_MASK_CLR_OFFSET);
-		writel(clear_mask, aio->cygaud->audio + ESR1_MASK_CLR_OFFSET);
-		writel(clear_mask, aio->cygaud->audio + ESR3_MASK_CLR_OFFSET);
+		writel(clear_mask, aio->audio + ESR0_MASK_CLR_OFFSET);
+		writel(clear_mask, aio->audio + ESR1_MASK_CLR_OFFSET);
+		writel(clear_mask, aio->audio + ESR3_MASK_CLR_OFFSET);
 
 		writel(ANY_PLAYBACK_IRQ,
-			aio->cygaud->audio + INTH_R5F_MASK_CLEAR_OFFSET);
+			aio->audio + INTH_R5F_MASK_CLEAR_OFFSET);
 	} else {
-		writel(clear_mask, aio->cygaud->audio + ESR2_STATUS_CLR_OFFSET);
-		writel(clear_mask, aio->cygaud->audio + ESR4_STATUS_CLR_OFFSET);
-		writel(clear_mask, aio->cygaud->audio + ESR2_MASK_CLR_OFFSET);
-		writel(clear_mask, aio->cygaud->audio + ESR4_MASK_CLR_OFFSET);
+		writel(clear_mask, aio->audio + ESR2_STATUS_CLR_OFFSET);
+		writel(clear_mask, aio->audio + ESR4_STATUS_CLR_OFFSET);
+		writel(clear_mask, aio->audio + ESR2_MASK_CLR_OFFSET);
+		writel(clear_mask, aio->audio + ESR4_MASK_CLR_OFFSET);
 
 		writel(ANY_CAPTURE_IRQ,
-			aio->cygaud->audio + INTH_R5F_MASK_CLEAR_OFFSET);
+			aio->audio + INTH_R5F_MASK_CLEAR_OFFSET);
 	}
 
 }
@@ -366,12 +366,12 @@ static void disable_intr(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Mask the interrupts of the given port*/
-		writel(set_mask, aio->cygaud->audio + ESR0_MASK_SET_OFFSET);
-		writel(set_mask, aio->cygaud->audio + ESR1_MASK_SET_OFFSET);
-		writel(set_mask, aio->cygaud->audio + ESR3_MASK_SET_OFFSET);
+		writel(set_mask, aio->audio + ESR0_MASK_SET_OFFSET);
+		writel(set_mask, aio->audio + ESR1_MASK_SET_OFFSET);
+		writel(set_mask, aio->audio + ESR3_MASK_SET_OFFSET);
 	} else {
-		writel(set_mask, aio->cygaud->audio + ESR2_MASK_SET_OFFSET);
-		writel(set_mask, aio->cygaud->audio + ESR4_MASK_SET_OFFSET);
+		writel(set_mask, aio->audio + ESR2_MASK_SET_OFFSET);
+		writel(set_mask, aio->audio + ESR4_MASK_SET_OFFSET);
 	}
 
 }
@@ -415,13 +415,13 @@ static void cygnus_pcm_period_elapsed(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Set the ring buffer to full */
-		regval = readl(aio->cygaud->audio + p_rbuf->rdaddr);
+		regval = readl(aio->audio + p_rbuf->rdaddr);
 		regval = regval ^ BIT(31);
-		writel(regval, aio->cygaud->audio + p_rbuf->wraddr);
+		writel(regval, aio->audio + p_rbuf->wraddr);
 	} else {
 		/* Set the ring buffer to empty */
-		regval = readl(aio->cygaud->audio + p_rbuf->wraddr);
-		writel(regval, aio->cygaud->audio + p_rbuf->rdaddr);
+		regval = readl(aio->audio + p_rbuf->wraddr);
+		writel(regval, aio->audio + p_rbuf->rdaddr);
 	}
 }
 
@@ -690,7 +690,7 @@ static int cygnus_pcm_prepare(struct snd_pcm_substream *substream)
 
 	is_play = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? 1 : 0;
 
-	ringbuf_set_initial(aio->cygaud->audio, p_rbuf, is_play, start,
+	ringbuf_set_initial(aio->audio, p_rbuf, is_play, start,
 				periodsize, bufsize);
 
 	return ret;
@@ -710,11 +710,11 @@ static snd_pcm_uframes_t cygnus_pcm_pointer(struct snd_pcm_substream *substream)
 	 */
 	p_rbuf = get_ringbuf(substream);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		cur = readl(aio->cygaud->audio + p_rbuf->rdaddr);
+		cur = readl(aio->audio + p_rbuf->rdaddr);
 	else
-		cur = readl(aio->cygaud->audio + p_rbuf->wraddr);
+		cur = readl(aio->audio + p_rbuf->wraddr);
 
-	base = readl(aio->cygaud->audio + p_rbuf->baseaddr);
+	base = readl(aio->audio + p_rbuf->baseaddr);
 
 	/*
 	 * Mask off the MSB of the rdaddr,wraddr and baseaddr

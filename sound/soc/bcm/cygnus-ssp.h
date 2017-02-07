@@ -33,13 +33,13 @@
 #define PROP_LEN_MAX 40
 
 struct ringbuf_regs {
-	unsigned rdaddr;
-	unsigned wraddr;
-	unsigned baseaddr;
-	unsigned endaddr;
-	unsigned fmark;   /* freemark for play, fullmark for caputure */
-	unsigned period_bytes;
-	unsigned buf_size;
+	unsigned int rdaddr;
+	unsigned int wraddr;
+	unsigned int baseaddr;
+	unsigned int endaddr;
+	unsigned int fmark;   /* freemark for play, fullmark for caputure */
+	u32 period_bytes;
+	u32 buf_size;
 };
 
 #define RINGBUF_REG_PLAYBACK(num) ((struct ringbuf_regs) { \
@@ -89,6 +89,8 @@ struct cygnus_track_clk {
 };
 
 struct cygnus_aio_port {
+	struct device *dev;
+
 	int portnum;
 	int mode;
 	bool is_slave;
@@ -102,6 +104,9 @@ struct cygnus_aio_port {
 	u32 pll_clk_num;
 
 	struct cygnus_audio *cygaud;
+	void __iomem *audio;
+	void __iomem *i2s_in;
+
 	struct cygnus_ssp_regs regs;
 
 	struct ringbuf_regs play_rb_regs;
@@ -119,16 +124,14 @@ struct cygnus_audio {
 
 	int irq_num;
 	void __iomem *audio;
-	struct device *dev;
 	void __iomem *i2s_in;
+	struct device *dev;
 
 	struct clk *audio_clk[CYGNUS_AUIDO_MAX_NUM_CLKS];
 	int active_ports;
 	unsigned long vco_rate;
 };
 
-extern int cygnus_ssp_get_mode(struct snd_soc_dai *cpu_dai);
-extern int cygnus_ssp_add_pll_tweak_controls(struct snd_soc_pcm_runtime *rtd);
 extern int cygnus_ssp_set_custom_fsync_width(struct snd_soc_dai *cpu_dai,
 						int len);
 extern int cygnus_soc_platform_register(struct device *dev,
