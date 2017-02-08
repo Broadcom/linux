@@ -171,7 +171,7 @@
 		ranges = <0 0 0 0xffffffff>;
 
 		ccn: ccn@61000000 {
-			compatible = "arm,ccn-504";
+			compatible = "arm,ccn-502";
 			reg = <0x61000000 0x900000>;
 			interrupts = <GIC_SPI 799 IRQ_TYPE_LEVEL_HIGH>;
 		};
