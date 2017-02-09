@@ -131,10 +131,21 @@ static void amac_free_rx_skb(struct bcm_amac_priv *privp,
 			     int len,
 			     struct skb_list_node *node)
 {
-	dma_unmap_single(&privp->pdev->dev,
-			 node->dma_addr,
-			 len,
-			 DMA_FROM_DEVICE);
+	struct amac_dma_priv *dma_p = &privp->dma;
+
+	if (dma_p->sr_dma.enable_bounce) {
+		if (node->skb_bounce)
+			dma_free_coherent(&privp->pdev->dev,
+					  dma_p->sr_dma.rx_bounce_data.
+					  alloc_size,
+					  node->skb_bounce,
+					  dma_p->sr_dma.rx_bounce_data.
+					  raw_addr);
+	} else
+		dma_unmap_single(&privp->pdev->dev,
+				 node->dma_addr,
+				 len,
+				 DMA_FROM_DEVICE);
 
 	dev_kfree_skb_any(node->skb);
 
