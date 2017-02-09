@@ -38,7 +38,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
-#include <linux/platform_device.h>
+#include <linux/of_device.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/raid/xor.h>
@@ -70,6 +70,7 @@ struct fs4_test_msg {
 
 struct fs4_test {
 	struct device *dev;
+	struct device *mbox_dev;
 	int (*exec_func)(struct fs4_test *test);
 	void __iomem *regs;
 	unsigned int engine_count;
@@ -577,21 +578,21 @@ static void __sba_memcpy_free(struct fs4_test *test,
 	for (b = 0; b < test->batch_count; b++) {
 		if (cmsg->dst_resp[b]) {
 			dma_free_coherent(
-				  mbox_channel_device(test->mchans[0]),
+				  test->mbox_dev,
 				  SBA_RESP_SIZE * split_count,
 				  cmsg->dst_resp[b], cmsg->dst_resp_dma[b]);
 			cmsg->dst_resp[b] = NULL;
 		}
 		if (cmsg->dst[b]) {
 			dma_free_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					test->src_count * test->src_size,
 					cmsg->dst[b], cmsg->dst_dma[b]);
 			cmsg->dst[b] = NULL;
 		}
 		if (cmsg->src[b]) {
 			dma_free_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					test->src_count * test->src_size,
 					cmsg->src[b], cmsg->src_dma[b]);
 			cmsg->src[b] = NULL;
@@ -634,7 +635,7 @@ static struct fs4_test_msg *__sba_memcpy_alloc(struct fs4_test *test,
 		}
 
 		cmsg->src[b] = dma_alloc_coherent(
-				mbox_channel_device(test->mchans[0]),
+				test->mbox_dev,
 				test->src_count * test->src_size,
 				&cmsg->src_dma[b], GFP_KERNEL);
 		if (!cmsg->src[b]) {
@@ -656,7 +657,7 @@ static struct fs4_test_msg *__sba_memcpy_alloc(struct fs4_test *test,
 		}
 
 		cmsg->dst[b] = dma_alloc_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					test->src_count * test->src_size,
 					&cmsg->dst_dma[b], GFP_KERNEL);
 		if (!cmsg->dst[b]) {
@@ -669,7 +670,7 @@ static struct fs4_test_msg *__sba_memcpy_alloc(struct fs4_test *test,
 		b, cmsg->dst[b], b, (unsigned long)cmsg->dst_dma[b]);
 
 		cmsg->dst_resp[b] = dma_alloc_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					SBA_RESP_SIZE * split_count,
 					&cmsg->dst_resp_dma[b], GFP_KERNEL);
 		if (!cmsg->dst_resp[b]) {
@@ -1114,21 +1115,21 @@ static void __sba_xor_free(struct fs4_test *test,
 	for (b = 0; b < test->batch_count; b++) {
 		if (cmsg->dst_resp[b]) {
 			dma_free_coherent(
-				  mbox_channel_device(test->mchans[0]),
+				  test->mbox_dev,
 				  SBA_RESP_SIZE * split_count,
 				  cmsg->dst_resp[b], cmsg->dst_resp_dma[b]);
 			cmsg->dst_resp[b] = NULL;
 		}
 		if (cmsg->dst[b]) {
 			dma_free_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					test->src_size,
 					cmsg->dst[b], cmsg->dst_dma[b]);
 			cmsg->dst[b] = NULL;
 		}
 		if (cmsg->src[b]) {
 			dma_free_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					test->src_count * test->src_size,
 					cmsg->src[b], cmsg->src_dma[b]);
 			cmsg->src[b] = NULL;
@@ -1172,7 +1173,7 @@ static struct fs4_test_msg *__sba_xor_alloc(struct fs4_test *test,
 		}
 
 		cmsg->src[b] = dma_alloc_coherent(
-				mbox_channel_device(test->mchans[0]),
+				test->mbox_dev,
 				test->src_count * test->src_size,
 				&cmsg->src_dma[b], GFP_KERNEL);
 		if (!cmsg->src[b]) {
@@ -1206,7 +1207,7 @@ static struct fs4_test_msg *__sba_xor_alloc(struct fs4_test *test,
 		}
 
 		cmsg->dst[b] = dma_alloc_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					test->src_size, &cmsg->dst_dma[b],
 					GFP_KERNEL);
 		if (!cmsg->dst[b]) {
@@ -1219,7 +1220,7 @@ static struct fs4_test_msg *__sba_xor_alloc(struct fs4_test *test,
 		b, cmsg->dst[b], b, (unsigned long)cmsg->dst_dma[b]);
 
 		cmsg->dst_resp[b] = dma_alloc_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					SBA_RESP_SIZE * split_count,
 					&cmsg->dst_resp_dma[b], GFP_KERNEL);
 		if (!cmsg->dst_resp[b]) {
@@ -1925,28 +1926,28 @@ static void __sba_pq_free(struct fs4_test *test,
 	for (b = 0; b < test->batch_count; b++) {
 		if (cmsg->dst_resp[b]) {
 			dma_free_coherent(
-				  mbox_channel_device(test->mchans[0]),
+				  test->mbox_dev,
 				  SBA_RESP_SIZE * split_count,
 				  cmsg->dst_resp[b], cmsg->dst_resp_dma[b]);
 			cmsg->dst_resp[b] = NULL;
 		}
 		if (cmsg->dst1[b]) {
 			dma_free_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					test->src_size,
 					cmsg->dst1[b], cmsg->dst1_dma[b]);
 			cmsg->dst1[b] = NULL;
 		}
 		if (cmsg->dst[b]) {
 			dma_free_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					test->src_size,
 					cmsg->dst[b], cmsg->dst_dma[b]);
 			cmsg->dst[b] = NULL;
 		}
 		if (cmsg->src[b]) {
 			dma_free_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					test->src_count * test->src_size,
 					cmsg->src[b], cmsg->src_dma[b]);
 			cmsg->src[b] = NULL;
@@ -1990,7 +1991,7 @@ static struct fs4_test_msg *__sba_pq_alloc(struct fs4_test *test,
 		}
 
 		cmsg->src[b] = dma_alloc_coherent(
-				mbox_channel_device(test->mchans[0]),
+				test->mbox_dev,
 				test->src_count * test->src_size,
 				&cmsg->src_dma[b], GFP_KERNEL);
 		if (!cmsg->src[b]) {
@@ -2024,7 +2025,7 @@ static struct fs4_test_msg *__sba_pq_alloc(struct fs4_test *test,
 		}
 
 		cmsg->dst[b] = dma_alloc_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					test->src_size, &cmsg->dst_dma[b],
 					GFP_KERNEL);
 		if (!cmsg->dst[b]) {
@@ -2037,7 +2038,7 @@ static struct fs4_test_msg *__sba_pq_alloc(struct fs4_test *test,
 		b, cmsg->dst[b], b, (unsigned long)cmsg->dst_dma[b]);
 
 		cmsg->dst1[b] = dma_alloc_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					test->src_size, &cmsg->dst1_dma[b],
 					GFP_KERNEL);
 		if (!cmsg->dst1[b]) {
@@ -2050,7 +2051,7 @@ static struct fs4_test_msg *__sba_pq_alloc(struct fs4_test *test,
 		b, cmsg->dst1[b], b, (unsigned long)cmsg->dst1_dma[b]);
 
 		cmsg->dst_resp[b] = dma_alloc_coherent(
-					mbox_channel_device(test->mchans[0]),
+					test->mbox_dev,
 					SBA_RESP_SIZE * split_count,
 					&cmsg->dst_resp_dma[b], GFP_KERNEL);
 		if (!cmsg->dst_resp[b]) {
@@ -2574,7 +2575,9 @@ MODULE_DEVICE_TABLE(of, fs4_test_of_match);
 static int fs4_test_probe(struct platform_device *pdev)
 {
 	int i, ret = 0;
+	struct of_phandle_args args;
 	const struct of_device_id *of_id;
+	struct platform_device *mbox_pdev;
 	struct resource *iomem;
 	struct fs4_test *test;
 
@@ -2654,6 +2657,18 @@ static int fs4_test_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto fail_remove_attr_start;
 	}
+
+	ret = of_parse_phandle_with_args(pdev->dev.of_node,
+					 "mboxes", "#mbox-cells", 0, &args);
+	if (ret)
+		goto fail_remove_attr_start;
+	mbox_pdev = of_find_device_by_node(args.np);
+	of_node_put(args.np);
+	if (!mbox_pdev) {
+		ret = -ENODEV;
+		goto fail_remove_attr_start;
+	}
+	test->mbox_dev = &mbox_pdev->dev;
 
 	test->mchans_count = ret;
 	for (i = 0; i < test->mchans_count; i++) {
