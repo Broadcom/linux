@@ -82,12 +82,13 @@
 #define SBA_C_MDATA_MS(__v)				(((__v) >> 8) & 0x3)
 #define SBA_CMD_SHIFT					0
 #define SBA_CMD_MASK					GENMASK(3, 0)
+#define SBA_CMD_ZERO_BUFFER				0x4
 #define SBA_CMD_ZERO_ALL_BUFFERS			0x8
 #define SBA_CMD_LOAD_BUFFER				0x9
 #define SBA_CMD_XOR					0xa
 #define SBA_CMD_GALOIS_XOR				0xb
-#define SBA_CMD_ZERO_BUFFER				0x4
 #define SBA_CMD_WRITE_BUFFER				0xc
+#define SBA_CMD_GALOIS					0xe
 
 /* Driver helper macros */
 #define to_sba_request(tx)		\
@@ -100,8 +101,9 @@ enum sba_request_state {
 	SBA_REQUEST_STATE_ALLOCED = 2,
 	SBA_REQUEST_STATE_PENDING = 3,
 	SBA_REQUEST_STATE_ACTIVE = 4,
-	SBA_REQUEST_STATE_COMPLETED = 5,
-	SBA_REQUEST_STATE_ABORTED = 6,
+	SBA_REQUEST_STATE_RECEIVED = 5,
+	SBA_REQUEST_STATE_COMPLETED = 6,
+	SBA_REQUEST_STATE_ABORTED = 7,
 };
 
 struct sba_request {
@@ -119,9 +121,7 @@ struct sba_request {
 	void *resp;
 	dma_addr_t resp_dma;
 	struct brcm_sba_command *cmds;
-	struct brcm_message *msgs;
-	struct brcm_message bmsg;
-	atomic_t msgs_pending_count;
+	struct brcm_message msg;
 	struct dma_async_tx_descriptor tx;
 };
 
@@ -135,15 +135,12 @@ struct sba_device {
 	struct device *dev;
 	/* DT configuration parameters */
 	enum sba_version ver;
-	u32 max_req;
-	u32 req_size;
 	/* Derived configuration parameters */
+	u32 max_req;
 	u32 hw_buf_size;
 	u32 hw_resp_size;
 	u32 max_pq_coefs;
 	u32 max_pq_srcs;
-	u32 max_msg_per_req;
-	u32 max_cmd_per_msg;
 	u32 max_cmd_per_req;
 	u32 max_xor_srcs;
 	u32 max_resp_pool_size;
@@ -168,6 +165,7 @@ struct sba_device {
 	struct list_head reqs_alloc_list;
 	struct list_head reqs_pending_list;
 	struct list_head reqs_active_list;
+	struct list_head reqs_received_list;
 	struct list_head reqs_completed_list;
 	struct list_head reqs_aborted_list;
 	struct list_head reqs_free_list;
@@ -220,7 +218,6 @@ static struct sba_request *sba_alloc_request(struct sba_device *sba)
 		INIT_LIST_HEAD(&req->next);
 		req->next_count = 1;
 		atomic_set(&req->next_pending_count, 1);
-		atomic_set(&req->msgs_pending_count, 0);
 
 		sba->reqs_free_count--;
 
@@ -278,6 +275,17 @@ static void _sba_free_request(struct sba_device *sba,
 	sba->reqs_free_count++;
 }
 
+static void sba_received_request(struct sba_request *req)
+{
+	unsigned long flags;
+	struct sba_device *sba = req->sba;
+
+	spin_lock_irqsave(&sba->reqs_lock, flags);
+	req->state = SBA_REQUEST_STATE_RECEIVED;
+	list_move_tail(&req->node, &sba->reqs_received_list);
+	spin_unlock_irqrestore(&sba->reqs_lock, flags);
+}
+
 static void sba_complete_chained_requests(struct sba_request *req)
 {
 	unsigned long flags;
@@ -286,12 +294,12 @@ static void sba_complete_chained_requests(struct sba_request *req)
 
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 
+	req->state = SBA_REQUEST_STATE_COMPLETED;
+	list_move_tail(&req->node, &sba->reqs_completed_list);
 	list_for_each_entry(nreq, &req->next, next) {
 		nreq->state = SBA_REQUEST_STATE_COMPLETED;
 		list_move_tail(&nreq->node, &sba->reqs_completed_list);
 	}
-	req->state = SBA_REQUEST_STATE_COMPLETED;
-	list_move_tail(&req->node, &sba->reqs_completed_list);
 	if (list_empty(&sba->reqs_active_list))
 		sba->reqs_fence = false;
 
@@ -306,10 +314,10 @@ static void sba_free_chained_requests(struct sba_request *req)
 
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 
+	_sba_free_request(sba, req);
 	list_for_each_entry(nreq, &req->next, next) {
 		_sba_free_request(sba, nreq);
 	}
-	_sba_free_request(sba, req);
 
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 }
@@ -342,6 +350,11 @@ static void sba_cleanup_nonpending_requests(struct sba_device *sba)
 		_sba_free_request(sba, req);
 	}
 
+	/* Freeup all received request */
+	list_for_each_entry_safe(req, req1, &sba->reqs_received_list, node) {
+		_sba_free_request(sba, req);
+	}
+
 	/* Freeup all completed request */
 	list_for_each_entry_safe(req, req1, &sba->reqs_completed_list, node) {
 		_sba_free_request(sba, req);
@@ -369,12 +382,8 @@ static void sba_cleanup_pending_requests(struct sba_device *sba)
 
 	/* Freeup all pending request */
 	list_for_each_entry_safe(req, req1, &sba->reqs_pending_list, node) {
-		if (req->bmsg.batch.msgs_queued < req->bmsg.batch.msgs_count)
-			/* Set partially-queued request as aborted */
-			_sba_abort_request(sba, req);
-		else
-			/* Freeup rest of the pending request */
-			_sba_free_request(sba, req);
+		/* Freeup rest of the pending request */
+		_sba_free_request(sba, req);
 	}
 
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
@@ -409,22 +418,15 @@ static int sba_send_mbox_request(struct sba_device *sba,
 	mchans_idx = atomic_inc_return(&sba->mchans_current);
 	mchans_idx = mchans_idx % sba->mchans_count;
 
-	/* Send batch message for the request */
-	req->bmsg.batch.msgs_queued = 0;
-	ret = mbox_send_message(sba->mchans[mchans_idx], &req->bmsg);
+	/* Send message for the request */
+	req->msg.error = 0;
+	ret = mbox_send_message(sba->mchans[mchans_idx], &req->msg);
 	if (ret < 0) {
-		dev_err(sba->dev, "channel %d message %d (total %d)",
-			mchans_idx, req->bmsg.batch.msgs_queued,
-			req->bmsg.batch.msgs_count);
 		dev_err(sba->dev, "send message failed with error %d", ret);
 		return ret;
 	}
-	ret = req->bmsg.error;
+	ret = req->msg.error;
 	if (ret < 0) {
-		dev_err(sba->dev,
-			"mbox channel %d message %d (total %d)",
-			mchans_idx, req->bmsg.batch.msgs_queued,
-			req->bmsg.batch.msgs_count);
 		dev_err(sba->dev, "message error %d", ret);
 		return ret;
 	}
@@ -478,10 +480,10 @@ static dma_cookie_t sba_tx_submit(struct dma_async_tx_descriptor *tx)
 	/* Assign cookie and mark all chained requests pending */
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 	cookie = dma_cookie_assign(tx);
+	_sba_pending_request(sba, req);
 	list_for_each_entry(nreq, &req->next, next) {
 		_sba_pending_request(sba, nreq);
 	}
-	_sba_pending_request(sba, req);
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 
 	return cookie;
@@ -505,11 +507,11 @@ static enum dma_status sba_tx_status(struct dma_chan *dchan,
 	return dma_cookie_status(dchan, cookie, txstate);
 }
 
-static unsigned int sba_fillup_memcpy_msg(struct sba_request *req,
-					  struct brcm_sba_command *cmds,
-					  struct brcm_message *msg,
-					  dma_addr_t msg_offset, size_t msg_len,
-					  dma_addr_t dst, dma_addr_t src)
+static void sba_fillup_memcpy_msg(struct sba_request *req,
+				  struct brcm_sba_command *cmds,
+				  struct brcm_message *msg,
+				  dma_addr_t msg_offset, size_t msg_len,
+				  dma_addr_t dst, dma_addr_t src)
 {
 	u64 cmd;
 	u32 c_mdata;
@@ -562,8 +564,6 @@ static unsigned int sba_fillup_memcpy_msg(struct sba_request *req,
 	msg->sba.cmds_count = cmdsp - cmds;
 	msg->ctx = req;
 	msg->error = 0;
-
-	return cmdsp - cmds;
 }
 
 static struct sba_request *
@@ -571,9 +571,6 @@ sba_prep_dma_memcpy_req(struct sba_device *sba,
 			dma_addr_t off, dma_addr_t dst, dma_addr_t src,
 			size_t len, unsigned long flags)
 {
-	size_t msg_len;
-	dma_addr_t msg_offset = 0;
-	unsigned int msgs_count = 0, cmds_count, cmds_idx = 0;
 	struct sba_request *req = NULL;
 
 	/* Alloc new request */
@@ -582,25 +579,9 @@ sba_prep_dma_memcpy_req(struct sba_device *sba,
 		return NULL;
 	req->fence = (flags & DMA_PREP_FENCE) ? true : false;
 
-	/* Fillup request messages */
-	while (len) {
-		msg_len = (len < sba->hw_buf_size) ? len : sba->hw_buf_size;
-		cmds_count = sba_fillup_memcpy_msg(req,
-					&req->cmds[cmds_idx],
-					&req->msgs[msgs_count],
-					off + msg_offset, msg_len, dst, src);
-		msgs_count++;
-		cmds_idx += cmds_count;
-		msg_offset += msg_len;
-		len -= msg_len;
-	}
-	req->bmsg.type = BRCM_MESSAGE_BATCH;
-	req->bmsg.batch.msgs = &req->msgs[0];
-	req->bmsg.batch.msgs_queued = 0;
-	req->bmsg.batch.msgs_count = msgs_count;
-	req->bmsg.ctx = req;
-	req->bmsg.error = 0;
-	atomic_set(&req->msgs_pending_count, msgs_count);
+	/* Fillup request message */
+	sba_fillup_memcpy_msg(req, req->cmds, &req->msg,
+			      off, len, dst, src);
 
 	/* Init async_tx descriptor */
 	req->tx.flags = flags;
@@ -618,9 +599,9 @@ sba_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t src,
 	struct sba_device *sba = to_sba_device(dchan);
 	struct sba_request *first = NULL, *req;
 
-	/* Create chained requests where each request is upto req_size */
+	/* Create chained requests where each request is upto hw_buf_size */
 	while (len) {
-		req_len = (len < sba->req_size) ? len : sba->req_size;
+		req_len = (len < sba->hw_buf_size) ? len : sba->hw_buf_size;
 
 		req = sba_prep_dma_memcpy_req(sba, off, dst, src,
 					      req_len, flags);
@@ -642,7 +623,7 @@ sba_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t src,
 	return (first) ? &first->tx : NULL;
 }
 
-static unsigned int sba_fillup_xor_msg(struct sba_request *req,
+static void sba_fillup_xor_msg(struct sba_request *req,
 				struct brcm_sba_command *cmds,
 				struct brcm_message *msg,
 				dma_addr_t msg_offset, size_t msg_len,
@@ -718,8 +699,6 @@ static unsigned int sba_fillup_xor_msg(struct sba_request *req,
 	msg->sba.cmds_count = cmdsp - cmds;
 	msg->ctx = req;
 	msg->error = 0;
-
-	return cmdsp - cmds;
 }
 
 struct sba_request *
@@ -727,9 +706,6 @@ sba_prep_dma_xor_req(struct sba_device *sba,
 		     dma_addr_t off, dma_addr_t dst, dma_addr_t *src,
 		     u32 src_cnt, size_t len, unsigned long flags)
 {
-	size_t msg_len;
-	dma_addr_t msg_offset = 0;
-	unsigned int msgs_count = 0, cmds_count, cmds_idx = 0;
 	struct sba_request *req = NULL;
 
 	/* Alloc new request */
@@ -738,26 +714,9 @@ sba_prep_dma_xor_req(struct sba_device *sba,
 		return NULL;
 	req->fence = (flags & DMA_PREP_FENCE) ? true : false;
 
-	/* Fillup request messages */
-	while (len) {
-		msg_len = (len < sba->hw_buf_size) ? len : sba->hw_buf_size;
-		cmds_count = sba_fillup_xor_msg(req,
-				     &req->cmds[cmds_idx],
-				     &req->msgs[msgs_count],
-				     off + msg_offset, msg_len,
-				     dst, src, src_cnt);
-		msgs_count++;
-		cmds_idx += cmds_count;
-		msg_offset += msg_len;
-		len -= msg_len;
-	}
-	req->bmsg.type = BRCM_MESSAGE_BATCH;
-	req->bmsg.batch.msgs = &req->msgs[0];
-	req->bmsg.batch.msgs_queued = 0;
-	req->bmsg.batch.msgs_count = msgs_count;
-	req->bmsg.ctx = req;
-	req->bmsg.error = 0;
-	atomic_set(&req->msgs_pending_count, msgs_count);
+	/* Fillup request message */
+	sba_fillup_xor_msg(req, req->cmds, &req->msg,
+			   off, len, dst, src, src_cnt);
 
 	/* Init async_tx descriptor */
 	req->tx.flags = flags;
@@ -779,9 +738,9 @@ sba_prep_dma_xor(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t *src,
 	if (unlikely(src_cnt > sba->max_xor_srcs))
 		return NULL;
 
-	/* Create chained requests where each request is upto req_size */
+	/* Create chained requests where each request is upto hw_buf_size */
 	while (len) {
-		req_len = (len < sba->req_size) ? len : sba->req_size;
+		req_len = (len < sba->hw_buf_size) ? len : sba->hw_buf_size;
 
 		req = sba_prep_dma_xor_req(sba, off, dst, src, src_cnt,
 					   req_len, flags);
@@ -803,7 +762,7 @@ sba_prep_dma_xor(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t *src,
 	return (first) ? &first->tx : NULL;
 }
 
-static unsigned int sba_fillup_pq_msg(struct sba_request *req,
+static void sba_fillup_pq_msg(struct sba_request *req,
 				bool pq_continue,
 				struct brcm_sba_command *cmds,
 				struct brcm_message *msg,
@@ -857,7 +816,7 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 			cmdsp++;
 		}
 	} else {
-		/* Type-A command to load data into buf0 */
+		/* Type-A command to zero all buffers */
 		cmd = 0;
 		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 		SBA_ENC(cmd, msg_len,
@@ -949,27 +908,14 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 	msg->sba.cmds_count = cmdsp - cmds;
 	msg->ctx = req;
 	msg->error = 0;
-
-	return cmdsp - cmds;
 }
 
 struct sba_request *
-sba_prep_dma_pq_req(struct sba_device *sba,
-		    dma_addr_t off, dma_addr_t *dst, dma_addr_t *src,
+sba_prep_dma_pq_req(struct sba_device *sba, dma_addr_t off,
+		    dma_addr_t *dst_p, dma_addr_t *dst_q, dma_addr_t *src,
 		    u32 src_cnt, const u8 *scf, size_t len, unsigned long flags)
 {
-	size_t dst_count, msg_len;
-	unsigned int msgs_count = 0, cmds_count, cmds_idx = 0;
-	dma_addr_t *dst_p = NULL, *dst_q = NULL;
-	dma_addr_t msg_offset = 0;
 	struct sba_request *req = NULL;
-
-	/* Figure-out P and Q destination addresses */
-	dst_count = 0;
-	if (!(flags & DMA_PREP_PQ_DISABLE_P))
-		dst_p = &dst[dst_count++];
-	if (!(flags & DMA_PREP_PQ_DISABLE_Q))
-		dst_q = &dst[dst_count++];
 
 	/* Alloc new request */
 	req = sba_alloc_request(sba);
@@ -978,25 +924,274 @@ sba_prep_dma_pq_req(struct sba_device *sba,
 	req->fence = (flags & DMA_PREP_FENCE) ? true : false;
 
 	/* Fillup request messages */
-	while (len) {
-		msg_len = (len < sba->hw_buf_size) ? len : sba->hw_buf_size;
-		cmds_count = sba_fillup_pq_msg(req, dmaf_continue(flags),
-				    &req->cmds[cmds_idx],
-				    &req->msgs[msgs_count],
-				    off + msg_offset, msg_len,
-				    dst_p, dst_q, scf, src, src_cnt);
-		msgs_count++;
-		cmds_idx += cmds_count;
-		msg_offset += msg_len;
-		len -= msg_len;
+	sba_fillup_pq_msg(req, dmaf_continue(flags),
+			  req->cmds, &req->msg,
+			  off, len, dst_p, dst_q, scf, src, src_cnt);
+
+	/* Init async_tx descriptor */
+	req->tx.flags = flags;
+	req->tx.cookie = -EBUSY;
+
+	return req;
+}
+
+static void sba_fillup_pq_single_msg(struct sba_request *req,
+				bool pq_continue,
+				struct brcm_sba_command *cmds,
+				struct brcm_message *msg,
+				dma_addr_t msg_offset, size_t msg_len,
+				dma_addr_t *dst_p, dma_addr_t *dst_q,
+				dma_addr_t src, u8 scf)
+{
+	u64 cmd;
+	u32 c_mdata;
+	u8 pos, dpos = raid6_gflog[scf];
+	struct brcm_sba_command *cmdsp = cmds;
+
+	if (!dst_p)
+		goto skip_p;
+
+	if (pq_continue) {
+		/* Type-B command to load old P into buf0 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_B,
+			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, msg_len,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		c_mdata = sba_cmd_load_c_mdata(0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmdsp->cmd = cmd;
+		*cmdsp->cmd_dma = cpu_to_le64(cmd);
+		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+		cmdsp->data = *dst_p + msg_offset;
+		cmdsp->data_len = msg_len;
+		cmdsp++;
+
+		/*
+		 * Type-B commands to xor data with buf0 and put it
+		 * back in buf0
+		 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, msg_len,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		c_mdata = sba_cmd_xor_c_mdata(0, 0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_XOR, SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmdsp->cmd = cmd;
+		*cmdsp->cmd_dma = cpu_to_le64(cmd);
+		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+		cmdsp->data = src + msg_offset;
+		cmdsp->data_len = msg_len;
+		cmdsp++;
+	} else {
+		/* Type-B command to load old P into buf0 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_B,
+			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, msg_len,
+			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		c_mdata = sba_cmd_load_c_mdata(0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmdsp->cmd = cmd;
+		*cmdsp->cmd_dma = cpu_to_le64(cmd);
+		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+		cmdsp->data = src + msg_offset;
+		cmdsp->data_len = msg_len;
+		cmdsp++;
 	}
-	req->bmsg.type = BRCM_MESSAGE_BATCH;
-	req->bmsg.batch.msgs = &req->msgs[0];
-	req->bmsg.batch.msgs_queued = 0;
-	req->bmsg.batch.msgs_count = msgs_count;
-	req->bmsg.ctx = req;
-	req->bmsg.error = 0;
-	atomic_set(&req->msgs_pending_count, msgs_count);
+
+	/* Type-A command to write buf0 */
+	cmd = 0;
+	SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	SBA_ENC(cmd, msg_len,
+		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
+	c_mdata = sba_cmd_write_c_mdata(0);
+	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
+		SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmdsp->cmd = cmd;
+	*cmdsp->cmd_dma = cpu_to_le64(cmd);
+	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
+	if (req->sba->hw_resp_size) {
+		cmdsp->flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmdsp->resp = req->resp_dma;
+		cmdsp->resp_len = req->sba->hw_resp_size;
+	}
+	cmdsp->flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+	cmdsp->data = *dst_p + msg_offset;
+	cmdsp->data_len = msg_len;
+	cmdsp++;
+
+skip_p:
+	if (!dst_q)
+		goto skip_q;
+
+	/* Type-A command to zero all buffers */
+	cmd = 0;
+	SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	SBA_ENC(cmd, msg_len,
+		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	SBA_ENC(cmd, SBA_CMD_ZERO_ALL_BUFFERS,
+		SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmdsp->cmd = cmd;
+	*cmdsp->cmd_dma = cpu_to_le64(cmd);
+	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
+	cmdsp++;
+
+	if (dpos == 255)
+		goto skip_q_computation;
+	pos = (dpos < req->sba->max_pq_coefs) ?
+		dpos : (req->sba->max_pq_coefs - 1);
+
+	/*
+	 * Type-B command to generate initial Q from data
+	 * and store output into buf0
+	 */
+	cmd = 0;
+	SBA_ENC(cmd, SBA_TYPE_B,
+		SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	SBA_ENC(cmd, msg_len,
+		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
+	c_mdata = sba_cmd_pq_c_mdata(pos, 0, 0);
+	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	SBA_ENC(cmd, SBA_C_MDATA_MS(c_mdata),
+		SBA_C_MDATA_MS_SHIFT, SBA_C_MDATA_MS_MASK);
+	SBA_ENC(cmd, SBA_CMD_GALOIS, SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmdsp->cmd = cmd;
+	*cmdsp->cmd_dma = cpu_to_le64(cmd);
+	cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+	cmdsp->data = src + msg_offset;
+	cmdsp->data_len = msg_len;
+	cmdsp++;
+
+	dpos -= pos;
+
+	/* Multiple Type-A command to generate final Q */
+	while (dpos) {
+		pos = (dpos < req->sba->max_pq_coefs) ?
+			dpos : (req->sba->max_pq_coefs - 1);
+
+		/*
+		 * Type-A command to generate Q with buf0 and
+		 * buf1 store result in buf0
+		 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_A,
+			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, msg_len,
+			SBA_USER_DEF_SHIFT,
+			SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x0,
+			SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = sba_cmd_pq_c_mdata(pos, 0, 1);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_C_MDATA_MS(c_mdata),
+			SBA_C_MDATA_MS_SHIFT,
+			SBA_C_MDATA_MS_MASK);
+		SBA_ENC(cmd, SBA_CMD_GALOIS,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmdsp->cmd = cmd;
+		*cmdsp->cmd_dma = cpu_to_le64(cmd);
+		cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
+		cmdsp++;
+
+		dpos -= pos;
+	};
+
+skip_q_computation:
+	if (pq_continue) {
+		/*
+		 * Type-B command to XOR previous output with
+		 * buf0 and write it into buf0
+		 */
+		cmd = 0;
+		SBA_ENC(cmd, SBA_TYPE_B,
+			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		SBA_ENC(cmd, msg_len,
+			SBA_USER_DEF_SHIFT,
+			SBA_USER_DEF_MASK);
+		SBA_ENC(cmd, 0x0,
+			SBA_RESP_SHIFT, SBA_RESP_MASK);
+		c_mdata = sba_cmd_xor_c_mdata(0, 0);
+		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		SBA_ENC(cmd, SBA_CMD_XOR,
+			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmdsp->cmd = cmd;
+		*cmdsp->cmd_dma = cpu_to_le64(cmd);
+		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+		cmdsp->data = *dst_q + msg_offset;
+		cmdsp->data_len = msg_len;
+		cmdsp++;
+	}
+
+	/* Type-A command to write buf0 */
+	cmd = 0;
+	SBA_ENC(cmd, SBA_TYPE_A,
+		SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	SBA_ENC(cmd, msg_len,
+		SBA_USER_DEF_SHIFT,
+		SBA_USER_DEF_MASK);
+	SBA_ENC(cmd, 0x1,
+		SBA_RESP_SHIFT, SBA_RESP_MASK);
+	c_mdata = sba_cmd_write_c_mdata(0);
+	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
+		SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmdsp->cmd = cmd;
+	*cmdsp->cmd_dma = cpu_to_le64(cmd);
+	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
+	if (req->sba->hw_resp_size) {
+		cmdsp->flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmdsp->resp = req->resp_dma;
+		cmdsp->resp_len = req->sba->hw_resp_size;
+	}
+	cmdsp->flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+	cmdsp->data = *dst_q + msg_offset;
+	cmdsp->data_len = msg_len;
+	cmdsp++;
+
+skip_q:
+	/* Fillup brcm_message */
+	msg->type = BRCM_MESSAGE_SBA;
+	msg->sba.cmds = cmds;
+	msg->sba.cmds_count = cmdsp - cmds;
+	msg->ctx = req;
+	msg->error = 0;
+}
+
+struct sba_request *
+sba_prep_dma_pq_single_req(struct sba_device *sba, dma_addr_t off,
+			   dma_addr_t *dst_p, dma_addr_t *dst_q,
+			   dma_addr_t src, u8 scf, size_t len,
+			   unsigned long flags)
+{
+	struct sba_request *req = NULL;
+
+	/* Alloc new request */
+	req = sba_alloc_request(sba);
+	if (!req)
+		return NULL;
+	req->fence = (flags & DMA_PREP_FENCE) ? true : false;
+
+	/* Fillup request messages */
+	sba_fillup_pq_single_msg(req,  dmaf_continue(flags),
+				 req->cmds, &req->msg, off, len,
+				 dst_p, dst_q, src, scf);
 
 	/* Init async_tx descriptor */
 	req->tx.flags = flags;
@@ -1009,9 +1204,11 @@ static struct dma_async_tx_descriptor *
 sba_prep_dma_pq(struct dma_chan *dchan, dma_addr_t *dst, dma_addr_t *src,
 		u32 src_cnt, const u8 *scf, size_t len, unsigned long flags)
 {
-	u32 i;
+	u32 i, dst_q_index;
 	size_t req_len;
+	bool slow = false;
 	dma_addr_t off = 0;
+	dma_addr_t *dst_p = NULL, *dst_q = NULL;
 	struct sba_device *sba = to_sba_device(dchan);
 	struct sba_request *first = NULL, *req;
 
@@ -1020,30 +1217,86 @@ sba_prep_dma_pq(struct dma_chan *dchan, dma_addr_t *dst, dma_addr_t *src,
 		return NULL;
 	for (i = 0; i < src_cnt; i++)
 		if (sba->max_pq_coefs <= raid6_gflog[scf[i]])
-			return NULL;
+			slow = true;
 
-	/* Create chained requests where each request is upto req_size */
+	/* Figure-out P and Q destination addresses */
+	if (!(flags & DMA_PREP_PQ_DISABLE_P))
+		dst_p = &dst[0];
+	if (!(flags & DMA_PREP_PQ_DISABLE_Q))
+		dst_q = &dst[1];
+
+	/* Create chained requests where each request is upto hw_buf_size */
 	while (len) {
-		req_len = (len < sba->req_size) ? len : sba->req_size;
+		req_len = (len < sba->hw_buf_size) ? len : sba->hw_buf_size;
 
-		req = sba_prep_dma_pq_req(sba, off, dst, src, src_cnt,
-					  scf, req_len, flags);
-		if (!req) {
+		if (slow) {
+			dst_q_index = src_cnt;
+
+			if (dst_q) {
+				for (i = 0; i < src_cnt; i++) {
+					if (*dst_q == src[i]) {
+						dst_q_index = i;
+						break;
+					}
+				}
+			}
+
+			if (dst_q_index < src_cnt) {
+				i = dst_q_index;
+				req = sba_prep_dma_pq_single_req(sba,
+					off, dst_p, dst_q, src[i], scf[i],
+					req_len, flags | DMA_PREP_FENCE);
+				if (!req)
+					goto fail;
+
+				if (first)
+					sba_chain_request(first, req);
+				else
+					first = req;
+
+				flags |= DMA_PREP_CONTINUE;
+			}
+
+			for (i = 0; i < src_cnt; i++) {
+				if (dst_q_index == i)
+					continue;
+
+				req = sba_prep_dma_pq_single_req(sba,
+					off, dst_p, dst_q, src[i], scf[i],
+					req_len, flags | DMA_PREP_FENCE);
+				if (!req)
+					goto fail;
+
+				if (first)
+					sba_chain_request(first, req);
+				else
+					first = req;
+
+				flags |= DMA_PREP_CONTINUE;
+			}
+		} else {
+			req = sba_prep_dma_pq_req(sba, off,
+						  dst_p, dst_q, src, src_cnt,
+						  scf, req_len, flags);
+			if (!req)
+				goto fail;
+
 			if (first)
-				sba_free_chained_requests(first);
-			return NULL;
+				sba_chain_request(first, req);
+			else
+				first = req;
 		}
-
-		if (first)
-			sba_chain_request(first, req);
-		else
-			first = req;
 
 		off += req_len;
 		len -= req_len;
 	}
 
 	return (first) ? &first->tx : NULL;
+
+fail:
+	if (first)
+		sba_free_chained_requests(first);
+	return NULL;
 }
 
 /* ====== Mailbox callbacks ===== */
@@ -1057,7 +1310,8 @@ static void sba_dma_tx_actions(struct sba_request *req)
 	if (tx->cookie > 0) {
 		dma_cookie_complete(tx);
 
-		/* call the callback (must not sleep or submit new
+		/*
+		 * Call the callback (must not sleep or submit new
 		 * operations to this channel)
 		 */
 		if (tx->callback)
@@ -1066,7 +1320,7 @@ static void sba_dma_tx_actions(struct sba_request *req)
 		dma_descriptor_unmap(tx);
 	}
 
-	/* run dependent operations */
+	/* Run dependent operations */
 	dma_run_dependencies(tx);
 
 	/* If waiting for 'ack' then move to completed list */
@@ -1083,25 +1337,24 @@ static void sba_receive_message(struct mbox_client *cl, void *msg)
 	struct sba_request *req = m->ctx, *req1;
 	struct sba_device *sba = req->sba;
 
-	/*  error count if message has error */
+	/* Error count if message has error */
 	if (m->error < 0) {
 		dev_err(sba->dev, "%s got message with error %d",
 			dma_chan_name(&sba->dma_chan), m->error);
 	}
 
-	/* Wait for all messages of a request to be completed */
-	if (atomic_dec_return(&req->msgs_pending_count))
-		return;
+	/* Mark request as received */
+	sba_received_request(req);
 
-	/* Wait for all chained request to be completed */
+	/* Wait for all chained requests to be completed */
 	if (atomic_dec_return(&req->first->next_pending_count))
-		return;
+		goto done;
 
 	/* Point to first request */
 	req = req->first;
 
 	/* Update request */
-	if (req->state == SBA_REQUEST_STATE_ACTIVE)
+	if (req->state == SBA_REQUEST_STATE_RECEIVED)
 		sba_dma_tx_actions(req);
 	else
 		sba_free_chained_requests(req);
@@ -1117,6 +1370,7 @@ static void sba_receive_message(struct mbox_client *cl, void *msg)
 
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 
+done:
 	/* Try to submit pending request */
 	sba_issue_pending(&sba->dma_chan);
 }
@@ -1147,6 +1401,7 @@ static int sba_prealloc_channel_resources(struct sba_device *sba)
 	INIT_LIST_HEAD(&sba->reqs_alloc_list);
 	INIT_LIST_HEAD(&sba->reqs_pending_list);
 	INIT_LIST_HEAD(&sba->reqs_active_list);
+	INIT_LIST_HEAD(&sba->reqs_received_list);
 	INIT_LIST_HEAD(&sba->reqs_completed_list);
 	INIT_LIST_HEAD(&sba->reqs_aborted_list);
 	INIT_LIST_HEAD(&sba->reqs_free_list);
@@ -1184,14 +1439,7 @@ static int sba_prealloc_channel_resources(struct sba_device *sba)
 				(i * sba->max_cmd_per_req + j) * sizeof(u64);
 			req->cmds[j].flags = 0;
 		}
-		req->msgs = devm_kcalloc(sba->dev, sba->max_msg_per_req,
-					 sizeof(*req->msgs), GFP_KERNEL);
-		if (!req->msgs) {
-			ret = -ENOMEM;
-			goto fail_free_cmds_pool;
-		}
-		memset(&req->bmsg, 0, sizeof(req->bmsg));
-		atomic_set(&req->msgs_pending_count, 0);
+		memset(&req->msg, 0, sizeof(req->msg));
 		dma_async_tx_descriptor_init(&req->tx, &sba->dma_chan);
 		req->tx.tx_submit = sba_tx_submit;
 		req->tx.phys = req->resp_dma;
@@ -1266,7 +1514,6 @@ static int sba_async_register(struct sba_device *sba)
 	if (dma_has_cap(DMA_PQ, dma_dev->cap_mask)) {
 		dma_dev->device_prep_dma_pq = sba_prep_dma_pq;
 		dma_set_maxpq(dma_dev, sba->max_pq_srcs, 0);
-		dma_set_maxpqcoef(dma_dev, sba->max_pq_coefs);
 	}
 
 	/* Initialize DMA device channel list */
@@ -1316,16 +1563,14 @@ static int sba_probe(struct platform_device *pdev)
 	/* Derived Configuration parameters */
 	switch (sba->ver) {
 	case SBA_VER_1:
-		sba->max_req = 256;
-		sba->req_size = PAGE_SIZE;
+		sba->max_req = 1024;
 		sba->hw_buf_size = 4096;
 		sba->hw_resp_size = 8;
 		sba->max_pq_coefs = 6;
 		sba->max_pq_srcs = 6;
 		break;
 	case SBA_VER_2:
-		sba->max_req = 256;
-		sba->req_size = PAGE_SIZE;
+		sba->max_req = 1024;
 		sba->hw_buf_size = 4096;
 		sba->hw_resp_size = 8;
 		sba->max_pq_coefs = 30;
@@ -1339,12 +1584,8 @@ static int sba_probe(struct platform_device *pdev)
 	default:
 		return -EINVAL;
 	}
-	sba->max_msg_per_req = sba->req_size / sba->hw_buf_size;
-	if ((sba->max_msg_per_req * sba->hw_buf_size) < sba->req_size)
-		sba->max_msg_per_req++;
-	sba->max_cmd_per_msg = sba->max_pq_srcs + 3;
-	sba->max_cmd_per_req = sba->max_msg_per_req * sba->max_cmd_per_msg;
-	sba->max_xor_srcs = sba->max_cmd_per_msg - 1;
+	sba->max_cmd_per_req = sba->max_pq_srcs + 3;
+	sba->max_xor_srcs = sba->max_cmd_per_req - 1;
 	sba->max_resp_pool_size = sba->max_req * sba->hw_resp_size;
 	sba->max_cmds_pool_size = sba->max_req *
 				  sba->max_cmd_per_req * sizeof(u64);
