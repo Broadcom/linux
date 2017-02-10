@@ -1,0 +1,9 @@
+bcm958742k.dtb                         - standard SVK board
+bcm958742k-diag.dtb                    - HW entries for iprocdiags userspace testing tools
+bcm958742k-extsram.dtb                 - standard ext SRAM SVK board
+bcm958742k-diag-extsram.dtb            - HW entries for iprocdiags for ext SRAM SVK board
+bcm958742k-initrd-extsram-tinyboot.dtb - ramdisk memory allocation for ext SRAM SVK board
+bcm958742k-paxc.dtb                    - enable PAXC
+bcm958742k-paxc-extsram.dtb            - enable PAXC for ext SRAM SVK board
+bcm958742k-qa1-i2c-extsram.dtb         - re-configure I2C0 for QA for ext SRAM SVK board
+bcm958742k-qa2-gpioc-extsram.dtb       - remove GPIO controller for QA for ext SRAM SVK board
