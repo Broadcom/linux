@@ -35,6 +35,7 @@
  * by Broadcom SoC ring manager.
  */
 
+#include <linux/bitops.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
 #include <linux/list.h>
@@ -57,47 +58,36 @@
 
 /* SBA command related defines */
 #define SBA_TYPE_SHIFT					48
-#define SBA_TYPE_MASK					0x3
+#define SBA_TYPE_MASK					GENMASK(1, 0)
 #define SBA_TYPE_A					0x0
 #define SBA_TYPE_B					0x2
 #define SBA_TYPE_C					0x3
 #define SBA_USER_DEF_SHIFT				32
-#define SBA_USER_DEF_MASK				0xffff
+#define SBA_USER_DEF_MASK				GENMASK(15, 0)
 #define SBA_R_MDATA_SHIFT				24
-#define SBA_R_MDATA_MASK				0xff
+#define SBA_R_MDATA_MASK				GENMASK(7, 0)
 #define SBA_C_MDATA_MS_SHIFT				18
-#define SBA_C_MDATA_MS_MASK				0x3
+#define SBA_C_MDATA_MS_MASK				GENMASK(1, 0)
 #define SBA_INT_SHIFT					17
-#define SBA_INT_MASK					0x1
+#define SBA_INT_MASK					BIT(0)
 #define SBA_RESP_SHIFT					16
-#define SBA_RESP_MASK					0x1
+#define SBA_RESP_MASK					BIT(0)
 #define SBA_C_MDATA_SHIFT				8
-#define SBA_C_MDATA_MASK				0xff
+#define SBA_C_MDATA_MASK				GENMASK(7, 0)
+#define SBA_C_MDATA_BNUMx_SHIFT(__bnum)			(2 * (__bnum))
+#define SBA_C_MDATA_BNUMx_MASK				GENMASK(1, 0)
+#define SBA_C_MDATA_DNUM_SHIFT				5
+#define SBA_C_MDATA_DNUM_MASK				GENMASK(4, 0)
+#define SBA_C_MDATA_LS(__v)				((__v) & 0xff)
+#define SBA_C_MDATA_MS(__v)				(((__v) >> 8) & 0x3)
 #define SBA_CMD_SHIFT					0
-#define SBA_CMD_MASK					0xf
+#define SBA_CMD_MASK					GENMASK(3, 0)
 #define SBA_CMD_ZERO_ALL_BUFFERS			0x8
 #define SBA_CMD_LOAD_BUFFER				0x9
 #define SBA_CMD_XOR					0xa
 #define SBA_CMD_GALOIS_XOR				0xb
 #define SBA_CMD_ZERO_BUFFER				0x4
 #define SBA_CMD_WRITE_BUFFER				0xc
-
-/* SBA C_MDATA helper macros */
-#define SBA_C_MDATA_LOAD_VAL(__bnum0)		((__bnum0) & 0x3)
-#define SBA_C_MDATA_WRITE_VAL(__bnum0)		((__bnum0) & 0x3)
-#define SBA_C_MDATA_XOR_VAL(__bnum1, __bnum0)			\
-			({	u32 __v = ((__bnum0) & 0x3);	\
-				__v |= ((__bnum1) & 0x3) << 2;	\
-				__v;				\
-			})
-#define SBA_C_MDATA_PQ_VAL(__dnum, __bnum1, __bnum0)		\
-			({	u32 __v = ((__bnum0) & 0x3);	\
-				__v |= ((__bnum1) & 0x3) << 2;	\
-				__v |= ((__dnum) & 0x1f) << 5;	\
-				__v;				\
-			})
-#define SBA_C_MDATA_LS(__c_mdata_val)	((__c_mdata_val) & 0xff)
-#define SBA_C_MDATA_MS(__c_mdata_val)	(((__c_mdata_val) >> 8) & 0x3)
 
 /* Driver helper macros */
 #define to_sba_request(tx)		\
@@ -115,10 +105,17 @@ enum sba_request_state {
 };
 
 struct sba_request {
+	/* Global state */
 	struct list_head node;
 	struct sba_device *sba;
 	enum sba_request_state state;
 	bool fence;
+	/* Chained requests management */
+	struct sba_request *first;
+	struct list_head next;
+	unsigned int next_count;
+	atomic_t next_pending_count;
+	/* BRCM message data */
 	void *resp;
 	dma_addr_t resp_dma;
 	struct brcm_sba_command *cmds;
@@ -177,6 +174,31 @@ struct sba_device {
 	int reqs_free_count;
 };
 
+/* ====== C_MDATA helper routines ===== */
+
+static inline u32 sba_cmd_load_c_mdata(u32 b0)
+{
+	return b0 & SBA_C_MDATA_BNUMx_MASK;
+}
+
+static inline u32 sba_cmd_write_c_mdata(u32 b0)
+{
+	return b0 & SBA_C_MDATA_BNUMx_MASK;
+}
+
+static inline u32 sba_cmd_xor_c_mdata(u32 b1, u32 b0)
+{
+	return (b0 & SBA_C_MDATA_BNUMx_MASK) |
+	       ((b1 & SBA_C_MDATA_BNUMx_MASK) << SBA_C_MDATA_BNUMx_SHIFT(1));
+}
+
+static inline u32 sba_cmd_pq_c_mdata(u32 d, u32 b1, u32 b0)
+{
+	return (b0 & SBA_C_MDATA_BNUMx_MASK) |
+	       ((b1 & SBA_C_MDATA_BNUMx_MASK) << SBA_C_MDATA_BNUMx_SHIFT(1)) |
+	       ((d & SBA_C_MDATA_DNUM_MASK) << SBA_C_MDATA_DNUM_SHIFT);
+}
+
 /* ====== Channel resource management routines ===== */
 
 static struct sba_request *sba_alloc_request(struct sba_device *sba)
@@ -191,10 +213,15 @@ static struct sba_request *sba_alloc_request(struct sba_device *sba)
 				       struct sba_request,
 				       node);
 
+		list_move_tail(&req->node, &sba->reqs_alloc_list);
 		req->state = SBA_REQUEST_STATE_ALLOCED;
 		req->fence = false;
+		req->first = req;
+		INIT_LIST_HEAD(&req->next);
+		req->next_count = 1;
+		atomic_set(&req->next_pending_count, 1);
 		atomic_set(&req->msgs_pending_count, 0);
-		list_move_tail(&req->node, &sba->reqs_alloc_list);
+
 		sba->reqs_free_count--;
 
 		dma_async_tx_descriptor_init(&req->tx, &sba->dma_chan);
@@ -251,42 +278,59 @@ static void _sba_free_request(struct sba_device *sba,
 	sba->reqs_free_count++;
 }
 
-static void sba_complete_request(struct sba_request *req)
+static void sba_complete_chained_requests(struct sba_request *req)
 {
 	unsigned long flags;
+	struct sba_request *nreq;
 	struct sba_device *sba = req->sba;
 
 	spin_lock_irqsave(&sba->reqs_lock, flags);
+
+	list_for_each_entry(nreq, &req->next, next) {
+		nreq->state = SBA_REQUEST_STATE_COMPLETED;
+		list_move_tail(&nreq->node, &sba->reqs_completed_list);
+	}
 	req->state = SBA_REQUEST_STATE_COMPLETED;
 	list_move_tail(&req->node, &sba->reqs_completed_list);
 	if (list_empty(&sba->reqs_active_list))
 		sba->reqs_fence = false;
+
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 }
 
-static void sba_free_request(struct sba_request *req)
+static void sba_free_chained_requests(struct sba_request *req)
+{
+	unsigned long flags;
+	struct sba_request *nreq;
+	struct sba_device *sba = req->sba;
+
+	spin_lock_irqsave(&sba->reqs_lock, flags);
+
+	list_for_each_entry(nreq, &req->next, next) {
+		_sba_free_request(sba, nreq);
+	}
+	_sba_free_request(sba, req);
+
+	spin_unlock_irqrestore(&sba->reqs_lock, flags);
+}
+
+static void sba_chain_request(struct sba_request *first,
+			      struct sba_request *req)
 {
 	unsigned long flags;
 	struct sba_device *sba = req->sba;
 
 	spin_lock_irqsave(&sba->reqs_lock, flags);
-	_sba_free_request(sba, req);
+
+	list_add_tail(&req->next, &first->next);
+	req->first = first;
+	first->next_count++;
+	atomic_set(&first->next_pending_count, first->next_count);
+
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 }
 
-static int sba_free_request_count(struct sba_device *sba)
-{
-	int ret;
-	unsigned long flags;
-
-	spin_lock_irqsave(&sba->reqs_lock, flags);
-	ret = sba->reqs_free_count;
-	spin_unlock_irqrestore(&sba->reqs_lock, flags);
-
-	return ret;
-}
-
-static void sba_cleanup_inflight_requests(struct sba_device *sba)
+static void sba_cleanup_nonpending_requests(struct sba_device *sba)
 {
 	unsigned long flags;
 	struct sba_request *req, *req1;
@@ -296,16 +340,6 @@ static void sba_cleanup_inflight_requests(struct sba_device *sba)
 	/* Freeup all alloced request */
 	list_for_each_entry_safe(req, req1, &sba->reqs_alloc_list, node) {
 		_sba_free_request(sba, req);
-	}
-
-	/* Freeup all pending request */
-	list_for_each_entry_safe(req, req1, &sba->reqs_pending_list, node) {
-		if (req->bmsg.batch.msgs_queued < req->bmsg.batch.msgs_count)
-			/* Set partially-queued request as aborted */
-			_sba_abort_request(sba, req);
-		else
-			/* Freeup rest of the pending request */
-			_sba_free_request(sba, req);
 	}
 
 	/* Freeup all completed request */
@@ -326,17 +360,27 @@ static void sba_cleanup_inflight_requests(struct sba_device *sba)
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 }
 
-/* ====== DMAENGINE callbacks ===== */
-
-static int sba_alloc_chan_resources(struct dma_chan *dchan)
+static void sba_cleanup_pending_requests(struct sba_device *sba)
 {
-	/*
-	 * We only have one channel so we have pre-alloced
-	 * channel resources. Over here we just return number
-	 * of free request.
-	 */
-	return sba_free_request_count(to_sba_device(dchan));
+	unsigned long flags;
+	struct sba_request *req, *req1;
+
+	spin_lock_irqsave(&sba->reqs_lock, flags);
+
+	/* Freeup all pending request */
+	list_for_each_entry_safe(req, req1, &sba->reqs_pending_list, node) {
+		if (req->bmsg.batch.msgs_queued < req->bmsg.batch.msgs_count)
+			/* Set partially-queued request as aborted */
+			_sba_abort_request(sba, req);
+		else
+			/* Freeup rest of the pending request */
+			_sba_free_request(sba, req);
+	}
+
+	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 }
+
+/* ====== DMAENGINE callbacks ===== */
 
 static void sba_free_chan_resources(struct dma_chan *dchan)
 {
@@ -345,7 +389,15 @@ static void sba_free_chan_resources(struct dma_chan *dchan)
 	 * whatever we can so that we can re-use pre-alloced
 	 * channel resources next time.
 	 */
-	sba_cleanup_inflight_requests(to_sba_device(dchan));
+	sba_cleanup_nonpending_requests(to_sba_device(dchan));
+}
+
+static int sba_device_terminate_all(struct dma_chan *dchan)
+{
+	/* Cleanup all pending requests */
+	sba_cleanup_pending_requests(to_sba_device(dchan));
+
+	return 0;
 }
 
 static int sba_send_mbox_request(struct sba_device *sba,
@@ -361,18 +413,18 @@ static int sba_send_mbox_request(struct sba_device *sba,
 	req->bmsg.batch.msgs_queued = 0;
 	ret = mbox_send_message(sba->mchans[mchans_idx], &req->bmsg);
 	if (ret < 0) {
-		dev_info(sba->dev, "channel %d message %d (total %d)",
-			 mchans_idx, req->bmsg.batch.msgs_queued,
-			 req->bmsg.batch.msgs_count);
+		dev_err(sba->dev, "channel %d message %d (total %d)",
+			mchans_idx, req->bmsg.batch.msgs_queued,
+			req->bmsg.batch.msgs_count);
 		dev_err(sba->dev, "send message failed with error %d", ret);
 		return ret;
 	}
 	ret = req->bmsg.error;
 	if (ret < 0) {
-		dev_info(sba->dev,
-			 "mbox channel %d message %d (total %d)",
-			 mchans_idx, req->bmsg.batch.msgs_queued,
-			 req->bmsg.batch.msgs_count);
+		dev_err(sba->dev,
+			"mbox channel %d message %d (total %d)",
+			mchans_idx, req->bmsg.batch.msgs_queued,
+			req->bmsg.batch.msgs_count);
 		dev_err(sba->dev, "message error %d", ret);
 		return ret;
 	}
@@ -414,8 +466,8 @@ static dma_cookie_t sba_tx_submit(struct dma_async_tx_descriptor *tx)
 {
 	unsigned long flags;
 	dma_cookie_t cookie;
-	struct sba_request *req;
 	struct sba_device *sba;
+	struct sba_request *req, *nreq;
 
 	if (unlikely(!tx))
 		return -EINVAL;
@@ -423,14 +475,14 @@ static dma_cookie_t sba_tx_submit(struct dma_async_tx_descriptor *tx)
 	sba = to_sba_device(tx->chan);
 	req = to_sba_request(tx);
 
-	/* Assign cookie and mark request pending */
+	/* Assign cookie and mark all chained requests pending */
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 	cookie = dma_cookie_assign(tx);
+	list_for_each_entry(nreq, &req->next, next) {
+		_sba_pending_request(sba, nreq);
+	}
 	_sba_pending_request(sba, req);
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
-
-	/* Try to submit pending request */
-	sba_issue_pending(&sba->dma_chan);
 
 	return cookie;
 }
@@ -443,12 +495,12 @@ static enum dma_status sba_tx_status(struct dma_chan *dchan,
 	enum dma_status ret;
 	struct sba_device *sba = to_sba_device(dchan);
 
+	for (mchan_idx = 0; mchan_idx < sba->mchans_count; mchan_idx++)
+		mbox_client_peek_data(sba->mchans[mchan_idx]);
+
 	ret = dma_cookie_status(dchan, cookie, txstate);
 	if (ret == DMA_COMPLETE)
 		return ret;
-
-	for (mchan_idx = 0; mchan_idx < sba->mchans_count; mchan_idx++)
-		mbox_client_peek_data(sba->mchans[mchan_idx]);
 
 	return dma_cookie_status(dchan, cookie, txstate);
 }
@@ -468,7 +520,7 @@ static unsigned int sba_fillup_memcpy_msg(struct sba_request *req,
 	SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 	SBA_ENC(cmd, msg_len,
 		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-	c_mdata = SBA_C_MDATA_LOAD_VAL(0);
+	c_mdata = sba_cmd_load_c_mdata(0);
 	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 	SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
@@ -486,7 +538,7 @@ static unsigned int sba_fillup_memcpy_msg(struct sba_request *req,
 	SBA_ENC(cmd, msg_len,
 		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 	SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
-	c_mdata = SBA_C_MDATA_WRITE_VAL(0);
+	c_mdata = sba_cmd_write_c_mdata(0);
 	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 	SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
@@ -514,19 +566,15 @@ static unsigned int sba_fillup_memcpy_msg(struct sba_request *req,
 	return cmdsp - cmds;
 }
 
-static struct dma_async_tx_descriptor *
-sba_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t src,
-		    size_t len, unsigned long flags)
+static struct sba_request *
+sba_prep_dma_memcpy_req(struct sba_device *sba,
+			dma_addr_t off, dma_addr_t dst, dma_addr_t src,
+			size_t len, unsigned long flags)
 {
 	size_t msg_len;
 	dma_addr_t msg_offset = 0;
 	unsigned int msgs_count = 0, cmds_count, cmds_idx = 0;
-	struct sba_device *sba = to_sba_device(dchan);
 	struct sba_request *req = NULL;
-
-	/* Sanity checks */
-	if (unlikely(len > sba->req_size))
-		return NULL;
 
 	/* Alloc new request */
 	req = sba_alloc_request(sba);
@@ -540,7 +588,7 @@ sba_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t src,
 		cmds_count = sba_fillup_memcpy_msg(req,
 					&req->cmds[cmds_idx],
 					&req->msgs[msgs_count],
-					msg_offset, msg_len, dst, src);
+					off + msg_offset, msg_len, dst, src);
 		msgs_count++;
 		cmds_idx += cmds_count;
 		msg_offset += msg_len;
@@ -558,7 +606,40 @@ sba_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t src,
 	req->tx.flags = flags;
 	req->tx.cookie = -EBUSY;
 
-	return &req->tx;
+	return req;
+}
+
+static struct dma_async_tx_descriptor *
+sba_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t src,
+		    size_t len, unsigned long flags)
+{
+	size_t req_len;
+	dma_addr_t off = 0;
+	struct sba_device *sba = to_sba_device(dchan);
+	struct sba_request *first = NULL, *req;
+
+	/* Create chained requests where each request is upto req_size */
+	while (len) {
+		req_len = (len < sba->req_size) ? len : sba->req_size;
+
+		req = sba_prep_dma_memcpy_req(sba, off, dst, src,
+					      req_len, flags);
+		if (!req) {
+			if (first)
+				sba_free_chained_requests(first);
+			return NULL;
+		}
+
+		if (first)
+			sba_chain_request(first, req);
+		else
+			first = req;
+
+		off += req_len;
+		len -= req_len;
+	}
+
+	return (first) ? &first->tx : NULL;
 }
 
 static unsigned int sba_fillup_xor_msg(struct sba_request *req,
@@ -577,7 +658,7 @@ static unsigned int sba_fillup_xor_msg(struct sba_request *req,
 	SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 	SBA_ENC(cmd, msg_len,
 		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-	c_mdata = SBA_C_MDATA_LOAD_VAL(0);
+	c_mdata = sba_cmd_load_c_mdata(0);
 	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 	SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
@@ -595,7 +676,7 @@ static unsigned int sba_fillup_xor_msg(struct sba_request *req,
 		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 		SBA_ENC(cmd, msg_len,
 			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-		c_mdata = SBA_C_MDATA_XOR_VAL(0, 0);
+		c_mdata = sba_cmd_xor_c_mdata(0, 0);
 		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 		SBA_ENC(cmd, SBA_CMD_XOR, SBA_CMD_SHIFT, SBA_CMD_MASK);
@@ -613,7 +694,7 @@ static unsigned int sba_fillup_xor_msg(struct sba_request *req,
 	SBA_ENC(cmd, msg_len,
 		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 	SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
-	c_mdata = SBA_C_MDATA_WRITE_VAL(0);
+	c_mdata = sba_cmd_write_c_mdata(0);
 	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 	SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
@@ -641,21 +722,15 @@ static unsigned int sba_fillup_xor_msg(struct sba_request *req,
 	return cmdsp - cmds;
 }
 
-static struct dma_async_tx_descriptor *
-sba_prep_dma_xor(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t *src,
-		 u32 src_cnt, size_t len, unsigned long flags)
+struct sba_request *
+sba_prep_dma_xor_req(struct sba_device *sba,
+		     dma_addr_t off, dma_addr_t dst, dma_addr_t *src,
+		     u32 src_cnt, size_t len, unsigned long flags)
 {
 	size_t msg_len;
 	dma_addr_t msg_offset = 0;
 	unsigned int msgs_count = 0, cmds_count, cmds_idx = 0;
-	struct sba_device *sba = to_sba_device(dchan);
 	struct sba_request *req = NULL;
-
-	/* Sanity checks */
-	if (unlikely(len > sba->req_size))
-		return NULL;
-	if (unlikely(src_cnt > sba->max_xor_srcs))
-		return NULL;
 
 	/* Alloc new request */
 	req = sba_alloc_request(sba);
@@ -669,7 +744,7 @@ sba_prep_dma_xor(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t *src,
 		cmds_count = sba_fillup_xor_msg(req,
 				     &req->cmds[cmds_idx],
 				     &req->msgs[msgs_count],
-				     msg_offset, msg_len,
+				     off + msg_offset, msg_len,
 				     dst, src, src_cnt);
 		msgs_count++;
 		cmds_idx += cmds_count;
@@ -688,7 +763,44 @@ sba_prep_dma_xor(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t *src,
 	req->tx.flags = flags;
 	req->tx.cookie = -EBUSY;
 
-	return &req->tx;
+	return req;
+}
+
+static struct dma_async_tx_descriptor *
+sba_prep_dma_xor(struct dma_chan *dchan, dma_addr_t dst, dma_addr_t *src,
+		 u32 src_cnt, size_t len, unsigned long flags)
+{
+	size_t req_len;
+	dma_addr_t off = 0;
+	struct sba_device *sba = to_sba_device(dchan);
+	struct sba_request *first = NULL, *req;
+
+	/* Sanity checks */
+	if (unlikely(src_cnt > sba->max_xor_srcs))
+		return NULL;
+
+	/* Create chained requests where each request is upto req_size */
+	while (len) {
+		req_len = (len < sba->req_size) ? len : sba->req_size;
+
+		req = sba_prep_dma_xor_req(sba, off, dst, src, src_cnt,
+					   req_len, flags);
+		if (!req) {
+			if (first)
+				sba_free_chained_requests(first);
+			return NULL;
+		}
+
+		if (first)
+			sba_chain_request(first, req);
+		else
+			first = req;
+
+		off += req_len;
+		len -= req_len;
+	}
+
+	return (first) ? &first->tx : NULL;
 }
 
 static unsigned int sba_fillup_pq_msg(struct sba_request *req,
@@ -712,7 +824,7 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 				SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 			SBA_ENC(cmd, msg_len,
 				SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-			c_mdata = SBA_C_MDATA_LOAD_VAL(0);
+			c_mdata = sba_cmd_load_c_mdata(0);
 			SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 				SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 			SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
@@ -732,7 +844,7 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 				SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 			SBA_ENC(cmd, msg_len,
 				SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-			c_mdata = SBA_C_MDATA_LOAD_VAL(1);
+			c_mdata = sba_cmd_load_c_mdata(1);
 			SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 				SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 			SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
@@ -764,7 +876,7 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
 		SBA_ENC(cmd, msg_len,
 			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-		c_mdata = SBA_C_MDATA_PQ_VAL(raid6_gflog[scf[i]], 1, 0);
+		c_mdata = sba_cmd_pq_c_mdata(raid6_gflog[scf[i]], 1, 0);
 		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 		SBA_ENC(cmd, SBA_C_MDATA_MS(c_mdata),
@@ -786,7 +898,7 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 		SBA_ENC(cmd, msg_len,
 			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
-		c_mdata = SBA_C_MDATA_WRITE_VAL(0);
+		c_mdata = sba_cmd_write_c_mdata(0);
 		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
@@ -812,7 +924,7 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 		SBA_ENC(cmd, msg_len,
 			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
-		c_mdata = SBA_C_MDATA_WRITE_VAL(1);
+		c_mdata = sba_cmd_write_c_mdata(1);
 		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
 			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
 		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
@@ -841,26 +953,16 @@ static unsigned int sba_fillup_pq_msg(struct sba_request *req,
 	return cmdsp - cmds;
 }
 
-static struct dma_async_tx_descriptor *
-sba_prep_dma_pq(struct dma_chan *dchan, dma_addr_t *dst, dma_addr_t *src,
-		u32 src_cnt, const u8 *scf, size_t len, unsigned long flags)
+struct sba_request *
+sba_prep_dma_pq_req(struct sba_device *sba,
+		    dma_addr_t off, dma_addr_t *dst, dma_addr_t *src,
+		    u32 src_cnt, const u8 *scf, size_t len, unsigned long flags)
 {
-	u32 i;
 	size_t dst_count, msg_len;
 	unsigned int msgs_count = 0, cmds_count, cmds_idx = 0;
 	dma_addr_t *dst_p = NULL, *dst_q = NULL;
 	dma_addr_t msg_offset = 0;
-	struct sba_device *sba = to_sba_device(dchan);
 	struct sba_request *req = NULL;
-
-	/* Sanity checks */
-	if (unlikely(len > sba->req_size))
-		return NULL;
-	if (unlikely(src_cnt > sba->max_pq_srcs))
-		return NULL;
-	for (i = 0; i < src_cnt; i++)
-		if (sba->max_pq_coefs <= raid6_gflog[scf[i]])
-			return NULL;
 
 	/* Figure-out P and Q destination addresses */
 	dst_count = 0;
@@ -881,7 +983,7 @@ sba_prep_dma_pq(struct dma_chan *dchan, dma_addr_t *dst, dma_addr_t *src,
 		cmds_count = sba_fillup_pq_msg(req, dmaf_continue(flags),
 				    &req->cmds[cmds_idx],
 				    &req->msgs[msgs_count],
-				    msg_offset, msg_len,
+				    off + msg_offset, msg_len,
 				    dst_p, dst_q, scf, src, src_cnt);
 		msgs_count++;
 		cmds_idx += cmds_count;
@@ -900,7 +1002,48 @@ sba_prep_dma_pq(struct dma_chan *dchan, dma_addr_t *dst, dma_addr_t *src,
 	req->tx.flags = flags;
 	req->tx.cookie = -EBUSY;
 
-	return &req->tx;
+	return req;
+}
+
+static struct dma_async_tx_descriptor *
+sba_prep_dma_pq(struct dma_chan *dchan, dma_addr_t *dst, dma_addr_t *src,
+		u32 src_cnt, const u8 *scf, size_t len, unsigned long flags)
+{
+	u32 i;
+	size_t req_len;
+	dma_addr_t off = 0;
+	struct sba_device *sba = to_sba_device(dchan);
+	struct sba_request *first = NULL, *req;
+
+	/* Sanity checks */
+	if (unlikely(src_cnt > sba->max_pq_srcs))
+		return NULL;
+	for (i = 0; i < src_cnt; i++)
+		if (sba->max_pq_coefs <= raid6_gflog[scf[i]])
+			return NULL;
+
+	/* Create chained requests where each request is upto req_size */
+	while (len) {
+		req_len = (len < sba->req_size) ? len : sba->req_size;
+
+		req = sba_prep_dma_pq_req(sba, off, dst, src, src_cnt,
+					  scf, req_len, flags);
+		if (!req) {
+			if (first)
+				sba_free_chained_requests(first);
+			return NULL;
+		}
+
+		if (first)
+			sba_chain_request(first, req);
+		else
+			first = req;
+
+		off += req_len;
+		len -= req_len;
+	}
+
+	return (first) ? &first->tx : NULL;
 }
 
 /* ====== Mailbox callbacks ===== */
@@ -925,15 +1068,12 @@ static void sba_dma_tx_actions(struct sba_request *req)
 
 	/* run dependent operations */
 	dma_run_dependencies(tx);
-}
 
-static void sba_dma_clean(struct sba_request *req)
-{
 	/* If waiting for 'ack' then move to completed list */
 	if (!async_tx_test_ack(&req->tx))
-		sba_complete_request(req);
+		sba_complete_chained_requests(req);
 	else
-		sba_free_request(req);
+		sba_free_chained_requests(req);
 }
 
 static void sba_receive_message(struct mbox_client *cl, void *msg)
@@ -949,17 +1089,22 @@ static void sba_receive_message(struct mbox_client *cl, void *msg)
 			dma_chan_name(&sba->dma_chan), m->error);
 	}
 
-	/* Wait for all messages to be completed */
+	/* Wait for all messages of a request to be completed */
 	if (atomic_dec_return(&req->msgs_pending_count))
 		return;
 
+	/* Wait for all chained request to be completed */
+	if (atomic_dec_return(&req->first->next_pending_count))
+		return;
+
+	/* Point to first request */
+	req = req->first;
+
 	/* Update request */
-	if (req->state == SBA_REQUEST_STATE_ACTIVE) {
+	if (req->state == SBA_REQUEST_STATE_ACTIVE)
 		sba_dma_tx_actions(req);
-		sba_dma_clean(req);
-	} else {
-		sba_free_request(req);
-	}
+	else
+		sba_free_chained_requests(req);
 
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 
@@ -967,7 +1112,6 @@ static void sba_receive_message(struct mbox_client *cl, void *msg)
 	list_for_each_entry_safe(req, req1, &sba->reqs_completed_list, node) {
 		spin_unlock_irqrestore(&sba->reqs_lock, flags);
 		sba_dma_tx_actions(req);
-		sba_dma_clean(req);
 		spin_lock_irqsave(&sba->reqs_lock, flags);
 	}
 
@@ -1019,6 +1163,9 @@ static int sba_prealloc_channel_resources(struct sba_device *sba)
 		INIT_LIST_HEAD(&req->node);
 		req->sba = sba;
 		req->state = SBA_REQUEST_STATE_FREE;
+		INIT_LIST_HEAD(&req->next);
+		req->next_count = 1;
+		atomic_set(&req->next_pending_count, 0);
 		req->fence = false;
 		req->resp = sba->resp_base + p;
 		req->resp_dma = sba->resp_dma_base + p;
@@ -1100,15 +1247,14 @@ static int sba_async_register(struct sba_device *sba)
 	dma_dev->dev = sba->mbox_dev;
 
 	/* Set base prep routines */
-	dma_dev->device_alloc_chan_resources = sba_alloc_chan_resources;
 	dma_dev->device_free_chan_resources = sba_free_chan_resources;
+	dma_dev->device_terminate_all = sba_device_terminate_all;
 	dma_dev->device_issue_pending = sba_issue_pending;
 	dma_dev->device_tx_status = sba_tx_status;
 
 	/* Set memcpy routines and capability */
-	if (dma_has_cap(DMA_MEMCPY, dma_dev->cap_mask)) {
+	if (dma_has_cap(DMA_MEMCPY, dma_dev->cap_mask))
 		dma_dev->device_prep_dma_memcpy = sba_prep_dma_memcpy;
-	}
 
 	/* Set xor routines and capability */
 	if (dma_has_cap(DMA_XOR, dma_dev->cap_mask)) {
@@ -1147,6 +1293,8 @@ static int sba_probe(struct platform_device *pdev)
 {
 	int i, ret = 0, mchans_count;
 	struct sba_device *sba;
+	struct platform_device *mbox_pdev;
+	struct of_phandle_args args;
 
 	/* Allocate main SBA struct */
 	sba = devm_kzalloc(&pdev->dev, sizeof(*sba), GFP_KERNEL);
@@ -1168,7 +1316,7 @@ static int sba_probe(struct platform_device *pdev)
 	/* Derived Configuration parameters */
 	switch (sba->ver) {
 	case SBA_VER_1:
-		sba->max_req = 128;
+		sba->max_req = 256;
 		sba->req_size = PAGE_SIZE;
 		sba->hw_buf_size = 4096;
 		sba->hw_resp_size = 8;
@@ -1176,7 +1324,7 @@ static int sba_probe(struct platform_device *pdev)
 		sba->max_pq_srcs = 6;
 		break;
 	case SBA_VER_2:
-		sba->max_req = 128;
+		sba->max_req = 256;
 		sba->req_size = PAGE_SIZE;
 		sba->hw_buf_size = 4096;
 		sba->hw_resp_size = 8;
@@ -1234,15 +1382,27 @@ static int sba_probe(struct platform_device *pdev)
 	}
 
 	/* Find-out underlying mailbox device */
-	sba->mbox_dev = mbox_channel_device(sba->mchans[0]);
-	if (IS_ERR(sba->mbox_dev)) {
-		ret = PTR_ERR(sba->mbox_dev);
+	ret = of_parse_phandle_with_args(pdev->dev.of_node,
+					 "mboxes", "#mbox-cells", 0, &args);
+	if (ret)
+		goto fail_free_mchans;
+	mbox_pdev = of_find_device_by_node(args.np);
+	of_node_put(args.np);
+	if (!mbox_pdev) {
+		ret = -ENODEV;
 		goto fail_free_mchans;
 	}
+	sba->mbox_dev = &mbox_pdev->dev;
 
 	/* All mailbox channels should be of same ring manager device */
 	for (i = 1; i < mchans_count; i++) {
-		if (mbox_channel_device(sba->mchans[i]) != sba->mbox_dev) {
+		ret = of_parse_phandle_with_args(pdev->dev.of_node,
+					 "mboxes", "#mbox-cells", i, &args);
+		if (ret)
+			goto fail_free_mchans;
+		mbox_pdev = of_find_device_by_node(args.np);
+		of_node_put(args.np);
+		if (sba->mbox_dev != &mbox_pdev->dev) {
 			ret = -EINVAL;
 			goto fail_free_mchans;
 		}
