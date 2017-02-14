@@ -84,7 +84,7 @@ main() {
 	iproc_base="base-arm64 clocksource dbg mmu"
 	iproc_extra="blk net dma fs i2c iomux mailbox md misc mmc mtd \
 	mtd-spi rng spi virtio watchdog pwm usb bdc perf regulator rtc \
-	infiniband nvme uio"
+	infiniband nvme uio crypto"
 	do_update ${ARCH64} iproc $iproc_base $iproc_extra
 
 	# sr_nitro_lite_defconfig. for PAXC/Nitro bring up on Stingray palladium
