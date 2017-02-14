@@ -48,14 +48,6 @@
 
 #include "dmaengine.h"
 
-/* SBA command helper macros */
-#define SBA_DEC(_d, _s, _m)		(((_d) >> (_s)) & (_m))
-#define SBA_ENC(_d, _v, _s, _m)					\
-		do {						\
-			(_d) &= ~((u64)(_m) << (_s));		\
-			(_d) |= (((u64)(_v) & (_m)) << (_s));	\
-		} while (0)
-
 /* SBA command related defines */
 #define SBA_TYPE_SHIFT					48
 #define SBA_TYPE_MASK					GENMASK(1, 0)
@@ -172,25 +164,32 @@ struct sba_device {
 	int reqs_free_count;
 };
 
-/* ====== C_MDATA helper routines ===== */
+/* ====== SBA command helper routines ===== */
 
-static inline u32 sba_cmd_load_c_mdata(u32 b0)
+static inline u64 __pure sba_cmd_enc(u64 cmd, u32 val, u32 shift, u32 mask)
+{
+	cmd &= ~((u64)mask << shift);
+	cmd |= ((u64)(val & mask) << shift);
+	return cmd;
+}
+
+static inline u32 __pure sba_cmd_load_c_mdata(u32 b0)
 {
 	return b0 & SBA_C_MDATA_BNUMx_MASK;
 }
 
-static inline u32 sba_cmd_write_c_mdata(u32 b0)
+static inline u32 __pure sba_cmd_write_c_mdata(u32 b0)
 {
 	return b0 & SBA_C_MDATA_BNUMx_MASK;
 }
 
-static inline u32 sba_cmd_xor_c_mdata(u32 b1, u32 b0)
+static inline u32 __pure sba_cmd_xor_c_mdata(u32 b1, u32 b0)
 {
 	return (b0 & SBA_C_MDATA_BNUMx_MASK) |
 	       ((b1 & SBA_C_MDATA_BNUMx_MASK) << SBA_C_MDATA_BNUMx_SHIFT(1));
 }
 
-static inline u32 sba_cmd_pq_c_mdata(u32 d, u32 b1, u32 b0)
+static inline u32 __pure sba_cmd_pq_c_mdata(u32 d, u32 b1, u32 b0)
 {
 	return (b0 & SBA_C_MDATA_BNUMx_MASK) |
 	       ((b1 & SBA_C_MDATA_BNUMx_MASK) << SBA_C_MDATA_BNUMx_SHIFT(1)) |
@@ -206,11 +205,9 @@ static struct sba_request *sba_alloc_request(struct sba_device *sba)
 
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 
-	if (!list_empty(&sba->reqs_free_list)) {
-		req = list_first_entry(&sba->reqs_free_list,
-				       struct sba_request,
-				       node);
-
+	req = list_first_entry_or_null(&sba->reqs_free_list,
+				       struct sba_request, node);
+	if (req) {
 		list_move_tail(&req->node, &sba->reqs_alloc_list);
 		req->state = SBA_REQUEST_STATE_ALLOCED;
 		req->fence = false;
@@ -233,6 +230,7 @@ static struct sba_request *sba_alloc_request(struct sba_device *sba)
 static void _sba_pending_request(struct sba_device *sba,
 				 struct sba_request *req)
 {
+	lockdep_assert_held(&sba->reqs_lock);
 	req->state = SBA_REQUEST_STATE_PENDING;
 	list_move_tail(&req->node, &sba->reqs_pending_list);
 	if (list_empty(&sba->reqs_active_list))
@@ -243,6 +241,7 @@ static void _sba_pending_request(struct sba_device *sba,
 static bool _sba_active_request(struct sba_device *sba,
 				struct sba_request *req)
 {
+	lockdep_assert_held(&sba->reqs_lock);
 	if (list_empty(&sba->reqs_active_list))
 		sba->reqs_fence = false;
 	if (sba->reqs_fence)
@@ -258,6 +257,7 @@ static bool _sba_active_request(struct sba_device *sba,
 static void _sba_abort_request(struct sba_device *sba,
 			       struct sba_request *req)
 {
+	lockdep_assert_held(&sba->reqs_lock);
 	req->state = SBA_REQUEST_STATE_ABORTED;
 	list_move_tail(&req->node, &sba->reqs_aborted_list);
 	if (list_empty(&sba->reqs_active_list))
@@ -268,6 +268,7 @@ static void _sba_abort_request(struct sba_device *sba,
 static void _sba_free_request(struct sba_device *sba,
 			      struct sba_request *req)
 {
+	lockdep_assert_held(&sba->reqs_lock);
 	req->state = SBA_REQUEST_STATE_FREE;
 	list_move_tail(&req->node, &sba->reqs_free_list);
 	if (list_empty(&sba->reqs_active_list))
@@ -315,9 +316,8 @@ static void sba_free_chained_requests(struct sba_request *req)
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 
 	_sba_free_request(sba, req);
-	list_for_each_entry(nreq, &req->next, next) {
+	list_for_each_entry(nreq, &req->next, next)
 		_sba_free_request(sba, nreq);
-	}
 
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 }
@@ -346,24 +346,20 @@ static void sba_cleanup_nonpending_requests(struct sba_device *sba)
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 
 	/* Freeup all alloced request */
-	list_for_each_entry_safe(req, req1, &sba->reqs_alloc_list, node) {
+	list_for_each_entry_safe(req, req1, &sba->reqs_alloc_list, node)
 		_sba_free_request(sba, req);
-	}
 
 	/* Freeup all received request */
-	list_for_each_entry_safe(req, req1, &sba->reqs_received_list, node) {
+	list_for_each_entry_safe(req, req1, &sba->reqs_received_list, node)
 		_sba_free_request(sba, req);
-	}
 
 	/* Freeup all completed request */
-	list_for_each_entry_safe(req, req1, &sba->reqs_completed_list, node) {
+	list_for_each_entry_safe(req, req1, &sba->reqs_completed_list, node)
 		_sba_free_request(sba, req);
-	}
 
 	/* Set all active requests as aborted */
-	list_for_each_entry_safe(req, req1, &sba->reqs_active_list, node) {
+	list_for_each_entry_safe(req, req1, &sba->reqs_active_list, node)
 		_sba_abort_request(sba, req);
-	}
 
 	/*
 	 * Note: We expect that aborted request will be eventually
@@ -381,10 +377,8 @@ static void sba_cleanup_pending_requests(struct sba_device *sba)
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 
 	/* Freeup all pending request */
-	list_for_each_entry_safe(req, req1, &sba->reqs_pending_list, node) {
-		/* Freeup rest of the pending request */
+	list_for_each_entry_safe(req, req1, &sba->reqs_pending_list, node)
 		_sba_free_request(sba, req);
-	}
 
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 }
@@ -481,9 +475,8 @@ static dma_cookie_t sba_tx_submit(struct dma_async_tx_descriptor *tx)
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 	cookie = dma_cookie_assign(tx);
 	_sba_pending_request(sba, req);
-	list_for_each_entry(nreq, &req->next, next) {
+	list_for_each_entry(nreq, &req->next, next)
 		_sba_pending_request(sba, nreq);
-	}
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
 
 	return cookie;
@@ -518,15 +511,15 @@ static void sba_fillup_memcpy_msg(struct sba_request *req,
 	struct brcm_sba_command *cmdsp = cmds;
 
 	/* Type-B command to load data into buf0 */
-	cmd = 0;
-	SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-	SBA_ENC(cmd, msg_len,
-		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
+			  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	cmd = sba_cmd_enc(cmd, msg_len,
+			  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 	c_mdata = sba_cmd_load_c_mdata(0);
-	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-	SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
-		SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+			  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_CMD_LOAD_BUFFER,
+			  SBA_CMD_SHIFT, SBA_CMD_MASK);
 	cmdsp->cmd = cmd;
 	*cmdsp->cmd_dma = cpu_to_le64(cmd);
 	cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
@@ -535,16 +528,17 @@ static void sba_fillup_memcpy_msg(struct sba_request *req,
 	cmdsp++;
 
 	/* Type-A command to write buf0 */
-	cmd = 0;
-	SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-	SBA_ENC(cmd, msg_len,
-		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-	SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
+	cmd = sba_cmd_enc(0x0, SBA_TYPE_A,
+			  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	cmd = sba_cmd_enc(cmd, msg_len,
+			  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	cmd = sba_cmd_enc(cmd, 0x1,
+			  SBA_RESP_SHIFT, SBA_RESP_MASK);
 	c_mdata = sba_cmd_write_c_mdata(0);
-	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-	SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
-		SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+			  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_CMD_WRITE_BUFFER,
+			  SBA_CMD_SHIFT, SBA_CMD_MASK);
 	cmdsp->cmd = cmd;
 	*cmdsp->cmd_dma = cpu_to_le64(cmd);
 	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
@@ -635,15 +629,15 @@ static void sba_fillup_xor_msg(struct sba_request *req,
 	struct brcm_sba_command *cmdsp = cmds;
 
 	/* Type-B command to load data into buf0 */
-	cmd = 0;
-	SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-	SBA_ENC(cmd, msg_len,
-		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
+			  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	cmd = sba_cmd_enc(cmd, msg_len,
+			  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 	c_mdata = sba_cmd_load_c_mdata(0);
-	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-	SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
-		SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+			  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_CMD_LOAD_BUFFER,
+			  SBA_CMD_SHIFT, SBA_CMD_MASK);
 	cmdsp->cmd = cmd;
 	*cmdsp->cmd_dma = cpu_to_le64(cmd);
 	cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
@@ -653,14 +647,15 @@ static void sba_fillup_xor_msg(struct sba_request *req,
 
 	/* Type-B commands to xor data with buf0 and put it back in buf0 */
 	for (i = 1; i < src_cnt; i++) {
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, msg_len,
-			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
+				  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		cmd = sba_cmd_enc(cmd, msg_len,
+				  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		c_mdata = sba_cmd_xor_c_mdata(0, 0);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_CMD_XOR, SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+				  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_CMD_XOR,
+				  SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmdsp->cmd = cmd;
 		*cmdsp->cmd_dma = cpu_to_le64(cmd);
 		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
@@ -670,16 +665,17 @@ static void sba_fillup_xor_msg(struct sba_request *req,
 	}
 
 	/* Type-A command to write buf0 */
-	cmd = 0;
-	SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-	SBA_ENC(cmd, msg_len,
-		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-	SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
+	cmd = sba_cmd_enc(0x0, SBA_TYPE_A,
+			  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	cmd = sba_cmd_enc(cmd, msg_len,
+			  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	cmd = sba_cmd_enc(cmd, 0x1,
+			  SBA_RESP_SHIFT, SBA_RESP_MASK);
 	c_mdata = sba_cmd_write_c_mdata(0);
-	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-	SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
-		SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+			  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_CMD_WRITE_BUFFER,
+			  SBA_CMD_SHIFT, SBA_CMD_MASK);
 	cmdsp->cmd = cmd;
 	*cmdsp->cmd_dma = cpu_to_le64(cmd);
 	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
@@ -778,15 +774,14 @@ static void sba_fillup_pq_msg(struct sba_request *req,
 	if (pq_continue) {
 		/* Type-B command to load old P into buf0 */
 		if (dst_p) {
-			cmd = 0;
-			SBA_ENC(cmd, SBA_TYPE_B,
+			cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
 				SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-			SBA_ENC(cmd, msg_len,
+			cmd = sba_cmd_enc(cmd, msg_len,
 				SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 			c_mdata = sba_cmd_load_c_mdata(0);
-			SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
 				SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-			SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
+			cmd = sba_cmd_enc(cmd, SBA_CMD_LOAD_BUFFER,
 				SBA_CMD_SHIFT, SBA_CMD_MASK);
 			cmdsp->cmd = cmd;
 			*cmdsp->cmd_dma = cpu_to_le64(cmd);
@@ -798,15 +793,14 @@ static void sba_fillup_pq_msg(struct sba_request *req,
 
 		/* Type-B command to load old Q into buf1 */
 		if (dst_q) {
-			cmd = 0;
-			SBA_ENC(cmd, SBA_TYPE_B,
+			cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
 				SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-			SBA_ENC(cmd, msg_len,
+			cmd = sba_cmd_enc(cmd, msg_len,
 				SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 			c_mdata = sba_cmd_load_c_mdata(1);
-			SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
+			cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
 				SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-			SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
+			cmd = sba_cmd_enc(cmd, SBA_CMD_LOAD_BUFFER,
 				SBA_CMD_SHIFT, SBA_CMD_MASK);
 			cmdsp->cmd = cmd;
 			*cmdsp->cmd_dma = cpu_to_le64(cmd);
@@ -817,12 +811,12 @@ static void sba_fillup_pq_msg(struct sba_request *req,
 		}
 	} else {
 		/* Type-A command to zero all buffers */
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, msg_len,
-			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-		SBA_ENC(cmd, SBA_CMD_ZERO_ALL_BUFFERS,
-			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmd = sba_cmd_enc(0x0, SBA_TYPE_A,
+				  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		cmd = sba_cmd_enc(cmd, msg_len,
+				  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_CMD_ZERO_ALL_BUFFERS,
+				  SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmdsp->cmd = cmd;
 		*cmdsp->cmd_dma = cpu_to_le64(cmd);
 		cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
@@ -831,17 +825,17 @@ static void sba_fillup_pq_msg(struct sba_request *req,
 
 	/* Type-B commands for generate P onto buf0 and Q onto buf1 */
 	for (i = 0; i < src_cnt; i++) {
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, msg_len,
-			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
+				  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		cmd = sba_cmd_enc(cmd, msg_len,
+				  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		c_mdata = sba_cmd_pq_c_mdata(raid6_gflog[scf[i]], 1, 0);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_C_MDATA_MS(c_mdata),
-			SBA_C_MDATA_MS_SHIFT, SBA_C_MDATA_MS_MASK);
-		SBA_ENC(cmd, SBA_CMD_GALOIS_XOR,
-			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+				  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_C_MDATA_MS(c_mdata),
+				  SBA_C_MDATA_MS_SHIFT, SBA_C_MDATA_MS_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_CMD_GALOIS_XOR,
+				  SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmdsp->cmd = cmd;
 		*cmdsp->cmd_dma = cpu_to_le64(cmd);
 		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
@@ -852,16 +846,17 @@ static void sba_fillup_pq_msg(struct sba_request *req,
 
 	/* Type-A command to write buf0 */
 	if (dst_p) {
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, msg_len,
-			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-		SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		cmd = sba_cmd_enc(0x0, SBA_TYPE_A,
+				  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		cmd = sba_cmd_enc(cmd, msg_len,
+				  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		cmd = sba_cmd_enc(cmd, 0x1,
+				  SBA_RESP_SHIFT, SBA_RESP_MASK);
 		c_mdata = sba_cmd_write_c_mdata(0);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
-			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+				  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_CMD_WRITE_BUFFER,
+				  SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmdsp->cmd = cmd;
 		*cmdsp->cmd_dma = cpu_to_le64(cmd);
 		cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
@@ -878,16 +873,17 @@ static void sba_fillup_pq_msg(struct sba_request *req,
 
 	/* Type-A command to write buf1 */
 	if (dst_q) {
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, msg_len,
-			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-		SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
+		cmd = sba_cmd_enc(0x0, SBA_TYPE_A,
+				  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		cmd = sba_cmd_enc(cmd, msg_len,
+				  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		cmd = sba_cmd_enc(cmd, 0x1,
+				  SBA_RESP_SHIFT, SBA_RESP_MASK);
 		c_mdata = sba_cmd_write_c_mdata(1);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
-			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+				  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_CMD_WRITE_BUFFER,
+				  SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmdsp->cmd = cmd;
 		*cmdsp->cmd_dma = cpu_to_le64(cmd);
 		cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
@@ -953,16 +949,15 @@ static void sba_fillup_pq_single_msg(struct sba_request *req,
 
 	if (pq_continue) {
 		/* Type-B command to load old P into buf0 */
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_B,
-			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, msg_len,
-			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
+				  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		cmd = sba_cmd_enc(cmd, msg_len,
+				  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		c_mdata = sba_cmd_load_c_mdata(0);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
-			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+				  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_CMD_LOAD_BUFFER,
+				  SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmdsp->cmd = cmd;
 		*cmdsp->cmd_dma = cpu_to_le64(cmd);
 		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
@@ -974,14 +969,15 @@ static void sba_fillup_pq_single_msg(struct sba_request *req,
 		 * Type-B commands to xor data with buf0 and put it
 		 * back in buf0
 		 */
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_B, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, msg_len,
-			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
+				  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		cmd = sba_cmd_enc(cmd, msg_len,
+				  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		c_mdata = sba_cmd_xor_c_mdata(0, 0);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_CMD_XOR, SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+				  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_CMD_XOR,
+				  SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmdsp->cmd = cmd;
 		*cmdsp->cmd_dma = cpu_to_le64(cmd);
 		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
@@ -990,16 +986,15 @@ static void sba_fillup_pq_single_msg(struct sba_request *req,
 		cmdsp++;
 	} else {
 		/* Type-B command to load old P into buf0 */
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_B,
-			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, msg_len,
-			SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+		cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
+				  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		cmd = sba_cmd_enc(cmd, msg_len,
+				  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		c_mdata = sba_cmd_load_c_mdata(0);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_CMD_LOAD_BUFFER,
-			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+				  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_CMD_LOAD_BUFFER,
+				  SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmdsp->cmd = cmd;
 		*cmdsp->cmd_dma = cpu_to_le64(cmd);
 		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
@@ -1009,16 +1004,17 @@ static void sba_fillup_pq_single_msg(struct sba_request *req,
 	}
 
 	/* Type-A command to write buf0 */
-	cmd = 0;
-	SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-	SBA_ENC(cmd, msg_len,
-		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-	SBA_ENC(cmd, 0x1, SBA_RESP_SHIFT, SBA_RESP_MASK);
+	cmd = sba_cmd_enc(0x0, SBA_TYPE_A,
+			  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	cmd = sba_cmd_enc(cmd, msg_len,
+			  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	cmd = sba_cmd_enc(cmd, 0x1,
+			  SBA_RESP_SHIFT, SBA_RESP_MASK);
 	c_mdata = sba_cmd_write_c_mdata(0);
-	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-	SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
-		SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+			  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_CMD_WRITE_BUFFER,
+			  SBA_CMD_SHIFT, SBA_CMD_MASK);
 	cmdsp->cmd = cmd;
 	*cmdsp->cmd_dma = cpu_to_le64(cmd);
 	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
@@ -1037,12 +1033,12 @@ skip_p:
 		goto skip_q;
 
 	/* Type-A command to zero all buffers */
-	cmd = 0;
-	SBA_ENC(cmd, SBA_TYPE_A, SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-	SBA_ENC(cmd, msg_len,
-		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-	SBA_ENC(cmd, SBA_CMD_ZERO_ALL_BUFFERS,
-		SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmd = sba_cmd_enc(0x0, SBA_TYPE_A,
+			  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	cmd = sba_cmd_enc(cmd, msg_len,
+			  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_CMD_ZERO_ALL_BUFFERS,
+			  SBA_CMD_SHIFT, SBA_CMD_MASK);
 	cmdsp->cmd = cmd;
 	*cmdsp->cmd_dma = cpu_to_le64(cmd);
 	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
@@ -1057,18 +1053,17 @@ skip_p:
 	 * Type-B command to generate initial Q from data
 	 * and store output into buf0
 	 */
-	cmd = 0;
-	SBA_ENC(cmd, SBA_TYPE_B,
-		SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-	SBA_ENC(cmd, msg_len,
-		SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
-	SBA_ENC(cmd, 0x0, SBA_RESP_SHIFT, SBA_RESP_MASK);
+	cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
+			  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	cmd = sba_cmd_enc(cmd, msg_len,
+			  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 	c_mdata = sba_cmd_pq_c_mdata(pos, 0, 0);
-	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-	SBA_ENC(cmd, SBA_C_MDATA_MS(c_mdata),
-		SBA_C_MDATA_MS_SHIFT, SBA_C_MDATA_MS_MASK);
-	SBA_ENC(cmd, SBA_CMD_GALOIS, SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+			  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_C_MDATA_MS(c_mdata),
+			  SBA_C_MDATA_MS_SHIFT, SBA_C_MDATA_MS_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_CMD_GALOIS,
+			  SBA_CMD_SHIFT, SBA_CMD_MASK);
 	cmdsp->cmd = cmd;
 	*cmdsp->cmd_dma = cpu_to_le64(cmd);
 	cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
@@ -1087,29 +1082,24 @@ skip_p:
 		 * Type-A command to generate Q with buf0 and
 		 * buf1 store result in buf0
 		 */
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_A,
-			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, msg_len,
-			SBA_USER_DEF_SHIFT,
-			SBA_USER_DEF_MASK);
-		SBA_ENC(cmd, 0x0,
-			SBA_RESP_SHIFT, SBA_RESP_MASK);
+		cmd = sba_cmd_enc(0x0, SBA_TYPE_A,
+				  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		cmd = sba_cmd_enc(cmd, msg_len,
+				  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		c_mdata = sba_cmd_pq_c_mdata(pos, 0, 1);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_C_MDATA_MS(c_mdata),
-			SBA_C_MDATA_MS_SHIFT,
-			SBA_C_MDATA_MS_MASK);
-		SBA_ENC(cmd, SBA_CMD_GALOIS,
-			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+				  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_C_MDATA_MS(c_mdata),
+				  SBA_C_MDATA_MS_SHIFT, SBA_C_MDATA_MS_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_CMD_GALOIS,
+				  SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmdsp->cmd = cmd;
 		*cmdsp->cmd_dma = cpu_to_le64(cmd);
 		cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
 		cmdsp++;
 
 		dpos -= pos;
-	};
+	}
 
 skip_q_computation:
 	if (pq_continue) {
@@ -1117,19 +1107,15 @@ skip_q_computation:
 		 * Type-B command to XOR previous output with
 		 * buf0 and write it into buf0
 		 */
-		cmd = 0;
-		SBA_ENC(cmd, SBA_TYPE_B,
-			SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-		SBA_ENC(cmd, msg_len,
-			SBA_USER_DEF_SHIFT,
-			SBA_USER_DEF_MASK);
-		SBA_ENC(cmd, 0x0,
-			SBA_RESP_SHIFT, SBA_RESP_MASK);
+		cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
+				  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+		cmd = sba_cmd_enc(cmd, msg_len,
+				  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
 		c_mdata = sba_cmd_xor_c_mdata(0, 0);
-		SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-			SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-		SBA_ENC(cmd, SBA_CMD_XOR,
-			SBA_CMD_SHIFT, SBA_CMD_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+				  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+		cmd = sba_cmd_enc(cmd, SBA_CMD_XOR,
+				  SBA_CMD_SHIFT, SBA_CMD_MASK);
 		cmdsp->cmd = cmd;
 		*cmdsp->cmd_dma = cpu_to_le64(cmd);
 		cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
@@ -1139,19 +1125,17 @@ skip_q_computation:
 	}
 
 	/* Type-A command to write buf0 */
-	cmd = 0;
-	SBA_ENC(cmd, SBA_TYPE_A,
-		SBA_TYPE_SHIFT, SBA_TYPE_MASK);
-	SBA_ENC(cmd, msg_len,
-		SBA_USER_DEF_SHIFT,
-		SBA_USER_DEF_MASK);
-	SBA_ENC(cmd, 0x1,
-		SBA_RESP_SHIFT, SBA_RESP_MASK);
+	cmd = sba_cmd_enc(0x0, SBA_TYPE_A,
+			  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	cmd = sba_cmd_enc(cmd, msg_len,
+			  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	cmd = sba_cmd_enc(cmd, 0x1,
+			  SBA_RESP_SHIFT, SBA_RESP_MASK);
 	c_mdata = sba_cmd_write_c_mdata(0);
-	SBA_ENC(cmd, SBA_C_MDATA_LS(c_mdata),
-		SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
-	SBA_ENC(cmd, SBA_CMD_WRITE_BUFFER,
-		SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+			  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_CMD_WRITE_BUFFER,
+			  SBA_CMD_SHIFT, SBA_CMD_MASK);
 	cmdsp->cmd = cmd;
 	*cmdsp->cmd_dma = cpu_to_le64(cmd);
 	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
@@ -1338,10 +1322,9 @@ static void sba_receive_message(struct mbox_client *cl, void *msg)
 	struct sba_device *sba = req->sba;
 
 	/* Error count if message has error */
-	if (m->error < 0) {
+	if (m->error < 0)
 		dev_err(sba->dev, "%s got message with error %d",
 			dma_chan_name(&sba->dma_chan), m->error);
-	}
 
 	/* Mark request as received */
 	sba_received_request(req);
