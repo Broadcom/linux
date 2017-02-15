@@ -34,8 +34,6 @@
 
 #define NUM_SATA       0
 #define NUM_RAID       0
-#define ENABLE_PAXC    1
-
 
 /* HACK: Reserve bl31 location
  * The memreserve entry for bl31 is supposed to

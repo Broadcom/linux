@@ -398,6 +398,9 @@
 			  <0x106 &gic_its 0x2300 0x1>,
 			  <0x107 &gic_its 0x2380 0x1>;
 
+		phys = <&pcie_phy 8>;
+		phy-names = "pcie-phy";
+
 #if (ENABLE_PAXC == 1)
 		status = "okay";
 #else
@@ -413,6 +416,7 @@
 		pcie_phy: phy {
 			compatible = "brcm,sr-pcie-phy";
 			brcm,sr-cdru = <&cdru>;
+			brcm,sr-mhb = <&mhb>;
 			#phy-cells = <1>;
 		};
 	};

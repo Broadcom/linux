@@ -30,7 +30,12 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef ENABLE_PAXC
+#define ENABLE_PAXC     1
+#endif
+
 #define ENABLE_USB	1
+
 #ifndef NUM_PAXB
 #define NUM_PAXB	8
 #endif
