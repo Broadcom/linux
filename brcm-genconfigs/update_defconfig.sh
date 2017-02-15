@@ -73,6 +73,9 @@ main() {
 	local iproc_base
 	local iproc_extra
 
+	local script_dir="${BASH_SOURCE[0]%/*}"
+	. $script_dir/fragments.sh
+
 	# Show all commands (for debugging).
 	if [ $V -ne 0 ]; then
 		set -x
@@ -81,14 +84,10 @@ main() {
 	# 64 bit platforms
 	# iproc_defconfig, for both NS2 and Stingray
 	# for uses when NS2/Stingray run standalone without NB host
-	iproc_base="base-arm64 clocksource dbg mmu"
-	iproc_extra="blk net dma fs i2c iomux mailbox md misc mmc mtd \
-	mtd-spi rng spi virtio watchdog pwm usb bdc perf regulator rtc \
-	infiniband nvme uio crypto"
-	do_update ${ARCH64} iproc $iproc_base $iproc_extra
+	do_update ${ARCH64} iproc $iproc_defconfig
 
 	# sr_nitro_lite_defconfig. for PAXC/Nitro bring up on Stingray palladium
-	do_update ${ARCH64} sr_nitro_lite $iproc_base blk fs net
+	do_update ${ARCH64} sr_nitro_lite $sr_nitro_lite_defconfig
 
 	#Cleanup 64 bit
 	make ARCH=${ARCH64} mrproper > /dev/null
@@ -99,9 +98,7 @@ main() {
 
 	# 32 bit platforms
 	# cygnus
-	do_update ${ARCH32} bcm_cygnus base-arm32 blk dbg dma fs i2c mailbox \
-	md misc mmc mtd net pwm rng spi watchdog bt wifi regulator cygnus lcd \
-	sound trace stmpe
+	do_update ${ARCH32} bcm_cygnus $bcm_cygnus_defconfig
 
 
 
