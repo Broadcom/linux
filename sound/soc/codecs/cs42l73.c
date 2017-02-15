@@ -929,13 +929,14 @@ static int cs42l73_set_sysclk(struct snd_soc_dai *dai,
 		return -EINVAL;
 	}
 
+	/* cs42l73_set_mclk() uses priv->mclksel, set it now */
+	priv->mclksel = clk_id;
+
 	if ((cs42l73_set_mclk(dai, freq)) < 0) {
 		dev_err(codec->dev, "Unable to set MCLK for dai %s\n",
 			dai->name);
 		return -EINVAL;
 	}
-
-	priv->mclksel = clk_id;
 
 	return 0;
 }
