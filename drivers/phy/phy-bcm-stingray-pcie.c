@@ -21,11 +21,23 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 
-#define SR_NR_PCIE_PHYS               8
+/* we have up to 8 PAXB based RC. The 9th one is PAXC */
+#define SR_NR_PCIE_PHYS               9
+#define SR_PAXC_PHY_IDX               (SR_NR_PCIE_PHYS - 1)
 
 #define CDRU_STRAP_DATA_LSW_OFFSET    0x5c
 #define PCIE_PIPEMUX_SHIFT            19
 #define PCIE_PIPEMUX_MASK             0xf
+
+#define MHB_MEM_PW_PAXC_OFFSET        0x1c0
+#define MHB_PWR_ARR_POWERON           0x8
+#define MHB_PWR_ARR_POWEROK           0x4
+#define MHB_PWR_POWERON               0x2
+#define MHB_PWR_POWEROK               0x1
+#define MHB_PWR_STATUS_MASK           (MHB_PWR_ARR_POWERON | \
+				       MHB_PWR_ARR_POWEROK | \
+				       MHB_PWR_POWERON | \
+				       MHB_PWR_POWEROK)
 
 struct sr_pcie_phy_core;
 
@@ -47,12 +59,14 @@ struct sr_pcie_phy {
  *
  * @dev: pointer to device
  * @cdru: regmap to the CDRU device
+ * @mhb: regmap to the MHB device
  * @pipemux: pipemuex strap
  * @phys: array of PCIe PHYs
  */
 struct sr_pcie_phy_core {
 	struct device *dev;
 	struct regmap *cdru;
+	struct regmap *mhb;
 	u32 pipemux;
 	struct sr_pcie_phy phys[SR_NR_PCIE_PHYS];
 };
@@ -107,14 +121,6 @@ static bool pipemux_strap_is_valid(u32 pipemux)
 }
 
 /*
- * Return true if the strap setting indicates at least one PCIe root complex
- */
-static bool pipemux_has_pcie_rc(u32 pipemux)
-{
-	return !!(pipemux_table[pipemux]);
-}
-
-/*
  * Read the PCIe PIPEMUX from strap
  */
 static u32 pipemux_strap_read(struct sr_pcie_phy_core *core)
@@ -143,6 +149,10 @@ static bool pcie_core_is_for_rc(struct sr_pcie_phy *phy)
 static int sr_pcie_phy_init(struct phy *p)
 {
 	struct sr_pcie_phy *phy = phy_get_drvdata(p);
+	unsigned int core_idx = phy->index;
+
+	if (core_idx >= SR_PAXC_PHY_IDX)
+		return -EINVAL;
 
 	/*
 	 * Check whether this PHY is for root complex or not. If yes, return
@@ -153,6 +163,25 @@ static int sr_pcie_phy_init(struct phy *p)
 		return 0;
 	else
 		return -ENODEV;
+}
+
+static int sr_paxc_phy_init(struct phy *p)
+{
+	struct sr_pcie_phy *phy = phy_get_drvdata(p);
+	struct sr_pcie_phy_core *core = phy->core;
+	unsigned int core_idx = phy->index;
+	u32 val;
+
+	if (core_idx != SR_PAXC_PHY_IDX)
+		return -EINVAL;
+
+	regmap_read(core->mhb, MHB_MEM_PW_PAXC_OFFSET, &val);
+	if ((val & MHB_PWR_STATUS_MASK) != MHB_PWR_STATUS_MASK) {
+		dev_err(core->dev, "PAXC is not powered up\n");
+		return -ENODEV;
+	}
+
+	return 0;
 }
 
 static int sr_pcie_phy_exit(struct phy *p)
@@ -175,6 +204,13 @@ static int sr_pcie_phy_power_off(struct phy *p)
 
 static const struct phy_ops sr_pcie_phy_ops = {
 	.init = sr_pcie_phy_init,
+	.exit = sr_pcie_phy_exit,
+	.power_on = sr_pcie_phy_power_on,
+	.power_off = sr_pcie_phy_power_off,
+};
+
+static const struct phy_ops sr_paxc_phy_ops = {
+	.init = sr_paxc_phy_init,
 	.exit = sr_pcie_phy_exit,
 	.power_on = sr_pcie_phy_power_on,
 	.power_off = sr_pcie_phy_power_off,
@@ -218,6 +254,12 @@ static int sr_pcie_phy_probe(struct platform_device *pdev)
 		return PTR_ERR(core->cdru);
 	}
 
+	core->mhb = syscon_regmap_lookup_by_phandle(node, "brcm,sr-mhb");
+	if (IS_ERR(core->mhb)) {
+		dev_err(core->dev, "unable to find MHB device\n");
+		return PTR_ERR(core->mhb);
+	}
+
 	/* read the PCIe PIPEMUX strap setting */
 	core->pipemux = pipemux_strap_read(core);
 	if (!pipemux_strap_is_valid(core->pipemux)) {
@@ -226,17 +268,16 @@ static int sr_pcie_phy_probe(struct platform_device *pdev)
 		return -EIO;
 	}
 
-	if (!pipemux_has_pcie_rc(core->pipemux)) {
-		dev_err(core->dev,
-			"PCIe PIPEMUX strap %u indicates no root complex\n",
-			core->pipemux);
-		return -ENODEV;
-	}
-
 	for (phy_idx = 0; phy_idx < SR_NR_PCIE_PHYS; phy_idx++) {
 		struct sr_pcie_phy *p = &core->phys[phy_idx];
+		const struct phy_ops *ops;
 
-		p->phy = devm_phy_create(dev, NULL, &sr_pcie_phy_ops);
+		if (phy_idx == SR_PAXC_PHY_IDX)
+			ops = &sr_paxc_phy_ops;
+		else
+			ops = &sr_pcie_phy_ops;
+
+		p->phy = devm_phy_create(dev, NULL, ops);
 		if (IS_ERR(p->phy)) {
 			dev_err(dev, "failed to create PCIe PHY\n");
 			return PTR_ERR(p->phy);
