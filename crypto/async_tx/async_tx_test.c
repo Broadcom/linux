@@ -1,31 +1,36 @@
-/* Copyright (C) 2016 Broadcom
+/*
+ * Copyright (C) 2017 Broadcom
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation version 2.
- *
- * This program is distributed "as is" WITHOUT ANY WARRANTY of any
- * kind, whether express or implied; without even the implied warranty
- * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #include <linux/async_tx.h>
-#include <linux/gfp.h>
-#include <linux/slab.h>
 #include <linux/completion.h>
+#include <linux/gfp.h>
+#include <linux/kthread.h>
 #include <linux/math64.h>
-#include <linux/mutex.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/raid/pq.h>
+#include <linux/slab.h>
 
 #undef pr
 #define pr(fmt, args...) pr_info("async_tx_test: " fmt, ##args)
 
+#undef pr_err
+#define pr_err(fmt, args...) pr_info("async_tx_test: error: " fmt, ##args)
+
 #define MIN_BLOCK_SIZE	8
 #define MAX_BLOCK_SIZE	PAGE_SIZE
 #define MIN_DISKS	2
-#define MAX_DISKS	256
+#define MAX_DISKS	253
+
+static unsigned int thread_count = 1;
+module_param(thread_count, uint, 0644);
+MODULE_PARM_DESC(thread_count,
+"Number of threads, Should be atleast 1");
 
 static unsigned int disk_block_size = PAGE_SIZE;
 module_param(disk_block_size, uint, 0644);
@@ -47,16 +52,6 @@ module_param(iteration_count, uint, 0644);
 MODULE_PARM_DESC(iteration_count,
 "Number of iterations, Should be atleast 1");
 
-static int timeout = 30000;
-module_param(timeout, uint, 0644);
-MODULE_PARM_DESC(timeout,
-"Timeout in msec (default: 30000), Pass -1 for infinite timeout");
-
-static bool disable_issue_pending;
-module_param(disable_issue_pending, bool, 0644);
-MODULE_PARM_DESC(disable_issue_pending,
-"Disable async_tx_issue_pending() after every request submit");
-
 static int async_tx_test_type_set(const char *val,
 				 const struct kernel_param *kp);
 static int async_tx_test_type_get(char *val,
@@ -68,6 +63,10 @@ static const struct kernel_param_ops type_ops = {
 static char test_type[20] = "pq";
 module_param_cb(type, &type_ops, test_type, 0644);
 MODULE_PARM_DESC(type, "Type of test (default: pq)");
+
+static bool verbose;
+module_param(verbose, bool, 0644);
+MODULE_PARM_DESC(verbose, "Print more info (default: off)");
 
 static int async_tx_test_run_set(const char *val,
 				 const struct kernel_param *kp);
@@ -107,18 +106,31 @@ struct async_tx_test_ops {
 };
 
 struct async_tx_test {
+	/* Test parameters */
+	bool verbose;
+	unsigned int thread_count;
 	unsigned int block_size;
 	unsigned int disk_count;
 	unsigned int request_count;
 	unsigned int iteration_count;
-	int timeout;
-	bool disable_issue_pending;
 	struct async_tx_test_ops *ops;
+	/* Test iteration data */
+	struct completion *done;
 	struct async_tx_test_request *reqs;
 	ktime_t iter_start_ktime;
 	s64 iter_runtime_usecs;
 	atomic_t iter_done_count;
 	struct completion iter_done;
+	/* Test thread data */
+	unsigned int num;
+	struct task_struct *task;
+	unsigned long long min_KBs;
+	unsigned long long max_KBs;
+	unsigned long long avg_KBs;
+	unsigned long long min_IOPs;
+	unsigned long long max_IOPs;
+	unsigned long long avg_IOPs;
+	atomic_t *done_count;
 };
 
 static unsigned long long async_tx_test_persec(s64 runtime, unsigned int val)
@@ -242,8 +254,7 @@ static int memcpy_test_submit(struct async_tx_test_request *req)
 			  async_tx_test_callback, req, req->addr_conv);
 	tx = async_memcpy(req->p, req->disk[0], 0, 0,
 			  test->block_size, &submit);
-	if (!test->disable_issue_pending)
-		async_tx_issue_pending(tx);
+	async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -302,8 +313,7 @@ static int xor_test_submit(struct async_tx_test_request *req)
 			  async_tx_test_callback, req, req->addr_conv);
 	tx = async_xor(req->p, req->disk, 0, test->disk_count,
 		       test->block_size, &submit);
-	if (!test->disable_issue_pending)
-		async_tx_issue_pending(tx);
+	async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -367,8 +377,7 @@ static int pq_test_submit(struct async_tx_test_request *req)
 			  async_tx_test_callback, req, req->addr_conv);
 	tx = async_gen_syndrome(req->disk, 0, test->disk_count + 2,
 				test->block_size, &submit);
-	if (!test->disable_issue_pending)
-		async_tx_issue_pending(tx);
+	async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -472,8 +481,7 @@ static int update_pq_test_submit(struct async_tx_test_request *req)
 	tx = async_gen_syndrome(srcs, 0, UPDATE_PQ_DISKS + 2,
 				test->block_size, &submit);
 
-	if (!test->disable_issue_pending)
-		async_tx_issue_pending(tx);
+	async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -564,8 +572,7 @@ static int recov_datap_test_submit(struct async_tx_test_request *req)
 			  async_tx_test_callback, req, req->addr_conv);
 	tx = async_raid6_datap_recov(test->disk_count + 2, test->block_size,
 				     faila, req->disk, &submit);
-	if (!test->disable_issue_pending)
-		async_tx_issue_pending(tx);
+	async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -655,8 +662,7 @@ static int recov_2data_test_submit(struct async_tx_test_request *req)
 			  async_tx_test_callback, req, req->addr_conv);
 	tx = async_raid6_2data_recov(test->disk_count + 2, test->block_size,
 				     faila, failb, req->disk, &submit);
-	if (!test->disable_issue_pending)
-		async_tx_issue_pending(tx);
+	async_tx_issue_pending(tx);
 
 	return 0;
 }
@@ -700,7 +706,7 @@ static struct async_tx_test_ops ops_table[] = {
 	},
 	{
 		.name = "xor",
-		.min_disk_count = 2,
+		.min_disk_count = 1,
 		.max_disk_count = MAX_DISKS,
 		.io_size = xor_test_io_size,
 		.prep_input = xor_test_prep_input,
@@ -711,7 +717,7 @@ static struct async_tx_test_ops ops_table[] = {
 	},
 	{
 		.name = "pq",
-		.min_disk_count = 2,
+		.min_disk_count = 1,
 		.max_disk_count = MAX_DISKS,
 		.io_size = pq_test_io_size,
 		.prep_input = pq_test_prep_input,
@@ -769,155 +775,112 @@ static struct async_tx_test_ops *async_tx_test_find(const char *name)
 	return NULL;
 }
 
-static int async_tx_test_run(void)
+static int async_tx_test_thread_main(void *data)
 {
 	int ret = 0;
-	unsigned long tout;
 	unsigned int i, r, io_size;
-	struct async_tx_test test;
 	struct async_tx_test_request *req;
 	unsigned long long input_bytes_count;
 	s64 iter_usecs, min_usecs = 0, max_usecs = 0, avg_usecs = 0;
 	unsigned long long iter_KBs, min_KBs = 0, max_KBs = 0, avg_KBs = 0;
+	struct async_tx_test *test = data;
 
-	test.ops = async_tx_test_find(strim(test_type));
-	if (!test.ops) {
-		pr("invalid type %s\n", test_type);
-		return -EINVAL;
+	/* Print thread start bannner */
+	pr("thread=%u started\n", test->num);
+
+	/* Allocate request array */
+	test->reqs = kcalloc(test->request_count,
+			     sizeof(*test->reqs), GFP_KERNEL);
+	if (!test->reqs) {
+		ret = -ENOMEM;
+		pr_err("failed to alloc requests for thread=%u\n",
+			test->num);
+		goto fail;
 	}
-
-	if ((disk_block_size < MIN_BLOCK_SIZE) ||
-	    (disk_block_size > MAX_BLOCK_SIZE)) {
-		pr("invalid disk_block_size %u\n", disk_block_size);
-		return -EINVAL;
-	}
-	if (disk_block_size & (MIN_BLOCK_SIZE - 1)) {
-		pr("disk_block_size %u not multiple of %u\n",
-		   disk_block_size, MIN_BLOCK_SIZE);
-		return -EINVAL;
-	}
-	test.block_size = disk_block_size;
-
-	if ((disk_count < test.ops->min_disk_count) ||
-	    (disk_count > test.ops->max_disk_count)) {
-		pr("invalid disk_count %u\n", disk_count);
-		return -EINVAL;
-	}
-	test.disk_count = disk_count;
-
-	if (!request_count) {
-		pr("invalid request_count %u\n", request_count);
-		return -EINVAL;
-	}
-	test.request_count = request_count;
-
-	if (!iteration_count) {
-		pr("invalid iteration_count %u\n", iteration_count);
-		return -EINVAL;
-	}
-	test.iteration_count = iteration_count;
-
-	test.disable_issue_pending = disable_issue_pending;
-
-	test.reqs = kcalloc(test.request_count,
-			    sizeof(*test.reqs), GFP_KERNEL);
-	if (!test.reqs) {
-		pr("failed to alloc requests\n");
-		return -ENOMEM;
-	}
-
-	/* Print test configuration */
-	pr("type=%s block_size=%u disk_count=%u\n",
-	   test.ops->name, test.block_size, test.disk_count);
-	pr("request_count=%u iteration_count=%u\n",
-	   test.request_count, test.iteration_count);
-	pr("timeout=%d disable_issue_pending=%s\n",
-	   test.timeout, (test.disable_issue_pending) ? "true" : "false");
-
-	/* Calculate IO size and total input bytes */
-	io_size = test.ops->io_size(&test);
-	input_bytes_count = io_size;
-	input_bytes_count *= test.request_count;
 
 	/* Allocate all request disk data */
-	for (r = 0; r < test.request_count; r++) {
-		req = &test.reqs[r];
+	for (r = 0; r < test->request_count; r++) {
+		req = &test->reqs[r];
 
 		req->num = r;
-		req->test = &test;
-		for (i = 0; i < (test.disk_count + 2); i++) {
+		req->test = test;
+		for (i = 0; i < (test->disk_count + 2); i++) {
 			req->disk[i] = alloc_page(GFP_KERNEL);
-			if (!req->disk[i]) {
-				ret = -ENOMEM;
-				pr("alloc page failed for request%d disk%d\n",
-				   r, i);
-				goto free_reqs_data;
-			}
+			if (req->disk[i])
+				continue;
+
+			ret = -ENOMEM;
+			pr_err("alloc page failed thread=%u req=%u disk=%u\n",
+				test->num, r, i);
+			goto free_reqs_data;
 		}
-		req->p = req->disk[test.disk_count];
-		req->q = req->disk[test.disk_count + 1];
+		req->p = req->disk[test->disk_count];
+		req->q = req->disk[test->disk_count + 1];
 	}
 
+	/* Calculate IO size and total input bytes */
+	io_size = test->ops->io_size(test);
+	input_bytes_count = io_size;
+	input_bytes_count *= test->request_count;
+
 	/* Prepare input data */
-	for (r = 0; r < test.request_count; r++) {
-		ret = test.ops->prep_input(&test.reqs[r]);
-		if (ret) {
-			pr("prepare input failed for request%d\n", r);
-			goto cleanup_reqs;
-		}
+	for (r = 0; r < test->request_count; r++) {
+		ret = test->ops->prep_input(&test->reqs[r]);
+		if (!ret)
+			continue;
+
+		pr_err("prepare input failed for thread=%u req=%u\n",
+			test->num, r);
+		goto cleanup_reqs;
 	}
 
 	/* Execute each iteration */
-	for (i = 0; i < test.iteration_count; i++) {
+	for (i = 0; i < test->iteration_count; i++) {
 		/* Prepare output data for iteration */
-		for (r = 0; r < test.request_count; r++) {
-			ret = test.ops->prep_output(&test.reqs[r]);
-			if (ret) {
-				pr("prepare output failed iter=%u req=%u\n",
-				   i, r);
-				goto cleanup_reqs;
-			}
-		}
+		for (r = 0; r < test->request_count; r++) {
+			ret = test->ops->prep_output(&test->reqs[r]);
+			if (!ret)
+				continue;
 
-		/* Start of iteration */
-		test.iter_start_ktime = ktime_get();
-		test.iter_runtime_usecs = 0;
-		atomic_set(&test.iter_done_count, test.request_count);
-		init_completion(&test.iter_done);
-
-		/* Submit all request */
-		for (r = 0; r < test.request_count; r++) {
-			ret = test.ops->submit(&test.reqs[r]);
-			if (ret) {
-				pr("submit failed for iter=%u req=%u\n",
-				   i, r);
-				goto cleanup_reqs;
-			}
-		}
-
-		/* Wait for all request to complete */
-		tout = (unsigned long)test.timeout * 1000;
-		tout = msecs_to_jiffies(tout);
-		tout = wait_for_completion_timeout(&test.iter_done, tout);
-		if (!tout) {
-			pr("iter=%u timeout\n", i);
-			ret = -ETIMEDOUT;
+			pr_err("prepare output fail thread=%u iter=%u req=%u\n",
+			   test->num, i, r);
 			goto cleanup_reqs;
 		}
 
+		/* Start of iteration */
+		test->iter_start_ktime = ktime_get();
+		test->iter_runtime_usecs = 0;
+		atomic_set(&test->iter_done_count, test->request_count);
+		init_completion(&test->iter_done);
+
+		/* Submit all request */
+		for (r = 0; r < test->request_count; r++) {
+			ret = test->ops->submit(&test->reqs[r]);
+			if (!ret)
+				continue;
+
+			pr_err("submit failed for thread=%u iter=%u req=%u\n",
+				test->num, i, r);
+			goto cleanup_reqs;
+		}
+
+		/* Wait for all request to complete */
+		wait_for_completion(&test->iter_done);
+
 		/* Verify output data for iteration */
-		for (r = 0; r < test.request_count; r++) {
-			if (!test.ops->verify_output(&test.reqs[r])) {
-				ret = -EIO;
-				pr("verify output failed iter=%u req=%u\n",
-				   i, r);
-				goto cleanup_reqs;
-			}
+		for (r = 0; r < test->request_count; r++) {
+			if (test->ops->verify_output(&test->reqs[r]))
+				continue;
+
+			ret = -EIO;
+			pr_err("verify failed thread=%u iter=%u req=%u\n",
+				test->num, i, r);
+			goto cleanup_reqs;
 		}
 
 		/* Update stats */
-		iter_usecs = test.iter_runtime_usecs;
-		iter_KBs = async_tx_test_persec(test.iter_runtime_usecs,
+		iter_usecs = test->iter_runtime_usecs;
+		iter_KBs = async_tx_test_persec(test->iter_runtime_usecs,
 						input_bytes_count >> 10);
 		min_usecs = (i == 0) ?
 			    iter_usecs : min(min_usecs, iter_usecs);
@@ -931,8 +894,10 @@ static int async_tx_test_run(void)
 		avg_KBs += iter_KBs;
 
 		/* Print iteration summary */
-		pr("iter=%u usecs=%ld KBs=%llu\n",
-		   i, (long)iter_usecs, iter_KBs);
+		if (test->verbose)
+			pr("thread=%u cpu=%d iter=%u usecs=%ld KBs=%llu\n",
+			   test->num, smp_processor_id(),
+			   i, (long)iter_usecs, iter_KBs);
 	}
 
 	/* Compute average usecs and average KBs */
@@ -941,28 +906,25 @@ static int async_tx_test_run(void)
 		avg_KBs = div_u64(avg_KBs, i);
 	}
 
-	/* Print final summary */
-	pr("min_usecs=%lld max_usecs=%lld avg_usecs=%lld\n",
-	   (long long)min_usecs, (long long)max_usecs, (long long)avg_usecs);
-	pr("min_KBs=%llu max_KBs=%llu avg_KBs=%llu\n",
-	   min_KBs, max_KBs, avg_KBs);
-	min_KBs = div_u64(min_KBs * 1024, io_size);
-	max_KBs = div_u64(max_KBs * 1024, io_size);
-	avg_KBs = div_u64(avg_KBs * 1024, io_size);
-	pr("min_IOPS=%llu max_IOPS=%llu avg_IOPS=%llu\n",
-	   min_KBs, max_KBs, avg_KBs);
+	/* Save stats */
+	test->min_KBs = min_KBs;
+	test->max_KBs = max_KBs;
+	test->avg_KBs = avg_KBs;
+	test->min_IOPs = div_u64(min_KBs * 1024, io_size);
+	test->max_IOPs = div_u64(max_KBs * 1024, io_size);
+	test->avg_IOPs = div_u64(avg_KBs * 1024, io_size);
 
-	/* Cleanup all requests */
 cleanup_reqs:
-	for (r = 0; r < test.request_count; r++)
-		test.ops->cleanup(&test.reqs[r]);
+	/* Cleanup all requests */
+	for (r = 0; r < test->request_count; r++)
+		test->ops->cleanup(&test->reqs[r]);
 
 	/* Free all requests disk data  */
 free_reqs_data:
-	for (r = 0; r < test.request_count; r++) {
-		req = &test.reqs[r];
+	for (r = 0; r < test->request_count; r++) {
+		req = &test->reqs[r];
 
-		for (i = 0; i < (test.disk_count + 2); i++) {
+		for (i = 0; i < (test->disk_count + 2); i++) {
 			if (req->disk[i]) {
 				__free_page(req->disk[i]);
 				req->disk[i] = NULL;
@@ -971,7 +933,158 @@ free_reqs_data:
 	}
 
 	/* Free all requests */
-	kfree(test.reqs);
+	kfree(test->reqs);
+
+fail:
+	/* Signal completion to parent thread */
+	if (!atomic_dec_return(test->done_count))
+		complete(test->done);
+
+	return ret;
+}
+
+static int async_tx_test_run(void)
+{
+	int ret = 0;
+	unsigned int i, j, cpu;
+	atomic_t done_count;
+	struct completion done;
+	struct async_tx_test_ops *ops;
+	struct async_tx_test *thread;
+	unsigned long long min_KBs, max_KBs, avg_KBs;
+	unsigned long long min_IOPs, max_IOPs, avg_IOPs;
+
+	ops = async_tx_test_find(strim(test_type));
+	if (!ops) {
+		pr_err("invalid type %s\n", test_type);
+		return -EINVAL;
+	}
+
+	if (!thread_count) {
+		pr_err("invalid thread_count %u\n", thread_count);
+		return -EINVAL;
+	}
+
+	if ((disk_block_size < MIN_BLOCK_SIZE) ||
+	    (disk_block_size > MAX_BLOCK_SIZE)) {
+		pr_err("invalid disk_block_size %u\n", disk_block_size);
+		return -EINVAL;
+	}
+	if (disk_block_size & (MIN_BLOCK_SIZE - 1)) {
+		pr_err("disk_block_size %u not multiple of %u\n",
+			disk_block_size, MIN_BLOCK_SIZE);
+		return -EINVAL;
+	}
+
+	if ((disk_count < ops->min_disk_count) ||
+	    (disk_count > ops->max_disk_count)) {
+		pr_err("invalid disk_count %u\n", disk_count);
+		return -EINVAL;
+	}
+
+	if (!request_count) {
+		pr_err("invalid request_count %u\n", request_count);
+		return -EINVAL;
+	}
+
+	if (!iteration_count) {
+		pr_err("invalid iteration_count %u\n", iteration_count);
+		return -EINVAL;
+	}
+
+	thread = kcalloc(thread_count, sizeof(*thread), GFP_KERNEL);
+	if (!thread)
+		return -ENOMEM;
+
+	/* Print test configuration */
+	pr("type=%s block_size=%u disk_count=%u\n",
+	   ops->name, disk_block_size, disk_count);
+	pr("request_count=%u iteration_count=%u\n",
+	   request_count, iteration_count);
+	pr("threads=%u\n", thread_count);
+
+	atomic_set(&done_count, thread_count);
+	init_completion(&done);
+
+	for (i = 0; i < thread_count; i++) {
+		thread[i].ops = ops;
+		thread[i].verbose = verbose;
+		thread[i].thread_count = thread_count;
+		thread[i].block_size = disk_block_size;
+		thread[i].disk_count = disk_count;
+		thread[i].request_count = request_count;
+		thread[i].iteration_count = iteration_count;
+		thread[i].num = i;
+		thread[i].task = NULL;
+		thread[i].min_KBs = 0;
+		thread[i].max_KBs = 0;
+		thread[i].avg_KBs = 0;
+		thread[i].min_IOPs = 0;
+		thread[i].max_IOPs = 0;
+		thread[i].avg_IOPs = 0;
+		thread[i].done_count = &done_count;
+		thread[i].done = &done;
+		thread[i].task = kthread_create(async_tx_test_thread_main,
+						&thread[i],
+						"async-tx-test%u", i);
+		if (IS_ERR(thread[i].task)) {
+			pr_err("failed to create thread=%u\n", i);
+			if (!atomic_dec_return(&done_count))
+				complete(&done);
+			continue;
+		}
+
+		get_task_struct(thread[i].task);
+
+		j = i;
+		do {
+			for_each_online_cpu(cpu) {
+				if (!j) {
+					kthread_bind(thread[i].task, cpu);
+					break;
+				}
+				j--;
+			}
+		} while (j);
+
+		wake_up_process(thread[i].task);
+	}
+
+	/* Wait for threads to finish */
+	wait_for_completion(&done);
+
+	/* Print stats of each thread */
+	min_KBs = max_KBs = avg_KBs = 0;
+	min_IOPs = max_IOPs = avg_IOPs = 0;
+	for (i = 0; i < thread_count; i++) {
+		if (IS_ERR(thread[i].task))
+			continue;
+
+		ret = kthread_stop(thread[i].task);
+		if (ret)
+			pr_err("thread=%u failed with error=%d\n", i, ret);
+		put_task_struct(thread[i].task);
+		thread[i].task = NULL;
+
+		pr("thread=%u min_KBs=%llu max_KBs=%llu avg_KBs=%llu\n",
+		   i, thread[i].min_KBs, thread[i].max_KBs, thread[i].avg_KBs);
+		pr("thread=%u min_IOPS=%llu max_IOPS=%llu avg_IOPS=%llu\n",
+		   i, thread[i].min_IOPs, thread[i].max_IOPs,
+		   thread[i].avg_IOPs);
+
+		min_KBs += thread[i].min_KBs;
+		max_KBs += thread[i].max_KBs;
+		avg_KBs += thread[i].avg_KBs;
+		min_IOPs += thread[i].min_IOPs;
+		max_IOPs += thread[i].max_IOPs;
+		avg_IOPs += thread[i].avg_IOPs;
+	}
+
+	/* Print overall stats */
+	pr("overall min_KBs=%llu max_KBs=%llu avg_KBs=%llu\n",
+	   min_KBs, max_KBs, avg_KBs);
+	pr("overall min_IOPS=%llu max_IOPS=%llu avg_IOPS=%llu\n",
+	   min_IOPs, max_IOPs, avg_IOPs);
 
 	return ret;
 }
@@ -1066,5 +1179,5 @@ static int async_tx_test_run_get(char *val,
 }
 
 MODULE_AUTHOR("Anup Patel <anup.patel@broadcom.com>");
-MODULE_DESCRIPTION("Async_Tx Test Module");
+MODULE_DESCRIPTION("Async Tx Test Module");
 MODULE_LICENSE("GPL");
