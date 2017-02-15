@@ -269,6 +269,11 @@
 		};
 	};
 
+	mhb: syscon@60401000 {
+		compatible = "brcm,sr-mhb", "syscon";
+		reg = <0 0x60401000 0 0x38c>;
+	};
+
 	cdru: syscon@6641d000 {
 		compatible = "brcm,sr-cdru", "syscon";
 		reg = <0 0x6641d000 0 0x400>;
