@@ -276,11 +276,61 @@ CLK_OF_DECLARE(cygnus_asiu_clk, "brcm,cygnus-asiu-clk", cygnus_asiu_init);
  * (parent clock rate / pdiv)
  *
  * On Cygnus, parent is the 25MHz oscillator
+ *
+ * The PLL output (Vco freq) is fed into 3 post dividers.
+ * The output from the PLL's post-dividers is the MCLK.
+ * Ideally we will be able to pick a Vco frequency that will allow us
+ * to generated MCLK frequencies useful for audio
+ *
+ * MCLK frequencies that are perfect multiples of common audio rates
+ * 48   kHz domain:   6,144,000  12,288,000  24,576,000
+ * 44.1 kHz domain:   5,644,800  11,289,600  22,579,200
+ *
+ * These Vco frequencies would allow us to produce exact MCLKs.
+ *       Vco          post div        MCLK
+ *   1,806,336,000      147        12,288,000
+ *   1,806,336,000      160        11,289,600
+ *   1,806,336,000       80        22,579,200
+ *
+ *   3,612,672,000      147	   24,576,000
+ *   3,612,672,000      160	   22,579,200
+ *   3,612,672,000       80	   45,158,400
+ *
+ * These Vco frequencies would have a predicted 55 ppm error in producing
+ * the 44.1 kHz domain and be exact for 48 kHz domain.
+ *     Vco           post div
+ *   2,777,088,000     246         11,288,976 (error 55 ppm)
+ *   2,777,088,000     226         12,288,000
+ *   2,777,088,000     123         22,577,951 (error 55 ppm)
+ *   2,777,088,000     113         24,576,000
+ *
+ *   1,388,544,000     246          5,644,800 (error 55 ppm)
+ *   1,388,544,000     226          6,144,000
+ *   1,388,544,000     123         11,288,976 (error 55 ppm)
+ *   1,388,544,000     113         12,288,000
+ *
+ * Good for 48 kHz (not for 44.1).
+ * Can generate a larger range of exact MCLKs for 48 Khz.
+ * Also, does a half decent job for some 44.1 kHz clocks.
+ *   1,376,256,000    224          6,144,000
+ *   1,376,256,000    112         12,288,000
+ *   1,376,256,000     56         24,576,000
+ *   1,376,256,000     28         49,152,000
+ *
+ *   1,376,256,000     61         22,561,574 (error 781 ppm)
+ *   1,376,256,000    122         11,280,787 (error 781 ppm)
  */
 static const struct iproc_pll_vco_param audiopll_vco_params[] = {
 	/* rate (Hz) ndiv_int ndiv_frac pdiv */
 	{ 1354750204UL,  54,     199238,   1 },
 	{ 1769470191UL,  70,     816639,   1 },
+
+	{ 1388543987UL,  55, 568076, 1 },
+	{ 1806335998UL,  72, 265751, 1 },
+	{ 2777087998UL, 111,  87577, 1 },
+
+	{ 1354751992UL, 54, 199313,  1 },  /* Good for 44.1 kHz domain */
+	{ 1376255989UL, 55,  52680,  1 },  /* Good for 48 kHz domain */
 };
 
 static const struct iproc_pll_ctrl audiopll = {
@@ -300,20 +350,19 @@ static const struct iproc_pll_ctrl audiopll = {
 static const struct iproc_clk_ctrl audiopll_clk[] = {
 	[BCM_CYGNUS_AUDIOPLL_CH0] = {
 		.channel = BCM_CYGNUS_AUDIOPLL_CH0,
-		.flags = IPROC_CLK_AON | IPROC_CLK_SET_RATE_PARENT |
-				IPROC_CLK_MCLK_DIV_BY_2,
+		.flags = IPROC_CLK_AON | IPROC_CLK_MCLK_DIV_BY_2,
 		.enable = ENABLE_VAL(0x14, 8, 10, 9),
 		.mdiv = REG_VAL(0x14, 0, 8),
 	},
 	[BCM_CYGNUS_AUDIOPLL_CH1] = {
 		.channel = BCM_CYGNUS_AUDIOPLL_CH1,
-		.flags = IPROC_CLK_AON | IPROC_CLK_SET_RATE_PARENT,
+		.flags = IPROC_CLK_AON,
 		.enable = ENABLE_VAL(0x18, 8, 10, 9),
 		.mdiv = REG_VAL(0x18, 0, 8),
 	},
 	[BCM_CYGNUS_AUDIOPLL_CH2] = {
 		.channel = BCM_CYGNUS_AUDIOPLL_CH2,
-		.flags = IPROC_CLK_AON | IPROC_CLK_SET_RATE_PARENT,
+		.flags = IPROC_CLK_AON,
 		.enable = ENABLE_VAL(0x1c, 8, 10, 9),
 		.mdiv = REG_VAL(0x1c, 0, 8),
 	},
