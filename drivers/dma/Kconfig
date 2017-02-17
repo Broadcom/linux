@@ -104,7 +104,8 @@ config BCM_SBA_RAID
 	depends on (ARM64 && MAILBOX && RAID6_PQ) || COMPILE_TEST
 	select DMA_ENGINE
 	select DMA_ENGINE_RAID
-	select ASYNC_TX_ENABLE_CHANNEL_SWITCH
+	select ASYNC_TX_DISABLE_XOR_VAL_DMA
+	select ASYNC_TX_DISABLE_PQ_VAL_DMA
 	default ARCH_BCM_IPROC
 	help
 	  Enable support for Broadcom SBA RAID Engine. The SBA RAID

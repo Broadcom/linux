@@ -500,6 +500,91 @@ static enum dma_status sba_tx_status(struct dma_chan *dchan,
 	return dma_cookie_status(dchan, cookie, txstate);
 }
 
+static void sba_fillup_interrupt_msg(struct sba_request *req,
+				     struct brcm_sba_command *cmds,
+				     struct brcm_message *msg)
+{
+	u64 cmd;
+	u32 c_mdata;
+	struct brcm_sba_command *cmdsp = cmds;
+
+	/* Type-B command to load dummy data into buf0 */
+	cmd = sba_cmd_enc(0x0, SBA_TYPE_B,
+			  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	cmd = sba_cmd_enc(cmd, req->sba->hw_resp_size,
+			  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	c_mdata = sba_cmd_load_c_mdata(0);
+	cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+			  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_CMD_LOAD_BUFFER,
+			  SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmdsp->cmd = cmd;
+	*cmdsp->cmd_dma = cpu_to_le64(cmd);
+	cmdsp->flags = BRCM_SBA_CMD_TYPE_B;
+	cmdsp->data = req->resp_dma;
+	cmdsp->data_len = req->sba->hw_resp_size;
+	cmdsp++;
+
+	/* Type-A command to write buf0 to dummy location */
+	cmd = sba_cmd_enc(0x0, SBA_TYPE_A,
+			  SBA_TYPE_SHIFT, SBA_TYPE_MASK);
+	cmd = sba_cmd_enc(cmd, req->sba->hw_resp_size,
+			  SBA_USER_DEF_SHIFT, SBA_USER_DEF_MASK);
+	cmd = sba_cmd_enc(cmd, 0x1,
+			  SBA_RESP_SHIFT, SBA_RESP_MASK);
+	c_mdata = sba_cmd_write_c_mdata(0);
+	cmd = sba_cmd_enc(cmd, SBA_C_MDATA_LS(c_mdata),
+			  SBA_C_MDATA_SHIFT, SBA_C_MDATA_MASK);
+	cmd = sba_cmd_enc(cmd, SBA_CMD_WRITE_BUFFER,
+			  SBA_CMD_SHIFT, SBA_CMD_MASK);
+	cmdsp->cmd = cmd;
+	*cmdsp->cmd_dma = cpu_to_le64(cmd);
+	cmdsp->flags = BRCM_SBA_CMD_TYPE_A;
+	if (req->sba->hw_resp_size) {
+		cmdsp->flags |= BRCM_SBA_CMD_HAS_RESP;
+		cmdsp->resp = req->resp_dma;
+		cmdsp->resp_len = req->sba->hw_resp_size;
+	}
+	cmdsp->flags |= BRCM_SBA_CMD_HAS_OUTPUT;
+	cmdsp->data = req->resp_dma;
+	cmdsp->data_len = req->sba->hw_resp_size;
+	cmdsp++;
+
+	/* Fillup brcm_message */
+	msg->type = BRCM_MESSAGE_SBA;
+	msg->sba.cmds = cmds;
+	msg->sba.cmds_count = cmdsp - cmds;
+	msg->ctx = req;
+	msg->error = 0;
+}
+
+static struct dma_async_tx_descriptor *
+sba_prep_dma_interrupt(struct dma_chan *dchan, unsigned long flags)
+{
+	struct sba_request *req = NULL;
+	struct sba_device *sba = to_sba_device(dchan);
+
+	/* Alloc new request */
+	req = sba_alloc_request(sba);
+	if (!req)
+		return NULL;
+
+	/*
+	 * Force fence so that no requests are submitted
+	 * until DMA callback for this request is invoked.
+	 */
+	req->fence = true;
+
+	/* Fillup request message */
+	sba_fillup_interrupt_msg(req, req->cmds, &req->msg);
+
+	/* Init async_tx descriptor */
+	req->tx.flags = flags;
+	req->tx.cookie = -EBUSY;
+
+	return (req) ? &req->tx : NULL;
+}
+
 static void sba_fillup_memcpy_msg(struct sba_request *req,
 				  struct brcm_sba_command *cmds,
 				  struct brcm_message *msg,
@@ -1466,6 +1551,7 @@ static int sba_async_register(struct sba_device *sba)
 
 	/* Initialize DMA device capability mask */
 	dma_cap_zero(dma_dev->cap_mask);
+	dma_cap_set(DMA_INTERRUPT, dma_dev->cap_mask);
 	dma_cap_set(DMA_MEMCPY, dma_dev->cap_mask);
 	dma_cap_set(DMA_XOR, dma_dev->cap_mask);
 	dma_cap_set(DMA_PQ, dma_dev->cap_mask);
@@ -1483,17 +1569,21 @@ static int sba_async_register(struct sba_device *sba)
 	dma_dev->device_issue_pending = sba_issue_pending;
 	dma_dev->device_tx_status = sba_tx_status;
 
-	/* Set memcpy routines and capability */
+	/* Set interrupt routine */
+	if (dma_has_cap(DMA_INTERRUPT, dma_dev->cap_mask))
+		dma_dev->device_prep_dma_interrupt = sba_prep_dma_interrupt;
+
+	/* Set memcpy routine */
 	if (dma_has_cap(DMA_MEMCPY, dma_dev->cap_mask))
 		dma_dev->device_prep_dma_memcpy = sba_prep_dma_memcpy;
 
-	/* Set xor routines and capability */
+	/* Set xor routine and capability */
 	if (dma_has_cap(DMA_XOR, dma_dev->cap_mask)) {
 		dma_dev->device_prep_dma_xor = sba_prep_dma_xor;
 		dma_dev->max_xor = sba->max_xor_srcs;
 	}
 
-	/* Set pq routines and capability */
+	/* Set pq routine and capability */
 	if (dma_has_cap(DMA_PQ, dma_dev->cap_mask)) {
 		dma_dev->device_prep_dma_pq = sba_prep_dma_pq;
 		dma_set_maxpq(dma_dev, sba->max_pq_srcs, 0);
@@ -1510,11 +1600,12 @@ static int sba_async_register(struct sba_device *sba)
 		return ret;
 	}
 
-	dev_info(sba->dev, "%s capabilities: %s%s%s\n",
-		 dma_chan_name(&sba->dma_chan),
-		 dma_has_cap(DMA_MEMCPY, dma_dev->cap_mask) ? "memcpy " : "",
-		 dma_has_cap(DMA_XOR, dma_dev->cap_mask) ? "xor " : "",
-		 dma_has_cap(DMA_PQ, dma_dev->cap_mask) ? "pq " : "");
+	dev_info(sba->dev, "%s capabilities: %s%s%s%s\n",
+	dma_chan_name(&sba->dma_chan),
+	dma_has_cap(DMA_INTERRUPT, dma_dev->cap_mask) ? "interrupt " : "",
+	dma_has_cap(DMA_MEMCPY, dma_dev->cap_mask) ? "memcpy " : "",
+	dma_has_cap(DMA_XOR, dma_dev->cap_mask) ? "xor " : "",
+	dma_has_cap(DMA_PQ, dma_dev->cap_mask) ? "pq " : "");
 
 	return 0;
 }
