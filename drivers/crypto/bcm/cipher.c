@@ -2663,8 +2663,7 @@ static int aead_enqueue(struct aead_request *req, bool is_encrypt)
 	    ctx->cipher.mode == CIPHER_MODE_CTR ||
 	    ctx->cipher.mode == CIPHER_MODE_OFB ||
 	    ctx->cipher.mode == CIPHER_MODE_XTS ||
-	    ctx->cipher.mode == CIPHER_MODE_GCM ||
-	    ctx->cipher.mode == CIPHER_MODE_CCM) {
+	    ctx->cipher.mode == CIPHER_MODE_GCM) {
 		rctx->iv_ctr_len =
 			ctx->salt_len +
 			crypto_aead_ivsize(crypto_aead_reqtfm(req));
