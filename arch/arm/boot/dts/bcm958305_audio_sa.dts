@@ -89,10 +89,6 @@
 		&i2s2_default_mux &dte_lts_0>;
 };
 
-&uart1 {
-	status = "okay";
-};
-
 &vdd_3v3_reg {
 	gpio = <&gpio_crmu 0 0>;
 	enable-active-high;
