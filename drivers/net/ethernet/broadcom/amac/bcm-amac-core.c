@@ -68,9 +68,9 @@ static int amac_alloc_rx_skb(struct bcm_amac_priv *privp,
 	int offset;
 	struct sk_buff *skb;
 	struct net_device *ndev = privp->ndev;
-	dma_addr_t dma_addr;
-	void *bounce_rx_buf;
-	struct amac_dma_priv *dma_p;
+	dma_addr_t dma_addr = 0;
+	void *bounce_rx_buf = NULL;
+	struct amac_dma_priv *dma_p = NULL;
 
 	if (privp->dma.sr_dma.enable_bounce)
 		dma_p = &privp->dma;
@@ -1008,8 +1008,8 @@ void bcm_amac_tx_send_packet(struct bcm_amac_priv *privp)
 	int desc_idx = 0;
 	struct amac_dma64_desc *descp = NULL;
 	u32 last_desc;
-	struct sk_buff *skb;
-	char *tx_skb_bounce;
+	struct sk_buff *skb = NULL;
+	char *tx_skb_bounce = NULL;
 	void *p_skb;
 	u32 len;
 	dma_addr_t buf_dma;

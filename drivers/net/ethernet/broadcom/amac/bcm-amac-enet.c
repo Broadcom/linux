@@ -223,6 +223,10 @@ static void amac_tx_task(unsigned long data)
 
 	bcm_amac_tx_clean(privp);
 	bcm_amac_tx_send_packet(privp);
+
+	if (privp->dma.sr_dma.enable_bounce)
+		if (kfifo_avail(&privp->dma.txfifo) > 0)
+			netif_wake_queue(privp->ndev);
 }
 
 /* bcm_amac_enet_rx_poll() - Packet reception routine
@@ -346,9 +350,15 @@ static int bcm_amac_enet_open(struct net_device *ndev)
 	int rc;
 
 	/* Allocate a TX fifo to stash to hold skb pointers */
-	rc = kfifo_alloc(&privp->dma.txfifo,
-			 AMAC_DMA_TX_MAX_QUEUE_LEN * sizeof(void *),
-			 GFP_KERNEL | GFP_DMA);
+	if (privp->dma.sr_dma.enable_bounce)
+		rc = kfifo_alloc(&privp->dma.txfifo,
+				 AMAC_SRDMA_TX_MAX_QUEUE_LEN * sizeof(void *),
+				 GFP_KERNEL | GFP_DMA);
+	else
+		rc = kfifo_alloc(&privp->dma.txfifo,
+				 AMAC_DMA_TX_MAX_QUEUE_LEN * sizeof(void *),
+				 GFP_KERNEL | GFP_DMA);
+
 	if (rc) {
 		netdev_err(ndev,
 			   "cannot alloc tx fifo, err=%i\n", rc);
@@ -459,7 +469,7 @@ static int bcm_amac_enet_hard_xmit(struct sk_buff *skb, struct net_device *ndev)
 	int len;
 	int rc;
 	void *bounce_skb;
-	struct amac_dma_priv *dma_p;
+	struct amac_dma_priv *dma_p = NULL;
 
 	rc = NETDEV_TX_OK;
 	privp = netdev_priv(ndev);
@@ -494,19 +504,9 @@ static int bcm_amac_enet_hard_xmit(struct sk_buff *skb, struct net_device *ndev)
 				      (unsigned char *)&bounce_skb,
 				      sizeof(bounce_skb), &privp->lock);
 
-		if (unlikely(len != sizeof(bounce_skb))) {
-			/* Not enough space, which shouldn't
-			 * happen since the queue
-			 * should have been stopped already.
-			 */
+		if (kfifo_is_full(&privp->dma.txfifo)) {
 			netif_stop_queue(ndev);
-			netdev_info(privp->ndev,
-				    "xmit called with no tx desc avail!");
-
-			ndev->stats.tx_fifo_errors++;
-
 			rc = NETDEV_TX_OK;
-			goto err_enet_hard_xmit;
 		}
 	} else {
 		/* Insert skb pointer into fifo */
@@ -809,11 +809,18 @@ static int bcm_amac_enet_probe(struct platform_device *pdev)
 	ndev->netdev_ops = &bcm_amac_enet_ops;
 	ndev->watchdog_timeo = TX_TIMEOUT;
 
-	netif_napi_add(ndev, &privp->napi, bcm_amac_enet_rx_poll,
-		       NAPI_POLL_WEIGHT);
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "brcm,amac-enet-extsram")) {
+		netif_napi_add(ndev, &privp->napi, bcm_amac_enet_rx_poll,
+			       NAPI_POLL_SRAM_WEIGHT);
+		ndev->tx_queue_len = AMAC_SRDMA_TX_MAX_QUEUE_LEN;
+	} else {
+		netif_napi_add(ndev, &privp->napi, bcm_amac_enet_rx_poll,
+			       NAPI_POLL_WEIGHT);
+		ndev->tx_queue_len = AMAC_DMA_TX_MAX_QUEUE_LEN;
+	}
 
 	ndev->features &= ~(NETIF_F_SG | NETIF_F_FRAGLIST);
-	ndev->tx_queue_len = AMAC_DMA_TX_MAX_QUEUE_LEN;
 
 	/* Clear stats */
 	memset(&ndev->stats, 0, sizeof(ndev->stats));

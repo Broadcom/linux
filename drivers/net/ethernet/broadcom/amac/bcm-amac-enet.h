@@ -19,13 +19,15 @@
 #include <linux/platform_device.h>
 
 /* SRAM specific DMA configuration. */
+#define NAPI_POLL_SRAM_WEIGHT  16
+
 #define AMAC_SRDMA_RX_DESC_CNT 4
 
 #define AMAC_SRDMA_TX_CHAIN_LEN_MAX   1 /* Limit TX DMA chain len */
 /* Must be power of two because of the use of kfifo */
-#define AMAC_SRDMA_TX_MAX_QUEUE_LEN (AMAC_SRDMA_TX_CHAIN_LEN_MAX * 4)
-/* Two descriptors per packet, one each for: config data and payload */
-#define AMAC_SRDMA_TX_DESC_CNT  (AMAC_SRDMA_TX_MAX_QUEUE_LEN * 2)
+#define AMAC_SRDMA_TX_MAX_QUEUE_LEN (AMAC_SRDMA_TX_CHAIN_LEN_MAX * 8)
+
+#define AMAC_SRDMA_TX_DESC_CNT  (AMAC_SRDMA_TX_MAX_QUEUE_LEN * 1)
 
 #define AMAC_RX_BUF_SIZE      2048 /* MAX RX buffer size */
 #define AMAC_DMA_RX_DESC_CNT  512 /* Number of rx dma descriptors */
