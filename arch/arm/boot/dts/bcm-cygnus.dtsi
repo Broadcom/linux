@@ -749,6 +749,10 @@
 					<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
 					<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
 			clock-names = "ch0_audio", "ch1_audio", "ch2_audio";
+
+			assigned-clocks = <&audiopll 0>;
+			assigned-clock-rates = <1376255989>;
+
 			interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
 
 			ssp0: ssp_port@0 {
