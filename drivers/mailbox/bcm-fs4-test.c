@@ -46,7 +46,7 @@
 
 #define FS4_ENGINE_REG_SIZE		0x1000
 #define FS4_MAX_BATCH_COUNT		512
-#define FS4_MAX_CHANNELS		16
+#define FS4_MAX_CHANNELS		32
 
 struct fs4_test_msg {
 	void *src[FS4_MAX_BATCH_COUNT];
@@ -84,6 +84,8 @@ struct fs4_test {
 	unsigned int src_count;
 	unsigned int src_size;
 	unsigned int iterations;
+	unsigned int algo;
+	unsigned int secs;
 	unsigned int timeout;
 	unsigned int update;
 	unsigned int verify;
@@ -231,98 +233,201 @@ static const u8 spu2_ref_output[] = {
 0x43, 0x94, 0x57, 0xbd, 0xd5, 0x8f, 0x29, 0xd2,
 };
 
+#define SPU2_CIPH_ENCRYPT_EN            0x1 /* 0: decrypt, 1: encrypt */
+#define SPU2_CIPH_TYPE                 0xF0 /* one of spu2_cipher_type */
+#define SPU2_CIPH_TYPE_SHIFT              4
+#define SPU2_CIPH_MODE                0xF00 /* one of spu2_cipher_mode */
+#define SPU2_CIPH_MODE_SHIFT              8
+#define SPU2_PL_LEN              0xFFFFFFFF /* payload length in bytes */
+#define SPU2_CIPH_KEY_LEN         0xFF00000 /* len of cipher key in bytes */
+#define SPU2_CIPH_KEY_LEN_SHIFT          20
+#define SPU2_RET_FMD_ONLY				2
+#define SPU2_RETURN_MD_SHIFT            56
+#define SPU_RX_STATUS_LEN				2
+#define SPU2_HASH_TYPE_SHIFT             28
+#define SPU2_STATUS_LEN			2
+#define AES_ECB_128			1
+#define SHA1_DIGEST_LEN			20
+#define AES_ECB_CIPHER_KEY_LEN		16
+
+/* Fixed SPU2 Metadata format */
+struct SPU2_FMD {
+	u64 ctrl0;
+	u64 ctrl1;
+	u64 ctrl2;
+	u64 ctrl3;
+};
+
 /* Note: Must be called with test->lock held */
 static int __spu2_exec(struct fs4_test *test)
 {
-	int rc = 0, i;
-	unsigned int iter = 0;
+	int rc = 0, i = 0;
+	unsigned int iter = 0, b, s;
 	unsigned long tout;
-	struct scatterlist src;
-	struct scatterlist dst;
+	struct scatterlist *src;
+	struct scatterlist *dst;
 	struct mbox_chan *chan;
 	struct fs4_test_msg *cmsg;
 	unsigned long long input_bytes_count;
-	const u8 *ref_input = spu2_ref_input;
-	size_t ref_input_size = sizeof(spu2_ref_input);
-	const u8 *ref_output = spu2_ref_output;
-	size_t ref_output_size = sizeof(spu2_ref_output);
 	s64 iter_usecs, min_usecs = 0, max_usecs = 0, avg_usecs = 0;
 	unsigned long long iter_KBs, min_KBs = 0, max_KBs = 0, avg_KBs = 0;
+	struct SPU2_FMD *fmd;
+	unsigned int dst_size;
+	unsigned long start, end;
 
-	if (ref_input_size > PAGE_SIZE) {
-		fs4_info(test, "unsupported input size\n");
-		return -ENOTSUPP;
-	}
-
-	if (ref_output_size > PAGE_SIZE) {
-		fs4_info(test, "unsupported output size\n");
-		return -ENOTSUPP;
-	}
+	if (test->algo == AES_ECB_128)
+		dst_size = test->src_size;
+	else
+		dst_size = SHA1_DIGEST_LEN;
 
 	cmsg = devm_kzalloc(test->dev, sizeof(*cmsg), GFP_KERNEL);
 	if (!cmsg)
 		return -ENOMEM;
 
-	cmsg->src[0] = devm_kzalloc(test->dev, ref_input_size,
-				    GFP_KERNEL);
-	if (!cmsg->src[0]) {
-		devm_kfree(test->dev, cmsg);
-		return -ENOMEM;
+	src = devm_kzalloc(test->dev, sizeof(*src) * FS4_MAX_BATCH_COUNT,
+				GFP_KERNEL);
+	if (!src) {
+		rc = -ENOMEM;
+		goto free_cmsg;
 	}
 
-	fs4_debug(test, "src=0x%p src_size=0x%x\n",
-		  cmsg->src[0], (u32)ref_input_size);
-
-	memcpy(cmsg->src[0], ref_input, ref_input_size);
-
-	cmsg->dst[0] = devm_kzalloc(test->dev, ref_output_size,
-				 GFP_KERNEL);
-	if (!cmsg->dst[0]) {
-		devm_kfree(test->dev, cmsg->src[0]);
-		devm_kfree(test->dev, cmsg);
-		return -ENOMEM;
+	dst = devm_kzalloc(test->dev, sizeof(*dst) * FS4_MAX_BATCH_COUNT,
+				GFP_KERNEL);
+	if (!dst) {
+		rc = -ENOMEM;
+		goto free_src_scatlist;
 	}
 
-	fs4_debug(test, "dst=0x%p dst_size=0x%x\n",
-		  cmsg->dst[0], (u32)ref_output_size);
+	for (b = 0; b < test->batch_count; b++) {
+		if (test->algo == AES_ECB_128) {
+			/* AES ECB-128bit Key Cipher Algorithm */
+			cmsg->src[b] = devm_kzalloc(test->dev, test->src_size +
+						sizeof(struct SPU2_FMD) +
+						AES_ECB_CIPHER_KEY_LEN,
+						GFP_KERNEL);
+			if (!cmsg->src[b])
+				goto free_src;
 
-	sg_init_one(&src, cmsg->src[0], ref_input_size);
-	sg_init_one(&dst, cmsg->dst[0], ref_output_size);
+			cmsg->dst[b] = devm_kzalloc(test->dev, dst_size +
+						sizeof(struct SPU2_FMD) + 2,
+						GFP_KERNEL);
+			if (!cmsg->dst[b])
+				goto free_dst;
 
-	while (iter < test->iterations) {
-		chan = test->mchans[test->chan];
-		fs4_info(test, "iter=%u channel=%u",
-			 iter, test->chan);
-		test->chan++;
-		if (test->chan >= test->mchans_count)
-			test->chan = 0;
+			fmd = (struct SPU2_FMD *)cmsg->src[b];
+			/* SPU2_CIPHER_TYPE_AES128, SPU2_CIPHER_MODE_ECB */
+			fmd->ctrl0 = SPU2_CIPH_ENCRYPT_EN |
+				((u64) 0x1 << SPU2_CIPH_TYPE_SHIFT) |
+				((u64) 0x0 << SPU2_CIPH_MODE_SHIFT);
 
-		memset(cmsg->dst[0], 0, ref_output_size);
-		input_bytes_count = ref_input_size;
+			fmd->ctrl1 = ((AES_ECB_CIPHER_KEY_LEN <<
+				SPU2_CIPH_KEY_LEN_SHIFT) &
+				SPU2_CIPH_KEY_LEN) |
+				((u64) SPU2_RET_FMD_ONLY <<
+				SPU2_RETURN_MD_SHIFT);
 
+			fmd->ctrl3 = test->src_size & SPU2_PL_LEN;
+
+			/* Cipher Key 16 bytes */
+			memset((u8 *) (fmd + 1), 0xFF, AES_ECB_CIPHER_KEY_LEN +
+				test->src_size);
+			sg_init_one(&src[b], cmsg->src[b], test->src_size +
+					sizeof(struct SPU2_FMD) +
+					AES_ECB_CIPHER_KEY_LEN);
+			sg_init_one(&dst[b], cmsg->dst[b], dst_size +
+					sizeof(struct SPU2_FMD) +
+					SPU2_STATUS_LEN);
+		} else {
+			cmsg->src[b] = devm_kzalloc(test->dev, test->src_size
+						+ sizeof(struct SPU2_FMD),
+						GFP_KERNEL);
+			if (!cmsg->src[b])
+				goto free_src;
+
+			cmsg->dst[b] = devm_kzalloc(test->dev, dst_size +
+						sizeof(struct SPU2_FMD) +
+						SHA1_DIGEST_LEN +
+						SPU2_STATUS_LEN,
+						GFP_KERNEL);
+			if (!cmsg->dst[b])
+				goto free_dst;
+
+			fmd = (struct SPU2_FMD *)cmsg->src[b];
+			/*SPU2_HASH_TYPE_SHA1 */
+			fmd->ctrl0 = ((u64) 0x7 << SPU2_HASH_TYPE_SHIFT);
+			fmd->ctrl1 = ((u64) SPU2_RET_FMD_ONLY
+					<< SPU2_RETURN_MD_SHIFT);
+
+			fmd->ctrl3 = test->src_size & SPU2_PL_LEN;
+
+			sg_init_one(&src[b], cmsg->src[b],
+				test->src_size + sizeof(struct SPU2_FMD));
+			sg_init_one(&dst[b], cmsg->dst[b],
+				dst_size + sizeof(struct SPU2_FMD) +
+				SPU2_STATUS_LEN);
+		}
+	}
+
+	fs4_debug(test, "src_size=0x%x, batch_count: %d\n",
+		  (u32)test->src_size, test->batch_count);
+	for (b = 0; b < test->batch_count; b++) {
+		cmsg->msg[b].type = BRCM_MESSAGE_SPU;
+		cmsg->msg[b].spu.src = &src[b];
+		cmsg->msg[b].spu.dst = &dst[b];
+		cmsg->msg[b].ctx = cmsg;
+		cmsg->msg[b].error = 0;
+		cmsg->msg_count = 1;
+	}
+
+	cmsg->msg_count = test->batch_count;
+	b = cmsg->msg_count / test->mchans_count;
+	if ((b * test->mchans_count) < cmsg->msg_count)
+		b++;
+	s = 0;
+	cmsg->bmsg_count = 0;
+
+	while (s < cmsg->msg_count) {
+		i = min((cmsg->msg_count - s), b);
+		cmsg->bmsg[cmsg->bmsg_count].type = BRCM_MESSAGE_BATCH;
+		cmsg->bmsg[cmsg->bmsg_count].batch.msgs = &cmsg->msg[s];
+		cmsg->bmsg[cmsg->bmsg_count].batch.msgs_queued = 0;
+		cmsg->bmsg[cmsg->bmsg_count].batch.msgs_count = i;
+		fs4_debug(test, "batch%d msg_idx=%d msg_count=%d\n",
+			  cmsg->bmsg_count, s, i);
+		cmsg->bmsg_count++;
+		s += i;
+	}
+
+	for (start = jiffies, end = start + test->secs * HZ;
+			 time_before(jiffies, end);) {
+
+		atomic_set(&cmsg->done_count, cmsg->msg_count);
+		init_completion(&cmsg->done);
 		cmsg->start_ktime = ktime_get();
 		cmsg->runtime_usecs = 0;
+		input_bytes_count = test->src_size * test->batch_count;
 
-		cmsg->msg[0].type = BRCM_MESSAGE_SPU;
-		cmsg->msg[0].spu.src = &src;
-		cmsg->msg[0].spu.dst = &dst;
-		cmsg->msg[0].ctx = cmsg;
-		cmsg->msg[0].error = 0;
-		cmsg->msg_count = 1;
-		atomic_set(&cmsg->done_count, 1);
-		init_completion(&cmsg->done);
+		for (b = 0; b < cmsg->bmsg_count; b++) {
+			chan = test->mchans[test->chan];
+			test->chan++;
+			if (test->chan >= test->mchans_count)
+				test->chan = 0;
 
-		rc = mbox_send_message(chan, &cmsg->msg[0]);
-		if (rc < 0) {
-			fs4_info(test, "iter=%u send error\n", iter);
-			break;
+			cmsg->bmsg[b].batch.msgs_queued = 0;
+			rc = mbox_send_message(chan, &cmsg->bmsg[b]);
+			if (rc < 0) {
+				fs4_info(test, "iter=%u send error\n", iter);
+				break;
+			}
+			rc = 0;
+
+			if (cmsg->bmsg[b].error < 0) {
+				rc = cmsg->bmsg[b].error;
+				break;
+			}
 		}
-		rc = 0;
-
-		if (cmsg->msg[0].error < 0) {
-			rc = cmsg->msg[0].error;
+		if (rc < 0)
 			break;
-		}
 
 		if (test->poll) {
 			while (atomic_read(&cmsg->done_count) > 0)
@@ -341,42 +446,21 @@ static int __spu2_exec(struct fs4_test *test)
 
 		rc = 0;
 		for (i = 0; i < cmsg->msg_count; i++)
-			if (cmsg->msg[0].error < 0) {
+			if (cmsg->msg[b].error < 0) {
 				fs4_info(test, "iter=%u msg=%d rx error\n",
 					 iter, i);
-				rc = cmsg->msg[0].error;
+				rc = cmsg->msg[b].error;
 			}
 		if (rc < 0)
 			break;
-
-		if (test->verify) {
-			for (i = 0; i < ref_output_size; i++)
-				if (((u8 *)cmsg->dst[0])[i] !=
-						((u8 *)ref_output)[i])
-					break;
-			if (i != ref_output_size) {
-				fs4_info(test, "iter=%u mismatch at %d\n",
-					 iter, i);
-				print_hex_dump(KERN_INFO, "ref: ",
-						DUMP_PREFIX_ADDRESS,
-						16, 1, ref_output,
-						ref_output_size, true);
-				print_hex_dump(KERN_INFO, "dst: ",
-						DUMP_PREFIX_ADDRESS,
-						16, 1, cmsg->dst[0],
-						ref_output_size, true);
-				rc = -EIO;
-				break;
-			}
-		}
 
 		iter_usecs = cmsg->runtime_usecs;
 		iter_KBs =
 		fs4_test_KBs(cmsg->runtime_usecs, input_bytes_count);
 		min_usecs = (iter == 0) ?
-			    iter_usecs : min(min_usecs, iter_usecs);
+				iter_usecs : min(min_usecs, iter_usecs);
 		max_usecs = (iter == 0) ?
-			    iter_usecs : max(max_usecs, iter_usecs);
+				iter_usecs : max(max_usecs, iter_usecs);
 		avg_usecs += iter_usecs;
 		min_KBs = (iter == 0) ?
 			  iter_KBs : min(min_KBs, iter_KBs);
@@ -385,28 +469,35 @@ static int __spu2_exec(struct fs4_test *test)
 		avg_KBs += iter_KBs;
 		fs4_info(test, "iter=%u usecs=%ld KBs=%llu",
 			 iter, (long)iter_usecs, iter_KBs);
-
 		iter++;
 	}
-
-	devm_kfree(test->dev, cmsg->dst[0]);
-	devm_kfree(test->dev, cmsg->src[0]);
-	devm_kfree(test->dev, cmsg);
 
 	if (iter) {
 		avg_usecs = avg_usecs / iter;
 		avg_KBs = avg_KBs / iter;
 	}
 
-	fs4_info(test, "completed %u/%u iterations\n",
-		 iter, test->iterations);
-	fs4_info(test, "min_usecs=%ld min_KBs=%llu",
+	fs4_info(test, "completed %u in %u\n",
+		 iter, test->secs);
+	fs4_info(test, "min_usecs=%ld min_KBs=\t%8llu\n",
 		 (long)min_usecs, min_KBs);
-	fs4_info(test, "max_usecs=%ld max_KBs=%llu",
+	fs4_info(test, "max_usecs=%ld max_KBs=\t%8llu\n",
 		 (long)max_usecs, max_KBs);
-	fs4_info(test, "avg_usecs=%ld avg_KBs=%llu",
-		 (long)avg_usecs, avg_KBs);
+	fs4_info(test, "avg_KBs=\t%8llu\n", avg_KBs);
 
+free_dst:
+	for (b = 0; b < test->batch_count; b++)
+		if (cmsg->dst[b])
+			devm_kfree(test->dev, cmsg->dst[b]);
+free_src:
+	for (b = 0; b < test->batch_count; b++)
+		if (cmsg->src[b])
+			devm_kfree(test->dev, cmsg->src[b]);
+	devm_kfree(test->dev, dst);
+free_src_scatlist:
+	devm_kfree(test->dev, src);
+free_cmsg:
+	devm_kfree(test->dev, cmsg);
 	return rc;
 }
 
@@ -2491,6 +2582,8 @@ FS4_TEST_DECLARE_DEV_ATTR_UINT(src_size);
 FS4_TEST_DECLARE_DEV_ATTR_UINT(src_count);
 FS4_TEST_DECLARE_DEV_ATTR_UINT(iterations);
 FS4_TEST_DECLARE_DEV_ATTR_UINT(timeout);
+FS4_TEST_DECLARE_DEV_ATTR_UINT(secs);
+FS4_TEST_DECLARE_DEV_ATTR_UINT(algo);
 
 static void __fs4_do_test(struct fs4_test *test)
 {
@@ -2498,8 +2591,9 @@ static void __fs4_do_test(struct fs4_test *test)
 
 	if (test->start) {
 		fs4_info(test, "test started\n");
-		fs4_info(test, "iterations=%u timeout=%u verify=%u ",
-			 test->iterations, test->timeout, test->verify);
+		fs4_info(test, "iterations=%u secs=%u timeout=%u verify=%u ",
+			 test->iterations, test->secs, test->timeout,
+			 test->verify);
 		fs4_info(test, "verbose=%u poll=%u software=%u\n",
 			 test->verbose, test->poll, test->software);
 		fs4_info(test, "batch_count=%u min_split_size=%u\n",
@@ -2508,6 +2602,7 @@ static void __fs4_do_test(struct fs4_test *test)
 			 test->update, test->src_size, test->src_count);
 		rc = test->exec_func(test);
 		test->start = 0;
+
 		fs4_info(test, "test finished (error %d)\n", rc);
 	}
 }
@@ -2590,7 +2685,9 @@ static int fs4_test_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	test->dev = &pdev->dev;
+
 	test->exec_func = of_id->data;
+
 	platform_set_drvdata(pdev, test);
 
 	iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -2650,27 +2747,34 @@ static int fs4_test_probe(struct platform_device *pdev)
 	ret = device_create_file(&pdev->dev, &dev_attr_start);
 	if (ret < 0)
 		goto fail_remove_attr_software;
-
-	ret = of_count_phandle_with_args(pdev->dev.of_node,
-					 "mboxes", "#mbox-cells");
-	if ((ret <= 0) || (ret > FS4_MAX_CHANNELS)) {
-		ret = -ENODEV;
+	ret = device_create_file(&pdev->dev, &dev_attr_secs);
+	if (ret < 0)
 		goto fail_remove_attr_start;
-	}
+	ret = device_create_file(&pdev->dev, &dev_attr_algo);
+	if (ret < 0)
+		goto fail_remove_attr_secs;
 
 	ret = of_parse_phandle_with_args(pdev->dev.of_node,
-					 "mboxes", "#mbox-cells", 0, &args);
+					"mboxes", "#mbox-cells", 0, &args);
 	if (ret)
-		goto fail_remove_attr_start;
+		goto fail_remove_attr_algo;
+
 	mbox_pdev = of_find_device_by_node(args.np);
 	of_node_put(args.np);
 	if (!mbox_pdev) {
 		ret = -ENODEV;
-		goto fail_remove_attr_start;
+		goto fail_remove_attr_algo;
 	}
 	test->mbox_dev = &mbox_pdev->dev;
 
+	ret = of_count_phandle_with_args(pdev->dev.of_node,
+					 "mboxes", "#mbox-cells");
 	test->mchans_count = ret;
+	if ((ret <= 0) || (ret > FS4_MAX_CHANNELS)) {
+		ret = -ENODEV;
+		goto fail_remove_attr_algo;
+	}
+
 	for (i = 0; i < test->mchans_count; i++) {
 		test->mchans[i] = mbox_request_channel(&test->client, i);
 		if (!IS_ERR(test->mchans[i]))
@@ -2689,6 +2793,8 @@ static int fs4_test_probe(struct platform_device *pdev)
 	test->src_size = 8192;
 	test->src_count = 3;
 	test->iterations = 50;
+	test->secs = 1;
+	test->algo = 1;
 	test->timeout = 300;
 	test->update = 0;
 	test->verify = 0;
@@ -2709,6 +2815,10 @@ fail_free_channels:
 			test->mchans[i] = NULL;
 		}
 	test->mchans_count = 0;
+fail_remove_attr_algo:
+	device_remove_file(&pdev->dev, &dev_attr_algo);
+fail_remove_attr_secs:
+	device_remove_file(&pdev->dev, &dev_attr_secs);
 fail_remove_attr_start:
 	device_remove_file(&pdev->dev, &dev_attr_start);
 fail_remove_attr_software:
