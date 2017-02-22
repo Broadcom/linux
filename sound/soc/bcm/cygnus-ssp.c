@@ -27,12 +27,6 @@
 
 #define DEFAULT_VCO    1354750204
 
-#define CYGNUS_TDM_RATE \
-		(SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 | \
-		SNDRV_PCM_RATE_11025 | SNDRV_PCM_RATE_22050 | \
-		SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 | \
-		SNDRV_PCM_RATE_48000)
-
 #define CAPTURE_FCI_ID_BASE 0x180
 #define CYGNUS_SSP_TRISTATE_MASK 0x001fff
 #define CYGNUS_PLLCLKSEL_MASK 0xf
@@ -238,152 +232,20 @@ static const struct pll_macro_entry pll_predef_mclk[] = {
 	{98304000, 2},
 };
 
+#define CYGNUS_RATE_MIN     8000
+#define CYGNUS_RATE_MAX   384000
+
 /* List of valid frame sizes for tdm mode */
 static const int ssp_valid_tdm_framesize[] = {32, 64, 128, 256, 512};
 
-/*
- * Use this relationship to derive the sampling rate (lrclk)
- * lrclk = (mclk) / ((2*mclk_to_sclk_ratio) * (32 * SCLK))).
- *
- * Use mclk and pll_ch from the table above
- *
- * Valid SCLK = 0/1/2/4/8/12
- *
- * mclk_to_sclk_ratio = number of MCLK per SCLK. Division is twice the
- * value programmed in this field.
- * Valid mclk_to_sclk_ratio = 1 through to 15
- *
- * eg: To set lrclk = 48khz, set mclk = 12288000, mclk_to_sclk_ratio = 2,
- * SCLK = 64
- */
-struct _ssp_clk_coeff {
-	u32 mclk;
-	u32 sclk_rate;
-	u32 rate;
-	u32 mclk_rate;
+static const unsigned int cygnus_rates[] = {
+	 8000, 11025,  16000,  22050,  32000,  44100, 48000,
+	88200, 96000, 176400, 192000, 352800, 384000
 };
 
-static const struct _ssp_clk_coeff ssp_clk_coeff[] = {
-	{ 4096000,  32,  16000, 4},
-	{ 4096000,  32,  32000, 2},
-	{ 4096000,  64,   8000, 4},
-	{ 4096000,  64,  16000, 2},
-	{ 4096000,  64,  32000, 1},
-	{ 4096000, 128,   8000, 2},
-	{ 4096000, 128,  16000, 1},
-	{ 4096000, 256,   8000, 1},
-
-	{ 6144000,  32,  16000, 6},
-	{ 6144000,  32,  32000, 3},
-	{ 6144000,  32,  48000, 2},
-	{ 6144000,  32,  96000, 1},
-	{ 6144000,  64,   8000, 6},
-	{ 6144000,  64,  16000, 3},
-	{ 6144000,  64,  48000, 1},
-	{ 6144000, 128,   8000, 3},
-
-	{ 8192000,  32,  32000, 4},
-	{ 8192000,  64,  16000, 4},
-	{ 8192000,  64,  32000, 2},
-	{ 8192000, 128,   8000, 4},
-	{ 8192000, 128,  16000, 2},
-	{ 8192000, 128,  32000, 1},
-	{ 8192000, 256,   8000, 2},
-	{ 8192000, 256,  16000, 1},
-	{ 8192000, 512,   8000, 1},
-
-	{12288000,  32,  32000, 6},
-	{12288000,  32,  48000, 4},
-	{12288000,  32,  96000, 2},
-	{12288000,  32, 192000, 1},
-	{12288000,  64,  16000, 6},
-	{12288000,  64,  32000, 3},
-	{12288000,  64,  48000, 2},
-	{12288000,  64,  96000, 1},
-	{12288000, 128,   8000, 6},
-	{12288000, 128,  16000, 3},
-	{12288000, 128,  48000, 1},
-	{12288000, 256,   8000, 3},
-
-	{16384000,  64,  32000, 4},
-	{16384000, 128,  16000, 4},
-	{16384000, 128,  32000, 2},
-	{16384000, 256,   8000, 4},
-	{16384000, 256,  16000, 2},
-	{16384000, 256,  32000, 1},
-	{16384000, 512,   8000, 2},
-	{16384000, 512,  16000, 1},
-
-	{24576000,  32,  96000, 4},
-	{24576000,  32, 192000, 2},
-	{24576000,  64,  32000, 6},
-	{24576000,  64,  48000, 4},
-	{24576000,  64,  96000, 2},
-	{24576000,  64, 192000, 1},
-	{24576000, 128,  16000, 6},
-	{24576000, 128,  32000, 3},
-	{24576000, 128,  48000, 2},
-	{24576000, 256,   8000, 6},
-	{24576000, 256,  16000, 3},
-	{24576000, 256,  48000, 1},
-	{24576000, 512,   8000, 3},
-
-	{49152000,  32, 192000, 4},
-	{49152000,  64,  96000, 4},
-	{49152000,  64, 192000, 2},
-	{49152000, 128,  32000, 6},
-	{49152000, 128,  48000, 4},
-	{49152000, 128,  96000, 2},
-	{49152000, 128, 192000, 1},
-	{49152000, 256,  16000, 6},
-	{49152000, 256,  32000, 3},
-	{49152000, 256,  48000, 2},
-	{49152000, 256,  96000, 1},
-	{49152000, 512,   8000, 6},
-	{49152000, 512,  16000, 3},
-	{49152000, 512,  48000, 1},
-
-	{ 5644800,  32,  22050, 4},
-	{ 5644800,  32,  44100, 2},
-	{ 5644800,  32,  88200, 1},
-	{ 5644800,  64,  11025, 4},
-	{ 5644800,  64,  22050, 2},
-	{ 5644800,  64,  44100, 1},
-
-	{11289600,  32,  44100, 4},
-	{11289600,  32,  88200, 2},
-	{11289600,  32, 176400, 1},
-	{11289600,  64,  22050, 4},
-	{11289600,  64,  44100, 2},
-	{11289600,  64,  88200, 1},
-	{11289600, 128,  11025, 4},
-	{11289600, 128,  22050, 2},
-	{11289600, 128,  44100, 1},
-
-	{22579200,  32,  88200, 4},
-	{22579200,  32, 176400, 2},
-	{22579200,  64,  44100, 4},
-	{22579200,  64,  88200, 2},
-	{22579200,  64, 176400, 1},
-	{22579200, 128,  22050, 4},
-	{22579200, 128,  44100, 2},
-	{22579200, 128,  88200, 1},
-	{22579200, 256,  11025, 4},
-	{22579200, 256,  22050, 2},
-	{22579200, 256,  44100, 1},
-
-	{45158400,  32, 176400, 4},
-	{45158400,  64,  88200, 4},
-	{45158400,  64, 176400, 2},
-	{45158400, 128,  44100, 4},
-	{45158400, 128,  88200, 2},
-	{45158400, 128, 176400, 1},
-	{45158400, 256,  22050, 4},
-	{45158400, 256,  44100, 2},
-	{45158400, 256,  88200, 1},
-	{45158400, 512,  11025, 4},
-	{45158400, 512,  22050, 2},
-	{45158400, 512,  44100, 1},
+static const struct snd_pcm_hw_constraint_list cygnus_rate_constraint = {
+	.count = ARRAY_SIZE(cygnus_rates),
+	.list = cygnus_rates,
 };
 
 static int update_ssp_cfg(struct cygnus_aio_port *aio);
@@ -756,27 +618,39 @@ static int pll_configure_mclk(struct cygnus_audio *cygaud, u32 mclk,
 
 static int cygnus_ssp_set_clocks(struct cygnus_aio_port *aio)
 {
-	u32 value, i = 0;
+	u32 value;
 	u32 mask = 0xf;
 	u32 sclk;
-	bool found = false;
-	const struct _ssp_clk_coeff *p_entry = NULL;
+	u32 mclk_rate;
 	unsigned int bits_per_frame;
+	unsigned int bit_rate;
+	unsigned int ratio;
 
 	bits_per_frame = aio->slots_per_frame * aio->slot_width;
+	bit_rate = bits_per_frame * aio->lrclk;
 
-	for (i = 0; i < ARRAY_SIZE(ssp_clk_coeff); i++) {
-		p_entry = &ssp_clk_coeff[i];
-		if ((p_entry->rate == aio->lrclk) &&
-		    (p_entry->sclk_rate == bits_per_frame) &&
-		    (p_entry->mclk == aio->mclk)) {
-			found = true;
-			break;
-		}
-	}
-	if (!found) {
-		dev_err(aio->dev,
-			"No valid match found in ssp_clk_coeff array\n");
+	/*
+	 * Check if the bit clock can be generated from the given MCLK.
+	 * MCLK must be a perfect multiple of bit clock and must be one of the
+	 * following values... (2,4,6,8,10,12,14)
+	 */
+	if ((aio->mclk % bit_rate) != 0)
+		return -EINVAL;
+
+	ratio = aio->mclk / bit_rate;
+	switch (ratio) {
+	case 2:
+	case 4:
+	case 6:
+	case 8:
+	case 10:
+	case 12:
+	case 14:
+		mclk_rate = ratio / 2;
+		break;
+
+	default:
+		dev_err(aio->dev, "Invalid combination of MCLK and BCLK\n");
 		dev_err(aio->dev, "lrclk = %u, bits/frame = %u, mclk = %u\n",
 			aio->lrclk, bits_per_frame, aio->mclk);
 		return -EINVAL;
@@ -809,7 +683,7 @@ static int cygnus_ssp_set_clocks(struct cygnus_aio_port *aio)
 	/* Set MCLK_RATE ssp port (spdif and ssp are the same) */
 	value = readl(aio->audio + aio->regs.i2s_mclk_cfg);
 	value &= ~(0xf << I2S_OUT_MCLKRATE_SHIFT);
-	value |= (p_entry->mclk_rate << I2S_OUT_MCLKRATE_SHIFT);
+	value |= (mclk_rate << I2S_OUT_MCLKRATE_SHIFT);
 	writel(value, aio->audio + aio->regs.i2s_mclk_cfg);
 
 	dev_dbg(aio->dev, "mclk cfg reg = 0x%x\n", value);
@@ -1451,11 +1325,9 @@ static const struct snd_soc_dai_ops cygnus_ssp_dai_ops = {
 #define INIT_CPU_DAI(num) { \
 	.name = "cygnus-ssp" #num, \
 	.playback = { \
-		.channels_min = 1, \
+		.channels_min = 2, \
 		.channels_max = 16, \
-		.rates = CYGNUS_TDM_RATE | SNDRV_PCM_RATE_88200 | \
-			SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_176400 | \
-			SNDRV_PCM_RATE_192000, \
+		.rates = SNDRV_PCM_RATE_KNOT, \
 		.formats = SNDRV_PCM_FMTBIT_S8 | \
 				SNDRV_PCM_FMTBIT_S16_LE | \
 				SNDRV_PCM_FMTBIT_S32_LE, \
@@ -1463,9 +1335,7 @@ static const struct snd_soc_dai_ops cygnus_ssp_dai_ops = {
 	.capture = { \
 		.channels_min = 2, \
 		.channels_max = 16, \
-		.rates = CYGNUS_TDM_RATE | SNDRV_PCM_RATE_88200 | \
-			SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_176400 | \
-			SNDRV_PCM_RATE_192000, \
+		.rates = SNDRV_PCM_RATE_KNOT, \
 		.formats =  SNDRV_PCM_FMTBIT_S16_LE | \
 					SNDRV_PCM_FMTBIT_S32_LE, \
 	}, \
@@ -1485,9 +1355,7 @@ static struct snd_soc_dai_driver cygnus_spdif_dai_info = {
 	.playback = {
 		.channels_min = 2,
 		.channels_max = 2,
-		.rates = CYGNUS_TDM_RATE | SNDRV_PCM_RATE_88200 |
-			SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_176400 |
-			SNDRV_PCM_RATE_192000,
+		.rates = SNDRV_PCM_RATE_KNOT,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE |
 			SNDRV_PCM_FMTBIT_S32_LE,
 	},
@@ -1641,7 +1509,6 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	}
 
 	active_port_count = 0;
-
 	for_each_available_child_of_node(pdev->dev.of_node, child_node) {
 		err = parse_ssp_child_node(pdev, child_node, cygaud,
 					&cygnus_ssp_dai[active_port_count]);
