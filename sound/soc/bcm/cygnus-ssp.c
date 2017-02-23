@@ -881,6 +881,11 @@ static int cygnus_ssp_startup(struct snd_pcm_substream *substream,
 	else
 		aio->clk_trace.cap_en = true;
 
+	substream->runtime->hw.rate_min = CYGNUS_RATE_MIN;
+	substream->runtime->hw.rate_max = CYGNUS_RATE_MAX;
+
+	snd_pcm_hw_constraint_list(substream->runtime, 0,
+			SNDRV_PCM_HW_PARAM_RATE, &cygnus_rate_constraint);
 	return 0;
 }
 
