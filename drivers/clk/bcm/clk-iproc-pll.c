@@ -431,8 +431,8 @@ static unsigned long iproc_pll_recalc_rate(struct clk_hw *hw,
 	return clk->rate;
 }
 
-static long iproc_pll_round_rate(struct clk_hw *hw, unsigned long rate,
-				 unsigned long *parent_rate)
+static int iproc_pll_determine_rate(struct clk_hw *hw,
+		struct clk_rate_request *req)
 {
 	unsigned int  i;
 	struct iproc_clk *clk = to_iproc_clk(hw);
@@ -440,12 +440,12 @@ static long iproc_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long  diff, best_diff;
 	unsigned int  best_idx = 0;
 
-	if (rate == 0 || *parent_rate == 0 || !pll->vco_param)
+	if (req->rate == 0 || req->best_parent_rate == 0 || !pll->vco_param)
 		return -EINVAL;
 
 	best_diff = ULONG_MAX;
 	for (i = 0; i < pll->num_vco_entries; i++) {
-		diff = abs(rate - pll->vco_param[i].rate);
+		diff = abs(req->rate - pll->vco_param[i].rate);
 		if (diff <= best_diff) {
 			best_diff = diff;
 			best_idx = i;
@@ -455,7 +455,9 @@ static long iproc_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 			break;
 	}
 
-	return pll->vco_param[best_idx].rate;
+	req->rate = pll->vco_param[best_idx].rate;
+
+	return 0;
 }
 
 static int iproc_pll_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -477,7 +479,7 @@ static const struct clk_ops iproc_pll_ops = {
 	.enable = iproc_pll_enable,
 	.disable = iproc_pll_disable,
 	.recalc_rate = iproc_pll_recalc_rate,
-	.round_rate = iproc_pll_round_rate,
+	.determine_rate = iproc_pll_determine_rate,
 	.set_rate = iproc_pll_set_rate,
 };
 
