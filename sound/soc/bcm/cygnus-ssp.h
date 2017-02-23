@@ -19,7 +19,6 @@
 #define CYGNUS_MAX_CAPTURE_PORTS 3
 #define CYGNUS_MAX_I2S_PORTS 3
 #define CYGNUS_MAX_PORTS  CYGNUS_MAX_PLAYBACK_PORTS
-#define CYGNUS_AUIDO_MAX_NUM_CLKS 3
 
 #define CYGNUS_SSP_FRAMEBITS_DIV 1
 
@@ -80,11 +79,9 @@ struct cygnus_ssp_regs {
 	u32 bf_sourcech_cfg;
 };
 
-struct cygnus_track_clk {
-	bool cap_en;
-	bool play_en;
-	bool cap_clk_en;
-	bool play_clk_en;
+struct cygnus_audio_clkinfo {
+	struct clk *audio_clk;
+	int clk_mux;
 };
 
 struct cygnus_aio_port {
@@ -109,7 +106,6 @@ struct cygnus_aio_port {
 	unsigned int slots_per_frame;
 	unsigned int active_slots;
 
-	struct cygnus_audio *cygaud;
 	void __iomem *audio;
 	void __iomem *i2s_in;
 
@@ -121,7 +117,7 @@ struct cygnus_aio_port {
 	struct snd_pcm_substream *play_stream;
 	struct snd_pcm_substream *capture_stream;
 
-	struct cygnus_track_clk clk_trace;
+	struct cygnus_audio_clkinfo clk_info;
 };
 
 
@@ -132,10 +128,6 @@ struct cygnus_audio {
 	void __iomem *audio;
 	void __iomem *i2s_in;
 	struct device *dev;
-
-	struct clk *audio_clk[CYGNUS_AUIDO_MAX_NUM_CLKS];
-	int active_ports;
-	unsigned long vco_rate;
 };
 
 extern int cygnus_ssp_set_custom_fsync_width(struct snd_soc_dai *cpu_dai,
