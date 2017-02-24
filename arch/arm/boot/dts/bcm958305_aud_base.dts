@@ -75,6 +75,12 @@
 	brcm,dte-interval-ns = <10000000>;
 };
 
+&ehci0 {
+	phys = <&usbphy0 0>;
+	phy-names = "usbp0";
+	status = "okay";
+};
+
 &enet {
 	status = "okay";
 };
@@ -108,6 +114,12 @@
 	MATRIX_KEY(0x03, 0x01, KEY_4) /* key_4 */
 	MATRIX_KEY(0x04, 0x01, KEY_5) /* key_5 */
 	>;
+};
+
+&ohci0 {
+	phys = <&usbphy0 0>;
+	phy-names = "usbp0";
+	status = "okay";
 };
 
 &pinctrl {
