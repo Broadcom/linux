@@ -175,11 +175,13 @@
 &sdio0 {
 	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
 	non-removable;
+	full-pwr-cycle;
 	status = "okay";
 };
 
 &sdio1 {
 	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
+	full-pwr-cycle;
 	status = "okay";
 };
 
