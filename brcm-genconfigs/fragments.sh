@@ -7,7 +7,7 @@ arm64_defconfigs="iproc_defconfig sr_nitro_lite_defconfig"
 
 # Defines the fragments that apply to each defconfig. Variable name must be the
 # same as the defconfig file.
-bcm_cygnus_defconfig="base-arm32 blk dbg dma fs i2c mailbox md misc mmc mtd \
+bcm_cygnus_defconfig="base-arm32 blk dbg dma fs i2c mailbox misc mmc mtd \
     net pwm rng spi watchdog bt wifi regulator cygnus lcd sound trace stmpe \
     usb usbd"
 iproc_defconfig="base-arm64 clocksource dbg mmu blk net dma fs i2c iomux \
