@@ -32,7 +32,7 @@
 
 #define ENABLE_PAXC 0
 #define NUM_PAXB 0
-#define NUM_SATA 0
+#define NUM_SATA 8
 
 #include "bcm958742k-extsram.dts"
 

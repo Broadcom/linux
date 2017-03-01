@@ -134,34 +134,90 @@
 	};
 };
 
+&sata0 {
+	status = "disabled";
+};
+
 &sata_phy0 {
 	compatible = "brcm,stingray-sata-phy-prbs";
+#if (NUM_SATA > 0)
+	status = "okay";
+#endif
+};
+
+&sata1 {
+	status = "disabled";
 };
 
 &sata_phy1 {
 	compatible = "brcm,stingray-sata-phy-prbs";
+#if (NUM_SATA > 1)
+	status = "okay";
+#endif
+};
+
+&sata2 {
+	status = "disabled";
 };
 
 &sata_phy2 {
 	compatible = "brcm,stingray-sata-phy-prbs";
+#if (NUM_SATA > 2)
+	status = "okay";
+#endif
+};
+
+&sata3 {
+	status = "disabled";
 };
 
 &sata_phy3 {
 	compatible = "brcm,stingray-sata-phy-prbs";
+#if (NUM_SATA > 3)
+	status = "okay";
+#endif
+};
+
+&sata4 {
+	status = "disabled";
 };
 
 &sata_phy4 {
 	compatible = "brcm,stingray-sata-phy-prbs";
+#if (NUM_SATA > 4)
+	status = "okay";
+#endif
+};
+
+&sata5 {
+	status = "disabled";
 };
 
 &sata_phy5 {
 	compatible = "brcm,stingray-sata-phy-prbs";
+#if (NUM_SATA > 5)
+	status = "okay";
+#endif
+};
+
+&sata6 {
+	status = "disabled";
 };
 
 &sata_phy6 {
 	compatible = "brcm,stingray-sata-phy-prbs";
+#if (NUM_SATA > 6)
+	status = "okay";
+#endif
+};
+
+&sata7 {
+	status = "disabled";
 };
 
 &sata_phy7 {
 	compatible = "brcm,stingray-sata-phy-prbs";
+#if (NUM_SATA > 7)
+	status = "okay";
+#endif
 };
