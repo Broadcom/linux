@@ -109,7 +109,8 @@ dtb-$(CONFIG_ARCH_BCM_CYGNUS) += \
 	bcm958300k.dtb \
 	bcm958305k.dtb \
 	bcm958305_aud_base.dtb \
-	bcm958305_audio_sa.dtb
+	bcm958305_audio_sa.dtb \
+	bcm958305_ak4458.dtb
 dtb-$(CONFIG_ARCH_BCM_MOBILE) += \
 	bcm28155-ap.dtb \
 	bcm21664-garnet.dtb \
