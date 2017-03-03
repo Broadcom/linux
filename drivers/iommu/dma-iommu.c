@@ -53,6 +53,41 @@ int iommu_dma_init(void)
 	return iova_cache_get();
 }
 
+static u64 __iommu_dma_mask(struct device *dev, bool is_coherent)
+{
+#ifdef CONFIG_PCI
+	u64 pci_hb_dma_mask;
+
+	if (dev_is_pci(dev)) {
+		struct pci_dev *pdev = to_pci_dev(dev);
+		struct pci_host_bridge *br = pci_find_host_bridge(pdev->bus);
+
+		if ((!is_coherent) && !(br->dev.dma_mask))
+			goto default_dev_dma_mask;
+
+		/* pci host bridge dma-mask. */
+		pci_hb_dma_mask = (!is_coherent) ? *br->dev.dma_mask :
+				   br->dev.coherent_dma_mask;
+
+		if (pci_hb_dma_mask && ((pci_hb_dma_mask) < (*dev->dma_mask)))
+			return pci_hb_dma_mask;
+	}
+default_dev_dma_mask:
+#endif
+	return (!is_coherent) ? dma_get_mask(dev) :
+		dev->coherent_dma_mask;
+}
+
+static u64 __iommu_dma_get_coherent_mask(struct device *dev)
+{
+	return __iommu_dma_mask(dev, true);
+}
+
+static u64 __iommu_dma_get_mask(struct device *dev)
+{
+	return __iommu_dma_mask(dev, false);
+}
+
 /**
  * iommu_get_dma_cookie - Acquire DMA-API resources for a domain
  * @domain: IOMMU domain to prepare for DMA-API usage
@@ -369,7 +404,7 @@ struct page **iommu_dma_alloc(struct device *dev, size_t size, gfp_t gfp,
 	if (!pages)
 		return NULL;
 
-	iova = __alloc_iova(domain, size, dev->coherent_dma_mask);
+	iova = __alloc_iova(domain, size, __iommu_dma_get_coherent_mask(dev));
 	if (!iova)
 		goto out_free_pages;
 
@@ -441,7 +476,8 @@ dma_addr_t iommu_dma_map_page(struct device *dev, struct page *page,
 	phys_addr_t phys = page_to_phys(page) + offset;
 	size_t iova_off = iova_offset(iovad, phys);
 	size_t len = iova_align(iovad, size + iova_off);
-	struct iova *iova = __alloc_iova(domain, len, dma_get_mask(dev));
+	struct iova *iova = __alloc_iova(domain, len,
+					 __iommu_dma_get_mask(dev));
 
 	if (!iova)
 		return DMA_ERROR_CODE;
@@ -593,7 +629,7 @@ int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 		prev = s;
 	}
 
-	iova = __alloc_iova(domain, iova_len, dma_get_mask(dev));
+	iova = __alloc_iova(domain, iova_len, __iommu_dma_get_mask(dev));
 	if (!iova)
 		goto out_restore_sg;
 
@@ -657,7 +693,7 @@ static struct iommu_dma_msi_page *iommu_dma_get_msi_page(struct device *dev,
 	if (!msi_page)
 		return NULL;
 
-	iova = __alloc_iova(domain, iovad->granule, dma_get_mask(dev));
+	iova = __alloc_iova(domain, iovad->granule, __iommu_dma_get_mask(dev));
 	if (!iova)
 		goto out_free_page;
 
