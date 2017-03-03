@@ -495,7 +495,7 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct pci_bus *bus,
 			return NULL;
 
 		/* only enumerate up to supported number of PFs */
-		if (fn >= pcie->nr_pf)
+		if (pcie->nr_pf && fn >= pcie->nr_pf)
 			return NULL;
 	}
 
@@ -1282,7 +1282,6 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 	case IPROC_PCIE_PAXC_V2:
 		regs = iproc_pcie_reg_paxc_v2;
 		pcie->ep_is_internal = true;
-		pcie->nr_pf = 1;
 		pcie->need_msi_steer = true;
 		break;
 	default:
