@@ -1033,6 +1033,14 @@ static int iproc_pcie_setup_ib(struct iproc_pcie *pcie,
 			ret = iproc_pcie_ib_write(pcie, region_idx, size_idx,
 						  ib_map->nr_windows, axi_addr,
 						  pci_addr, size);
+
+			if (pcie->use_dma_mask) {
+				if (pcie->dma_mask <
+				    (u64) (axi_addr + region_size - 1))
+					pcie->dma_mask =
+					(u64) (axi_addr + region_size - 1);
+			}
+
 			if (ret)
 				goto err_ib;
 			else
@@ -1311,6 +1319,7 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	int ret;
 	void *sysdata;
 	struct pci_bus *bus, *child;
+	struct pci_host_bridge *br;
 
 	dev = pcie->dev;
 
@@ -1364,6 +1373,19 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 		goto err_power_off_phy;
 	}
 	pcie->root_bus = bus;
+
+	if (pcie->use_dma_mask) {
+		/*
+		 * iommu dma-ops gets populated only after
+		 * EP is enumurated and sets its own dma mask,
+		 * and go for dma_alloc. so we can not use
+		 * dma_set_xxx APIs here for pcie root bridge.
+		 * so directly assign both the masks.
+		 */
+		br = pci_find_host_bridge(bus);
+		br->dev.dma_mask = &pcie->dma_mask;
+		br->dev.coherent_dma_mask = pcie->dma_mask;
+	}
 
 	ret = iproc_pcie_check_link(pcie, bus);
 	if (ret) {

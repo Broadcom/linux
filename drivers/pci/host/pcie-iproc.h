@@ -115,6 +115,9 @@ struct iproc_pcie {
 	int irq;
 	struct irq_domain *irq_domain;
 
+	bool use_dma_mask;
+	u64 dma_mask;
+
 	bool need_msi_steer;
 	struct iproc_msi *msi;
 };
