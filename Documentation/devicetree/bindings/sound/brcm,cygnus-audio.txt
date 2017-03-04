@@ -14,7 +14,7 @@ Required properties:
 Optional properties:
 	- assigned-clocks: only valid choice is audiopll
 	- assigned-clock-rates: clock frequency for audiopll
-If none of the ports need an intermal master clock then there no need to
+If none of the ports need an internal master clock then there no need to
 initialize the pll clock.
 
 
@@ -26,6 +26,11 @@ Optional:
 	- clocks: clock used by audio port
 		  one of the audiopll outputs (see brcm,iproc-clocks.txt).
 	- clock-names: Must be "ssp_clk"
+	- brcm,ssp-clk-mux = Needed if a clock is named and used.  This value is
+			used to program the mux within the audio driver which selects
+			the incoming clock. Here is the mapping.
+			audio_pll   output 0 = 0, output 1 = 1, and output 2 = 2
+
 
 Example:
 	cygnus_audio: audio@180ae000 {
@@ -45,6 +50,7 @@ Example:
 
 			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>;
 			clock-names = "ssp_clk";
+			brcm,ssp-clk-mux = <0>;
 
 			status = "okay";
 		};
@@ -54,6 +60,7 @@ Example:
 
 			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>;
 			clock-names = "ssp_clk";
+			brcm,ssp-clk-mux = <1>;
 
 			status = "okay";
 		};
@@ -63,6 +70,7 @@ Example:
 
 			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
 			clock-names = "ssp_clk";
+			brcm,ssp-clk-mux = <2>;
 
 			status = "okay";
 		};
@@ -72,6 +80,7 @@ Example:
 
 			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
        			clock-names = "ssp_clk";
+			brcm,ssp-clk-mux = <2>;
 
 			status = "disabled";
 		};
