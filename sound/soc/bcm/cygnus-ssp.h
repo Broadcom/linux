@@ -137,4 +137,6 @@ extern int cygnus_soc_platform_register(struct device *dev,
 extern int cygnus_soc_platform_unregister(struct device *dev);
 extern int cygnus_ssp_set_custom_fsync_width(struct snd_soc_dai *cpu_dai,
 	int len);
+int cygnus_ssp_get_clk(struct snd_soc_dai *dai, unsigned int freq);
+int cygnus_ssp_put_clk(struct snd_soc_dai *dai);
 #endif

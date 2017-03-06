@@ -1138,6 +1138,53 @@ static int update_ssp_cfg(struct cygnus_aio_port *aio)
 	return 0;
 }
 
+/*
+ * This function is intended to assist in the situation where an external
+ * codec is using the MCLK we generate.  The codec may need to have the
+ * clock present earlier than we would normally enable it in the audio
+ * driver.  This API give the machine driver control over when the clock
+ * is enabled.
+ */
+int cygnus_ssp_get_clk(struct snd_soc_dai *dai, unsigned int freq)
+{
+	int error;
+	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(dai);
+
+
+	if (!aio->clk_info.audio_clk) {
+		dev_err(aio->dev, "%s Clock was not provided\n", __func__);
+		return -ENODEV;
+	}
+
+	error = clk_prepare_enable(aio->clk_info.audio_clk);
+	if (error) {
+		dev_err(aio->dev, "%s clk_prepare_enable failed %d\n",
+					__func__, error);
+		return error;
+	}
+
+	cygnus_ssp_set_sysclk(dai, 0, freq, SND_SOC_CLOCK_OUT);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(cygnus_ssp_get_clk);
+
+int cygnus_ssp_put_clk(struct snd_soc_dai *dai)
+{
+	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(dai);
+
+	if (aio->clk_info.audio_clk) {
+		clk_disable_unprepare(aio->clk_info.audio_clk);
+	} else {
+		dev_err(aio->dev, "%s Clock was not provided\n", __func__);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(cygnus_ssp_put_clk);
+
+
 static const struct snd_soc_dai_ops cygnus_ssp_dai_ops = {
 	.startup	= cygnus_ssp_startup,
 	.shutdown	= cygnus_ssp_shutdown,
