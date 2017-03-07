@@ -4,9 +4,9 @@ Required properties:
   - compatible : "asahi-kasei,ak4385"
   - reg :  chip select number on the SPI bus
   - power-gpio = gpio used to reset/power down the chip
+
+Optional properties:
   - amp-mute-gpio = gpio used to mute external op amp
-  - vdd-supply : A regulator node, providing 5V
-		see Documentation/devicetree/bindings/regulator/regulator.txt.
 
 Example:
 
@@ -16,5 +16,4 @@ ak4385_codec: ak4385@0 {
 
 	power-gpio = <&gpio_asiu 120 0>;
 	amp-mute-gpio = <&gpio_asiu 102 0>;
-	vdd-supply = <&vdd_5v_reg>;
 };
