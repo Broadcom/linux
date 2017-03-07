@@ -51,9 +51,65 @@
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
 	};
+
+	sound {
+		compatible = "brcm,bcm958305-aud-base-machine";
+		status = "okay";
+
+		link0 {
+			format = "i2s";
+			bitclock-master = <&dailink0_master>;
+			frame-master = <&dailink0_master>;
+
+			dailink0_master: cpu {
+				sound-dai = <&cygnus_audio 0>;
+			};
+
+			codec {
+				sound-dai = <&wm8994_codec 0>; /* wm8994-aif1 */
+			};
+		} ;
+
+		link1 {
+			format = "i2s";
+			bitclock-master = <&dailink1_master>;
+			frame-master = <&dailink1_master>;
+
+			dailink1_master: cpu {
+				sound-dai = <&cygnus_audio 1>;
+			};
+
+			codec {
+				sound-dai = <&ak4385_codec>;
+			};
+		};
+
+		link2 {
+			format = "i2s";
+			bitclock-master = <&dailink2_master>;
+			frame-master = <&dailink2_master>;
+
+			dailink2_master: cpu {
+				sound-dai = <&cygnus_audio 3>;
+			};
+
+			codec {
+				sound-dai = <&spdif_dummy_tx>;
+			};
+		};
+	};
+
+	/* dummy codec to model spdif tx */
+	spdif_dummy_tx: spdif_tx {
+		#sound-dai-cells = <0>;
+		status = "okay";
+		compatible = "linux,spdif-dit";
+	};
 };
 
 &cygnus_audio {
+	#sound-dai-cells = <1>;
+
 	ssp0: ssp_port@0 {
 		status = "okay";
 	};
@@ -90,8 +146,12 @@
 	status = "okay";
 
 	wm8994_codec: wm8994@1a {
+		#sound-dai-cells = <1>;
 		compatible = "wlf,wm8994";
 		reg = <0x1a>;
+
+		gpio-controller;
+		#gpio-cells = <2>;
 
 		DBVDD-supply = <&vdd_3v3_reg>;
 		DCVDD-supply = <&vdd_3v3_reg>;
@@ -133,6 +193,24 @@
 			 "key12_grp";
 	};
 };
+
+&spi1 {
+	status = "okay";
+	num-cs = <1>;
+
+	ak4385_codec: ak4385@0 {
+		#sound-dai-cells = <0>;
+		compatible = "asahi-kasei,ak4385";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+		spi-cpol;
+		spi-cpha;
+		power-gpio = <&gpio_asiu 120 0>;
+		amp-mute-gpio = <&gpio_asiu 102 0>;
+		vdd-supply = <&vdd_5v_reg>;
+	};
+};
+
 
 &spi2 {
 	status = "okay";

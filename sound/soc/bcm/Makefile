@@ -11,4 +11,5 @@ obj-$(CONFIG_SND_SOC_CYGNUS) += snd-soc-cygnus.o
 # Machine module for the bcm911360_entphn (Cygnus SoC with CS42L73 codec)
 snd-soc-cygnus-voipphone-machine-objs := bcm911360_entphn-machine.o
 
+obj-$(CONFIG_SND_SOC_CYGNUS_AUD_BASE_MACHINE) += bcm958305_aud_base-machine.o
 obj-$(CONFIG_SND_SOC_CYGNUS_VOIPPHONE_MACHINE) += snd-soc-cygnus-voipphone-machine.o

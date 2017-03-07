@@ -18,6 +18,20 @@ config SND_SOC_CYGNUS
 
 	  If you don't know what to do here, say N.
 
+config SND_SOC_CYGNUS_AUD_BASE_MACHINE
+	tristate "SoC Audio support for Broadcom Cygnus Audio Base system"
+	depends on SND_SOC_CYGNUS
+	select MFD_WM8994
+	select SND_SOC_WM8994
+	select SND_SOC_AK4385
+	select SND_SOC_SPDIF
+	select SND_SIMPLE_CARD_UTILS
+	help
+	  Say Y if you want to add support for Cygnus SoC Audio Base system.
+	  This a reference design that consists of an "audio_sa" board mounted
+	  on an "audio base" board. This audio base board has more io options
+	  for audio. There is a WM8994 codec, a AK4385 codec and spdif output.
+
 config SND_SOC_CYGNUS_VOIPPHONE_MACHINE
 	tristate "SoC Audio support for Broadcom Cygnus enterprise VoIP phone"
 	depends on SND_SOC_CYGNUS
@@ -28,3 +42,4 @@ config SND_SOC_CYGNUS_VOIPPHONE_MACHINE
 	  reference board (bcm911360_entphn).
 	  Attached to the Cygnus SoC are a CS42L73 codec and also an optional
 	  Bluetooth module.
+
