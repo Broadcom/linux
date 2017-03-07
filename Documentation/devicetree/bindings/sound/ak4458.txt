@@ -1,0 +1,19 @@
+AK4458 115dB 768kHz 32-bit 8ch Premium DAC
+
+Required properties:
+
+  - compatible : "asahi-kasei,ak4458"
+
+  - reg : the I2C address of the device
+
+Optional properties:
+
+  - amp-mute-gpio : gpio used to mute external analog amplifier
+
+Example:
+
+ak4458_codec: ak4458@10 {
+	compatible = "asahi-kasei,ak4458";
+	reg = <0x10>;
+	amp-mute-gpio = <&gpio_asiu 43 0>;
+};
