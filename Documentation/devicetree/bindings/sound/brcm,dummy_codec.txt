@@ -1,0 +1,10 @@
+Generic dummy codec driver for Broadcom test
+
+This driver is similar to the "dummy" driver found in the ASoC
+framework, but we are allowing this driver to be a continuous
+frame rate up to a maximum of 384 kHz.  Also, this driver uses
+device tree, allowing the codec to be added in the card driver
+via of nodes.
+
+Required properties:
+- compatible: "brcm,dummy_codec"
