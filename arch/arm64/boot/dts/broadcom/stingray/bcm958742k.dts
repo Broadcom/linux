@@ -32,6 +32,13 @@
 
 /dts-v1/;
 
+#define ENABLE_I2C0	1
+#define ENABLE_I2C1	1
+#define ENABLE_RTC	1
+#define ENABLE_SSP0	1
+#define ENABLE_SSP1	1
+#define ENABLE_UART2	1
+#define ENABLE_UART3	1
 #define NUM_CRYPTO	32
 #define NUM_RAID	8
 #ifndef NUM_SATA
@@ -53,5 +60,4 @@
 	model = "Stingray Combo SVK (BCM958742K)";
 };
 
-#include "bcm958742k-base.dtsi"
-
+#include "bcm958742-base.dtsi"

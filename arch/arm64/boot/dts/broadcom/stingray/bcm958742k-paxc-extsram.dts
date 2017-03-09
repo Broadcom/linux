@@ -32,6 +32,8 @@
 
 /dts-v1/;
 
+#define ENABLE_I2C0	1
+#define ENABLE_I2C1	1
 #define NUM_SATA       0
 #define NUM_RAID       0
 
@@ -45,7 +47,7 @@
  */
 /memreserve/ 0x77b00000 0x00500000;
 
-#include "bcm958742k-base.dtsi"
+#include "bcm958742-base.dtsi"
 
 / {
 	model = "Stingray Combo SVK (BCM958742K) w/External SRAM and PAXC";
