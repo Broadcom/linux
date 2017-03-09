@@ -1,0 +1,64 @@
+Cygnus BCM958305_AUD_BASE ASoC machine driver
+
+Required properties:
+- compatible: "brcm,bcm958305-aud-base-machine"
+- brcm,cygnus-pcm: the phandle of the audio DMA node
+
+In addition to these properties, the device follows the general construct
+of the multi-dai generic "simple audio card".  Refer to simple-card.txt.
+
+The only valid dai properties for this design are
+ - format
+ - bitclock-master
+ - frame-master
+
+
+Example:
+sound {
+	compatible = "brcm,bcm958305-aud-base-machine";
+	brcm,cygnus-pcm = <&cygnus_audio>;
+
+	link0 {
+		format = "i2s";
+		bitclock-master = <&dailink0_master>;
+		frame-master = <&dailink0_master>;
+
+		dailink0_master: cpu {
+			sound-dai = <&cygnus_audio 0>;
+		};
+
+		codec {
+			sound-dai = <&wm8994_codec 0>; /* wm8994-aif1 */
+		};
+	} ;
+
+	link1 {
+		format = "i2s";
+		bitclock-master = <&dailink1_master>;
+		frame-master = <&dailink1_master>;
+
+		dailink1_master: cpu {
+			sound-dai = <&cygnus_audio 1>;
+		};
+
+		codec {
+			sound-dai = <&ak4385_codec>;
+		};
+	};
+
+	link2 {
+		format = "i2s";
+		bitclock-master = <&dailink2_master>;
+		frame-master = <&dailink2_master>;
+
+		dailink2_master: cpu {
+			sound-dai = <&cygnus_audio 3>;
+		};
+
+		codec {
+			sound-dai = <&spdif_dummy_tx>;
+		};
+	};
+
+	status = "okay";
+};
