@@ -111,16 +111,16 @@ static int cygnus_hw_params_wm8994(struct snd_pcm_substream *substream,
 	ret = snd_soc_dai_set_sysclk(codec_dai, WM8994_SYSCLK_MCLK1,
 				mclk_freq, SND_SOC_CLOCK_IN);
 	if (ret < 0) {
-		dev_err(dev, "%s Failed snd_soc_dai_set_sysclk codec_dai\n",
-			__func__);
+		dev_err(dev, "%s Failed snd_soc_dai_set_sysclk codec_dai %u\n",
+			__func__, mclk_freq);
 		return ret;
 	}
 
 	ret = snd_soc_dai_set_sysclk(cpu_dai, CYGNUS_SSP_CLKSRC_PLL,
 				mclk_freq, SND_SOC_CLOCK_OUT);
 	if (ret < 0) {
-		dev_err(dev, "%s Failed snd_soc_dai_set_sysclk cpu_dai\n",
-			__func__);
+		dev_err(dev, "%s Failed snd_soc_dai_set_sysclk cpu_dai %u\n",
+			__func__, mclk_freq);
 		return ret;
 	}
 
@@ -323,27 +323,15 @@ static struct snd_soc_ops cygnus_ops_spdif = {
 
 static struct snd_soc_dai_link cygnus_dai_links[] = {
 {
-	.name = "wm8994-line_io",
-	.stream_name = "wm8994-line_io",
-
 	.ops = &cygnus_ops_wm8994,
 	.init = cygnus_init_wm8994,
-	.dai_fmt = SND_SOC_DAIFMT_CBS_CFS | SND_SOC_DAIFMT_I2S,
 },
 {
-	.name = "ak4385",
-	.stream_name = "ak4385-speaker",
-
 	.ops = &cygnus_ops_ak4385,
 	.init = cygnus_init_ak4385,
-	.dai_fmt = SND_SOC_DAIFMT_CBS_CFS | SND_SOC_DAIFMT_I2S,
 },
 {
-	.name = "SPDIF",
-	.stream_name = "SPDIF",
-
 	.ops = &cygnus_ops_spdif,
-	.dai_fmt = SND_SOC_DAIFMT_CBS_CFS,
 },
 };
 
@@ -363,6 +351,7 @@ static int parse_link_node(struct platform_device *pdev,
 	struct device_node *codec_np;
 	struct device_node *cpu_np;
 	int ret = 0;
+	int single_cpu_link;
 
 	codec_np = of_get_child_by_name(link_np, "codec");
 	if (!codec_np) {
@@ -379,6 +368,10 @@ static int parse_link_node(struct platform_device *pdev,
 		goto err_exit;
 	}
 
+	ret = asoc_simple_card_parse_daifmt(dev, link_np,
+					dai_link->codec_of_node, NULL,
+					&dai_link->dai_fmt);
+
 	ret = asoc_simple_card_parse_codec(codec_np, dai_link,
 					"sound-dai", "#sound-dai-cells");
 	if (ret < 0) {
@@ -387,18 +380,31 @@ static int parse_link_node(struct platform_device *pdev,
 	}
 
 	ret = asoc_simple_card_parse_cpu(cpu_np, dai_link,
-					"sound-dai", "#sound-dai-cells", NULL);
+					"sound-dai", "#sound-dai-cells",
+					&single_cpu_link);
 	if (ret < 0) {
 		dev_err(dev, "%s Error parsing cpu node\n", link_np->name);
 		goto err_exit;
 	}
 
-	/* platform driver is the same */
-	dai_link->platform_of_node = dai_link->cpu_of_node;
+	ret = asoc_simple_card_canonicalize_dailink(dai_link);
+	if (ret < 0)
+		goto err_exit;
 
-	ret = asoc_simple_card_parse_daifmt(dev, link_np,
-					dai_link->codec_of_node, NULL,
-					&dai_link->dai_fmt);
+	ret = asoc_simple_card_set_dailink_name(dev, dai_link,
+						"%s-%s",
+						dai_link->cpu_dai_name,
+						dai_link->codec_dai_name);
+	if (ret < 0)
+		goto err_exit;
+
+	dev_dbg(dev, "\tname : %s\n",     dai_link->stream_name);
+	dev_dbg(dev, "\tformat : %04x\n", dai_link->dai_fmt);
+	dev_dbg(dev, "\tcpu : %s\n",      dai_link->cpu_dai_name);
+	dev_dbg(dev, "\tcodec : %s\n",    dai_link->codec_dai_name);
+
+	asoc_simple_card_canonicalize_cpu(dai_link, single_cpu_link);
+
 err_exit:
 	if (codec_np)
 		of_node_put(codec_np);
@@ -433,8 +439,7 @@ static int cygnus_aud_base_probe(struct platform_device *pdev)
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret) {
-		dev_err(&pdev->dev, "snd_soc_register_card() failed: %d\n",
-			ret);
+		dev_err(&pdev->dev, "snd_soc_register_card failed: %d\n", ret);
 		goto err_exit;
 	}
 
