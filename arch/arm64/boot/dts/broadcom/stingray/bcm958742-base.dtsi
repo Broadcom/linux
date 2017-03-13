@@ -259,13 +259,14 @@
 	};
 };
 
-/* reserve QSPI for Chimp NVRAM when PAXC is enabled */
-#if (ENABLE_PAXC != 1)
 &qspi {
 	pinctrl-names = "default";
 	pinctrl-0 = <&qspi_pins>;
 	bspi-sel = <0>;
+/* reserve QSPI for Chimp NVRAM when PAXC is enabled */
+#if (ENABLE_PAXC != 1)
 	status = "okay";
+#endif
 
 	flash: w25q64@0 {
 		#address-cells = <1>;
@@ -275,7 +276,6 @@
 		spi-max-frequency = <12500000>;
 	};
 };
-#endif
 
 &rtc {
 #if (ENABLE_RTC == 1)
