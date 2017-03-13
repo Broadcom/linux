@@ -9,6 +9,7 @@ dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742k-qa2-gpioc-extsram.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742k-qa3-crypto-extsram.dtb
 
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742t.dtb
+dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742t-diag.dtb
 
 dts-dirs	:= emulator
 always		:= $(dtb-y)
