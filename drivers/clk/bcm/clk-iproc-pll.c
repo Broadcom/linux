@@ -577,7 +577,7 @@ static int iproc_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (rate == 0 || parent_rate == 0)
 		return -EINVAL;
 
-	div = DIV_ROUND_UP(parent_rate, rate);
+	div = DIV_ROUND_CLOSEST(parent_rate, rate);
 	if (ctrl->flags & IPROC_CLK_MCLK_DIV_BY_2)
 		div /=  2;
 
