@@ -30,38 +30,33 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/dts-v1/;
+#define NUM_CRYPTO	0
+#define NUM_RAID	0
 
-#define ENABLE_I2C0	1
-#define ENABLE_I2C1	1
-#define ENABLE_RTC	1
-#define ENABLE_SSP0	1
-#define ENABLE_SSP1	1
-#define ENABLE_UART2	1
-#define ENABLE_UART3	1
-#ifndef NUM_CRYPTO
-#define NUM_CRYPTO	32
-#endif
-#ifndef NUM_RAID
-#define NUM_RAID	8
-#endif
-#ifndef NUM_SATA
-#define NUM_SATA	8
-#endif
-#define USE_DDR		1
-
-/* HACK: Reserve bl31 location
- * The memreserve entry for bl31 is supposed to
- * be updated in DTB by bootloader before handing
- * over DTB to Linux kernel. This is so because
- * only firmware (or bootloader) know the correct
- * location of bl31 and bl31 location in DDR can
- * also change in-future.
- */
-/memreserve/ 0x8f000000 0x00100000;
+#include "bcm958742k.dts"
 
 / {
-	model = "Stingray Combo SVK (BCM958742K)";
+	chosen {
+		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
+			    earlycon=uart8250,mmio32,0x68a10000 cma=64M \
+			    uio_dmem_genirq.of_id=brcm,uio uio_dmem_genirq.dmem_dma_bits=64 \
+			    uio_dmem_genirq.dmem_sizes=flexraid_resp_uio:8K;raid_mbox:8M,256K,4K;flexraid_test_uio:32M";
+	};
 };
 
-#include "bcm958742-base.dtsi"
+&fs4 {
+	flexraid_test_uio {
+		compatible = "brcm,uio";
+		dma-coherent;
+	};
+
+	flexraid_resp_uio {
+		compatible = "brcm,uio";
+		dma-coherent;
+	};
+};
+
+&raid_mbox {
+	compatible = "brcm,uio";
+	status = "okay";
+};
