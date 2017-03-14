@@ -259,6 +259,23 @@
 	};
 };
 
+#if (USE_DDR == 1)
+&nand {
+	status = "ok";
+	nandcs@0 {
+		compatible = "brcm,nandcs";
+		reg = <0>;
+		nand-ecc-mode = "hw";
+		nand-ecc-strength = <8>;
+		nand-ecc-step-size = <512>;
+		nand-bus-width = <16>;
+		brcm,nand-oob-sector-size = <16>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+	};
+};
+#endif
+
 &qspi {
 	pinctrl-names = "default";
 	pinctrl-0 = <&qspi_pins>;
