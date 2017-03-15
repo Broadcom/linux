@@ -28,8 +28,9 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 
-#include "../codecs/cs42l73.h"
 #include "cygnus-ssp.h"
+#include "bcm-card-utils.h"
+#include "../codecs/cs42l73.h"
 
 struct bcm_cygvoipphone_data {
 	struct gpio_desc *gpio_handsfree_amp_en;
@@ -67,6 +68,7 @@ static int bcm_cygvoipphone_hw_params(struct snd_pcm_substream *substream,
 	case 44100:
 		mclk_freq = 5644800;
 		break;
+
 	default:
 		return -EINVAL;
 	}
@@ -74,7 +76,7 @@ static int bcm_cygvoipphone_hw_params(struct snd_pcm_substream *substream,
 	ret = snd_soc_dai_set_sysclk(codec_dai, clkid, mclk_freq,
 				SND_SOC_CLOCK_IN);
 	if (ret < 0) {
-		dev_err(dev, "%s Failed snd_soc_dai_set_sysclk %u\n",
+		dev_err(dev, "%s Failed snd_soc_dai_set_sysclk codec_dai %u\n",
 			__func__, mclk_freq);
 		return ret;
 	}
@@ -82,7 +84,8 @@ static int bcm_cygvoipphone_hw_params(struct snd_pcm_substream *substream,
 	ret = snd_soc_dai_set_sysclk(cpu_dai, CYGNUS_SSP_CLKSRC_PLL,
 				mclk_freq, SND_SOC_CLOCK_OUT);
 	if (ret < 0) {
-		dev_err(dev, "%s Failed snd_soc_dai_set_sysclk\n", __func__);
+		dev_err(dev, "%s Failed snd_soc_dai_set_sysclk cpu_dai %u\n",
+			__func__, mclk_freq);
 		return ret;
 	}
 
@@ -222,15 +225,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 /*  digital audio interface glue - connects codec <--> CPU */
 static struct snd_soc_dai_link cygvoipphone_dai_links[] = {
 {
-	.name = "CS42L73_XSP",
-	.stream_name = "CS42L73_XSP",
-
 	.ops = &bcm_cygvoipphone_ops_xsp,
 },
 {
-	.name = "bluetooth",
-	.stream_name = "bluetooth",
-
 	.ops = &bcm_cygvoipphone_ops_bluetooth,
 },
 };
@@ -249,84 +246,6 @@ static struct snd_soc_card bcm_cygvoipphone_card = {
 	.fully_routed = true,
 };
 
-int parse_link_node_common(struct platform_device *pdev,
-		struct device_node *link_np,
-		struct snd_soc_dai_link *dai_link)
-{
-	struct device *dev = &pdev->dev;
-	struct device_node *codec_np;
-	struct device_node *cpu_np;
-	unsigned int daifmt;
-	int ret = 0;
-
-	codec_np = of_get_child_by_name(link_np, "codec");
-	if (!codec_np) {
-		dev_err(dev, "Could not find codec child node\n");
-		ret = -EINVAL;
-		goto err_exit;
-	}
-
-	dai_link->codec_of_node = of_parse_phandle(codec_np, "sound-dai", 0);
-	if (dai_link->codec_of_node == NULL) {
-		dev_err(dev, "Property sound-dai missing or invalid\n");
-		ret = -EINVAL;
-		goto err_exit;
-	}
-
-	ret = snd_soc_of_get_dai_name(codec_np, &dai_link->codec_dai_name);
-	if (ret < 0) {
-		dev_err(dev, "ERROR snd_soc_of_get_dai_name for codec node\n");
-		ret = -EINVAL;
-		goto err_exit;
-	}
-
-	cpu_np = of_get_child_by_name(link_np, "cpu");
-	if (!cpu_np) {
-		dev_err(dev, "Could not find cpu child node\n");
-		ret = -EINVAL;
-		goto err_exit;
-	}
-
-	dai_link->cpu_of_node = of_parse_phandle(cpu_np, "sound-dai", 0);
-	if (dai_link->cpu_of_node == NULL) {
-		dev_err(dev, "Property sound-dai missing or invalid\n");
-		ret = -EINVAL;
-		goto err_exit;
-	}
-
-	ret = snd_soc_of_get_dai_name(cpu_np, &dai_link->cpu_dai_name);
-	if (ret < 0) {
-		dev_err(dev, "ERROR snd_soc_of_get_dai_name for cpu node\n");
-		ret = -EINVAL;
-		goto err_exit;
-	}
-
-	/*
-	 * This function does not seem to parse the bitclock-master and
-	 * frame-master correctly. It seems the function only checks to see
-	 * if the property has has any value whatsoever disregarding which
-	 * node (codec or cpu) the property is referencing.
-	 * For our card all links have codec as slave.
-	 * The only other example usage of this function is in
-	 * asoc_simple_card_parse_daifmt.  In that usage the calling function
-	 * actually "corrects" these bits.
-	 */
-	daifmt = snd_soc_of_parse_daifmt(link_np, NULL, NULL, NULL);
-	daifmt &= ~SND_SOC_DAIFMT_MASTER_MASK;
-	daifmt |= SND_SOC_DAIFMT_CBS_CFS;
-	dai_link->dai_fmt = daifmt;
-
-	ret = 0;
-
-err_exit:
-	if (codec_np)
-		of_node_put(codec_np);
-	if (cpu_np)
-		of_node_put(cpu_np);
-
-	return ret;
-}
-
 static int parse_link0_node(struct platform_device *pdev,
 			struct snd_soc_dai_link *dai_link,
 			struct bcm_cygvoipphone_data *card_data)
@@ -341,7 +260,7 @@ static int parse_link0_node(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	ret = parse_link_node_common(pdev, link_np, &cygvoipphone_dai_links[0]);
+	ret = bcm_card_util_parse_link_node(pdev, link_np, dai_link);
 
 	return ret;
 }
@@ -365,7 +284,7 @@ static int parse_link1_node(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	ret = parse_link_node_common(pdev, link_np, dai_link);
+	ret = bcm_card_util_parse_link_node(pdev, link_np, dai_link);
 	if (ret)
 		goto err_exit;
 
@@ -392,10 +311,8 @@ err_exit:
 
 static int cygvoipphone_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
 	struct snd_soc_card *card = &bcm_cygvoipphone_card;
 	struct bcm_cygvoipphone_data *card_data;
-	struct device_node *platform_np;
 	struct gpio_desc *gpio;
 	int ret = 0;
 
@@ -407,17 +324,6 @@ static int cygvoipphone_probe(struct platform_device *pdev)
 
 	parse_link0_node(pdev, &cygvoipphone_dai_links[0], card_data);
 	parse_link1_node(pdev, &cygvoipphone_dai_links[1], card_data);
-
-	platform_np = of_parse_phandle(np, "brcm,cygnus-pcm", 0);
-	if (platform_np == NULL) {
-		dev_err(&pdev->dev,
-			"Property brcm,cygnus-pcm missing or invalid\n");
-		ret = -EINVAL;
-		goto err_exit;
-	}
-
-	cygvoipphone_dai_links[0].platform_of_node = platform_np;
-	cygvoipphone_dai_links[1].platform_of_node = platform_np;
 
 	/*
 	 * Get the gpio number from the device tree for the gpio used
@@ -434,13 +340,11 @@ static int cygvoipphone_probe(struct platform_device *pdev)
 
 	snd_soc_card_set_drvdata(card, card_data);
 
-	ret = snd_soc_register_card(card);
+	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed: %d\n", ret);
 		goto err_exit;
 	}
-
-	return 0;
 
 err_exit:
 	return ret;
@@ -448,10 +352,6 @@ err_exit:
 
 static int cygvoipphone_remove(struct platform_device *pdev)
 {
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
-
-	snd_soc_unregister_card(card);
-
 	return 0;
 }
 
@@ -464,6 +364,7 @@ MODULE_DEVICE_TABLE(of, cygnus_mach_of_match);
 static struct platform_driver bcm_cygnus_driver = {
 	.driver = {
 		.name = "brcm-bcm911360_entphn-machine",
+		.pm = &snd_soc_pm_ops,
 		.of_match_table = cygnus_mach_of_match,
 	},
 	.probe  = cygvoipphone_probe,
@@ -473,5 +374,5 @@ static struct platform_driver bcm_cygnus_driver = {
 module_platform_driver(bcm_cygnus_driver);
 
 MODULE_AUTHOR("Broadcom");
-MODULE_DESCRIPTION("ALSA SoC for Cygnus APs");
+MODULE_DESCRIPTION("Cygnus IPPhone ASoC Sound Card");
 MODULE_LICENSE("GPL v2");

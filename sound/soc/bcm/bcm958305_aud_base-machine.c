@@ -16,6 +16,7 @@
  * This board ensemble consists of a Cygnus SoC and two codecs:
  * WM8994 and AK4385.
  */
+#include <asm/mach-types.h>
 #include <linux/clk.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -25,14 +26,11 @@
 #include <sound/jack.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
-#include <sound/simple_card_utils.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 
-#include <asm/mach-types.h>
-
 #include "cygnus-ssp.h"
-
+#include "bcm-card-utils.h"
 #include "../codecs/wm8994.h"
 
 /*
@@ -343,77 +341,6 @@ static struct snd_soc_card cygnus_audio_card = {
 	.num_links = ARRAY_SIZE(cygnus_dai_links),
 };
 
-static int parse_link_node(struct platform_device *pdev,
-		struct device_node *link_np,
-		struct snd_soc_dai_link *dai_link)
-{
-	struct device *dev = &pdev->dev;
-	struct device_node *codec_np;
-	struct device_node *cpu_np;
-	int ret = 0;
-	int single_cpu_link;
-
-	codec_np = of_get_child_by_name(link_np, "codec");
-	if (!codec_np) {
-		dev_err(dev, "%s could not find codec child\n", link_np->name);
-		ret = -EINVAL;
-		goto err_exit;
-	}
-
-	cpu_np = of_get_child_by_name(link_np, "cpu");
-	if (!cpu_np) {
-		dev_err(dev, "%s Could not find cpu child node.\n",
-				link_np->name);
-		ret = -EINVAL;
-		goto err_exit;
-	}
-
-	ret = asoc_simple_card_parse_daifmt(dev, link_np,
-					dai_link->codec_of_node, NULL,
-					&dai_link->dai_fmt);
-
-	ret = asoc_simple_card_parse_codec(codec_np, dai_link,
-					"sound-dai", "#sound-dai-cells");
-	if (ret < 0) {
-		dev_err(dev, "%s Error parsing codec node\n", link_np->name);
-		goto err_exit;
-	}
-
-	ret = asoc_simple_card_parse_cpu(cpu_np, dai_link,
-					"sound-dai", "#sound-dai-cells",
-					&single_cpu_link);
-	if (ret < 0) {
-		dev_err(dev, "%s Error parsing cpu node\n", link_np->name);
-		goto err_exit;
-	}
-
-	ret = asoc_simple_card_canonicalize_dailink(dai_link);
-	if (ret < 0)
-		goto err_exit;
-
-	ret = asoc_simple_card_set_dailink_name(dev, dai_link,
-						"%s-%s",
-						dai_link->cpu_dai_name,
-						dai_link->codec_dai_name);
-	if (ret < 0)
-		goto err_exit;
-
-	dev_dbg(dev, "\tname : %s\n",     dai_link->stream_name);
-	dev_dbg(dev, "\tformat : %04x\n", dai_link->dai_fmt);
-	dev_dbg(dev, "\tcpu : %s\n",      dai_link->cpu_dai_name);
-	dev_dbg(dev, "\tcodec : %s\n",    dai_link->codec_dai_name);
-
-	asoc_simple_card_canonicalize_cpu(dai_link, single_cpu_link);
-
-err_exit:
-	if (codec_np)
-		of_node_put(codec_np);
-	if (cpu_np)
-		of_node_put(cpu_np);
-
-	return ret;
-}
-
 static int cygnus_aud_base_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &cygnus_audio_card;
@@ -434,7 +361,10 @@ static int cygnus_aud_base_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Child node %s missing\n", name);
 			return -EINVAL;
 		}
-		ret = parse_link_node(pdev, link_np, &cygnus_dai_links[i]);
+		ret = bcm_card_util_parse_link_node(pdev, link_np,
+						&cygnus_dai_links[i]);
+		if (ret)
+			goto err_exit;
 	}
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);

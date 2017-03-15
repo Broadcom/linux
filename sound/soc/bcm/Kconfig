@@ -37,6 +37,7 @@ config SND_SOC_CYGNUS_VOIPPHONE_MACHINE
 	depends on SND_SOC_CYGNUS
 	select SND_SOC_CS42L73
 	select SND_SOC_CYPRESS_BT_VOICE
+	select SND_SIMPLE_CARD_UTILS
 	help
 	  Say Y if you want to add support for Cygnus SoC enterprise voip phone
 	  reference board (bcm911360_entphn).
