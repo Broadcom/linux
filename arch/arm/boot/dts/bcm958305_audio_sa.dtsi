@@ -100,6 +100,16 @@
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
+
+	wlan_reg0: regulator@4 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan-rf-reg0";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio_crmu 1 0>;
+		enable-active-high;
+		regulator-always-on;
+	};
 };
 
 &adc {
@@ -176,6 +186,17 @@
 &sdhci0 {
 	keep-power-in-suspend;
 	status = "okay";
+	non-removable;
+
+	vmmc-supply = <&wlan_reg0>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	brcmf: bcrmf@1 {
+		reg = <0x1>;
+		compatible = "brcm,bcm4329-fmac";
+		status = "okay";
+	};
 };
 
 &uart1 {
