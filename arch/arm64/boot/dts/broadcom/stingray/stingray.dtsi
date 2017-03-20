@@ -33,6 +33,10 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/pinctrl/brcm,pinctrl-stingray.h>
 
+#ifndef ENABLE_PAXB_IOMMU
+#define ENABLE_PAXB_IOMMU	0
+#endif
+
 / {
 	compatible = "brcm,stingray";
 	interrupt-parent = <&gic>;
