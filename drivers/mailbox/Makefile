@@ -34,4 +34,4 @@ obj-$(CONFIG_BCM_IPROC_MBOX)	+= bcm-iproc-mailbox.o
 
 obj-$(CONFIG_BCM_PDC_MBOX)	+= bcm-pdc-mailbox.o
 
-obj-$(CONFIG_BCM_FLEXRM_MBOX)	+= mailbox-flexrm/
+obj-$(CONFIG_BCM_FLEXRM_MBOX)	+= bcm-flexrm-mailbox.o
