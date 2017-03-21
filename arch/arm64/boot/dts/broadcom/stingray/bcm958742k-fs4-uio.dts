@@ -40,19 +40,7 @@
 		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
 			    earlycon=uart8250,mmio32,0x68a10000 cma=64M \
 			    uio_dmem_genirq.of_id=brcm,uio uio_dmem_genirq.dmem_dma_bits=64 \
-			    uio_dmem_genirq.dmem_sizes=flexraid_resp_uio:8K;raid_mbox:8M,256K,4K;flexraid_test_uio:32M";
-	};
-};
-
-&fs4 {
-	flexraid_test_uio {
-		compatible = "brcm,uio";
-		dma-coherent;
-	};
-
-	flexraid_resp_uio {
-		compatible = "brcm,uio";
-		dma-coherent;
+			    uio_dmem_genirq.dmem_sizes=raid_mbox:8M,288K,8K,32M;";
 	};
 };
 
