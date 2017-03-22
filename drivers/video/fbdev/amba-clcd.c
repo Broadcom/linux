@@ -991,6 +991,9 @@ static int clcdfb_probe(struct amba_device *dev, const struct amba_id *id)
 		goto free_region;
 	}
 
+	if (of_device_is_compatible(dev->dev.of_node, "brcm,iproc-pl111"))
+		vendor->clock_timregs = true;
+
 	fb->dev = dev;
 	fb->vendor = vendor;
 	fb->board = board;
