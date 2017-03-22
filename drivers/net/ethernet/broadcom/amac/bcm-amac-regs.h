@@ -126,6 +126,9 @@
 
 #define UNIMAC_CMD_CFG_REG       0x808
 
+#define UNIMAC_MACADDR_HIGH	 0x80c	/* High 4 octets of own mac address */
+#define UNIMAC_MACADDR_LOW	 0x810	/* Low 2 octets of own mac address */
+
 #define GMAC0_IRL_FRAMECOUNT_SHIFT  24
 
 /* PHY registers */

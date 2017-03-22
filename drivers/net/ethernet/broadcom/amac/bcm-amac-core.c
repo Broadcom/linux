@@ -73,6 +73,16 @@ static void bcm_amac_clear_mib(struct bcm_amac_priv *privp)
 	writel(tmp, privp->hw.reg.amac_core);
 }
 
+void amac_write_mac_address(struct bcm_amac_priv *privp, u8 *addr)
+{
+	u32 addr_high, addr_low;
+
+	addr_high = be32_to_cpu(*(__be32 *)&addr[0]);
+	addr_low = be16_to_cpu(*(__be16 *)&addr[4]);
+	writel(addr_high, privp->hw.reg.amac_core + UNIMAC_MACADDR_HIGH);
+	writel(addr_low, privp->hw.reg.amac_core + UNIMAC_MACADDR_LOW);
+}
+
 /* amac_alloc_rx_skb() - Allocate RX SKB
  * @privp: driver info pointer
  * @len: length of skb
@@ -655,8 +665,7 @@ void bcm_amac_tx_clean(struct bcm_amac_priv *privp)
 /* bcm_amac_set_rx_mode() - Set the rx mode callback
  * @ndev: net device pointer
  *
- * The API enables multicast or promiscuous mode as required. Otherwise
- * it disables multicast and promiscuous mode and adds ARL entries.
+ * The API enables promiscuous mode as required.
  */
 void bcm_amac_set_rx_mode(struct net_device *ndev)
 {
@@ -665,23 +674,10 @@ void bcm_amac_set_rx_mode(struct net_device *ndev)
 	if (!netif_running(ndev))
 		return;
 
-	if (ndev->flags & (IFF_PROMISC | IFF_ALLMULTI)) {
-		/* Enable promiscuous mode in switch bypass mode */
+	if (ndev->flags & IFF_PROMISC)
 		amac_set_prom(privp, 1);
-		return;
-	}
-
-		/* Disable promiscuous in switch bypass mode */
+	else
 		amac_set_prom(privp, 0);
-
-	/* In switch by pass mode we can only enable promiscuous mode
-	 * to allow all packets.
-	 */
-	if ((ndev->flags & IFF_MULTICAST) && netdev_mc_count(ndev))
-		/* In switch bypass mode there is no mac filtering
-		 * so enable promiscuous mode to pass all packets up.
-		 */
-		amac_set_prom(privp, true);
 }
 
 /* bcm_amac_enable_tx_dma() - Enable the DMA

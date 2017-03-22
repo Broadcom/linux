@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Broadcom Corporation
+ * Copyright (C) 2015-2017 Broadcom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -52,5 +52,6 @@ void bcm_amac_set_rx_mode(struct net_device *ndev);
 void bcm_amac_clear_intr(struct bcm_amac_priv *privp, bool dir);
 void bcm_amac_enable_intr(struct bcm_amac_priv *privp, bool dir, bool enable);
 
+void amac_write_mac_address(struct bcm_amac_priv *privp, u8 *addr);
 void bcm_amac_enet_set_speed(struct bcm_amac_priv *priv, u32 speed, u32 duplex);
 #endif /*__BCM_AMAC_CORE_H__*/

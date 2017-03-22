@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Broadcom Corporation
+ * Copyright (C) 2015-2017 Broadcom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -147,6 +147,7 @@ static int amac_enet_start(struct bcm_amac_priv *privp)
 
 	if (mac_addr) {
 		ether_addr_copy(privp->ndev->dev_addr, mac_addr);
+		amac_write_mac_address(privp, (u8 *)mac_addr);
 	} else {
 		dev_err(&privp->pdev->dev,
 			"Error: no mac address specified\n");
@@ -447,6 +448,7 @@ static int amac_enet_set_mac(struct net_device *ndev, void *addr)
 		return rc;
 	}
 
+	amac_write_mac_address(privp, ndev->dev_addr);
 	memcpy(privp->cur_etheraddr.sa_data, ndev->dev_addr, 6);
 
 	return 0;
