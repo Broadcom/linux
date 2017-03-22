@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Broadcom Corporation
+ * Copyright (C) 2015-2017 Broadcom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -52,6 +52,25 @@ void bcm_amac_enet_set_speed(struct bcm_amac_priv *privp, u32 speed, u32 duplex)
 		cmd &= ~(CC_HD);
 
 	writel(cmd, (privp->hw.reg.amac_core + UNIMAC_CMD_CFG_REG));
+}
+
+static void bcm_amac_clear_mib(struct bcm_amac_priv *privp)
+{
+	int i;
+	u32 tmp;
+	/* Enable clear-on-read feature of MIB counters */
+	tmp = readl(privp->hw.reg.amac_core);
+	tmp |= DC_MROR;
+	writel(tmp, privp->hw.reg.amac_core);
+
+	for (i = 0; i < AMAC_NUM_MIB_TX_REGS; i++)
+		readl(privp->hw.reg.amac_core + AMAC_TX_GOOD_OCTETS + (i * 4));
+	for (i = 0; i < AMAC_NUM_MIB_RX_REGS; i++)
+		readl(privp->hw.reg.amac_core + AMAC_RX_GOOD_OCTETS + (i * 4));
+
+	/* Now disable clear-on-read for augmented values */
+	tmp &= ~DC_MROR;
+	writel(tmp, privp->hw.reg.amac_core);
 }
 
 /* amac_alloc_rx_skb() - Allocate RX SKB
@@ -497,10 +516,8 @@ int bcm_amac_core_init(struct bcm_amac_priv *privp)
 	writel(cmd, (privp->hw.reg.amac_core + UNIMAC_CMD_CFG_REG));
 	amac_core_clear_reset(privp);
 
-	/* Enable clear MIB on read */
-	tmp = readl(privp->hw.reg.amac_core);
-	tmp |= DC_MROR;
-	writel(tmp, privp->hw.reg.amac_core);
+	/* Clear MIB counters */
+	bcm_amac_clear_mib(privp);
 
 	/* PHY set smi_master to driver mdc_clk */
 	tmp = readl(privp->hw.reg.amac_core + GMAC_PHY_CTRL_REG);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Broadcom Corporation
+ * Copyright (C) 2015-2017 Broadcom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -44,6 +44,85 @@
 #define GMAC_DMA_RX_ADDR_HI_REG  0x22c
 #define GMAC_DMA_RX_STATUS0_REG  0x230
 #define GMAC_DMA_RX_STATUS1_REG  0x234
+
+#define AMAC_TX_GOOD_OCTETS	 0x300
+#define AMAC_TX_GOOD_OCTETS_HIGH 0x304
+#define AMAC_TX_GOOD_PKTS	 0x308
+#define AMAC_TX_OCTETS		 0x30c
+#define AMAC_TX_OCTETS_HIGH	 0x310
+#define AMAC_TX_PKTS		 0x314
+#define AMAC_TX_BROADCAST_PKTS	 0x318
+#define AMAC_TX_MULTICAST_PKTS	 0x31c
+#define AMAC_TX_LEN_64		 0x320
+#define AMAC_TX_LEN_65_TO_127	 0x324
+#define AMAC_TX_LEN_128_TO_255	 0x328
+#define AMAC_TX_LEN_256_TO_511	 0x32c
+#define AMAC_TX_LEN_512_TO_1023	 0x330
+#define AMAC_TX_LEN_1024_TO_1522 0x334
+#define AMAC_TX_LEN_1523_TO_2047 0x338
+#define AMAC_TX_LEN_2048_TO_4095 0x33c
+#define AMAC_TX_LEN_4096_TO_8191 0x340
+#define AMAC_TX_LEN_8192_TO_MAX	 0x344
+#define AMAC_TX_JABBER_PKTS	 0x348		/* Error */
+#define AMAC_TX_OVERSIZE_PKTS	 0x34c		/* Error */
+#define AMAC_TX_FRAGMENT_PKTS	 0x350
+#define AMAC_TX_UNDERRUNS	 0x354		/* Error */
+#define AMAC_TX_TOTAL_COLS	 0x358
+#define AMAC_TX_SINGLE_COLS	 0x35c
+#define AMAC_TX_MULTIPLE_COLS	 0x360
+#define AMAC_TX_EXCESSIVE_COLS	 0x364		/* Error */
+#define AMAC_TX_LATE_COLS	 0x368		/* Error */
+#define AMAC_TX_DEFERED		 0x36c
+#define AMAC_TX_CARRIER_LOST	 0x370
+#define AMAC_TX_PAUSE_PKTS	 0x374
+#define AMAC_TX_UNI_PKTS	 0x378
+#define AMAC_TX_Q0_PKTS		 0x37c
+#define AMAC_TX_Q0_OCTETS	 0x380
+#define AMAC_TX_Q0_OCTETS_HIGH	 0x384
+#define AMAC_TX_Q1_PKTS		 0x388
+#define AMAC_TX_Q1_OCTETS	 0x38c
+#define AMAC_TX_Q1_OCTETS_HIGH	 0x390
+#define AMAC_TX_Q2_PKTS		 0x394
+#define AMAC_TX_Q2_OCTETS	 0x398
+#define AMAC_TX_Q2_OCTETS_HIGH	 0x39c
+#define AMAC_TX_Q3_PKTS		 0x3a0
+#define AMAC_TX_Q3_OCTETS	 0x3a4
+#define AMAC_TX_Q3_OCTETS_HIGH	 0x3a8
+#define AMAC_RX_GOOD_OCTETS	 0x3b0
+#define AMAC_RX_GOOD_OCTETS_HIGH 0x3b4
+#define AMAC_RX_GOOD_PKTS	 0x3b8
+#define AMAC_RX_OCTETS		 0x3bc
+#define AMAC_RX_OCTETS_HIGH	 0x3c0
+#define AMAC_RX_PKTS		 0x3c4
+#define AMAC_RX_BROADCAST_PKTS	 0x3c8
+#define AMAC_RX_MULTICAST_PKTS	 0x3cc
+#define AMAC_RX_LEN_64		 0x3d0
+#define AMAC_RX_LEN_65_TO_127	 0x3d4
+#define AMAC_RX_LEN_128_TO_255	 0x3d8
+#define AMAC_RX_LEN_256_TO_511	 0x3dc
+#define AMAC_RX_LEN_512_TO_1023	 0x3e0
+#define AMAC_RX_LEN_1024_TO_1522 0x3e4
+#define AMAC_RX_LEN_1523_TO_2047 0x3e8
+#define AMAC_RX_LEN_2048_TO_4095 0x3ec
+#define AMAC_RX_LEN_4096_TO_8191 0x3f0
+#define AMAC_RX_LEN_8192_TO_MAX	 0x3f4
+#define AMAC_RX_JABBER_PKTS	 0x3f8		/* Error */
+#define AMAC_RX_OVERSIZE_PKTS	 0x3fc		/* Error */
+#define AMAC_RX_FRAGMENT_PKTS	 0x400
+#define AMAC_RX_MISSED_PKTS	 0x404		/* Error */
+#define AMAC_RX_CRC_ALIGN_ERRS	 0x408		/* Error */
+#define AMAC_RX_UNDERSIZE	 0x40c		/* Error */
+#define AMAC_RX_CRC_ERRS	 0x410		/* Error */
+#define AMAC_RX_ALIGN_ERRS	 0x414		/* Error */
+#define AMAC_RX_SYMBOL_ERRS	 0x418		/* Error */
+#define AMAC_RX_PAUSE_PKTS	 0x41c
+#define AMAC_RX_NONPAUSE_PKTS	 0x420
+#define AMAC_RX_SACHANGES	 0x424
+#define AMAC_RX_UNI_PKTS	 0x428
+#define AMAC_NUM_MIB_TX_REGS	\
+		(((AMAC_TX_Q3_OCTETS_HIGH - AMAC_TX_GOOD_OCTETS) / 4) + 1)
+#define AMAC_NUM_MIB_RX_REGS	\
+		(((AMAC_RX_UNI_PKTS - AMAC_RX_GOOD_OCTETS) / 4) + 1)
 
 #define UNIMAC_CMD_CFG_REG       0x808
 

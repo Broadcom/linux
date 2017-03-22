@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Broadcom
+ * Copyright 2016-2017 Broadcom
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2, as
@@ -18,46 +18,86 @@
 #include <linux/phy.h>
 
 #include "bcm-amac-enet.h"
+#include "bcm-amac-regs.h"
 
 #define MOD_VERSION "0.9.0"
 
-struct ethtool_keys {
-	const char string[32];
-};
-
-/* Derrived from 'struct amac_ethtool_stats'
- * The ordering needs to be in sync with
- * 'struct amac_ethtool_stats'
- */
-static const struct ethtool_keys amac_ethtool_keys[] = {
-	{"rx_packets"},
-	{"tx_packets"},
-	{"rx_bytes"},
-	{"tx_bytes"},
-	{"rx_dropped"},
-	{"tx_dropped"},
-	{"multicast"},
-	{"rx_length_errors"},
-	{"rx_fifo_errors"},
-	{"tx_fifo_errors"},
-};
-
-/* Do not change the names of the following members
- * as they are used in macro expansion to formulate
- * corresponding data routines.
- */
 struct amac_ethtool_stats {
-	u64 rx_packets;
-	u64 tx_packets;
-	u64 rx_bytes;
-	u64 tx_bytes;
-	u64 rx_dropped;
-	u64 tx_dropped;
-	u64 multicast;
-	u64 rx_length_errors;
-	u64 rx_fifo_errors;
-	u64 tx_fifo_errors;
+	u8 size;
+	u32 offset;
+	const char name[ETH_GSTRING_LEN];
 };
+
+static const struct amac_ethtool_stats amac_get_strings_stats[] = {
+	{ 8, AMAC_TX_GOOD_OCTETS, "tx_good_octets" },
+	{ 4, AMAC_TX_GOOD_PKTS, "tx_good" },
+	{ 8, AMAC_TX_OCTETS, "tx_octets" },
+	{ 4, AMAC_TX_PKTS, "tx_pkts" },
+	{ 4, AMAC_TX_BROADCAST_PKTS, "tx_broadcast" },
+	{ 4, AMAC_TX_MULTICAST_PKTS, "tx_multicast" },
+	{ 4, AMAC_TX_LEN_64, "tx_64" },
+	{ 4, AMAC_TX_LEN_65_TO_127, "tx_65_127" },
+	{ 4, AMAC_TX_LEN_128_TO_255, "tx_128_255" },
+	{ 4, AMAC_TX_LEN_256_TO_511, "tx_256_511" },
+	{ 4, AMAC_TX_LEN_512_TO_1023, "tx_512_1023" },
+	{ 4, AMAC_TX_LEN_1024_TO_1522, "tx_1024_1522" },
+	{ 4, AMAC_TX_LEN_1523_TO_2047, "tx_1523_2047" },
+	{ 4, AMAC_TX_LEN_2048_TO_4095, "tx_2048_4095" },
+	{ 4, AMAC_TX_LEN_4096_TO_8191, "tx_4096_8191" },
+	{ 4, AMAC_TX_LEN_8192_TO_MAX, "tx_8192_max" },
+	{ 4, AMAC_TX_JABBER_PKTS, "tx_jabber" },
+	{ 4, AMAC_TX_OVERSIZE_PKTS, "tx_oversize" },
+	{ 4, AMAC_TX_FRAGMENT_PKTS, "tx_fragment" },
+	{ 4, AMAC_TX_UNDERRUNS, "tx_underruns" },
+	{ 4, AMAC_TX_TOTAL_COLS, "tx_total_cols" },
+	{ 4, AMAC_TX_SINGLE_COLS, "tx_single_cols" },
+	{ 4, AMAC_TX_MULTIPLE_COLS, "tx_multiple_cols" },
+	{ 4, AMAC_TX_EXCESSIVE_COLS, "tx_excessive_cols" },
+	{ 4, AMAC_TX_LATE_COLS, "tx_late_cols" },
+	{ 4, AMAC_TX_DEFERED, "tx_defered" },
+	{ 4, AMAC_TX_CARRIER_LOST, "tx_carrier_lost" },
+	{ 4, AMAC_TX_PAUSE_PKTS, "tx_pause" },
+	{ 4, AMAC_TX_UNI_PKTS, "tx_unicast" },
+	{ 4, AMAC_TX_Q0_PKTS, "tx_q0" },
+	{ 8, AMAC_TX_Q0_OCTETS, "tx_q0_octets" },
+	{ 4, AMAC_TX_Q1_PKTS, "tx_q1" },
+	{ 8, AMAC_TX_Q1_OCTETS, "tx_q1_octets" },
+	{ 4, AMAC_TX_Q2_PKTS, "tx_q2" },
+	{ 8, AMAC_TX_Q2_OCTETS, "tx_q2_octets" },
+	{ 4, AMAC_TX_Q3_PKTS, "tx_q3" },
+	{ 8, AMAC_TX_Q3_OCTETS, "tx_q3_octets" },
+	{ 8, AMAC_RX_GOOD_OCTETS, "rx_good_octets" },
+	{ 4, AMAC_RX_GOOD_PKTS, "rx_good" },
+	{ 8, AMAC_RX_OCTETS, "rx_octets" },
+	{ 4, AMAC_RX_PKTS, "rx_pkts" },
+	{ 4, AMAC_RX_BROADCAST_PKTS, "rx_broadcast" },
+	{ 4, AMAC_RX_MULTICAST_PKTS, "rx_multicast" },
+	{ 4, AMAC_RX_LEN_64, "rx_64" },
+	{ 4, AMAC_RX_LEN_65_TO_127, "rx_65_127" },
+	{ 4, AMAC_RX_LEN_128_TO_255, "rx_128_255" },
+	{ 4, AMAC_RX_LEN_256_TO_511, "rx_256_511" },
+	{ 4, AMAC_RX_LEN_512_TO_1023, "rx_512_1023" },
+	{ 4, AMAC_RX_LEN_1024_TO_1522, "rx_1024_1522" },
+	{ 4, AMAC_RX_LEN_1523_TO_2047, "rx_1523_2047" },
+	{ 4, AMAC_RX_LEN_2048_TO_4095, "rx_2048_4095" },
+	{ 4, AMAC_RX_LEN_4096_TO_8191, "rx_4096_8191" },
+	{ 4, AMAC_RX_LEN_8192_TO_MAX, "rx_8192_max" },
+	{ 4, AMAC_RX_JABBER_PKTS, "rx_jabber" },
+	{ 4, AMAC_RX_OVERSIZE_PKTS, "rx_oversize" },
+	{ 4, AMAC_RX_FRAGMENT_PKTS, "rx_fragment" },
+	{ 4, AMAC_RX_MISSED_PKTS, "rx_missed" },
+	{ 4, AMAC_RX_CRC_ALIGN_ERRS, "rx_crc_align" },
+	{ 4, AMAC_RX_UNDERSIZE, "rx_undersize" },
+	{ 4, AMAC_RX_CRC_ERRS, "rx_crc" },
+	{ 4, AMAC_RX_ALIGN_ERRS, "rx_align" },
+	{ 4, AMAC_RX_SYMBOL_ERRS, "rx_symbol" },
+	{ 4, AMAC_RX_PAUSE_PKTS, "rx_pause" },
+	{ 4, AMAC_RX_NONPAUSE_PKTS, "rx_nonpause" },
+	{ 4, AMAC_RX_SACHANGES, "rx_sa_changes" },
+	{ 4, AMAC_RX_UNI_PKTS, "rx_unicast" },
+};
+
+#define AMAC_STATS_LEN ARRAY_SIZE(amac_get_strings_stats)
 
 static int amac_ethtool_get_settings(struct net_device *ndev,
 				     struct ethtool_cmd *cmd)
@@ -115,9 +155,14 @@ static int amac_ethtool_nway_reset(struct net_device *ndev)
 static void amac_ethtool_get_strings(struct net_device *ndev,
 				     u32 stringset, u8 *buf)
 {
-	if (stringset == ETH_SS_STATS)
-		memcpy(buf, &amac_ethtool_keys,
-		       sizeof(amac_ethtool_keys));
+	int i;
+
+	if (stringset != ETH_SS_STATS)
+		return;
+
+	for (i = 0; i < AMAC_STATS_LEN; i++)
+		strlcpy(buf + i * ETH_GSTRING_LEN,
+			amac_get_strings_stats[i].name, ETH_GSTRING_LEN);
 }
 
 static int amac_ethtool_get_sset_count(struct net_device *ndev, int sset)
@@ -125,26 +170,25 @@ static int amac_ethtool_get_sset_count(struct net_device *ndev, int sset)
 	if (sset != ETH_SS_STATS)
 		return -EOPNOTSUPP;
 
-	return ARRAY_SIZE(amac_ethtool_keys);
+	return AMAC_STATS_LEN;
 }
 
 static void amac_ethtool_get_stats(struct net_device *ndev,
-				   struct ethtool_stats *estats, u64 *tmp_stats)
+				   struct ethtool_stats *estats, u64 *data)
 {
 	struct bcm_amac_priv *privp = netdev_priv(ndev);
-	struct amac_ethtool_stats *stats =
-		(struct amac_ethtool_stats *)tmp_stats;
+	const struct amac_ethtool_stats *stats;
+	unsigned int i;
+	u64 val;
 
-	stats->rx_packets = privp->ndev->stats.rx_packets;
-	stats->tx_packets = privp->ndev->stats.tx_packets;
-	stats->rx_bytes = privp->ndev->stats.rx_bytes;
-	stats->tx_bytes = privp->ndev->stats.tx_bytes;
-	stats->rx_dropped = privp->ndev->stats.rx_dropped;
-	stats->tx_dropped = privp->ndev->stats.tx_dropped;
-	stats->multicast = privp->ndev->stats.multicast;
-	stats->rx_length_errors = privp->ndev->stats.rx_length_errors;
-	stats->rx_fifo_errors = privp->ndev->stats.rx_fifo_errors;
-	stats->tx_fifo_errors = privp->ndev->stats.tx_fifo_errors;
+	for (i = 0; i < AMAC_STATS_LEN; i++) {
+		stats = &amac_get_strings_stats[i];
+		if (stats->size == 8)
+			val = (u64)readl(privp->hw.reg.amac_core +
+					 stats->offset + 4) << 32;
+		val = readl(privp->hw.reg.amac_core + stats->offset);
+		data[i] = val;
+	}
 }
 
 static void amac_ethtool_get_pauseparam(struct net_device *ndev,
