@@ -44,6 +44,10 @@
 #if (USE_DDR == 1)
 			dma-coherent;
 #endif
+#if (ENABLE_FS4_IOMMU == 1)
+			iommus = <&smmu 0x4000 0x00ff>,
+				 <&smmu 0x7ffd 0x0000>;
+#endif
 #if (NUM_CRYPTO > 0)
 			status = "okay";
 #else
@@ -62,6 +66,10 @@
 #endif
 			msi-parent = <&gic_its 0x7ffe>;
 			#mbox-cells = <3>;
+#if (ENABLE_FS4_IOMMU == 1)
+			iommus = <&smmu 0x4100 0x00ff>,
+				 <&smmu 0x7ffe 0x0000>;
+#endif
 #if (NUM_RAID > 0)
 			status = "okay";
 #else
