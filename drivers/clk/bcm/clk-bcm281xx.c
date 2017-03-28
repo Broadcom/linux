@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Broadcom Corporation
+ * Copyright (C) 2013-2017 Broadcom
  * Copyright 2013 Linaro Limited
  *
  * This program is free software; you can redistribute it and/or
@@ -180,6 +180,17 @@ static struct peri_clk_data hsic2_12m_data = {
 	.trig		= TRIGGER(0x0afc, 5),
 };
 
+static struct peri_clk_data bcmnand_data = {
+	.gate		= HW_SW_GATE(0x0344, 18, 2, 3),
+	.div		= DIVIDER(0x0a14, 4, 4),
+	.clocks		= CLOCKS("ref_crystal",
+				 "var_312m",
+				 "var_208m"),
+	.pre_div	= FIXED_DIVIDER(1),
+	.sel		= SELECTOR(0x0a14, 0, 2),
+	.trig		= TRIGGER(0x0afc, 0),
+};
+
 static struct ccu_data master_ccu_data = {
 	BCM281XX_CCU_COMMON(master, MASTER),
 	.kona_clks	= {
@@ -197,6 +208,8 @@ static struct ccu_data master_ccu_data = {
 			KONA_CLK(master, hsic2_48m, peri),
 		[BCM281XX_MASTER_CCU_HSIC2_12M] =
 			KONA_CLK(master, hsic2_12m, peri),
+		[BCM281XX_MASTER_CCU_NAND] =
+			KONA_CLK(master, bcmnand, peri),
 		[BCM281XX_MASTER_CCU_CLOCK_COUNT] = LAST_KONA_CLK,
 	},
 };
