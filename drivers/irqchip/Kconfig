@@ -282,9 +282,9 @@ config STM32_EXTI
 
 config BCM_IPROC_CRMU_INTC
 	bool "Broadcom iproc CRMU Interrupt Controller"
+	depends on BCM_IPROC_MBOX
 	depends on ARCH_BCM_IPROC || COMPILE_TEST
 	select IRQ_DOMAIN
-	select BCM_IPROC_MBOX
 	default ARCH_BCM_IPROC
 	help
 	  Adds support for the Broadcom Interrupt controller for the Cortex-M0
