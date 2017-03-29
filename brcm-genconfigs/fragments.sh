@@ -10,8 +10,8 @@ arm64_defconfigs="iproc_defconfig sr_nitro_lite_defconfig"
 bcm_cygnus_defconfig="base-arm32 blk dbg dma dte fs i2c mailbox misc mmc mtd \
     net pwm rng spi watchdog bt wifi regulator cygnus lcd sound trace stmpe \
     usb usbd input"
-iproc_defconfig="base-arm64 clocksource dbg mmu blk net dma fs i2c iomux \
+iproc_defconfig="base-arm64 ns2 stingray clocksource dbg mmu blk net dma fs i2c iomux \
     mailbox md misc mmc mtd mtd-spi rng spi virtio watchdog pwm usb usbd perf \
     regulator rtc infiniband nvme uio crypto hba bpf vfio profiling input ata \
     pci dte efi"
-sr_nitro_lite_defconfig="base-arm64 clocksource dbg mmu blk fs net"
+sr_nitro_lite_defconfig="base-arm64 stingray clocksource dbg mmu blk fs net"
