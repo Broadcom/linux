@@ -13,5 +13,5 @@ bcm_cygnus_defconfig="base-arm32 blk dbg dma dte fs i2c mailbox misc mmc mtd \
 iproc_defconfig="base-arm64 clocksource dbg mmu blk net dma fs i2c iomux \
     mailbox md misc mmc mtd mtd-spi rng spi virtio watchdog pwm usb usbd perf \
     regulator rtc infiniband nvme uio crypto hba bpf vfio profiling input ata \
-    pci dte"
+    pci dte efi"
 sr_nitro_lite_defconfig="base-arm64 clocksource dbg mmu blk fs net"
