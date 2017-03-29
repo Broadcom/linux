@@ -7,11 +7,30 @@ arm64_defconfigs="iproc_defconfig sr_nitro_lite_defconfig"
 
 # Defines the fragments that apply to each defconfig. Variable name must be the
 # same as the defconfig file.
-bcm_cygnus_defconfig="base-arm32 blk dbg dma dte fs i2c mailbox misc mmc mtd \
-    net pwm rng spi watchdog bt wifi regulator cygnus lcd sound trace stmpe \
-    usb usbd input"
-iproc_defconfig="base-arm64 ns2 stingray clocksource dbg mmu blk net dma fs i2c iomux \
-    mailbox md misc mmc mtd mtd-spi rng spi virtio watchdog pwm usb usbd perf \
-    regulator rtc infiniband nvme uio crypto hba bpf vfio profiling input ata \
-    pci dte efi"
-sr_nitro_lite_defconfig="base-arm64 stingray clocksource dbg mmu blk fs net"
+bcm_cygnus_defconfig="base-arm32 cygnus  \
+    blk bt                               \
+    dbg dma dte                          \
+    fs i2c                               \
+    input                                \
+    lcd mailbox misc mmc mtd             \
+    net                                  \
+    pwm                                  \
+    regulator rng                        \
+    sound spi stmpe trace                \
+    usb usbd                             \
+    watchdog wifi"
+
+iproc_defconfig="base-arm64 ns2 stingray \
+    ata blk bpf clocksource crypto       \
+    dbg dma dte                          \
+    efi fs hba                           \
+    i2c infiniband input iomux           \
+    mailbox md misc mmc mmu mtd mtd-spi  \
+    net nvme                             \
+    pci perf profiling pwm               \
+    regulator rng rtc                    \
+    spi                                  \
+    uio usb usbd                         \
+    vfio virtio watchdog"
+
+sr_nitro_lite_defconfig="base-arm64 stingray blk clocksource dbg fs mmu net"
