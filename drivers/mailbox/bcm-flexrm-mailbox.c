@@ -1529,8 +1529,11 @@ static int flexrm_mbox_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto fail_free_msis;
 	}
-	for (index = 0; index < mbox->num_rings; index++)
+	for (index = 0; index < mbox->num_rings; index++) {
+		mbox->controller.chans[index].msg_queue_len =
+						RING_MAX_REQ_COUNT;
 		mbox->controller.chans[index].con_priv = &mbox->rings[index];
+	}
 
 	/* Register mailbox controller */
 	ret = mbox_controller_register(&mbox->controller);
