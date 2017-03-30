@@ -24,7 +24,7 @@ iproc_defconfig="base-arm64 ns2 stingray \
     ata blk bpf clocksource crypto       \
     dbg dma                              \
     efi fs hba                           \
-    i2c infiniband input iomux           \
+    i2c infiniband iomux                 \
     mailbox md misc mmc mmu mtd mtd-spi  \
     net nvme                             \
     pci perf profiling pwm               \
