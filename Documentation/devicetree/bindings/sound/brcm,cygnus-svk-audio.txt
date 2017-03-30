@@ -1,0 +1,102 @@
+ASoC machine driver Cygnus SVK.
+This board has an Cygnus SOC, and on board WM8750 codec.
+This audio driver should work for all of the following SVK variants
+	bcm911360k
+	bcm958300k
+	bcm958303k
+	bcm958305k
+
+Required properties:
+- compatible: "bcm,cygnussvk-machine"
+
+In addition to these properties, the device follows the general construct
+of the multi-dai generic "simple audio card".  Refer to simple-card.txt.
+
+The only valid dai properties for this design are
+ - format
+ - bitclock-master
+ - frame-master
+
+Optional properties:
+The follow properties are only need if the tlv320aic3x codec is configure
+on link0 or link1:
+- brcm,bank-sel1-gpio and brcm,bank-sel1-gpio: Two gpios are used as
+	selectors on a switch that will direct the other gpio signals
+	(codec reset, headset-amp-en, and handsfree-amp-en, to either
+	daughter card slot 0 or slot 1.
+- brcm,ext-headset-amp-en-gpio = gpio used to control the enabling of
+	the headset speaker amplifier.
+- brcm,handsfree-amp-en-gpio: gpio used to conrol the enabling of the
+	handsfree speaker amplifier.
+- brcm,scslot: the daughter card slot that is populate with the tlv320aic3x
+	codec (0 is slot 0, all else is slot 1).
+
+
+Example:
+sound {
+	compatible = "brcm,cygnussvk-machine";
+	status = "okay";
+
+	brcm,bank-sel0-gpio = <&gpio_crmu 0 0>;
+	brcm,bank-sel1-gpio = <&gpio_crmu 1 0>;
+
+	brcm,ext-headset-amp-en-gpio = <&gpio_asiu 117 0>;
+	brcm,handsfree-amp-en = <&gpio_asiu 119 0>;
+	brcm,scslot = <1>; /* 0 = slot 0, all else = 1 */
+
+	dai-link@0 {
+		format = "i2s";
+		bitclock-master = <&dailink0_master>;
+		frame-master = <&dailink0_master>;
+
+		dailink0_master: cpu {
+			sound-dai = <&cygnus_audio 0>;
+		};
+
+		codec {
+			sound-dai = <&bcm_dummy_codec>;
+		};
+	};
+
+	dai-link@1 {
+		format = "i2s";
+		bitclock-master = <&dailink1_master>;
+		frame-master = <&dailink1_master>;
+
+		dailink1_master: cpu {
+			sound-dai = <&cygnus_audio 1>;
+		};
+
+		codec {
+			sound-dai = <&tlv320aic3x>;
+		};
+	};
+
+	dai-link@2 {
+		format = "i2s";
+		bitclock-master = <&dailink2_master>;
+		frame-master = <&dailink2_master>;
+
+		dailink2_master: cpu {
+			sound-dai = <&cygnus_audio 2>;
+		};
+
+		codec {
+			sound-dai = <&wolfson_8750>;
+		};
+	};
+
+	dai-link@3 {
+		format = "i2s";
+		bitclock-master = <&dailink3_master>;
+		frame-master = <&dailink3_master>;
+
+		dailink3_master: cpu {
+			sound-dai = <&cygnus_audio 3>;
+		};
+
+		codec {
+			sound-dai = <&spdif_dummy_tx>;
+		};
+	};
+};
