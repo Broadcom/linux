@@ -22,7 +22,7 @@ bcm_cygnus_defconfig="base-arm32 cygnus  \
 
 iproc_defconfig="base-arm64 ns2 stingray \
     ata blk bpf clocksource crypto       \
-    dbg dma dte                          \
+    dbg dma                              \
     efi fs hba                           \
     i2c infiniband input iomux           \
     mailbox md misc mmc mmu mtd mtd-spi  \
@@ -31,6 +31,6 @@ iproc_defconfig="base-arm64 ns2 stingray \
     regulator rng rtc                    \
     spi                                  \
     uio usb usbd                         \
-    vfio virtio watchdog"
+    vfio watchdog"
 
 sr_nitro_lite_defconfig="base-arm64 stingray blk clocksource dbg fs mmu net"
