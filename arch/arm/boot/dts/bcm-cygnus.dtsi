@@ -560,7 +560,7 @@
 		};
 
 		clcd: clcd@180a0000 {
-			compatible = "arm,pl111", "arm,primecell";
+			compatible = "brcm,iproc-pl111", "arm,primecell";
 			reg = <0x180a0000 0x1000>;
 			interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "combined";
