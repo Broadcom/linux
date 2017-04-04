@@ -1295,7 +1295,7 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 		 * Limit max allowed number of PFs to 4 until Chimp can
 		 * properly hide unconfigured PFs
 		 */
-		pcie->nr_pf = 4;
+		pcie->nr_pf = 1;
 		break;
 	default:
 		dev_err(dev, "incompatible iProc PCIe interface\n");
