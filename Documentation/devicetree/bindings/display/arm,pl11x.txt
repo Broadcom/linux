@@ -7,6 +7,7 @@ Required properties:
 - compatible: must be one of:
 	"arm,pl110", "arm,primecell"
 	"arm,pl111", "arm,primecell"
+	"brcm,iproc-pl111", "arm,primecell"
 
 - reg: base address and size of the control registers block
 
