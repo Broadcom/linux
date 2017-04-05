@@ -69,6 +69,9 @@
 #define APB_ERR_EN_SHIFT             0
 #define APB_ERR_EN                   BIT(APB_ERR_EN_SHIFT)
 
+#define CFG_RETRY_STATUS             0xffff0001
+#define CFG_RETRY_STATUS_TIMEOUT_US  2000000 /* 2 seconds. */
+
 /* derive the enum index of the outbound/inbound mapping registers */
 #define MAP_REG(base_reg, index)      ((base_reg) + (index) * 2)
 
@@ -457,6 +460,49 @@ static inline void iproc_pcie_apb_err_disable(struct pci_bus *bus,
 	}
 }
 
+static int iproc_pcie_cfg_retry(void __iomem *cfg_data_p)
+{
+	int timeout = CFG_RETRY_STATUS_TIMEOUT_US;
+	unsigned int ret;
+
+	do {
+		ret = readl(cfg_data_p);
+		if (ret == CFG_RETRY_STATUS)
+			udelay(1);
+		else
+			return PCIBIOS_SUCCESSFUL;
+	} while (timeout--);
+
+	WARN_ON(timeout <= 0);
+
+	return PCIBIOS_DEVICE_NOT_FOUND;
+}
+
+static void __iomem *iproc_pcie_map_ep_cfg_reg(struct iproc_pcie *pcie,
+					       unsigned int busno,
+					       unsigned int slot,
+					       unsigned int fn,
+					       int where)
+{
+	u16 offset;
+	u32 val;
+
+	/* EP device access */
+	val = (busno << CFG_ADDR_BUS_NUM_SHIFT) |
+		(slot << CFG_ADDR_DEV_NUM_SHIFT) |
+		(fn << CFG_ADDR_FUNC_NUM_SHIFT) |
+		(where & CFG_ADDR_REG_NUM_MASK) |
+		(1 & CFG_ADDR_CFG_TYPE_MASK);
+
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_CFG_ADDR, val);
+	offset = iproc_pcie_reg_offset(pcie, IPROC_PCIE_CFG_DATA);
+
+	if (iproc_pcie_reg_is_invalid(offset))
+		return NULL;
+
+	return (pcie->base + offset);
+}
+
 /**
  * Note access to the configuration registers are protected at the higher layer
  * by 'pci_lock' in drivers/pci/access.c
@@ -469,7 +515,6 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct pci_bus *bus,
 	unsigned slot = PCI_SLOT(devfn);
 	unsigned fn = PCI_FUNC(devfn);
 	unsigned busno = bus->number;
-	u32 val;
 	u16 offset;
 
 	/* root complex access */
@@ -499,27 +544,51 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct pci_bus *bus,
 			return NULL;
 	}
 
-	/* EP device access */
-	val = (busno << CFG_ADDR_BUS_NUM_SHIFT) |
-		(slot << CFG_ADDR_DEV_NUM_SHIFT) |
-		(fn << CFG_ADDR_FUNC_NUM_SHIFT) |
-		(where & CFG_ADDR_REG_NUM_MASK) |
-		(1 & CFG_ADDR_CFG_TYPE_MASK);
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_CFG_ADDR, val);
-	offset = iproc_pcie_reg_offset(pcie, IPROC_PCIE_CFG_DATA);
-	if (iproc_pcie_reg_is_invalid(offset))
-		return NULL;
-	else
-		return (pcie->base + offset);
+	return iproc_pcie_map_ep_cfg_reg(pcie, busno, slot, fn, where);
+}
+
+static int iproc_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
+				    int where, int size, u32 *val)
+{
+	struct iproc_pcie *pcie = iproc_data(bus);
+	unsigned int slot = PCI_SLOT(devfn);
+	unsigned int fn = PCI_FUNC(devfn);
+	unsigned int busno = bus->number;
+	void __iomem *cfg_data_p;
+	int ret;
+
+	/* root complex access. */
+	if (busno == 0)
+		return pci_generic_config_read32(bus, devfn, where, size, val);
+
+	cfg_data_p = iproc_pcie_map_ep_cfg_reg(pcie, busno, slot, fn, where);
+
+	if (!cfg_data_p)
+		return PCIBIOS_DEVICE_NOT_FOUND;
+
+	ret = iproc_pcie_cfg_retry(cfg_data_p);
+	if (ret)
+		return ret;
+
+	*val = readl(cfg_data_p);
+
+	if (size <= 2)
+		*val = (*val >> (8 * (where & 3))) & ((1 << (size * 8)) - 1);
+
+	return PCIBIOS_SUCCESSFUL;
 }
 
 static int iproc_pcie_config_read32(struct pci_bus *bus, unsigned int devfn,
 				    int where, int size, u32 *val)
 {
 	int ret;
+	struct iproc_pcie *pcie = iproc_data(bus);
 
 	iproc_pcie_apb_err_disable(bus, true);
-	ret = pci_generic_config_read32(bus, devfn, where, size, val);
+	if (pcie->type == IPROC_PCIE_PAXB_V2)
+		ret = iproc_pcie_config_read(bus, devfn, where, size, val);
+	else
+		ret = pci_generic_config_read32(bus, devfn, where, size, val);
 	iproc_pcie_apb_err_disable(bus, false);
 
 	return ret;
