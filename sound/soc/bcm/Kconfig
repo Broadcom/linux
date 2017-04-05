@@ -32,6 +32,23 @@ config SND_SOC_CYGNUS_AUD_BASE_MACHINE
 	  on an "audio base" board. This audio base board has more io options
 	  for audio. There is a WM8994 codec, a AK4385 codec and spdif output.
 
+config SND_SOC_CYGNUS_SVK_MACHINE
+	tristate "SoC Audio support for Broadcom Cygnus SVK development boards"
+	depends on SND_SOC_CYGNUS
+	select SND_SOC_BCMDUMMY
+	select SND_SOC_SPDIF
+	select SND_SOC_TLV320AIC3X
+	select SND_SOC_WM8750
+	select SND_SIMPLE_CARD_UTILS
+
+	help
+	  Say Y if you want to add support for Cygnus SVK development boards.
+	  There are SVKs for the bcm911360k, bcm958300k, and the bcm958305k
+
+	  All SVKs have a WM8750 codec mounted directly on the base system.
+	  This codec will be on link #2.  Link 0 and 1 are brought up as
+	  dummy ports which is useful for observing the digital signals.
+
 config SND_SOC_CYGNUS_VOIPPHONE_MACHINE
 	tristate "SoC Audio support for Broadcom Cygnus enterprise VoIP phone"
 	depends on SND_SOC_CYGNUS

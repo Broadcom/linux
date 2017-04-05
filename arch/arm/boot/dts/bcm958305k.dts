@@ -1,7 +1,7 @@
 /*
  *  BSD LICENSE
  *
- *  Copyright(c) 2015 Broadcom Corporation.  All rights reserved.
+ *  Copyright(c) 2017 Broadcom.  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions
@@ -46,6 +46,84 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	sound {
+		compatible = "brcm,cygnussvk-machine";
+		status = "okay";
+
+		brcm,ext-headset-amp-en-gpio = <&gpio_ccm 21 0>;
+		brcm,handsfree-amp-en-gpio = <&gpio_ccm 13 0>;
+		brcm,scslot = <1>; /* 0 = slot 0, all else = 1 */
+
+		dai-link@0 {
+			format = "i2s";
+			bitclock-master = <&dailink0_master>;
+			frame-master = <&dailink0_master>;
+
+			dailink0_master: cpu {
+				sound-dai = <&cygnus_audio 0>;
+			};
+
+			codec {
+				sound-dai = <&bcm_dummy_codec>;
+			};
+		};
+
+		dai-link@1 {
+			format = "i2s";
+			bitclock-master = <&dailink1_master>;
+			frame-master = <&dailink1_master>;
+
+			dailink1_master: cpu {
+				sound-dai = <&cygnus_audio 1>;
+			};
+
+			codec {
+				sound-dai = <&tlv320aic3x>;
+			};
+		};
+
+		dai-link@2 {
+			format = "i2s";
+			bitclock-master = <&dailink2_master>;
+			frame-master = <&dailink2_master>;
+
+			dailink2_master: cpu {
+				sound-dai = <&cygnus_audio 2>;
+			};
+
+			codec {
+				sound-dai = <&wolfson_8750>;
+			};
+		};
+
+		dai-link@3 {
+			format = "i2s";
+			bitclock-master = <&dailink3_master>;
+			frame-master = <&dailink3_master>;
+
+			dailink3_master: cpu {
+				sound-dai = <&cygnus_audio 3>;
+			};
+
+			codec {
+				sound-dai = <&spdif_dummy_tx>;
+			};
+		};
+	};
+
+	bcm_dummy_codec: dummy_codec {
+		#sound-dai-cells = <0>;
+		status = "okay";
+		compatible = "brcm,dummy_codec";
+	};
+
+	/* dummy codec to model spdif tx */
+	spdif_dummy_tx: spdif_tx {
+		#sound-dai-cells = <0>;
+		status = "okay";
+		compatible = "linux,spdif-dit";
+	};
 };
 
 &i2c0 {
@@ -54,6 +132,21 @@
 
 &i2c1 {
 	status = "okay";
+
+	wolfson_8750: wm8750@1a {
+		#sound-dai-cells = <0>;
+		compatible = "wlf,wm8750";
+		reg = <0x1a>;
+	};
+
+	tlv320aic3x: tlv320aic3x@18 {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tlv320aic3x";
+		reg = <0x18>;
+		ai3x-micbias-vg = <2>;
+		gpio-reset = <&gpio_ccm 22 0>;
+		status = "okay";
+	};
 };
 
 &pcie0 {
@@ -87,3 +180,29 @@
 		brcm,nand-oob-sector-size = <27>;
 	};
 };
+
+&pinctrl {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2s0_default_mux &i2s1_default_mux &i2s2_default_mux>;
+};
+
+&cygnus_audio {
+	#sound-dai-cells = <1>;
+
+	ssp0: ssp_port@0 {
+		status = "okay";
+	};
+
+	ssp1: ssp_port@1 {
+		status = "okay";
+	};
+
+	ssp2: ssp_port@2 {
+		status = "okay";
+	};
+
+	spdif: spdif_port@3 {
+		status = "okay";
+	};
+};
+
