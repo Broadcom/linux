@@ -57,9 +57,23 @@
 #define CFG_RC_RCMD_MASK		(1 << CFG_RC_RCMD_SHIFT)
 #define CFG_RC_RWCMD_MASK		(CFG_RC_WCMD_MASK | CFG_RC_RCMD_MASK)
 
+#define MERLIN16_PCIE_BLK2_PWRMGMT_7		0x1208
+#define MERLIN16_PCIE_BLK2_PWRMGMT_8		0x1209
+#define MERLIN16_AMS_TX_CTRL_5			0xd0a5
+#define MERLIN16_AMS_TX_CTRL_5_POST2_TO_1	BIT(13)
+#define MERLIN16_AMS_TX_CTRL_5_ENA_PRE		BIT(12)
+#define MERLIN16_AMS_TX_CTRL_5_ENA_POST1	BIT(11)
+#define MERLIN16_AMS_TX_CTRL_5_ENA_POST2	BIT(10)
+#define MERLIN16_PCIE_BLK2_PWRMGMT_7_VAL	0x96
+#define MERLIN16_PCIE_BLK2_PWRMGMT_8_VAL	0x12c
+
 /* allow up to 5 ms for PMI read/write transaction to finish */
 #define PMI_TIMEOUT_MS			5
 #define SERDES_LANES_BCAST		0x1ff
+#define GEN1_PRBS_VAL			0x4
+#define GEN2_PRBS_VAL			0x5
+#define GEN3_PRBS_VAL			0x6
+#define GEN_STR_LEN			4
 #define MAX_LANE_RETRIES		10
 #define PMI_PASS_STATUS			0x80008000
 
@@ -89,6 +103,7 @@ struct pcie_prbs_dev {
 	struct regmap *pipemux_strap_map;
 	void __iomem *pcie_ss_base;
 	void __iomem *paxb_base[MAX_PHY_COUNT];
+	char test_gen[GEN_STR_LEN];
 	unsigned int test_retries;
 	unsigned int slot_num;
 	unsigned int err_count;
@@ -245,7 +260,6 @@ static int pmi_read_via_paxb(struct pcie_prbs_dev *pd,
 	uint32_t status;
 	unsigned int timeout = PMI_TIMEOUT_MS;
 
-	dev_info(pd->dev, "pmi_read_via_paxb: 0x%x = 0x%x\n", pmi_addr, *data);
 	paxb_rc_write_config(base, CFG_RC_PMI_ADDR, pmi_addr);
 
 	/* initiate PMI read transaction */
@@ -262,6 +276,7 @@ static int pmi_read_via_paxb(struct pcie_prbs_dev *pd,
 
 	/* now read the data */
 	*data = paxb_rc_read_config(base, CFG_RC_PMI_RDATA);
+	dev_info(pd->dev, "pmi_read_via_paxb: 0x%x = 0x%x\n", pmi_addr, *data);
 
 	return 0;
 }
@@ -274,7 +289,7 @@ static int workaround_needed_for_phy(struct pcie_prbs_dev *pd, int phy_num)
 }
 
 /* PCIe PRBS loopback test sequence */
-static void pcie_phy_bert_setup(struct pcie_prbs_dev *pd, int phy_num)
+static int pcie_phy_bert_setup(struct pcie_prbs_dev *pd, int phy_num)
 {
 	struct device *dev = pd->dev;
 	union pmi_xfer_address pmi_addr;
@@ -284,9 +299,44 @@ static void pcie_phy_bert_setup(struct pcie_prbs_dev *pd, int phy_num)
 	pmi_addr.device_id = 0x1;
 	pmi_addr.lane_number = SERDES_LANES_BCAST;
 
-	/* set gen2 speed */
+	/*
+	 * Although, signal integrity code is already present in firmware,
+	 * if this driver tries to write PIPEMUX register to change PIPEMUX
+	 * setting, then SERDES registers are seen be changed causing GEN2
+	 * PRBS failure. So applying signal integrity code to SERDES here.
+	 */
+
+	/* Enable pre/post cursors */
+	pmi_addr.address = MERLIN16_AMS_TX_CTRL_5;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr,
+			   MERLIN16_AMS_TX_CTRL_5_POST2_TO_1 |
+			   MERLIN16_AMS_TX_CTRL_5_ENA_PRE |
+			   MERLIN16_AMS_TX_CTRL_5_ENA_POST1 |
+			   MERLIN16_AMS_TX_CTRL_5_ENA_POST2);
+
+	/* Configure Ref Clock sense counters */
+	pmi_addr.address = MERLIN16_PCIE_BLK2_PWRMGMT_7;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr,
+			   MERLIN16_PCIE_BLK2_PWRMGMT_7_VAL);
+	pmi_addr.address = MERLIN16_PCIE_BLK2_PWRMGMT_8;
+	pmi_write_via_paxb(pd, pmi_addr.effective_addr,
+			   MERLIN16_PCIE_BLK2_PWRMGMT_8_VAL);
+
 	pmi_addr.address = 0x1300;
 	pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0x2080);
+
+	/* set speed */
+	pmi_addr.address = 0x1301;
+	if (!strncasecmp(pd->test_gen, "gen1", GEN_STR_LEN)) {
+		pmi_write_via_paxb(pd, pmi_addr.effective_addr, GEN1_PRBS_VAL);
+	} else if (!strncasecmp(pd->test_gen, "gen2", GEN_STR_LEN)) {
+		pmi_write_via_paxb(pd, pmi_addr.effective_addr, GEN2_PRBS_VAL);
+	} else if (!strncasecmp(pd->test_gen, "gen3", GEN_STR_LEN)) {
+		pmi_write_via_paxb(pd, pmi_addr.effective_addr, GEN3_PRBS_VAL);
+	} else {
+		dev_err(pd->dev, "PCIe GEN: Invalid option\n");
+		return -EINVAL;
+	}
 
 	/* Disable 8b10b & verify. */
 	pmi_addr.address =  0x1402;
@@ -309,6 +359,8 @@ static void pcie_phy_bert_setup(struct pcie_prbs_dev *pd, int phy_num)
 		pmi_addr.address = 0xd073;
 		pmi_write_via_paxb(pd, pmi_addr.effective_addr, 0x7110);
 	}
+
+	return 0;
 }
 
 static void connect_pcie_core_to_phy(struct pcie_prbs_dev *pd, int phy_num)
@@ -466,7 +518,13 @@ static int do_prbs_test(struct pcie_prbs_dev *pd, unsigned int pipemux_mode)
 			     (1 << phy_num)))
 				continue;
 			connect_pcie_core_to_phy(pd, phy_num);
-			pcie_phy_bert_setup(pd, phy_num);
+			ret = pcie_phy_bert_setup(pd, phy_num);
+			if (ret) {
+				dev_err(pd->dev, "PHY 0x%x: BERT setup FAILED",
+					phy_num);
+				return -EIO;
+			}
+			dev_info(pd->dev, "PHY 0x%x: BERT setup done", phy_num);
 		}
 		iproc_pcie_release_reset(pd->paxb_base[pd->slot_num]);
 
@@ -488,11 +546,12 @@ static int do_prbs_test(struct pcie_prbs_dev *pd, unsigned int pipemux_mode)
 		}
 
 		if (pd->err_count == 0) {
-			dev_info(dev, "Try %d: PCIe PRBS test PASSED\n\n", i);
+			dev_info(dev, "Try %d: PCIe %s PRBS test PASSED\n\n",
+					i, pd->test_gen);
 			return 0;
 		}
-		dev_err(dev, "Try %d: PCIe PRBS test FAILED (error %d)\n",
-				i, pd->err_count);
+		dev_err(dev, "Try %d: PCIe %s PRBS test FAILED (error %d)\n",
+				i, pd->test_gen, pd->err_count);
 	}
 	return 1;
 }
@@ -594,6 +653,33 @@ static ssize_t pcie_prbs_slot_num_store(struct device *dev,
 	return strnlen(buf, count);
 }
 
+static ssize_t pcie_prbs_test_gen_show(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	ssize_t ret;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *test = platform_get_drvdata(pdev);
+
+	mutex_lock(&test->test_lock);
+	ret = sprintf(buf, "%s", test->test_gen);
+	mutex_unlock(&test->test_lock);
+	return ret;
+}
+
+static ssize_t pcie_prbs_test_gen_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *test = platform_get_drvdata(pdev);
+
+	mutex_lock(&test->test_lock);
+	sprintf(test->test_gen, "%s", buf);
+	mutex_unlock(&test->test_lock);
+	return strnlen(buf, count);
+}
+
 static ssize_t pcie_prbs_start_show(struct device *dev,
 				    struct device_attribute *attr,
 				    char *buf)
@@ -666,19 +752,22 @@ static ssize_t pcie_phy_err_count_show(struct device *dev,
 	return ret;
 }
 
-static DEVICE_ATTR(test_retries, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(test_retries, 0644,		/* S_IRUGO | S_IWUSR */
 		   pcie_prbs_retries_show, pcie_prbs_retries_store);
 
-static DEVICE_ATTR(pcie_mode, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(pcie_mode, 0644,		/* S_IRUGO | S_IWUSR */
 		   pcie_prbs_pcie_mode_show, pcie_prbs_pcie_mode_store);
 
-static DEVICE_ATTR(slot_num, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(slot_num, 0644,		/* S_IRUGO | S_IWUSR */
 		   pcie_prbs_slot_num_show, pcie_prbs_slot_num_store);
 
-static DEVICE_ATTR(test_start, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(test_gen, 0644,		/* S_IRUGO | S_IWUSR */
+		   pcie_prbs_test_gen_show, pcie_prbs_test_gen_store);
+
+static DEVICE_ATTR(test_start, 0644,		/* S_IRUGO | S_IWUSR */
 		   pcie_prbs_start_show, pcie_prbs_start_store);
 
-static DEVICE_ATTR(err_count, S_IRUGO,
+static DEVICE_ATTR(err_count, 0444,		/* S_IRUGO */
 		   pcie_phy_err_count_show, NULL);
 
 static int stingray_pcie_phy_probe(struct platform_device *pdev)
@@ -757,9 +846,12 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	ret = device_create_file(dev, &dev_attr_slot_num);
 	if (ret < 0)
 		goto destroy_pcie_mode;
-	ret = device_create_file(dev, &dev_attr_err_count);
+	ret = device_create_file(dev, &dev_attr_test_gen);
 	if (ret < 0)
 		goto destroy_slot_num;
+	ret = device_create_file(dev, &dev_attr_err_count);
+	if (ret < 0)
+		goto destroy_test_gen;
 	ret = device_create_file(dev, &dev_attr_test_start);
 	if (ret < 0)
 		goto destroy_err_count;
@@ -769,11 +861,14 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	pd->test_start = 0;
 	pd->pcie_mode = PCIE_MODE_DEFAULT;
 	pd->slot_num = 0;
+	strncpy(pd->test_gen, "gen2", GEN_STR_LEN);
 	dev_info(dev, "%d PCIe PHYs registered\n", pd->phy_count);
 	return 0;
 
 destroy_err_count:
 	device_remove_file(dev, &dev_attr_err_count);
+destroy_test_gen:
+	device_remove_file(dev, &dev_attr_test_gen);
 destroy_slot_num:
 	device_remove_file(dev, &dev_attr_slot_num);
 destroy_pcie_mode:
