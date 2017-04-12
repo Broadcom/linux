@@ -87,6 +87,7 @@ be used.  These specifiers are defined in:
     master  usb_ic          peri      5     BCM281XX_MASTER_CCU_USB_IC
     master  hsic2_48m       peri      6     BCM281XX_MASTER_CCU_HSIC_48M
     master  hsic2_12m       peri      7     BCM281XX_MASTER_CCU_HSIC_12M
+    master  nand            peri      8     BCM281XX_MASTER_CCU_NAND
 
     slave   uartb           peri      0     BCM281XX_SLAVE_CCU_UARTB
     slave   uartb2          peri      1     BCM281XX_SLAVE_CCU_UARTB2
