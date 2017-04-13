@@ -135,6 +135,14 @@
 		interrupt-controller;
 	};
 
+	nand: nand@3f110000 {
+		compatible = "brcm,nand-bcm281xx";
+		reg = <0x3f110000 0x10000>;
+		clocks = <&master_ccu BCM281XX_MASTER_CCU_NAND>;
+		clock-names = "nand_clk";
+		status = "disabled";
+	};
+
 	sdio1: sdio@3f180000 {
 		compatible = "brcm,kona-sdhci";
 		reg = <0x3f180000 0x10000>;
