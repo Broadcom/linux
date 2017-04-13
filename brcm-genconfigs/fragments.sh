@@ -14,6 +14,7 @@ bcm_cygnus_defconfig="base-arm32 cygnus  \
     input                                \
     lcd mailbox misc mmc mtd             \
     net                                  \
+    optee                                \
     pwm                                  \
     regulator rng                        \
     sound spi stmpe trace                \
