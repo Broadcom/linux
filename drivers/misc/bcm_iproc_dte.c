@@ -66,6 +66,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/poll.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/printk.h>
@@ -511,6 +512,7 @@ static int dte_enable_ts(struct bcm_dte *iproc_dte,
 			 struct file *fp)
 {
 	int rc = 0;
+	int idx;
 
 	if ((!iproc_dte) || (client >= iproc_dte->num_of_clients))
 		return -EINVAL;
@@ -523,6 +525,17 @@ static int dte_enable_ts(struct bcm_dte *iproc_dte,
 			(iproc_dte->user[client].internal_user)) {
 			rc = -EBUSY;
 			goto en_ts_unlock_exit;
+		}
+
+		/* single client per fileptr */
+		for (idx = 0; idx < iproc_dte->num_of_clients; idx++) {
+			if (iproc_dte->user[idx].fp == fp) {
+				dev_err(&iproc_dte->pdev->dev,
+					"Error: file ptr already registred with client(%d)\n",
+					idx);
+				rc = -EBUSY;
+				goto en_ts_unlock_exit;
+			}
 		}
 
 		if (!iproc_dte->usr_cnt) {
@@ -640,6 +653,23 @@ static void dte_display_drv_info(struct bcm_dte *iproc_dte)
 		ppb);
 }
 
+static unsigned int dte_poll(struct file *fp, poll_table *wait)
+{
+	struct bcm_dte *iproc_dte = fp->private_data;
+	int idx;
+
+	for (idx = 0; idx < iproc_dte->num_of_clients; idx++)
+		if (iproc_dte->user[idx].fp == fp)
+			break;
+
+	if (idx == iproc_dte->num_of_clients)
+		return POLLERR;
+
+	poll_wait(fp, &iproc_dte->user[idx].ts_wait_queue, wait);
+	return kfifo_is_empty(&iproc_dte->recv_fifo[idx]) ?
+					0 : POLLIN | POLLRDNORM;
+}
+
 static long dte_ioctl(struct file *filep,
 		      unsigned int cmd,
 		      unsigned long arg)
@@ -752,6 +782,7 @@ int dte_release(struct inode *node, struct file *fp)
 
 static const struct file_operations dte_cdev_fops = {
 	.open           = dte_open,
+	.poll           = dte_poll,
 	.unlocked_ioctl = dte_ioctl,
 	.release = dte_release,
 };
@@ -906,6 +937,9 @@ static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx)
 					client,
 					iproc_dte->kfifoof[client]);
 			}
+
+			wake_up_interruptible(
+				&iproc_dte->user[client].ts_wait_queue);
 		}
 	} while (++i < DTE_HW_FIFO_SIZE); /* at most get FIFO size */
 
@@ -1027,6 +1061,14 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 	lts_reg_off = dte_params->lts_reg_offset;
 
 	for (client = 0; client < iproc_dte->num_of_clients; client++) {
+		ret = kfifo_alloc(&iproc_dte->recv_fifo[client],
+				DTE_SW_FIFO_SIZE * sizeof(struct timespec),
+				GFP_KERNEL);
+		if (ret) {
+			dev_err(dev, "Failed kfifo alloc\n");
+			goto err_free_kfifo;
+		}
+
 		iproc_dte->dte_cli[client].client_index = client;
 		iproc_dte->dte_cli[client].lts_index =
 			dte_params->lts_start_index + client;
@@ -1036,23 +1078,15 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 		}
 		if ((divider - dte_params->divider_size == client)
 			|| (client == 0)) {
-			iproc_dte->dte_cli[client].reg_offset =	lts_reg_off;
+			iproc_dte->dte_cli[client].reg_offset = lts_reg_off;
 			iproc_dte->dte_cli[client].shift = 0;
 		} else {
 			iproc_dte->dte_cli[client].reg_offset = lts_reg_off;
 			iproc_dte->dte_cli[client].shift =
 				dte_params->divider_size * 8;
 		}
-	}
 
-	for (client = 0; client < iproc_dte->num_of_clients; client++) {
-		ret = kfifo_alloc(&iproc_dte->recv_fifo[client],
-				DTE_SW_FIFO_SIZE * sizeof(struct timespec),
-				GFP_KERNEL);
-		if (ret) {
-			dev_err(dev, "Failed kfifo alloc\n");
-			goto err_free_kfifo;
-		}
+		init_waitqueue_head(&iproc_dte->user[client].ts_wait_queue);
 	}
 
 	/* create device */

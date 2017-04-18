@@ -20,10 +20,12 @@
 #include <linux/cdev.h>
 #include <linux/kfifo.h>
 #include <linux/timer.h>
+#include <linux/wait.h>
 
 struct dte_user_info {
 	struct file *fp; /* File opened by user */
 	bool internal_user;
+	wait_queue_head_t ts_wait_queue;
 };
 
 struct bcm_iproc_dte_params {
