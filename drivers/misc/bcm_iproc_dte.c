@@ -82,6 +82,8 @@
 #define DTE_MAX_DEVS                             1
 #define DTE_DEVICE_NAME                          "dte"
 #define DTE_DEFAULT_INTERVAL                     500000000
+#define DTE_DIV_YES                              1
+#define DTE_DIV_NO                               0
 
 /* Registers */
 #define DTE_CTRL_REG_BASE                        0x600
@@ -142,11 +144,61 @@
 /* NCO nominal increment = 8ns DTE operates at 125 MHz */
 #define NCO_INC_NOMINAL 0x80000000
 
-static const struct bcm_iproc_dte_params iproc_dte_params = {
-	.lts_reg_offset = 0x660,
-	.divider_size = 2, /* in bytes. */
-	.lts_start_index = 4,
-	.num_of_clients = 11,
+struct bcm_iproc_dte_params {
+	u16 lts_reg_offset;
+	u16 divider_size; /* in bytes. */
+	u16 lts_start_index;
+	u16 num_of_clients;
+	struct dte_client_list cli_info[32];
+};
+
+enum {
+	BCM_SOC_CYGNUS,
+	BCM_SOC_STINGRAY,
+	BCM_SOC_MAX
+};
+
+static const struct bcm_iproc_dte_params dte_soc_params[BCM_SOC_MAX] = {
+	{
+		/* Cygnus SoC */
+		.lts_reg_offset = 0x660,
+		.divider_size = 2,
+		.lts_start_index = 4,
+		.num_of_clients = 12,
+		.cli_info = {
+			/* client, divider_status */
+			{"I2S[0] bit clock", DTE_DIV_YES},
+			{"I2S[1] bit clock", DTE_DIV_YES},
+			{"I2S[2] bit clock", DTE_DIV_YES},
+			{"I2S[0] word clock", DTE_DIV_YES},
+			{"I2S[1] word clock", DTE_DIV_YES},
+			{"I2S[2] word clock", DTE_DIV_YES},
+			{"CLLP of LCD", DTE_DIV_YES},
+			{"CLFP of LCD", DTE_DIV_YES},
+			{"GPIO_14", DTE_DIV_YES},
+			{"GPIO_15", DTE_DIV_YES},
+			{"GPIO_22", DTE_DIV_YES},
+			{"ENET", DTE_DIV_NO},
+		}
+	},
+	{
+		/* Stingray SoC */
+		.lts_reg_offset = 0x660,
+		.divider_size = 2,
+		.lts_start_index = 4,
+		.num_of_clients = 8,
+		.cli_info = {
+			/* client, divider_status */
+			{"I2S0_BITCLOCK", DTE_DIV_YES},
+			{"I2S0_WORDCLOCK", DTE_DIV_YES},
+			{"GPIO14", DTE_DIV_YES},
+			{"GPIO15", DTE_DIV_YES},
+			{"GPIO22", DTE_DIV_YES},
+			{"GPIO23", DTE_DIV_YES},
+			{"INTERVAL_GEN 0 (TSYNC)", DTE_DIV_YES},
+			{"INTERVAL_GEN 1 (TSYNC)", DTE_DIV_YES},
+		}
+	},
 };
 
 static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx);
@@ -206,8 +258,8 @@ static int dte_set_client_divider(struct bcm_dte *iproc_dte,
 	if (client >= iproc_dte->num_of_clients)
 		return -EINVAL;
 
-	/* Divider not supported for Divider 15 (Client 11) */
-	if (client == 11)
+	/* Divider not supported */
+	if (!iproc_dte->dte_cli[client].div_status)
 		return 0;
 
 	/* Check for maximum divider size */
@@ -670,6 +722,17 @@ static unsigned int dte_poll(struct file *fp, poll_table *wait)
 					0 : POLLIN | POLLRDNORM;
 }
 
+void dte_get_client_list(struct bcm_dte *iproc_dte,
+	struct dte_client_list *cli_list)
+{
+	int i;
+
+	for (i = 0; i < iproc_dte->num_of_clients; i++) {
+		strncpy(cli_list[i].name, iproc_dte->dte_cli[i].name, 25);
+		cli_list[i].div_status = iproc_dte->dte_cli[i].div_status;
+	}
+}
+
 static long dte_ioctl(struct file *filep,
 		      unsigned int cmd,
 		      unsigned long arg)
@@ -681,6 +744,7 @@ static long dte_ioctl(struct file *filep,
 	int64_t delta;
 	int32_t ppb;
 	struct bcm_dte *iproc_dte = filep->private_data;
+	struct dte_client_list cli_list[iproc_dte->num_of_clients];
 
 	mutex_lock(&iproc_dte->mutex);
 	switch (cmd) {
@@ -756,6 +820,21 @@ static long dte_ioctl(struct file *filep,
 
 	case DTE_IOCTL_DISPLAY_DRV_INF:
 		dte_display_drv_info(iproc_dte);
+		break;
+
+	case DTE_IOCTL_GET_NUM_OF_CLIENT:
+		if (copy_to_user((uint32_t *)arg,
+				&iproc_dte->num_of_clients,
+				sizeof(uint32_t)))
+			ret = -EACCES;
+		break;
+
+	case DTE_IOCTL_GET_CLIENT_LIST:
+		dte_get_client_list(iproc_dte, cli_list);
+		if (copy_to_user((struct dte_client_list *)arg, cli_list,
+				sizeof(struct dte_client_list) *
+				iproc_dte->num_of_clients))
+			ret = -EACCES;
 		break;
 
 	default:
@@ -969,6 +1048,13 @@ static const struct of_device_id bcm_iproc_dte_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, bcm_iproc_dte_of_match);
 
+static const struct of_device_id bcm_dte_soc_of_match[] = {
+	{ .compatible = "brcm,cygnus-dte", .data = (void *)BCM_SOC_CYGNUS },
+	{ .compatible = "brcm,stingray-dte", .data = (void *)BCM_SOC_STINGRAY },
+	{},
+};
+MODULE_DEVICE_TABLE(of, bcm_dte_soc_of_match);
+
 static int bcm_iproc_dte_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -981,12 +1067,14 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 	int client, divider, lts_reg_off;
 	int irq;
 	const struct bcm_iproc_dte_params *dte_params;
+	const struct of_device_id *of_id = NULL;
 
-	if (of_device_is_compatible(dev->of_node, "brcm,iproc-dte"))
-		dte_params = &iproc_dte_params;
-	else {
+	of_id = of_match_node(bcm_dte_soc_of_match, dev->of_node);
+	if (of_id) {
+		dte_params = &dte_soc_params[(u32)(unsigned long)of_id->data];
+	} else {
 		dev_err(&pdev->dev,
-			"%s client map not defined\n", __func__);
+			"%s soc not defined\n", __func__);
 		return -EINVAL;
 	}
 
@@ -1070,6 +1158,10 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 		}
 
 		iproc_dte->dte_cli[client].client_index = client;
+		iproc_dte->dte_cli[client].name =
+			(char *)dte_params->cli_info[client].name;
+		iproc_dte->dte_cli[client].div_status =
+			dte_params->cli_info[client].div_status;
 		iproc_dte->dte_cli[client].lts_index =
 			dte_params->lts_start_index + client;
 		if (divider == client) {

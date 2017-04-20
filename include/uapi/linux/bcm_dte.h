@@ -30,6 +30,11 @@ struct dte_timestamp {
 	struct timespec ts;
 };
 
+struct dte_client_list {
+	char name[25];
+	unsigned int div_status; /* divider availability */
+};
+
 #define DTE_IOCTL_BASE          0xFC
 #define DTE_IO(nr)              _IO(DTE_IOCTL_BASE, nr)
 #define DTE_IOR(nr, type)       _IOR(DTE_IOCTL_BASE, nr, type)
@@ -43,5 +48,7 @@ struct dte_timestamp {
 #define DTE_IOCTL_ADJ_FREQ          DTE_IOW(0x05, int32_t)
 #define DTE_IOCTL_ENABLE_CLIENT_TS  DTE_IOW(0x06, struct dte_client_data)
 #define DTE_IOCTL_DISPLAY_DRV_INF   DTE_IO(0x07)
+#define DTE_IOCTL_GET_NUM_OF_CLIENT DTE_IOR(0x08, uint32_t)
+#define DTE_IOCTL_GET_CLIENT_LIST   DTE_IOR(0x09, struct dte_client_list *)
 
 #endif

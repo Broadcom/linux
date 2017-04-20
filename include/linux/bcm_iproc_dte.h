@@ -28,18 +28,13 @@ struct dte_user_info {
 	wait_queue_head_t ts_wait_queue;
 };
 
-struct bcm_iproc_dte_params {
-	u16 lts_reg_offset;
-	u16 divider_size; /* in bytes. */
-	u16 lts_start_index;
-	u16 num_of_clients;
-};
-
 struct dte_client_mapping {
 	u32 client_index;
 	u32 lts_index;
 	u32 reg_offset;
 	u32 shift;
+	char *name;
+	u32 div_status;
 };
 
 struct bcm_dte {
