@@ -86,6 +86,12 @@
  */
 #define IPROC_CLK_SET_RATE_PARENT BIT(10)
 
+
+/*
+ * Calculate the PLL parameters are runtime, instead of using table
+ */
+#define IPROC_CLK_PLL_CALC_PARAM BIT(11)
+
 /*
  * Parameters for VCO frequency configuration
  *
