@@ -2,7 +2,15 @@ Broadcom Digital Timing Engine (DTE) Device Tree Bindings
 -------------------------------------------------------------
 
 Required properties:
-	- compatible: Should be "brcm,iproc-dte"
+	- compatible: Should contain the core DTE compatibility string
+		      and the SoC compatibility string. The SoC specific
+		      compatibility string is to account for SoC specific
+		      hardware differences.
+		      DTE compatibility Strings:
+			"brcm,iproc-dte"
+		      SoC compatibility Strings:
+			"brcm,cygnus-dte"
+			"brcm,stingray-dte"
 	- reg       : Physical base address and size of the
                       DTE registers
 
@@ -18,10 +26,22 @@ Optional properties:
 	               is used. default value 0.5 sec
 
 Examples:
+1.
+	/* Cygnus (ISR mode) */
 	dte: dte@180af000 {
-		compatible = "brcm,iproc-dte";
+		compatible = "brcm,cygnus-dte", "brcm,iproc-dte";
 		reg = <0x180af000 0x1000>;
 		interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>;
 		brcm,dte-interval-ns = <500000000>;
 		status = "okay";
 	};
+
+2.
+	/* Stingray (Soft-timer mode) */
+	dte: dte@180af000 {
+		compatible = "brcm,stingray-dte", "brcm,iproc-dte";
+		reg = <0x180af000 0x1000>;
+		brcm,dte-interval-ns = <500000000>;
+		status = "okay";
+	};
+
