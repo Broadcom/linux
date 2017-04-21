@@ -39,14 +39,14 @@
 		crypto_mbox: crypto_mbox@67000000 {
 			compatible = "brcm,iproc-flexrm-mbox";
 			reg = <0x67000000 0x200000>;
-			msi-parent = <&gic_its 0x7ffd>;
+			msi-parent = <&gic_its 0x4100>;
 			#mbox-cells = <3>;
 #if (USE_DDR == 1)
 			dma-coherent;
 #endif
 #if (ENABLE_FS4_IOMMU == 1)
 			iommus = <&smmu 0x4000 0x00ff>,
-				 <&smmu 0x7ffd 0x0000>;
+				 <&smmu 0x4100 0x0000>;
 #endif
 #if (NUM_CRYPTO > 0)
 			status = "okay";
@@ -64,11 +64,11 @@
 			/* Use only one ring to save memory */
 			reg = <0x67400000 0x10000>;
 #endif
-			msi-parent = <&gic_its 0x7ffe>;
+			msi-parent = <&gic_its 0x4300>;
 			#mbox-cells = <3>;
 #if (ENABLE_FS4_IOMMU == 1)
-			iommus = <&smmu 0x4100 0x00ff>,
-				 <&smmu 0x7ffe 0x0000>;
+			iommus = <&smmu 0x4200 0x00ff>,
+				 <&smmu 0x4300 0x0000>;
 #endif
 #if (NUM_RAID > 0)
 			status = "okay";
