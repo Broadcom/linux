@@ -40,6 +40,9 @@
 #define NUM_PAXB	8
 #endif
 
+#include "stingray.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
 #if (USE_DDR == 1)
 #if (ENABLE_PAXB_IOMMU == 1)
 #define PCIE_DMA_RANGES dma-ranges = <0x43000000 0x00 0x00 0x00 0x00 0x80 0x00>;
@@ -51,9 +54,6 @@
 #else
 #define PCIE_DMA_RANGES dma-ranges = <0x43000000 0x00 0x74000000 0x00 0x74000000 0x00 0x4000000>;
 #endif
-
-#include "stingray.dtsi"
-#include <dt-bindings/gpio/gpio.h>
 
 / {
 	chosen { /* HACK: hard-code kernel args and initrd location */
