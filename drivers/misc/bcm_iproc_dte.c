@@ -522,6 +522,28 @@ static int dte_adj_freq(struct bcm_dte *iproc_dte, int32_t ppb)
 	return 0;
 }
 
+static int dte_get_freq_adj(struct bcm_dte *iproc_dte, int32_t *ppb)
+{
+	uint32_t nco_incr;
+
+	if ((!iproc_dte) || (!ppb))
+		return -EINVAL;
+
+	spin_lock(&iproc_dte->lock);
+	nco_incr = readl(iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+	spin_unlock(&iproc_dte->lock);
+
+	/* Calculate the ppb adjustment from the NCO value */
+	if (nco_incr < NCO_INC_NOMINAL)
+		*ppb = -1 * (div64_u64(((u64)(NCO_INC_NOMINAL - nco_incr) *
+			125000000ULL) + 0x8000000, (u64)BIT(28)));
+	else
+		*ppb = div64_u64(((u64)(nco_incr - NCO_INC_NOMINAL) *
+			125000000ULL) + 0x8000000, (u64)BIT(28));
+
+	return 0;
+}
+
 static void dte_update_user(struct bcm_dte *iproc_dte,
 	unsigned int client,
 	struct file *fp,
@@ -660,7 +682,6 @@ static int dte_open(struct inode *pnode, struct file *fp)
 static void dte_display_drv_info(struct bcm_dte *iproc_dte)
 {
 	int i;
-	uint32_t nco_incr;
 	int32_t ppb;
 
 	dev_info(&iproc_dte->pdev->dev,
@@ -690,18 +711,10 @@ static void dte_display_drv_info(struct bcm_dte *iproc_dte)
 					"kernel-drv" : "user-space"));
 	}
 
-	nco_incr = readl(iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
-	/* Calculate the ppb adjustment from the NCO value*/
-	if (nco_incr < NCO_INC_NOMINAL)
-		ppb = -1 * (div64_u64(((u64)(NCO_INC_NOMINAL - nco_incr)
-			* 125000000ULL) + 0x8000000, (u64)BIT(28)));
-	else
-		ppb =  div64_u64(((u64)(nco_incr - NCO_INC_NOMINAL)
-			* 125000000ULL) + 0x8000000, (u64)BIT(28));
+	dte_get_freq_adj(iproc_dte, &ppb);
 
 	dev_info(&iproc_dte->pdev->dev,
-		" nco_inc_reg: 0x%x, ppb: %i\n",
-		nco_incr,
+		" Freq Adj Applied: %i ppb\n",
 		ppb);
 }
 
@@ -801,6 +814,14 @@ static long dte_ioctl(struct file *filep,
 		}
 		if (dte_adj_freq(iproc_dte, ppb))
 			ret = -EPERM;
+		break;
+
+	case DTE_IOCTL_GET_FREQ_ADJ:
+		ret = dte_get_freq_adj(iproc_dte, &ppb);
+		if (!ret)
+			if (copy_to_user((struct int32_t *)arg, &ppb,
+					sizeof(int32_t)))
+				ret = -EACCES;
 		break;
 
 	case DTE_IOCTL_ENABLE_CLIENT_TS:
@@ -1222,6 +1243,7 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 	iproc_dte->nco_get_time = dte_get_time;
 	iproc_dte->nco_adj_time = dte_adj_time;
 	iproc_dte->nco_adj_freq = dte_adj_freq;
+	iproc_dte->nco_get_freq_adj = dte_get_freq_adj;
 
 	platform_set_drvdata(pdev, iproc_dte);
 	iproc_dte->devt = devt;

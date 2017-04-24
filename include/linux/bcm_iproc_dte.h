@@ -71,6 +71,7 @@ struct bcm_dte {
 	int (*nco_get_time)(struct bcm_dte *dte, struct timespec *ts);
 	int (*nco_adj_time)(struct bcm_dte *dte, int64_t delta);
 	int (*nco_adj_freq)(struct bcm_dte *dte, int32_t ppb);
+	int (*nco_get_freq_adj)(struct bcm_dte *dte, int32_t *ppb);
 };
 
 #endif
