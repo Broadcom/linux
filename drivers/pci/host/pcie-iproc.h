@@ -73,7 +73,7 @@ struct iproc_msi;
  * @nr_pf: number of physical functions (only valid for internally emulated
  * EPs)
  * @has_apb_err_disable: indicates the controller can be configured to prevent
- * unsupported request from being forwarded as APB error
+ * unsupported request from being forwarded as an APB bus error
  *
  * @need_ob_cfg: indicates SW needs to configure the outbound mapping window
  * @ob: outbound mapping related parameters

@@ -19,6 +19,7 @@
 #define PHY_ID_BCM5421			0x002060e0
 #define PHY_ID_BCM5464			0x002060b0
 #define PHY_ID_BCM5461			0x002060c0
+#define PHY_ID_BCM54612E		0x03625e60
 #define PHY_ID_BCM54616S		0x03625d10
 #define PHY_ID_BCM57780			0x03625d90
 
@@ -56,6 +57,7 @@
 #define PHY_BRCM_EXT_IBND_TX_ENABLE	0x00002000
 #define PHY_BRCM_CLEAR_RGMII_MODE	0x00004000
 #define PHY_BRCM_DIS_TXCRXC_NOENRGY	0x00008000
+
 /* Broadcom BCM7xxx specific workarounds */
 #define PHY_BRCM_7XXX_REV(x)		(((x) >> 8) & 0xff)
 #define PHY_BRCM_7XXX_PATCH(x)		((x) & 0xff)
@@ -106,11 +108,15 @@
 #define MII_BCM54XX_AUXCTL_ACTL_SMDSP_ENA	0x0800
 
 #define MII_BCM54XX_AUXCTL_MISC_WREN	0x8000
+#define MII_BCM54XX_AUXCTL_MISC_RXD_RXC_SKEW	0x0100
 #define MII_BCM54XX_AUXCTL_MISC_FORCE_AMDIX	0x0200
 #define MII_BCM54XX_AUXCTL_MISC_RDSEL_MISC	0x7000
 #define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
+#define MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT	12
+#define MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN	(1 << 8)
+#define MII_BCM54XX_AUXCTL_SHDWSEL_MISC_WIRESPEED_EN	(1 << 4)
 
-#define MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL	0x0000
+#define MII_BCM54XX_AUXCTL_SHDWSEL_MASK	0x0007
 
 /*
  * Broadcom LED source encodings.  These are used in BCM5461, BCM5481,
@@ -125,6 +131,7 @@
 #define BCM_LED_SRC_INTR	0x6
 #define BCM_LED_SRC_QUALITY	0x7
 #define BCM_LED_SRC_RCVLED	0x8
+#define BCM_LED_SRC_WIRESPEED	0x9
 #define BCM_LED_SRC_MULTICOLOR1	0xa
 #define BCM_LED_SRC_OPENSHORT	0xb
 #define BCM_LED_SRC_OFF		0xe	/* Tied high */
@@ -136,6 +143,14 @@
  * Shadow values go into bits [14:10] of register 0x1c to select a shadow
  * register to access.
  */
+
+/* 00100: Reserved control register 2 */
+#define BCM54XX_SHD_SCR2		0x04
+#define  BCM54XX_SHD_SCR2_WSPD_RTRY_DIS	0x100
+#define  BCM54XX_SHD_SCR2_WSPD_RTRY_LMT_SHIFT	2
+#define  BCM54XX_SHD_SCR2_WSPD_RTRY_LMT_OFFSET	2
+#define  BCM54XX_SHD_SCR2_WSPD_RTRY_LMT_MASK	0x7
+
 /* 00101: Spare Control Register 3 */
 #define BCM54XX_SHD_SCR3		0x05
 #define  BCM54XX_SHD_SCR3_DEF_CLK125	0x0001
@@ -190,6 +205,12 @@
 #define BCM5482_SSD_SGMII_SLAVE_EN	0x0002	/* Slave mode enable */
 #define BCM5482_SSD_SGMII_SLAVE_AD	0x0001	/* Slave auto-detection */
 
+/* BCM54810 Registers */
+#define BCM54810_EXP_BROADREACH_LRE_MISC_CTL	(MII_BCM54XX_EXP_SEL_ER + 0x90)
+#define BCM54810_EXP_BROADREACH_LRE_MISC_CTL_EN	(1 << 0)
+#define BCM54810_SHD_CLK_CTL			0x3
+#define BCM54810_SHD_CLK_CTL_GTXCLK_EN		(1 << 9)
+
 
 /*****************************************************************************/
 /* Fast Ethernet Transceiver definitions. */
@@ -223,6 +244,9 @@
 #define LPI_FEATURE_EN_DIG1000X		0x4000
 
 /* Core register definitions*/
+#define MII_BRCM_CORE_BASE12	0x12
+#define MII_BRCM_CORE_BASE13	0x13
+#define MII_BRCM_CORE_BASE14	0x14
 #define MII_BRCM_CORE_BASE1E	0x1E
 #define MII_BRCM_CORE_EXPB0	0xB0
 #define MII_BRCM_CORE_EXPB1	0xB1

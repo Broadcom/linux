@@ -103,11 +103,11 @@
 #define NUM_INTX                     4
 
 /**
-* iProc PCIe outbound mapping controller specific parameters
-*
-* @window_sizes: list of supported outbound mapping window sizes in MB
-* @nr_sizes: number of supported outbound mapping window sizes
-*/
+ * iProc PCIe outbound mapping controller specific parameters
+ *
+ * @window_sizes: list of supported outbound mapping window sizes in MB
+ * @nr_sizes: number of supported outbound mapping window sizes
+ */
 struct iproc_pcie_ob_map {
 	resource_size_t window_sizes[MAX_NUM_OB_WINDOW_SIZES];
 	unsigned int nr_sizes;
@@ -258,7 +258,7 @@ enum iproc_pcie_reg {
 
 	/*
 	 * To hold the address of the register where the MSI writes are
-	 * programed. When ARM GICv3 ITS is used, this should be programmed
+	 * programed.  When ARM GICv3 ITS is used, this should be programmed
 	 * with the address of the GITS_TRANSLATER register.
 	 */
 	IPROC_PCIE_MSI_ADDR_LO,
@@ -841,7 +841,7 @@ static inline int iproc_pcie_ob_write(struct iproc_pcie *pcie, int window_idx,
 		return -EINVAL;
 
 	/*
-	 * Program the OARR registers. The upper 32-bit OARR register is
+	 * Program the OARR registers.  The upper 32-bit OARR register is
 	 * always right after the lower 32-bit OARR register.
 	 */
 	writel(lower_32_bits(axi_addr) | (size_idx << OARR_SIZE_CFG_SHIFT) |
@@ -908,7 +908,7 @@ static int iproc_pcie_setup_ob(struct iproc_pcie *pcie, u64 axi_addr,
 
 		/*
 		 * Iterate through all supported window sizes within the
-		 * OARR/OMAP pair to find a match. Go through the window sizes
+		 * OARR/OMAP pair to find a match.  Go through the window sizes
 		 * in a descending order.
 		 */
 		for (size_idx = ob_map->nr_sizes - 1; size_idx >= 0;
@@ -928,7 +928,7 @@ static int iproc_pcie_setup_ob(struct iproc_pcie *pcie, u64 axi_addr,
 			}
 
 			/*
-			 * Match found! Program both OARR and OMAP and mark
+			 * Match found!  Program both OARR and OMAP and mark
 			 * them as a valid entry.
 			 */
 			ret = iproc_pcie_ob_write(pcie, window_idx, size_idx,
@@ -942,7 +942,7 @@ static int iproc_pcie_setup_ob(struct iproc_pcie *pcie, u64 axi_addr,
 
 			/*
 			 * If we are here, we are done with the current window,
-			 * but not yet finished all mappings. Need to move on
+			 * but not yet finished all mappings.  Need to move on
 			 * to the next window.
 			 */
 			axi_addr += window_size;
@@ -1030,7 +1030,7 @@ static int iproc_pcie_ib_write(struct iproc_pcie *pcie, int region_idx,
 		 region_idx, iarr_offset, &axi_addr, &pci_addr);
 
 	/*
-	 * Program the IARR registers. The upper 32-bit IARR register is
+	 * Program the IARR registers.  The upper 32-bit IARR register is
 	 * always right after the lower 32-bit IARR register.
 	 */
 	writel(lower_32_bits(pci_addr) | BIT(size_idx),
@@ -1042,7 +1042,7 @@ static int iproc_pcie_ib_write(struct iproc_pcie *pcie, int region_idx,
 		 readl(pcie->base + iarr_offset + 4));
 
 	/*
-	 * Now program the IMAP registers. Each IARR region may have one or
+	 * Now program the IMAP registers.  Each IARR region may have one or
 	 * more IMAP windows.
 	 */
 	size >>= ilog2(nr_windows);
@@ -1166,8 +1166,8 @@ static int iproc_pcie_map_dma_ranges(struct iproc_pcie *pcie)
 }
 
 static int iproce_pcie_get_msi(struct iproc_pcie *pcie,
-				struct device_node *msi_node,
-				u64 *msi_addr)
+			       struct device_node *msi_node,
+			       u64 *msi_addr)
 {
 	struct device *dev = pcie->dev;
 	int ret;
@@ -1212,7 +1212,7 @@ static void iproc_pcie_paxc_v2_msi_steer(struct iproc_pcie *pcie, u64 msi_addr)
 
 	/*
 	 * Program bits [43:13] of address of GITS_TRANSLATER register into
-	 * bits [30:0] of the MSI base address register. In fact, in all iProc
+	 * bits [30:0] of the MSI base address register.  In fact, in all iProc
 	 * based SoCs, all I/O register bases are well below the 32-bit
 	 * boundary, so we can safely assume bits [43:32] are always zeros.
 	 */

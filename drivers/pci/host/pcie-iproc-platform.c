@@ -115,7 +115,7 @@ static int iproc_pcie_pltfm_probe(struct platform_device *pdev)
 	case IPROC_PCIE_PAXC_V2:
 		break;
 	default:
-	pcie->map_irq = of_irq_parse_and_map_pci;
+		pcie->map_irq = of_irq_parse_and_map_pci;
 	}
 
 	ret = iproc_pcie_setup(pcie, &res);

@@ -1,7 +1,6 @@
 config CLK_BCM_63XX
 	bool "Broadcom BCM63xx clock support"
 	depends on ARCH_BCM_63XX || COMPILE_TEST
-	depends on COMMON_CLK
 	select COMMON_CLK_IPROC
 	default ARCH_BCM_63XX
 	help
@@ -11,8 +10,7 @@ config CLK_BCM_63XX
 config CLK_BCM_KONA
 	bool "Broadcom Kona CCU clock support"
 	depends on ARCH_BCM_MOBILE || COMPILE_TEST
-	depends on COMMON_CLK
-	default y
+	default ARCH_BCM_MOBILE
 	help
 	  Enable common clock framework support for Broadcom SoCs
 	  using "Kona" style clock control units, including those

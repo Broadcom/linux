@@ -51,6 +51,10 @@ rsa_generic-y += rsa_helper.o
 rsa_generic-y += rsa-pkcs1pad.o
 obj-$(CONFIG_CRYPTO_RSA) += rsa_generic.o
 
+crypto_acompress-y := acompress.o
+crypto_acompress-y += scompress.o
+obj-$(CONFIG_CRYPTO_ACOMP2) += crypto_acompress.o
+
 cryptomgr-y := algboss.o testmgr.o
 
 obj-$(CONFIG_CRYPTO_MANAGER2) += cryptomgr.o
@@ -141,3 +145,5 @@ obj-$(CONFIG_CRYPTO_HASH_INFO) += hash_info.o
 obj-$(CONFIG_CRYPTO_ABLK_HELPER) += ablk_helper.o
 obj-$(CONFIG_CRYPTO_RABIN_FINGER_PRINT) += rabin.o
 obj-$(CONFIG_CRYPTO_RABIN_FINGER_PRINT_ALG) += rfp.o
+crypto_simd-y := simd.o
+obj-$(CONFIG_CRYPTO_SIMD) += crypto_simd.o

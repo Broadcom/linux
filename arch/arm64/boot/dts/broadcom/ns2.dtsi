@@ -202,23 +202,16 @@
 
 		#include "ns2-clock.dtsi"
 
-		enet: enet@61000000 {
-			compatible = "brcm,amac-enet";
+		enet: ethernet@61000000 {
+			compatible = "brcm,ns2-amac";
 			reg = <0x61000000 0x1000>,
-			      <0x61090400 0x600>,
-			      <0x61030000 0x10>;
-			reg-names = "core_base",
-				    "amac_idm_base",
-				    "rgmii_base";
-			dma-coherent;
+			      <0x61090000 0x1000>,
+			      <0x61030000 0x100>;
+			reg-names = "amac_base", "idm_base", "nicpm_base";
 			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
-			local-mac-address = [ 00 00 00 00 00 00 ];
-			max-speed = <1000>;
-			phy-mode = "mii";
 			phy-handle = <&gphy0>;
-			brcm,enet-phy54810-rgmii-sync;
-			brcm,enet-pause-disable;
-			status= "disabled";
+			phy-mode = "rgmii";
+			status = "disabled";
 		};
 
 		pdc0: iproc-pdc0@612c0000 {
@@ -226,7 +219,6 @@
 			reg = <0x612c0000 0x445>;  /* PDC FS0 regs */
 			interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>;
 			#mbox-cells = <1>;
-			dma-coherent;
 			brcm,rx-status-len = <32>;
 			brcm,use-bcm-hdr;
 		};
@@ -248,7 +240,6 @@
 			reg = <0x612e0000 0x445>;  /* PDC FS1 regs */
 			interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
 			#mbox-cells = <1>;
-			dma-coherent;
 			brcm,rx-status-len = <32>;
 			brcm,use-bcm-hdr;
 		};
@@ -258,7 +249,6 @@
 			reg = <0x61300000 0x445>;  /* PDC FS2 regs */
 			interrupts = <GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>;
 			#mbox-cells = <1>;
-			dma-coherent;
 			brcm,rx-status-len = <32>;
 			brcm,use-bcm-hdr;
 		};
@@ -268,7 +258,6 @@
 			reg = <0x61320000 0x445>;  /* PDC FS3 regs */
 			interrupts = <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
 			#mbox-cells = <1>;
-			dma-coherent;
 			brcm,rx-status-len = <32>;
 			brcm,use-bcm-hdr;
 		};
@@ -330,7 +319,7 @@
 				     <GIC_SPI 260 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 262 IRQ_TYPE_LEVEL_HIGH>;
-			mmu-masters;
+			#iommu-cells = <1>;
 		};
 
 		pinctrl: pinctrl@6501d130 {

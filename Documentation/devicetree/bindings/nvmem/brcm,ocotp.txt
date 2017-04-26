@@ -1,11 +1,10 @@
 Broadcom OTP memory controller
 
 Required Properties:
-- compatible:
-	"brcm,ocotp" for the first generation Broadcom OTPC
-which is used in Cygnus, supports 32 bit read/write.
-	"brcm,ocotp-v2" for the second generation Broadcom OTPC
-which is used in SOC like Stingray, supports 64bit read/write.
+- compatible: "brcm,ocotp" for the first generation Broadcom OTPC which is used
+  in Cygnus and supports 32 bit read/write. Use "brcm,ocotp-v2" for the second
+  generation Broadcom OTPC which is used in SoC's such as Stingray and supports
+  64-bit read/write.
 - reg: Base address of the OTP controller.
 - brcm,ocotp-size: Amount of memory available, in 32 bit words
 

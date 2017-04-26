@@ -254,7 +254,6 @@ static int bcm_otpc_probe(struct platform_device *pdev)
 	int err;
 	u32 num_words;
 
-
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -297,8 +296,10 @@ static int bcm_otpc_probe(struct platform_device *pdev)
 	bcm_otpc_nvmem_config.dev = dev;
 	bcm_otpc_nvmem_config.priv = priv;
 
-	if (of_device_is_compatible(dev->of_node, "brcm,ocotp-v2"))
+	if (of_device_is_compatible(dev->of_node, "brcm,ocotp-v2")) {
 		bcm_otpc_nvmem_config.word_size = 8;
+		bcm_otpc_nvmem_config.stride = 8;
+	}
 
 	priv->config = &bcm_otpc_nvmem_config;
 
