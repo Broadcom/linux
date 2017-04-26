@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Broadcom
+ * Copyright (C) 2016-2017 Broadcom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -12,6 +12,7 @@
  */
 
 #include <asm/cacheflush.h>
+#include <asm/mach/bcm_optee_smc.h>
 #include <asm/outercache.h>
 #include <asm/suspend.h>
 #include <linux/clocksource.h>
@@ -31,22 +32,6 @@
 #define CRU_STATUS_DETECTED_WFI   BIT(2)
 
 #define CRMU_POWER_CONFIG         0x14
-
-/*
- * Enter DEEPSLEEP state
- * Param - physical address to resume execution from upon power saving
- *   mode exit.
- * Response - return code
- */
-#define M0_IPC_M0_CMD_ENTER_DEEPSLEEP  0xb
-
-/*
- * Enter SLEEP state
- * Param - physical address to resume execution from upon power saving
- *   mode exit.
- * Response - return code
- */
-#define M0_IPC_M0_CMD_ENTER_SLEEP      0xc
 
 enum cygnus_power_status {
 	CYGNUS_PM_STATE_RUN = 0,
@@ -81,21 +66,12 @@ static struct {
 	u32 scu_secure_access;
 } saved_common_regs;
 
-static const char *cygnus_pm_states_str[] = {
+static const char * const cygnus_pm_states_str[] = {
 	[CYGNUS_PM_STATE_RUN] = "RUN",
 	[CYGNUS_PM_STATE_SLEEP] = "SLEEP",
 	[CYGNUS_PM_STATE_DEEPSLEEP] = "DEEPSLEEP",
 	[CYGNUS_PM_STATE_END] = "UNKNOWN",
 };
-
-/*
- * Determine if in secure or non-secure mode. Currently only secure mode is
- * supported.
- */
-static inline bool cygnus_pm_in_secure_mode(void)
-{
-	return true;
-}
 
 /*
  * Save registers on suspend that must be restored on resume.
@@ -129,38 +105,21 @@ static void cygnus_pm_restore_common_regs(void)
 }
 
 /*
- * Send mailbox message to M0 to enter enter sleep mode. The power state will
- * be entered shortly after.
+ * On a successful sleep & wake, the CPU will eventually continue from after the
+ * cpu_suspend() call.
  */
-static void cygnus_pm_send_mode_entry_msg(enum cygnus_power_status state)
-{
-	uint32_t cmd;
-
-	if (state == CYGNUS_PM_STATE_SLEEP)
-		cmd = M0_IPC_M0_CMD_ENTER_SLEEP;
-	else if (state == CYGNUS_PM_STATE_DEEPSLEEP)
-		cmd = M0_IPC_M0_CMD_ENTER_DEEPSLEEP;
-	else
-		return;
-
-	cygnus_mbox_send_msg(cygnus_pm->mbox_chan, cmd,
-		(uint32_t)virt_to_phys(cygnus_pm_cpu_resume), false);
-}
-
 static int cygnus_pm_finish_switch(unsigned long sleep_state)
 {
-	/*
-	 * On a successful sleep & wake, the CPU will eventually
-	 * continue from after the cpu_suspend() call.
-	 */
-	if (cygnus_pm_in_secure_mode()) {
-		/* Enter new power state. */
-		cygnus_pm_send_mode_entry_msg(sleep_state);
+	struct arm_smccc_res res;
+	phys_addr_t resume_addr = virt_to_phys(cygnus_pm_cpu_resume);
+	unsigned int cmd;
 
-		/* Kernel to execute WFI */
-		cpu_do_idle();
-	} else
-		return -EINVAL;
+	if (sleep_state == CYGNUS_PM_STATE_DEEPSLEEP)
+		cmd = FAST_SMC(SSAPI_SLEEP_DEEP);
+	else
+		cmd = FAST_SMC(SSAPI_SLEEP_DORMANT);
+
+	arm_smccc_smc(cmd, resume_addr, 0, 0, 0, 0, 0, 0, &res);
 
 	/*
 	 * If the CPU gets to this point via the normal execution path,
@@ -244,13 +203,26 @@ static void cygnus_pm_dump_resume_entry(void)
 		  virt_to_phys((void *)reg_phy_addr));
 }
 
+/* Enable or disable the L2C. */
+static void cygnus_pm_l2c_enable(bool enable)
+{
+	struct arm_smccc_res res;
+	unsigned int cmd;
+
+	if (enable) {
+		cmd = FAST_SMC(SSAPI_ENABLE_L2_CACHE);
+		arm_smccc_smc(cmd, 0, ~0, 0, 0, 0, 0, 0, &res);
+	} else {
+		cmd = FAST_SMC(SSAPI_DISABLE_L2_CACHE);
+		arm_smccc_smc(cmd, 0, 0, 0, 0, 0, 0, 0, &res);
+	}
+}
+
 /* Suspend to Ram or standby */
 static void cygnus_pm_soc_enter_sleep(enum cygnus_power_status state)
 {
 	unsigned long irq_flags;
 
-	pr_info("%s\n",
-		cygnus_pm_in_secure_mode() ? "Secure Mode" : "Non-Secure Mode");
 	pr_info("Entering %s\n", cygnus_pm_get_state_str_by_id(state));
 
 	cygnus_pm_dump_resume_entry();
@@ -261,7 +233,7 @@ static void cygnus_pm_soc_enter_sleep(enum cygnus_power_status state)
 	cygnus_pm_prepare_enter_pm_mode(state);
 
 	/* Clean, invalidate, disable L2C. */
-	outer_disable();
+	cygnus_pm_l2c_enable(false);
 
 	/* Flush D-cache and I-cache. */
 	pr_info("Flushing D-cache and I-cache\n");
@@ -280,7 +252,7 @@ static void cygnus_pm_soc_enter_sleep(enum cygnus_power_status state)
 	pr_info("... resuming\n");
 
 	/* Restore L2C configuration and re-enable. */
-	outer_resume();
+	cygnus_pm_l2c_enable(true);
 
 	local_irq_restore(irq_flags);
 
