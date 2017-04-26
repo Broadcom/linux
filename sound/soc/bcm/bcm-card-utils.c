@@ -41,7 +41,7 @@ int bcm_card_util_parse_link_node(struct platform_device *pdev,
 	}
 
 	ret = asoc_simple_card_parse_daifmt(dev, link_np,
-					dai_link->codec_of_node, NULL,
+					codec_np, NULL,
 					&dai_link->dai_fmt);
 	if (ret < 0) {
 		dev_err(dev, "%s Error parsing dai fmt\n", link_np->name);
