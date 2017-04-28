@@ -32,6 +32,9 @@
 
 /dts-v1/;
 
+#define NUM_CRYPTO	32
+#define NUM_RAID	8
+
 /* HACK: Reserve initrd location
  * The memreserve entry for initrd is supposed
  * to be updated in DTB by bootloader before
@@ -68,6 +71,17 @@
 		linux,initrd-end = <0x0 0x81800000>;
 	};
 
+	cpus {
+		/delete-node/ cpu@100;
+		/delete-node/ cpu@101;
+		/delete-node/ cpu@200;
+		/delete-node/ cpu@201;
+		/delete-node/ cpu@300;
+		/delete-node/ cpu@301;
+		/delete-node/ l2-cache@100;
+		/delete-node/ l2-cache@200;
+		/delete-node/ l2-cache@300;
+	};
 };
 
 &uart1 {
