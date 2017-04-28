@@ -48,8 +48,6 @@ Optional properties:
                by overriding the PHY setting (restarts auto-neg during
                init).
                The existence of the property will disable PAUSE frames.
- - brcm,enet-phy54810-rgmii-sync: BCM PHY54810 fix up needed to work in harmony
-	       with RGMII for some SoCs.
  - dma-coherent: Present if dma operations are coherent.
 
 SoC's that require "crmu_io_pad_ctrl" reg:
@@ -62,10 +60,6 @@ SoC's with an internal switch & can run in switch-by-pass mode:
 
 SoC's that require "rgmii_base" reg:
 ------------------------------------
- - NS2
-
-SoC's that require "brcm,enet-phy54810-rgmii-sync" property:
-------------------------------------------------------------
  - NS2
 
 Examples:
@@ -172,7 +166,6 @@ Examples:
 		max-speed = <1000>;
 		phy-mode = "mii";
 		phy-handle = <&gphy0>;
-		brcm,enet-phy54810-rgmii-sync;
 		brcm,enet-pause-disable;
 		status= "okay";
 	};
@@ -216,7 +209,6 @@ Examples:
 		max-speed = <1000>;
 		phy-mode = "mii";
 		phy-handle = <&gphy0>;
-		brcm,enet-phy54810-rgmii-sync;
 		brcm,enet-pause-disable;
 		status= "okay";
 	};

@@ -119,7 +119,6 @@ struct port_info {
 	struct phy_device *phydev; /* Connected PHY dev */
 	int phy_mode; /* phy mode */
 	bool lswap; /* lane swapping */
-	bool phy54810_rgmii_sync; /* PHY54810 fix up */
 	bool pause_disable;
 };
 

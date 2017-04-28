@@ -749,9 +749,6 @@ static int bcm_amac_get_dt_data(struct bcm_amac_priv *privp)
 	privp->port.ext_port.pause_disable =
 		of_property_read_bool(np, "brcm,enet-pause-disable");
 
-	privp->port.ext_port.phy54810_rgmii_sync =
-		of_property_read_bool(np, "brcm,enet-phy54810-rgmii-sync");
-
 	return 0;
 }
 
