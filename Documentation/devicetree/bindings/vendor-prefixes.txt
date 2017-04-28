@@ -321,9 +321,9 @@ virtio	Virtual I/O Device Specification, developed by the OASIS consortium
 vivante	Vivante Corporation
 voipac	Voipac Technologies s.r.o.
 wd	Western Digital Corp.
-wintek	Wintek Corp.
 wexler	Wexler
 winbond Winbond Electronics corp.
+wintek	Wintek Corp.
 wlf	Wolfson Microelectronics
 wm	Wondermedia Technologies, Inc.
 x-powers	X-Powers
