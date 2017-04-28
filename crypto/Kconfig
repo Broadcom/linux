@@ -148,6 +148,7 @@ config CRYPTO_MANAGER2
 	select CRYPTO_AKCIPHER2
 	select CRYPTO_KPP2
 	select CRYPTO_ACOMP2
+	select CRYPTO_RABIN_FINGER_PRINT
 
 config CRYPTO_USER
 	tristate "Userspace cryptographic algorithm configuration"
