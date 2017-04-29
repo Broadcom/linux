@@ -20,7 +20,7 @@ config PHY_BCM_CYGNUS_USB
 	depends on OF
 	depends on ARCH_BCM_CYGNUS || COMPILE_TEST
 	select GENERIC_PHY
-	default ARCH_BCM_CYGNUS
+	default n
 	help
 	  Enable this to support the USB PHY in Broadcom's Cygnus chip.
 	  The phys are capable of supporting host mode for all ports
