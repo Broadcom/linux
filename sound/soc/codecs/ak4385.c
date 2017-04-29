@@ -176,7 +176,6 @@ static int ak4385_hw_params(struct snd_pcm_substream *substream,
 	unsigned int fs = params_rate(params);
 	int i;
 	unsigned int val;
-	int ret;
 
 	/* check if LRCLK ratio is supported */
 	for (i = 0; i < ARRAY_SIZE(lrclk_ratios); i++) {
