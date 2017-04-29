@@ -241,29 +241,6 @@
 			brcm,nand-has-wp;
 		};
 
-		xhci: usb@29000 {
-			compatible = "generic-xhci";
-			reg = <0x29000 0x1000>;
-			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usb3_phy>;
-			phy-names = "usb";
-			status = "disabled";
-		};
-
-		ehci0: usb@2a000 {
-			compatible = "generic-ehci";
-			reg = <0x2a000 0x100>;
-			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
-			status = "disabled";
-		};
-
-		ohci0: usb@2b000 {
-			compatible = "generic-ohci";
-			reg = <0x2b000 0x100>;
-			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
-			status = "disabled";
-		};
-
 		gpiob: gpio@30000 {
 			compatible = "brcm,iproc-nsp-gpio", "brcm,iproc-gpio";
 			reg = <0x30000 0x50>;
@@ -280,11 +257,6 @@
 			clocks = <&osc>;
 			#pwm-cells = <3>;
 			status = "disabled";
-		};
-
-		mdio: mdio@32000 {
-			compatible = "brcm,iproc-mdio";
-			reg = <0x32000 0x8>;
 		};
 
 		rng: rng@33000 {
@@ -386,30 +358,6 @@
 					     "sata2";
 		};
 
-		mdio_mux: mdio-mux@3f190 {
-			compatible = "brcm,mdio-mux-nsp";
-			reg = <0x3f190 0x4>,
-			      <0x32000 0x4>;
-			reg-names = "bus-ctrl", "mgmt-ctrl";
-			mdio-parent-bus = <&mdio>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			mdio@0 {
-				reg = <0x0>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				usb3_phy: usb3-phy@0 {
-					compatible = "brcm,nsp-usb3-phy";
-					reg = <0x10>;
-					usb3-ctrl-syscon = <&usb3_ctrl>;
-					#phy-cells = <0>;
-					status = "disabled";
-				};
-			};
-		};
-
 		pinctrl: pinctrl@3f1c0 {
 			compatible = "brcm,nsp-pinmux";
 			reg = <0x3f1c0 0x04>,
@@ -458,26 +406,15 @@
 				phy-names = "sata-phy";
 			};
 		};
-
-		usb3_ctrl: syscon@104408 {
-			compatible = "brcm,nsp-usb3-ctrl", "syscon";
-			reg = <0x104408 0x3fc>;
-		};
 	};
 
 	pcie0: pcie@18012000 {
 		compatible = "brcm,iproc-pcie";
 		reg = <0x18012000 0x1000>;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie0 1>,
-				<0 0 0 0 2 &pcie0 2>,
-				<0 0 0 0 3 &pcie0 3>,
-				<0 0 0 0 4 &pcie0 4>;
-
-		interrupts = <GIC_SPI 131 IRQ_TYPE_NONE>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic GIC_SPI 131 IRQ_TYPE_NONE>;
 
 		linux,pci-domain = <0>;
 
@@ -511,15 +448,9 @@
 		compatible = "brcm,iproc-pcie";
 		reg = <0x18013000 0x1000>;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie1 1>,
-				<0 0 0 0 2 &pcie1 2>,
-				<0 0 0 0 3 &pcie1 3>,
-				<0 0 0 0 4 &pcie1 4>;
-
-		interrupts = <GIC_SPI 137 IRQ_TYPE_NONE>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic GIC_SPI 137 IRQ_TYPE_NONE>;
 
 		linux,pci-domain = <1>;
 
@@ -553,15 +484,9 @@
 		compatible = "brcm,iproc-pcie";
 		reg = <0x18014000 0x1000>;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie2 1>,
-				<0 0 0 0 2 &pcie2 2>,
-				<0 0 0 0 3 &pcie2 3>,
-				<0 0 0 0 4 &pcie2 4>;
-
-		interrupts = <GIC_SPI 143 IRQ_TYPE_NONE>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic GIC_SPI 143 IRQ_TYPE_NONE>;
 
 		linux,pci-domain = <2>;
 

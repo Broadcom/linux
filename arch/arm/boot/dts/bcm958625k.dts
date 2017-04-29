@@ -51,34 +51,6 @@
 		device_type = "memory";
 		reg = <0x60000000 0x80000000>;
 	};
-
-	cru: cru@1803f184 {
-		compatible = "syscon";
-		reg = <0x1803f184 0x4>;
-	};
-
-	reboot@1803f184 {
-		compatible ="syscon-reboot";
-		regmap = <&cru>;
-		offset = <0>;
-		mask = <0x2f9>;
-	};
-};
-
-&ehci0 {
-	status = "okay";
-};
-
-&ohci0 {
-	status = "okay";
-};
-
-&usb3_phy {
-	status = "okay";
-};
-
-&xhci {
-	status = "okay";
 };
 
 &uart0 {
