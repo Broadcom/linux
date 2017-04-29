@@ -64,5 +64,4 @@ obj-$(CONFIG_PHY_STINGRAY_PCIE)		+= phy-bcm-stingray-pcie.o
 obj-$(CONFIG_PHY_STINGRAY_PCIE_PRBS)	+= phy-bcm-stingray-pcie-prbs.o
 obj-$(CONFIG_PHY_STINGRAY_SATA_PRBS)	+= phy-bcm-stingray-sata-prbs.o
 obj-$(CONFIG_PHY_STINGRAY_USB)		+= phy-bcm-stingray-usb.o
-obj-$(CONFIG_PHY_NSP_USB3)		+= phy-bcm-nsp-usb3.o
 obj-$(CONFIG_PHY_MESON8B_USB2)		+= phy-meson8b-usb2.o
