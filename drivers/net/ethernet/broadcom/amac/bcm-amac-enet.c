@@ -15,6 +15,8 @@
 #include <linux/module.h>
 #include <linux/of_net.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/phy.h>
+#include <linux/phy_fixed.h>
 
 #include "bcm-amac-core.h"
 #include "bcm-amac-enet.h"

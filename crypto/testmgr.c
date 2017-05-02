@@ -386,6 +386,7 @@ static int __test_hash(struct crypto_ahash *tfm, struct hash_testvec *template,
 		       const int align_offset)
 {
 	const char *algo = crypto_tfm_alg_driver_name(crypto_ahash_tfm(tfm));
+	size_t digest_size = crypto_ahash_digestsize(tfm);
 	unsigned int i, j, k, temp;
 	struct scatterlist sg[8];
 	char *result;
@@ -396,7 +397,7 @@ static int __test_hash(struct crypto_ahash *tfm, struct hash_testvec *template,
 	char *xbuf[XBUFSIZE];
 	int ret = -ENOMEM;
 
-	result = kmalloc(MAX_DIGEST_SIZE, GFP_KERNEL);
+	result = kmalloc(digest_size, GFP_KERNEL);
 	if (!result)
 		return ret;
 	key = kmalloc(MAX_KEYLEN, GFP_KERNEL);
@@ -426,7 +427,7 @@ static int __test_hash(struct crypto_ahash *tfm, struct hash_testvec *template,
 			goto out;
 
 		j++;
-		memset(result, 0, MAX_DIGEST_SIZE);
+		memset(result, 0, digest_size);
 
 		hash_buff = xbuf[0];
 		hash_buff += align_offset;
@@ -501,7 +502,7 @@ static int __test_hash(struct crypto_ahash *tfm, struct hash_testvec *template,
 			continue;
 
 		j++;
-		memset(result, 0, MAX_DIGEST_SIZE);
+		memset(result, 0, digest_size);
 
 		temp = 0;
 		sg_init_table(sg, template[i].np);
@@ -579,7 +580,7 @@ static int __test_hash(struct crypto_ahash *tfm, struct hash_testvec *template,
 			continue;
 
 		j++;
-		memset(result, 0, MAX_DIGEST_SIZE);
+		memset(result, 0, digest_size);
 
 		ret = -EINVAL;
 		hash_buff = xbuf[0];
@@ -1590,13 +1591,12 @@ static int test_acomp(struct crypto_acomp *tfm, struct comp_testvec *ctemplate,
 		int ilen = ctemplate[i].inlen;
 		void *input_vec;
 
-		input_vec = kmalloc(ilen, GFP_KERNEL);
+		input_vec = kmemdup(ctemplate[i].input, ilen, GFP_KERNEL);
 		if (!input_vec) {
 			ret = -ENOMEM;
 			goto out;
 		}
 
-		memcpy(input_vec, ctemplate[i].input, ilen);
 		memset(output, 0, dlen);
 		init_completion(&result.completion);
 		sg_init_one(&src, input_vec, ilen);
@@ -1652,13 +1652,12 @@ static int test_acomp(struct crypto_acomp *tfm, struct comp_testvec *ctemplate,
 		int ilen = dtemplate[i].inlen;
 		void *input_vec;
 
-		input_vec = kmalloc(ilen, GFP_KERNEL);
+		input_vec = kmemdup(dtemplate[i].input, ilen, GFP_KERNEL);
 		if (!input_vec) {
 			ret = -ENOMEM;
 			goto out;
 		}
 
-		memcpy(input_vec, dtemplate[i].input, ilen);
 		memset(output, 0, dlen);
 		init_completion(&result.completion);
 		sg_init_one(&src, input_vec, ilen);
@@ -2398,30 +2397,23 @@ static int alg_test_null(const struct alg_test_desc *desc,
 	return 0;
 }
 
+#define __VECS(tv)	{ .vecs = tv, .count = ARRAY_SIZE(tv) }
+
 /* Please keep this list sorted by algorithm name. */
 static const struct alg_test_desc alg_test_descs[] = {
 	{
 		.alg = "ansi_cprng",
 		.test = alg_test_cprng,
 		.suite = {
-			.cprng = {
-				.vecs = ansi_cprng_aes_tv_template,
-				.count = ANSI_CPRNG_AES_TEST_VECTORS
-			}
+			.cprng = __VECS(ansi_cprng_aes_tv_template)
 		}
 	}, {
 		.alg = "authenc(hmac(md5),ecb(cipher_null))",
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs = hmac_md5_ecb_cipher_null_enc_tv_template,
-					.count = HMAC_MD5_ECB_CIPHER_NULL_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = hmac_md5_ecb_cipher_null_dec_tv_template,
-					.count = HMAC_MD5_ECB_CIPHER_NULL_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(hmac_md5_ecb_cipher_null_enc_tv_template),
+				.dec = __VECS(hmac_md5_ecb_cipher_null_dec_tv_template)
 			}
 		}
 	}, {
@@ -2429,12 +2421,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha1_aes_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA1_AES_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha1_aes_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2442,12 +2429,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha1_des_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA1_DES_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha1_des_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2456,12 +2438,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha1_des3_ede_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA1_DES3_EDE_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha1_des3_ede_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2473,18 +2450,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha1_ecb_cipher_null_enc_tv_temp,
-					.count =
-					HMAC_SHA1_ECB_CIPHER_NULL_ENC_TEST_VEC
-				},
-				.dec = {
-					.vecs =
-					hmac_sha1_ecb_cipher_null_dec_tv_temp,
-					.count =
-					HMAC_SHA1_ECB_CIPHER_NULL_DEC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha1_ecb_cipher_null_enc_tv_temp),
+				.dec = __VECS(hmac_sha1_ecb_cipher_null_dec_tv_temp)
 			}
 		}
 	}, {
@@ -2496,12 +2463,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha224_des_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA224_DES_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha224_des_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2510,12 +2472,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha224_des3_ede_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA224_DES3_EDE_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha224_des3_ede_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2524,12 +2481,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha256_aes_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA256_AES_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha256_aes_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2537,12 +2489,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha256_des_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA256_DES_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha256_des_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2551,12 +2498,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha256_des3_ede_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA256_DES3_EDE_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha256_des3_ede_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2572,12 +2514,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha384_des_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA384_DES_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha384_des_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2586,12 +2523,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha384_des3_ede_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA384_DES3_EDE_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha384_des3_ede_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2608,12 +2540,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha512_aes_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA512_AES_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha512_aes_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2621,12 +2548,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha512_des_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA512_DES_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha512_des_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2635,12 +2557,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs =
-					hmac_sha512_des3_ede_cbc_enc_tv_temp,
-					.count =
-					HMAC_SHA512_DES3_EDE_CBC_ENC_TEST_VEC
-				}
+				.enc = __VECS(hmac_sha512_des3_ede_cbc_enc_tv_temp)
 			}
 		}
 	}, {
@@ -2657,14 +2574,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = aes_cbc_enc_tv_template,
-					.count = AES_CBC_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_cbc_dec_tv_template,
-					.count = AES_CBC_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(aes_cbc_enc_tv_template),
+				.dec = __VECS(aes_cbc_dec_tv_template)
 			}
 		}
 	}, {
@@ -2672,14 +2583,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = anubis_cbc_enc_tv_template,
-					.count = ANUBIS_CBC_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = anubis_cbc_dec_tv_template,
-					.count = ANUBIS_CBC_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(anubis_cbc_enc_tv_template),
+				.dec = __VECS(anubis_cbc_dec_tv_template)
 			}
 		}
 	}, {
@@ -2687,14 +2592,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = bf_cbc_enc_tv_template,
-					.count = BF_CBC_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = bf_cbc_dec_tv_template,
-					.count = BF_CBC_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(bf_cbc_enc_tv_template),
+				.dec = __VECS(bf_cbc_dec_tv_template)
 			}
 		}
 	}, {
@@ -2702,14 +2601,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = camellia_cbc_enc_tv_template,
-					.count = CAMELLIA_CBC_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = camellia_cbc_dec_tv_template,
-					.count = CAMELLIA_CBC_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(camellia_cbc_enc_tv_template),
+				.dec = __VECS(camellia_cbc_dec_tv_template)
 			}
 		}
 	}, {
@@ -2717,14 +2610,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = cast5_cbc_enc_tv_template,
-					.count = CAST5_CBC_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = cast5_cbc_dec_tv_template,
-					.count = CAST5_CBC_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(cast5_cbc_enc_tv_template),
+				.dec = __VECS(cast5_cbc_dec_tv_template)
 			}
 		}
 	}, {
@@ -2732,14 +2619,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = cast6_cbc_enc_tv_template,
-					.count = CAST6_CBC_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = cast6_cbc_dec_tv_template,
-					.count = CAST6_CBC_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(cast6_cbc_enc_tv_template),
+				.dec = __VECS(cast6_cbc_dec_tv_template)
 			}
 		}
 	}, {
@@ -2747,14 +2628,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = des_cbc_enc_tv_template,
-					.count = DES_CBC_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = des_cbc_dec_tv_template,
-					.count = DES_CBC_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(des_cbc_enc_tv_template),
+				.dec = __VECS(des_cbc_dec_tv_template)
 			}
 		}
 	}, {
@@ -2763,14 +2638,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = des3_ede_cbc_enc_tv_template,
-					.count = DES3_EDE_CBC_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = des3_ede_cbc_dec_tv_template,
-					.count = DES3_EDE_CBC_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(des3_ede_cbc_enc_tv_template),
+				.dec = __VECS(des3_ede_cbc_dec_tv_template)
 			}
 		}
 	}, {
@@ -2778,14 +2647,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = serpent_cbc_enc_tv_template,
-					.count = SERPENT_CBC_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = serpent_cbc_dec_tv_template,
-					.count = SERPENT_CBC_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(serpent_cbc_enc_tv_template),
+				.dec = __VECS(serpent_cbc_dec_tv_template)
 			}
 		}
 	}, {
@@ -2793,15 +2656,16 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = tf_cbc_enc_tv_template,
-					.count = TF_CBC_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = tf_cbc_dec_tv_template,
-					.count = TF_CBC_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(tf_cbc_enc_tv_template),
+				.dec = __VECS(tf_cbc_dec_tv_template)
 			}
+		}
+	}, {
+		.alg = "cbcmac(aes)",
+		.fips_allowed = 1,
+		.test = alg_test_hash,
+		.suite = {
+			.hash = __VECS(aes_cbcmac_tv_template)
 		}
 	}, {
 		.alg = "ccm(aes)",
@@ -2809,14 +2673,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs = aes_ccm_enc_tv_template,
-					.count = AES_CCM_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_ccm_dec_tv_template,
-					.count = AES_CCM_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(aes_ccm_enc_tv_template),
+				.dec = __VECS(aes_ccm_dec_tv_template)
 			}
 		}
 	}, {
@@ -2824,14 +2682,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = chacha20_enc_tv_template,
-					.count = CHACHA20_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = chacha20_enc_tv_template,
-					.count = CHACHA20_ENC_TEST_VECTORS
-				},
+				.enc = __VECS(chacha20_enc_tv_template),
+				.dec = __VECS(chacha20_enc_tv_template),
 			}
 		}
 	}, {
@@ -2839,20 +2691,14 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = aes_cmac128_tv_template,
-				.count = CMAC_AES_TEST_VECTORS
-			}
+			.hash = __VECS(aes_cmac128_tv_template)
 		}
 	}, {
 		.alg = "cmac(des3_ede)",
 		.fips_allowed = 1,
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = des3_ede_cmac64_tv_template,
-				.count = CMAC_DES3_EDE_TEST_VECTORS
-			}
+			.hash = __VECS(des3_ede_cmac64_tv_template)
 		}
 	}, {
 		.alg = "compress_null",
@@ -2861,30 +2707,21 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.alg = "crc32",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = crc32_tv_template,
-				.count = CRC32_TEST_VECTORS
-			}
+			.hash = __VECS(crc32_tv_template)
 		}
 	}, {
 		.alg = "crc32c",
 		.test = alg_test_crc32c,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = crc32c_tv_template,
-				.count = CRC32C_TEST_VECTORS
-			}
+			.hash = __VECS(crc32c_tv_template)
 		}
 	}, {
 		.alg = "crct10dif",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = crct10dif_tv_template,
-				.count = CRCT10DIF_TEST_VECTORS
-			}
+			.hash = __VECS(crct10dif_tv_template)
 		}
 	}, {
 		.alg = "ctr(aes)",
@@ -2892,14 +2729,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = aes_ctr_enc_tv_template,
-					.count = AES_CTR_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_ctr_dec_tv_template,
-					.count = AES_CTR_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(aes_ctr_enc_tv_template),
+				.dec = __VECS(aes_ctr_dec_tv_template)
 			}
 		}
 	}, {
@@ -2907,14 +2738,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = bf_ctr_enc_tv_template,
-					.count = BF_CTR_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = bf_ctr_dec_tv_template,
-					.count = BF_CTR_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(bf_ctr_enc_tv_template),
+				.dec = __VECS(bf_ctr_dec_tv_template)
 			}
 		}
 	}, {
@@ -2922,14 +2747,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = camellia_ctr_enc_tv_template,
-					.count = CAMELLIA_CTR_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = camellia_ctr_dec_tv_template,
-					.count = CAMELLIA_CTR_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(camellia_ctr_enc_tv_template),
+				.dec = __VECS(camellia_ctr_dec_tv_template)
 			}
 		}
 	}, {
@@ -2937,14 +2756,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = cast5_ctr_enc_tv_template,
-					.count = CAST5_CTR_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = cast5_ctr_dec_tv_template,
-					.count = CAST5_CTR_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(cast5_ctr_enc_tv_template),
+				.dec = __VECS(cast5_ctr_dec_tv_template)
 			}
 		}
 	}, {
@@ -2952,14 +2765,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = cast6_ctr_enc_tv_template,
-					.count = CAST6_CTR_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = cast6_ctr_dec_tv_template,
-					.count = CAST6_CTR_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(cast6_ctr_enc_tv_template),
+				.dec = __VECS(cast6_ctr_dec_tv_template)
 			}
 		}
 	}, {
@@ -2967,14 +2774,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = des_ctr_enc_tv_template,
-					.count = DES_CTR_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = des_ctr_dec_tv_template,
-					.count = DES_CTR_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(des_ctr_enc_tv_template),
+				.dec = __VECS(des_ctr_dec_tv_template)
 			}
 		}
 	}, {
@@ -2982,14 +2783,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = des3_ede_ctr_enc_tv_template,
-					.count = DES3_EDE_CTR_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = des3_ede_ctr_dec_tv_template,
-					.count = DES3_EDE_CTR_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(des3_ede_ctr_enc_tv_template),
+				.dec = __VECS(des3_ede_ctr_dec_tv_template)
 			}
 		}
 	}, {
@@ -2997,14 +2792,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = serpent_ctr_enc_tv_template,
-					.count = SERPENT_CTR_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = serpent_ctr_dec_tv_template,
-					.count = SERPENT_CTR_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(serpent_ctr_enc_tv_template),
+				.dec = __VECS(serpent_ctr_dec_tv_template)
 			}
 		}
 	}, {
@@ -3012,14 +2801,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = tf_ctr_enc_tv_template,
-					.count = TF_CTR_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = tf_ctr_dec_tv_template,
-					.count = TF_CTR_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(tf_ctr_enc_tv_template),
+				.dec = __VECS(tf_ctr_dec_tv_template)
 			}
 		}
 	}, {
@@ -3027,14 +2810,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = cts_mode_enc_tv_template,
-					.count = CTS_MODE_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = cts_mode_dec_tv_template,
-					.count = CTS_MODE_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(cts_mode_enc_tv_template),
+				.dec = __VECS(cts_mode_dec_tv_template)
 			}
 		}
 	}, {
@@ -3043,14 +2820,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.comp = {
-				.comp = {
-					.vecs = deflate_comp_tv_template,
-					.count = DEFLATE_COMP_TEST_VECTORS
-				},
-				.decomp = {
-					.vecs = deflate_decomp_tv_template,
-					.count = DEFLATE_DECOMP_TEST_VECTORS
-				}
+				.comp = __VECS(deflate_comp_tv_template),
+				.decomp = __VECS(deflate_decomp_tv_template)
 			}
 		}
 	}, {
@@ -3058,10 +2829,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_kpp,
 		.fips_allowed = 1,
 		.suite = {
-			.kpp = {
-				.vecs = dh_tv_template,
-				.count = DH_TEST_VECTORS
-			}
+			.kpp = __VECS(dh_tv_template)
 		}
 	}, {
 		.alg = "digest_null",
@@ -3071,30 +2839,21 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_drbg,
 		.fips_allowed = 1,
 		.suite = {
-			.drbg = {
-				.vecs = drbg_nopr_ctr_aes128_tv_template,
-				.count = ARRAY_SIZE(drbg_nopr_ctr_aes128_tv_template)
-			}
+			.drbg = __VECS(drbg_nopr_ctr_aes128_tv_template)
 		}
 	}, {
 		.alg = "drbg_nopr_ctr_aes192",
 		.test = alg_test_drbg,
 		.fips_allowed = 1,
 		.suite = {
-			.drbg = {
-				.vecs = drbg_nopr_ctr_aes192_tv_template,
-				.count = ARRAY_SIZE(drbg_nopr_ctr_aes192_tv_template)
-			}
+			.drbg = __VECS(drbg_nopr_ctr_aes192_tv_template)
 		}
 	}, {
 		.alg = "drbg_nopr_ctr_aes256",
 		.test = alg_test_drbg,
 		.fips_allowed = 1,
 		.suite = {
-			.drbg = {
-				.vecs = drbg_nopr_ctr_aes256_tv_template,
-				.count = ARRAY_SIZE(drbg_nopr_ctr_aes256_tv_template)
-			}
+			.drbg = __VECS(drbg_nopr_ctr_aes256_tv_template)
 		}
 	}, {
 		/*
@@ -3109,11 +2868,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_drbg,
 		.fips_allowed = 1,
 		.suite = {
-			.drbg = {
-				.vecs = drbg_nopr_hmac_sha256_tv_template,
-				.count =
-				ARRAY_SIZE(drbg_nopr_hmac_sha256_tv_template)
-			}
+			.drbg = __VECS(drbg_nopr_hmac_sha256_tv_template)
 		}
 	}, {
 		/* covered by drbg_nopr_hmac_sha256 test */
@@ -3133,10 +2888,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_drbg,
 		.fips_allowed = 1,
 		.suite = {
-			.drbg = {
-				.vecs = drbg_nopr_sha256_tv_template,
-				.count = ARRAY_SIZE(drbg_nopr_sha256_tv_template)
-			}
+			.drbg = __VECS(drbg_nopr_sha256_tv_template)
 		}
 	}, {
 		/* covered by drbg_nopr_sha256 test */
@@ -3152,10 +2904,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_drbg,
 		.fips_allowed = 1,
 		.suite = {
-			.drbg = {
-				.vecs = drbg_pr_ctr_aes128_tv_template,
-				.count = ARRAY_SIZE(drbg_pr_ctr_aes128_tv_template)
-			}
+			.drbg = __VECS(drbg_pr_ctr_aes128_tv_template)
 		}
 	}, {
 		/* covered by drbg_pr_ctr_aes128 test */
@@ -3175,10 +2924,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_drbg,
 		.fips_allowed = 1,
 		.suite = {
-			.drbg = {
-				.vecs = drbg_pr_hmac_sha256_tv_template,
-				.count = ARRAY_SIZE(drbg_pr_hmac_sha256_tv_template)
-			}
+			.drbg = __VECS(drbg_pr_hmac_sha256_tv_template)
 		}
 	}, {
 		/* covered by drbg_pr_hmac_sha256 test */
@@ -3198,10 +2944,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_drbg,
 		.fips_allowed = 1,
 		.suite = {
-			.drbg = {
-				.vecs = drbg_pr_sha256_tv_template,
-				.count = ARRAY_SIZE(drbg_pr_sha256_tv_template)
-			}
+			.drbg = __VECS(drbg_pr_sha256_tv_template)
 		}
 	}, {
 		/* covered by drbg_pr_sha256 test */
@@ -3218,14 +2961,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = aes_enc_tv_template,
-					.count = AES_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_dec_tv_template,
-					.count = AES_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(aes_enc_tv_template),
+				.dec = __VECS(aes_dec_tv_template)
 			}
 		}
 	}, {
@@ -3233,14 +2970,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = anubis_enc_tv_template,
-					.count = ANUBIS_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = anubis_dec_tv_template,
-					.count = ANUBIS_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(anubis_enc_tv_template),
+				.dec = __VECS(anubis_dec_tv_template)
 			}
 		}
 	}, {
@@ -3248,14 +2979,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = arc4_enc_tv_template,
-					.count = ARC4_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = arc4_dec_tv_template,
-					.count = ARC4_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(arc4_enc_tv_template),
+				.dec = __VECS(arc4_dec_tv_template)
 			}
 		}
 	}, {
@@ -3263,14 +2988,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = bf_enc_tv_template,
-					.count = BF_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = bf_dec_tv_template,
-					.count = BF_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(bf_enc_tv_template),
+				.dec = __VECS(bf_dec_tv_template)
 			}
 		}
 	}, {
@@ -3278,14 +2997,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = camellia_enc_tv_template,
-					.count = CAMELLIA_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = camellia_dec_tv_template,
-					.count = CAMELLIA_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(camellia_enc_tv_template),
+				.dec = __VECS(camellia_dec_tv_template)
 			}
 		}
 	}, {
@@ -3293,14 +3006,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = cast5_enc_tv_template,
-					.count = CAST5_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = cast5_dec_tv_template,
-					.count = CAST5_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(cast5_enc_tv_template),
+				.dec = __VECS(cast5_dec_tv_template)
 			}
 		}
 	}, {
@@ -3308,14 +3015,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = cast6_enc_tv_template,
-					.count = CAST6_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = cast6_dec_tv_template,
-					.count = CAST6_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(cast6_enc_tv_template),
+				.dec = __VECS(cast6_dec_tv_template)
 			}
 		}
 	}, {
@@ -3326,14 +3027,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = des_enc_tv_template,
-					.count = DES_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = des_dec_tv_template,
-					.count = DES_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(des_enc_tv_template),
+				.dec = __VECS(des_dec_tv_template)
 			}
 		}
 	}, {
@@ -3342,14 +3037,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = des3_ede_enc_tv_template,
-					.count = DES3_EDE_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = des3_ede_dec_tv_template,
-					.count = DES3_EDE_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(des3_ede_enc_tv_template),
+				.dec = __VECS(des3_ede_dec_tv_template)
 			}
 		}
 	}, {
@@ -3372,14 +3061,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = khazad_enc_tv_template,
-					.count = KHAZAD_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = khazad_dec_tv_template,
-					.count = KHAZAD_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(khazad_enc_tv_template),
+				.dec = __VECS(khazad_dec_tv_template)
 			}
 		}
 	}, {
@@ -3387,14 +3070,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = seed_enc_tv_template,
-					.count = SEED_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = seed_dec_tv_template,
-					.count = SEED_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(seed_enc_tv_template),
+				.dec = __VECS(seed_dec_tv_template)
 			}
 		}
 	}, {
@@ -3402,14 +3079,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = serpent_enc_tv_template,
-					.count = SERPENT_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = serpent_dec_tv_template,
-					.count = SERPENT_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(serpent_enc_tv_template),
+				.dec = __VECS(serpent_dec_tv_template)
 			}
 		}
 	}, {
@@ -3417,14 +3088,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = tea_enc_tv_template,
-					.count = TEA_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = tea_dec_tv_template,
-					.count = TEA_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(tea_enc_tv_template),
+				.dec = __VECS(tea_dec_tv_template)
 			}
 		}
 	}, {
@@ -3432,14 +3097,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = tnepres_enc_tv_template,
-					.count = TNEPRES_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = tnepres_dec_tv_template,
-					.count = TNEPRES_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(tnepres_enc_tv_template),
+				.dec = __VECS(tnepres_dec_tv_template)
 			}
 		}
 	}, {
@@ -3447,14 +3106,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = tf_enc_tv_template,
-					.count = TF_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = tf_dec_tv_template,
-					.count = TF_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(tf_enc_tv_template),
+				.dec = __VECS(tf_dec_tv_template)
 			}
 		}
 	}, {
@@ -3462,14 +3115,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = xeta_enc_tv_template,
-					.count = XETA_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = xeta_dec_tv_template,
-					.count = XETA_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(xeta_enc_tv_template),
+				.dec = __VECS(xeta_dec_tv_template)
 			}
 		}
 	}, {
@@ -3477,14 +3124,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = xtea_enc_tv_template,
-					.count = XTEA_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = xtea_dec_tv_template,
-					.count = XTEA_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(xtea_enc_tv_template),
+				.dec = __VECS(xtea_dec_tv_template)
 			}
 		}
 	}, {
@@ -3492,10 +3133,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_kpp,
 		.fips_allowed = 1,
 		.suite = {
-			.kpp = {
-				.vecs = ecdh_tv_template,
-				.count = ECDH_TEST_VECTORS
-			}
+			.kpp = __VECS(ecdh_tv_template)
 		}
 	}, {
 		.alg = "gcm(aes)",
@@ -3503,14 +3141,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs = aes_gcm_enc_tv_template,
-					.count = AES_GCM_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_gcm_dec_tv_template,
-					.count = AES_GCM_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(aes_gcm_enc_tv_template),
+				.dec = __VECS(aes_gcm_dec_tv_template)
 			}
 		}
 	}, {
@@ -3518,136 +3150,94 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = ghash_tv_template,
-				.count = GHASH_TEST_VECTORS
-			}
+			.hash = __VECS(ghash_tv_template)
 		}
 	}, {
 		.alg = "hmac(crc32)",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = bfin_crc_tv_template,
-				.count = BFIN_CRC_TEST_VECTORS
-			}
+			.hash = __VECS(bfin_crc_tv_template)
 		}
 	}, {
 		.alg = "hmac(md5)",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = hmac_md5_tv_template,
-				.count = HMAC_MD5_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_md5_tv_template)
 		}
 	}, {
 		.alg = "hmac(rmd128)",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = hmac_rmd128_tv_template,
-				.count = HMAC_RMD128_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_rmd128_tv_template)
 		}
 	}, {
 		.alg = "hmac(rmd160)",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = hmac_rmd160_tv_template,
-				.count = HMAC_RMD160_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_rmd160_tv_template)
 		}
 	}, {
 		.alg = "hmac(sha1)",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = hmac_sha1_tv_template,
-				.count = HMAC_SHA1_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_sha1_tv_template)
 		}
 	}, {
 		.alg = "hmac(sha224)",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = hmac_sha224_tv_template,
-				.count = HMAC_SHA224_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_sha224_tv_template)
 		}
 	}, {
 		.alg = "hmac(sha256)",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = hmac_sha256_tv_template,
-				.count = HMAC_SHA256_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_sha256_tv_template)
 		}
 	}, {
 		.alg = "hmac(sha3-224)",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = hmac_sha3_224_tv_template,
-				.count = HMAC_SHA3_224_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_sha3_224_tv_template)
 		}
 	}, {
 		.alg = "hmac(sha3-256)",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = hmac_sha3_256_tv_template,
-				.count = HMAC_SHA3_256_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_sha3_256_tv_template)
 		}
 	}, {
 		.alg = "hmac(sha3-384)",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = hmac_sha3_384_tv_template,
-				.count = HMAC_SHA3_384_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_sha3_384_tv_template)
 		}
 	}, {
 		.alg = "hmac(sha3-512)",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = hmac_sha3_512_tv_template,
-				.count = HMAC_SHA3_512_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_sha3_512_tv_template)
 		}
 	}, {
 		.alg = "hmac(sha384)",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = hmac_sha384_tv_template,
-				.count = HMAC_SHA384_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_sha384_tv_template)
 		}
 	}, {
 		.alg = "hmac(sha512)",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = hmac_sha512_tv_template,
-				.count = HMAC_SHA512_TEST_VECTORS
-			}
+			.hash = __VECS(hmac_sha512_tv_template)
 		}
 	}, {
 		.alg = "jitterentropy_rng",
@@ -3659,14 +3249,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = aes_kw_enc_tv_template,
-					.count = ARRAY_SIZE(aes_kw_enc_tv_template)
-				},
-				.dec = {
-					.vecs = aes_kw_dec_tv_template,
-					.count = ARRAY_SIZE(aes_kw_dec_tv_template)
-				}
+				.enc = __VECS(aes_kw_enc_tv_template),
+				.dec = __VECS(aes_kw_dec_tv_template)
 			}
 		}
 	}, {
@@ -3674,14 +3258,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = aes_lrw_enc_tv_template,
-					.count = AES_LRW_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_lrw_dec_tv_template,
-					.count = AES_LRW_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(aes_lrw_enc_tv_template),
+				.dec = __VECS(aes_lrw_dec_tv_template)
 			}
 		}
 	}, {
@@ -3689,14 +3267,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = camellia_lrw_enc_tv_template,
-					.count = CAMELLIA_LRW_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = camellia_lrw_dec_tv_template,
-					.count = CAMELLIA_LRW_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(camellia_lrw_enc_tv_template),
+				.dec = __VECS(camellia_lrw_dec_tv_template)
 			}
 		}
 	}, {
@@ -3704,14 +3276,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = cast6_lrw_enc_tv_template,
-					.count = CAST6_LRW_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = cast6_lrw_dec_tv_template,
-					.count = CAST6_LRW_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(cast6_lrw_enc_tv_template),
+				.dec = __VECS(cast6_lrw_dec_tv_template)
 			}
 		}
 	}, {
@@ -3719,14 +3285,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = serpent_lrw_enc_tv_template,
-					.count = SERPENT_LRW_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = serpent_lrw_dec_tv_template,
-					.count = SERPENT_LRW_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(serpent_lrw_enc_tv_template),
+				.dec = __VECS(serpent_lrw_dec_tv_template)
 			}
 		}
 	}, {
@@ -3734,14 +3294,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = tf_lrw_enc_tv_template,
-					.count = TF_LRW_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = tf_lrw_dec_tv_template,
-					.count = TF_LRW_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(tf_lrw_enc_tv_template),
+				.dec = __VECS(tf_lrw_dec_tv_template)
 			}
 		}
 	}, {
@@ -3750,14 +3304,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.comp = {
-				.comp = {
-					.vecs = lz4_comp_tv_template,
-					.count = LZ4_COMP_TEST_VECTORS
-				},
-				.decomp = {
-					.vecs = lz4_decomp_tv_template,
-					.count = LZ4_DECOMP_TEST_VECTORS
-				}
+				.comp = __VECS(lz4_comp_tv_template),
+				.decomp = __VECS(lz4_decomp_tv_template)
 			}
 		}
 	}, {
@@ -3766,14 +3314,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.comp = {
-				.comp = {
-					.vecs = lz4hc_comp_tv_template,
-					.count = LZ4HC_COMP_TEST_VECTORS
-				},
-				.decomp = {
-					.vecs = lz4hc_decomp_tv_template,
-					.count = LZ4HC_DECOMP_TEST_VECTORS
-				}
+				.comp = __VECS(lz4hc_comp_tv_template),
+				.decomp = __VECS(lz4hc_decomp_tv_template)
 			}
 		}
 	}, {
@@ -3782,42 +3324,27 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.comp = {
-				.comp = {
-					.vecs = lzo_comp_tv_template,
-					.count = LZO_COMP_TEST_VECTORS
-				},
-				.decomp = {
-					.vecs = lzo_decomp_tv_template,
-					.count = LZO_DECOMP_TEST_VECTORS
-				}
+				.comp = __VECS(lzo_comp_tv_template),
+				.decomp = __VECS(lzo_decomp_tv_template)
 			}
 		}
 	}, {
 		.alg = "md4",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = md4_tv_template,
-				.count = MD4_TEST_VECTORS
-			}
+			.hash = __VECS(md4_tv_template)
 		}
 	}, {
 		.alg = "md5",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = md5_tv_template,
-				.count = MD5_TEST_VECTORS
-			}
+			.hash = __VECS(md5_tv_template)
 		}
 	}, {
 		.alg = "michael_mic",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = michael_mic_tv_template,
-				.count = MICHAEL_MIC_TEST_VECTORS
-			}
+			.hash = __VECS(michael_mic_tv_template)
 		}
 	}, {
 		.alg = "ofb(aes)",
@@ -3825,14 +3352,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = aes_ofb_enc_tv_template,
-					.count = AES_OFB_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_ofb_dec_tv_template,
-					.count = AES_OFB_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(aes_ofb_enc_tv_template),
+				.dec = __VECS(aes_ofb_dec_tv_template)
 			}
 		}
 	}, {
@@ -3840,24 +3361,15 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = fcrypt_pcbc_enc_tv_template,
-					.count = FCRYPT_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = fcrypt_pcbc_dec_tv_template,
-					.count = FCRYPT_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(fcrypt_pcbc_enc_tv_template),
+				.dec = __VECS(fcrypt_pcbc_dec_tv_template)
 			}
 		}
 	}, {
 		.alg = "poly1305",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = poly1305_tv_template,
-				.count = POLY1305_TEST_VECTORS
-			}
+			.hash = __VECS(poly1305_tv_template)
 		}
 	}, {
 		.alg = "rabin-fp",
@@ -3874,14 +3386,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = aes_ctr_rfc3686_enc_tv_template,
-					.count = AES_CTR_3686_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_ctr_rfc3686_dec_tv_template,
-					.count = AES_CTR_3686_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(aes_ctr_rfc3686_enc_tv_template),
+				.dec = __VECS(aes_ctr_rfc3686_dec_tv_template)
 			}
 		}
 	}, {
@@ -3890,14 +3396,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs = aes_gcm_rfc4106_enc_tv_template,
-					.count = AES_GCM_4106_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_gcm_rfc4106_dec_tv_template,
-					.count = AES_GCM_4106_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(aes_gcm_rfc4106_enc_tv_template),
+				.dec = __VECS(aes_gcm_rfc4106_dec_tv_template)
 			}
 		}
 	}, {
@@ -3906,14 +3406,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs = aes_ccm_rfc4309_enc_tv_template,
-					.count = AES_CCM_4309_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_ccm_rfc4309_dec_tv_template,
-					.count = AES_CCM_4309_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(aes_ccm_rfc4309_enc_tv_template),
+				.dec = __VECS(aes_ccm_rfc4309_dec_tv_template)
 			}
 		}
 	}, {
@@ -3921,14 +3415,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs = aes_gcm_rfc4543_enc_tv_template,
-					.count = AES_GCM_4543_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_gcm_rfc4543_dec_tv_template,
-					.count = AES_GCM_4543_DEC_TEST_VECTORS
-				},
+				.enc = __VECS(aes_gcm_rfc4543_enc_tv_template),
+				.dec = __VECS(aes_gcm_rfc4543_dec_tv_template),
 			}
 		}
 	}, {
@@ -3936,14 +3424,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs = rfc7539_enc_tv_template,
-					.count = RFC7539_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = rfc7539_dec_tv_template,
-					.count = RFC7539_DEC_TEST_VECTORS
-				},
+				.enc = __VECS(rfc7539_enc_tv_template),
+				.dec = __VECS(rfc7539_dec_tv_template),
 			}
 		}
 	}, {
@@ -3951,71 +3433,47 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_aead,
 		.suite = {
 			.aead = {
-				.enc = {
-					.vecs = rfc7539esp_enc_tv_template,
-					.count = RFC7539ESP_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = rfc7539esp_dec_tv_template,
-					.count = RFC7539ESP_DEC_TEST_VECTORS
-				},
+				.enc = __VECS(rfc7539esp_enc_tv_template),
+				.dec = __VECS(rfc7539esp_dec_tv_template),
 			}
 		}
 	}, {
 		.alg = "rmd128",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = rmd128_tv_template,
-				.count = RMD128_TEST_VECTORS
-			}
+			.hash = __VECS(rmd128_tv_template)
 		}
 	}, {
 		.alg = "rmd160",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = rmd160_tv_template,
-				.count = RMD160_TEST_VECTORS
-			}
+			.hash = __VECS(rmd160_tv_template)
 		}
 	}, {
 		.alg = "rmd256",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = rmd256_tv_template,
-				.count = RMD256_TEST_VECTORS
-			}
+			.hash = __VECS(rmd256_tv_template)
 		}
 	}, {
 		.alg = "rmd320",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = rmd320_tv_template,
-				.count = RMD320_TEST_VECTORS
-			}
+			.hash = __VECS(rmd320_tv_template)
 		}
 	}, {
 		.alg = "rsa",
 		.test = alg_test_akcipher,
 		.fips_allowed = 1,
 		.suite = {
-			.akcipher = {
-				.vecs = rsa_tv_template,
-				.count = RSA_TEST_VECTORS
-			}
+			.akcipher = __VECS(rsa_tv_template)
 		}
 	}, {
 		.alg = "salsa20",
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = salsa20_stream_enc_tv_template,
-					.count = SALSA20_STREAM_ENC_TEST_VECTORS
-				}
+				.enc = __VECS(salsa20_stream_enc_tv_template)
 			}
 		}
 	}, {
@@ -4023,162 +3481,111 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = sha1_tv_template,
-				.count = SHA1_TEST_VECTORS
-			}
+			.hash = __VECS(sha1_tv_template)
 		}
 	}, {
 		.alg = "sha224",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = sha224_tv_template,
-				.count = SHA224_TEST_VECTORS
-			}
+			.hash = __VECS(sha224_tv_template)
 		}
 	}, {
 		.alg = "sha256",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = sha256_tv_template,
-				.count = SHA256_TEST_VECTORS
-			}
+			.hash = __VECS(sha256_tv_template)
 		}
 	}, {
 		.alg = "sha3-224",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = sha3_224_tv_template,
-				.count = SHA3_224_TEST_VECTORS
-			}
+			.hash = __VECS(sha3_224_tv_template)
 		}
 	}, {
 		.alg = "sha3-256",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = sha3_256_tv_template,
-				.count = SHA3_256_TEST_VECTORS
-			}
+			.hash = __VECS(sha3_256_tv_template)
 		}
 	}, {
 		.alg = "sha3-384",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = sha3_384_tv_template,
-				.count = SHA3_384_TEST_VECTORS
-			}
+			.hash = __VECS(sha3_384_tv_template)
 		}
 	}, {
 		.alg = "sha3-512",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = sha3_512_tv_template,
-				.count = SHA3_512_TEST_VECTORS
-			}
+			.hash = __VECS(sha3_512_tv_template)
 		}
 	}, {
 		.alg = "sha384",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = sha384_tv_template,
-				.count = SHA384_TEST_VECTORS
-			}
+			.hash = __VECS(sha384_tv_template)
 		}
 	}, {
 		.alg = "sha512",
 		.test = alg_test_hash,
 		.fips_allowed = 1,
 		.suite = {
-			.hash = {
-				.vecs = sha512_tv_template,
-				.count = SHA512_TEST_VECTORS
-			}
+			.hash = __VECS(sha512_tv_template)
 		}
 	}, {
 		.alg = "tgr128",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = tgr128_tv_template,
-				.count = TGR128_TEST_VECTORS
-			}
+			.hash = __VECS(tgr128_tv_template)
 		}
 	}, {
 		.alg = "tgr160",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = tgr160_tv_template,
-				.count = TGR160_TEST_VECTORS
-			}
+			.hash = __VECS(tgr160_tv_template)
 		}
 	}, {
 		.alg = "tgr192",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = tgr192_tv_template,
-				.count = TGR192_TEST_VECTORS
-			}
+			.hash = __VECS(tgr192_tv_template)
 		}
 	}, {
 		.alg = "vmac(aes)",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = aes_vmac128_tv_template,
-				.count = VMAC_AES_TEST_VECTORS
-			}
+			.hash = __VECS(aes_vmac128_tv_template)
 		}
 	}, {
 		.alg = "wp256",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = wp256_tv_template,
-				.count = WP256_TEST_VECTORS
-			}
+			.hash = __VECS(wp256_tv_template)
 		}
 	}, {
 		.alg = "wp384",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = wp384_tv_template,
-				.count = WP384_TEST_VECTORS
-			}
+			.hash = __VECS(wp384_tv_template)
 		}
 	}, {
 		.alg = "wp512",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = wp512_tv_template,
-				.count = WP512_TEST_VECTORS
-			}
+			.hash = __VECS(wp512_tv_template)
 		}
 	}, {
 		.alg = "xcbc(aes)",
 		.test = alg_test_hash,
 		.suite = {
-			.hash = {
-				.vecs = aes_xcbc128_tv_template,
-				.count = XCBC_AES_TEST_VECTORS
-			}
+			.hash = __VECS(aes_xcbc128_tv_template)
 		}
 	}, {
 		.alg = "xts(aes)",
@@ -4186,14 +3593,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = aes_xts_enc_tv_template,
-					.count = AES_XTS_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = aes_xts_dec_tv_template,
-					.count = AES_XTS_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(aes_xts_enc_tv_template),
+				.dec = __VECS(aes_xts_dec_tv_template)
 			}
 		}
 	}, {
@@ -4201,14 +3602,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = camellia_xts_enc_tv_template,
-					.count = CAMELLIA_XTS_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = camellia_xts_dec_tv_template,
-					.count = CAMELLIA_XTS_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(camellia_xts_enc_tv_template),
+				.dec = __VECS(camellia_xts_dec_tv_template)
 			}
 		}
 	}, {
@@ -4216,14 +3611,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = cast6_xts_enc_tv_template,
-					.count = CAST6_XTS_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = cast6_xts_dec_tv_template,
-					.count = CAST6_XTS_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(cast6_xts_enc_tv_template),
+				.dec = __VECS(cast6_xts_dec_tv_template)
 			}
 		}
 	}, {
@@ -4231,14 +3620,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = serpent_xts_enc_tv_template,
-					.count = SERPENT_XTS_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = serpent_xts_dec_tv_template,
-					.count = SERPENT_XTS_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(serpent_xts_enc_tv_template),
+				.dec = __VECS(serpent_xts_dec_tv_template)
 			}
 		}
 	}, {
@@ -4246,14 +3629,8 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_skcipher,
 		.suite = {
 			.cipher = {
-				.enc = {
-					.vecs = tf_xts_enc_tv_template,
-					.count = TF_XTS_ENC_TEST_VECTORS
-				},
-				.dec = {
-					.vecs = tf_xts_dec_tv_template,
-					.count = TF_XTS_DEC_TEST_VECTORS
-				}
+				.enc = __VECS(tf_xts_enc_tv_template),
+				.dec = __VECS(tf_xts_dec_tv_template)
 			}
 		}
 	}

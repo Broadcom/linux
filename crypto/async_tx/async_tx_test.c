@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/raid/pq.h>
+#include <linux/sched/task.h>
 #include <linux/slab.h>
 
 #undef pr

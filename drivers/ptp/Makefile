@@ -7,3 +7,4 @@ obj-$(CONFIG_PTP_1588_CLOCK)		+= ptp.o
 obj-$(CONFIG_PTP_1588_CLOCK_IPROC_DTE)	+= ptp_iproc_dte.o
 obj-$(CONFIG_PTP_1588_CLOCK_IXP46X)	+= ptp_ixp46x.o
 obj-$(CONFIG_PTP_1588_CLOCK_PCH)	+= ptp_pch.o
+obj-$(CONFIG_PTP_1588_CLOCK_KVM)	+= ptp_kvm.o
