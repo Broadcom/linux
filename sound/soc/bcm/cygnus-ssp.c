@@ -1047,6 +1047,33 @@ static int cygnus_set_dai_tdm_slot(struct snd_soc_dai *cpu_dai,
 	return 0;
 }
 
+static int cygnus_ssp_set_pll(struct snd_soc_dai *cpu_dai, int pll_id,
+				 int source, unsigned int freq_in,
+				 unsigned int freq_out)
+{
+	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(cpu_dai);
+	struct clk *clk_pll;
+	int ret = 0;
+
+	if (!aio->clk_info.audio_clk) {
+		dev_err(aio->dev,
+			"%s: port %d does not have an assigned clock.\n",
+			__func__, aio->portnum);
+		return -ENODEV;
+	}
+
+	clk_pll = clk_get_parent(aio->clk_info.audio_clk);
+	if (IS_ERR(clk_pll)) {
+		dev_err(aio->dev,
+			"%s: could not get audiopll clock.\n", __func__);
+		return -ENODEV;
+	}
+
+	ret = clk_set_rate(clk_pll, freq_out);
+
+	return ret;
+}
+
 /*
  * Bit    Update  Notes
  * 31     Yes     TDM Mode        (1 = TDM, 0 = i2s)
@@ -1223,6 +1250,7 @@ static const struct snd_soc_dai_ops cygnus_ssp_dai_ops = {
 	.set_fmt	= cygnus_ssp_set_fmt,
 	.set_sysclk	= cygnus_ssp_set_sysclk,
 	.set_tdm_slot	= cygnus_set_dai_tdm_slot,
+	.set_pll	= cygnus_ssp_set_pll,
 };
 
 
