@@ -417,7 +417,7 @@ struct spu_hw {
 	u32 (*spu_wordalign_padlen)(u32 data_size);
 
 	/* The base virtual address of the SPU hw registers */
-	void __iomem *reg_vbase[MAX_SPUS];
+	void __iomem **reg_vbase;
 
 	/* Version of the SPU hardware */
 	enum spu_spu_type spu_type;
@@ -427,10 +427,13 @@ struct spu_hw {
 
 	/* The number of SPUs on this platform */
 	u32 num_spu;
+
+	/* The number of SPU channels on this platform */
+	u32 num_chan;
 };
 
 struct device_private {
-	struct platform_device *pdev[MAX_SPUS];
+	struct platform_device *pdev;
 
 	struct spu_hw spu;
 
@@ -470,12 +473,9 @@ struct device_private {
 	/* Number of ICV check failures for AEAD messages */
 	atomic_t bad_icv;
 
-	struct mbox_client mcl[MAX_SPUS];
+	struct mbox_client mcl;
 	/* Array of mailbox channel pointers, one for each channel */
-	struct mbox_chan *mbox[MAX_SPUS];
-
-	/* Driver initialized */
-	bool inited;
+	struct mbox_chan **mbox;
 };
 
 extern struct device_private iproc_priv;
