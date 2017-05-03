@@ -864,16 +864,16 @@ int of_dma_get_range(struct device_node *np, u64 *dma_addr, u64 *paddr, u64 *siz
 		}
 		pci_free_resource_list(&res);
 
-		/* ignore the empty ranges. */
+		/* allow everything, return the full system size. */
 		if (*size == 0) {
 			pr_debug("empty/zero size dma-ranges found for node(%s)\n",
 				np->full_name);
-			*size = DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
+			*size = DMA_BIT_MASK(sizeof(dma_addr_t) * 8) - 1;
 			*dma_addr = *paddr = 0;
 			ret = 0;
 		}
 
-		pr_err("dma_addr(%llx) cpu_addr(%llx) size(%llx)\n",
+		pr_debug("dma_addr(%llx) cpu_addr(%llx) size(%llx)\n",
 			 *dma_addr, *paddr, *size);
 		goto out;
 	}
