@@ -623,11 +623,9 @@
 		};
 
 		enet: ethernet@68c40000{
-			compatible = "brcm,amac-enet";
-			reg = <0x68c40000 0x1000>,
-			      <0x68e04400 0x1000>;
-			reg-names = "core_base",
-				    "amac_idm_base";
+			compatible = "brcm,amac";
+			reg = <0x68c40000 0x1000>;
+			reg-names = "amac_base";
 			dma-coherent;
 			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>;
 			status= "disabled";
