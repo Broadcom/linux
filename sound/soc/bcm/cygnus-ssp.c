@@ -747,6 +747,22 @@ static int cygnus_ssp_hw_params(struct snd_pcm_substream *substream,
 }
 
 /*
+ * Check that the actual mclk is within about 1% of the requested rate.
+ * The check is rather loose and is intended to catch any big mistakes.
+ * It is expected that the actual mclk rate may be a little different
+ * than the requested rate because the clock from which the mclk is
+ * derived (PLL) may not be an exact multiple of the mclk.
+ */
+static bool mclk_in_range(unsigned int target, unsigned int actual)
+{
+	unsigned int delta;
+
+	/* Mclk is at least several MHz, so simple div by 100 will suffice */
+	delta = target / 100;
+	return (actual > (target - delta)) && (actual < (target + delta));
+}
+
+/*
  * This function sets the mclk frequency for pll clock
  */
 static int cygnus_ssp_set_sysclk(struct snd_soc_dai *dai,
@@ -755,6 +771,7 @@ static int cygnus_ssp_set_sysclk(struct snd_soc_dai *dai,
 	int sel;
 	int ret;
 	u32 value;
+	long rate;
 	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(dai);
 
 	dev_dbg(aio->dev, "%s Enter port = %d\n", __func__, aio->portnum);
@@ -766,6 +783,19 @@ static int cygnus_ssp_set_sysclk(struct snd_soc_dai *dai,
 	if (!aio->clk_info.audio_clk) {
 		dev_err(aio->dev, "%s Error. No clock assigned.\n", __func__);
 		return -ENODEV;
+	}
+
+	rate = clk_round_rate(aio->clk_info.audio_clk, freq);
+	if (rate < 0) {
+		dev_err(aio->dev, "%s Error with with clock %ld.\n",
+			__func__, rate);
+		return rate;
+	}
+
+	if (!mclk_in_range(freq, rate)) {
+		dev_err(aio->dev, "%s Can not set rate to %u  actual %ld.\n",
+			__func__, freq, rate);
+		return -EINVAL;
 	}
 
 	ret = clk_set_rate(aio->clk_info.audio_clk, freq);
