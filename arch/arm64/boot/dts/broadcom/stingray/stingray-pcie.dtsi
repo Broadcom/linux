@@ -70,9 +70,7 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
-#if (USE_DDR == 1)
 		dma-coherent;
-#endif
 
 		msi-map = <0x100 &gic_its 0x040 0x8>,
 			  <0x200 &gic_its 0x080 0x8>,
@@ -129,9 +127,7 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
-#if (USE_DDR == 1)
 		dma-coherent;
-#endif
 
 		msi-map = <0x100 &gic_its 0x440 0x8>,
 			  <0x200 &gic_its 0x480 0x8>,
@@ -188,9 +184,7 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
-#if (USE_DDR == 1)
 		dma-coherent;
-#endif
 
 		msi-map = <0x100 &gic_its 0x840 0x8>,
 			  <0x200 &gic_its 0x880 0x8>,
@@ -247,9 +241,7 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
-#if (USE_DDR == 1)
 		dma-coherent;
-#endif
 
 		msi-map = <0x100 &gic_its 0xc40 0x8>,
 			  <0x200 &gic_its 0xc80 0x8>,
@@ -306,9 +298,7 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
-#if (USE_DDR == 1)
 		dma-coherent;
-#endif
 
 		msi-map = <0x100 &gic_its 0x1040 0x8>,
 			  <0x200 &gic_its 0x1080 0x8>,
@@ -365,9 +355,7 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
-#if (USE_DDR == 1)
 		dma-coherent;
-#endif
 
 		msi-map = <0x100 &gic_its 0x1440 0x8>,
 			  <0x200 &gic_its 0x1480 0x8>,
@@ -425,9 +413,7 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
-#if (USE_DDR == 1)
 		dma-coherent;
-#endif
 
 		msi-map = <0x100 &gic_its 0x1840 0x8>,
 			  <0x200 &gic_its 0x1880 0x8>,
@@ -484,9 +470,7 @@
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
-#if (USE_DDR == 1)
 		dma-coherent;
-#endif
 
 		msi-map = <0x100 &gic_its 0x1c40 0x8>,
 			  <0x200 &gic_its 0x1c80 0x8>,
@@ -530,9 +514,7 @@
 		device_type = "pci";
 		ranges = <0x83000000 0 0x10000000 0 0x10000000 0 0x20000000>;
 
-#if (USE_DDR == 1)
 		dma-coherent;
-#endif
 
 		msi-map = <0x100 &gic_its 0x2000 0x1>,
 			  <0x101 &gic_its 0x2080 0x1>,

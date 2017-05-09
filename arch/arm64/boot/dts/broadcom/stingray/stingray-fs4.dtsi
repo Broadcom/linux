@@ -41,9 +41,7 @@
 			reg = <0x67000000 0x200000>;
 			msi-parent = <&gic_its 0x4100>;
 			#mbox-cells = <3>;
-#if (USE_DDR == 1)
 			dma-coherent;
-#endif
 #if (ENABLE_FS4_IOMMU == 1)
 			iommus = <&smmu 0x4000 0x00ff>,
 				 <&smmu 0x4100 0x0000>;
@@ -57,13 +55,8 @@
 
 		raid_mbox: raid_mbox@67400000 {
 			compatible = "brcm,iproc-flexrm-mbox";
-#if (USE_DDR == 1)
 			reg = <0x67400000 0x200000>;
 			dma-coherent;
-#else
-			/* Use only one ring to save memory */
-			reg = <0x67400000 0x10000>;
-#endif
 			msi-parent = <&gic_its 0x4300>;
 			#mbox-cells = <3>;
 #if (ENABLE_FS4_IOMMU == 1)
@@ -79,15 +72,10 @@
 
 		raid0: raid@0 {
 			compatible = "brcm,iproc-sba-v2";
-#if (USE_DDR == 1)
 			mboxes = <&raid_mbox 0 0x1 0xff00>,
 				 <&raid_mbox 1 0x1 0xff00>,
 				 <&raid_mbox 2 0x1 0xff00>,
 				 <&raid_mbox 3 0x1 0xff00>;
-#else
-			/* Use only one ring to save memory */
-			mboxes = <&raid_mbox 0 0x1 0xff00>;
-#endif
 
 #if (NUM_RAID > 0)
 			status = "okay";

@@ -38,7 +38,6 @@
 #ifndef NUM_SATA
 #define NUM_SATA	8
 #endif
-#define USE_DDR		1
 
 /* HACK: Reserve bl31 location
  * The memreserve entry for bl31 is supposed to
