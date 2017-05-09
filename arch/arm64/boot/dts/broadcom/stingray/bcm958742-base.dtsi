@@ -48,14 +48,6 @@
 				      0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
 
 / {
-	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/ram rw rootwait console=ttyS0,115200n8 \
-			    earlycon=uart8250,mmio32,0x68a10000 pci=pcie_bus_safe \
-			    cma=64M";
-		linux,initrd-start = <0x0 0x81000000>;
-		linux,initrd-end = <0x0 0x81800000>;
-	};
-
 	sdio0_vddo_ctrl_reg: sdio0_vddo_ctrl {
 		compatible = "regulator-gpio";
 		regulator-name = "sdio0_vddo_ctrl_reg";
