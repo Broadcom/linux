@@ -86,9 +86,6 @@ main() {
 	# for uses when NS2/Stingray run standalone without NB host
 	do_update ${ARCH64} iproc $iproc_defconfig
 
-	# sr_nitro_lite_defconfig. for PAXC/Nitro bring up on Stingray palladium
-	do_update ${ARCH64} sr_nitro_lite $sr_nitro_lite_defconfig
-
 	#Cleanup 64 bit
 	make ARCH=${ARCH64} mrproper > /dev/null
 	if [ -e defconfig ]; then

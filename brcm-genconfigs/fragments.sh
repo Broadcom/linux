@@ -3,7 +3,7 @@
 # All supported defconfigs. Add new defconfigs to list for the proper
 # architecture.
 arm_defconfigs="bcm_cygnus_defconfig"
-arm64_defconfigs="iproc_defconfig sr_nitro_lite_defconfig"
+arm64_defconfigs="iproc_defconfig"
 
 # Defines the fragments that apply to each defconfig. Variable name must be the
 # same as the defconfig file.
@@ -33,5 +33,3 @@ iproc_defconfig="base-arm64 ns2 stingray \
     spi                                  \
     uio usb usbd                         \
     vfio watchdog"
-
-sr_nitro_lite_defconfig="base-arm64 stingray blk clocksource dbg fs mmu net"
