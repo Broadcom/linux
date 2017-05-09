@@ -66,10 +66,13 @@
 
 		xhci0: usb@68501000 {
 			compatible = "generic-xhci";
-			reg = <0x68501000 0x100>;
+			reg = <0x68501000 0x1000>;
 			interrupts = <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usb0_phy0 1>, <&usb0_phy1 1>;
 			phy-names = "phy0", "phy1";
+#if (USB_DMA_COHERENT == 1)
+			dma-coherent;
+#endif
 #if (ENABLE_USB == 1)
 			status = "okay";
 #else
@@ -83,6 +86,9 @@
 			interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usb0_phy0 2>, <&usb0_phy1 2>;
 			phy-names = "phy0", "phy1";
+#if (USB_DMA_COHERENT == 1)
+			dma-coherent;
+#endif
 #if (ENABLE_USB == 1)
 			status = "okay";
 #else
@@ -92,10 +98,13 @@
 
 		xhci1: usb@68511000 {
 			compatible = "generic-xhci";
-			reg = <0x68511000 0x100>;
+			reg = <0x68511000 0x1000>;
 			interrupts = <GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usb1_phy0 1>, <&usb1_phy1 1>, <&usb1_phy2 1>;
 			phy-names = "phy0", "phy1", "phy2";
+#if (USB_DMA_COHERENT == 1)
+			dma-coherent;
+#endif
 #if (ENABLE_USB == 1)
 			status = "okay";
 #else
@@ -146,6 +155,9 @@
 			interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usb1_phy1 2>;
 			phy-names = "phy0";
+#if (USB_DMA_COHERENT == 1)
+			dma-coherent;
+#endif
 #if (ENABLE_USB == 1)
 			status = "okay";
 #else
