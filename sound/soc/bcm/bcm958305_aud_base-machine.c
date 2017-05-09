@@ -31,7 +31,13 @@
 
 #include "cygnus-ssp.h"
 #include "bcm-card-utils.h"
+#include "cygnus-clk-utils.h"
 #include "../codecs/wm8994.h"
+
+struct card_state_data {
+	unsigned int    card_clocking_mode;
+	struct pll_tweak_info tweak_info;
+};
 
 /*
  * Configure audio route as follows:
@@ -80,8 +86,12 @@ static int cygnus_hw_params_wm8994(struct snd_pcm_substream *substream,
 	struct device *dev = rtd->card->dev;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct card_state_data *card_data;
 	int ret = 0;
 	unsigned int mclk_freq = 0;
+	unsigned long pll_freq = 0;
+
+	card_data = snd_soc_card_get_drvdata(rtd->card);
 
 	switch (params_rate(params)) {
 	case 8000:
@@ -93,17 +103,31 @@ static int cygnus_hw_params_wm8994(struct snd_pcm_substream *substream,
 	case 32000:
 	case 48000:
 	case 96000:
+		if (card_data->card_clocking_mode == 1)
+			pll_freq = 2162688000UL;
+
 		mclk_freq = 12288000;
 		break;
 
 	case 22050:
 	case 44100:
 	case 88200:
+		if (card_data->card_clocking_mode == 1)
+			pll_freq = 2212761600UL;
+
 		mclk_freq = 11289600;
 		break;
 
 	default:
 		return -EINVAL;
+	}
+
+	if (pll_freq) {
+		card_data->tweak_info.cpu_dai = rtd->cpu_dai;
+		ret = cygnus_ssp_pll_tweak_update(&card_data->tweak_info,
+						  pll_freq);
+		if (ret < 0)
+			return ret;
 	}
 
 	ret = snd_soc_dai_set_sysclk(codec_dai, WM8994_SYSCLK_MCLK1,
@@ -160,6 +184,8 @@ static int cygnus_init_wm8994(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_card *card = rtd->card;
 	struct snd_soc_dapm_context *dapm = &card->dapm;
+	struct card_state_data *card_data = snd_soc_card_get_drvdata(rtd->card);
+	int ret;
 
 	snd_soc_dapm_new_controls(dapm, wm8994_dapm_widgets,
 				ARRAY_SIZE(wm8994_dapm_widgets));
@@ -190,6 +216,18 @@ static int cygnus_init_wm8994(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_nc_pin(dapm, "IN1RN");
 	snd_soc_dapm_nc_pin(dapm, "IN2LP:VXRN");
 	snd_soc_dapm_nc_pin(dapm, "IN2RP:VXRP");
+
+	/*
+	 * For testing and as an example add in the ssp kcontrols that
+	 * allow us to tweak the pll.  This could be done on any port
+	 * but this one has the headphone jack so it is easiest.
+	 */
+	card_data->tweak_info.cpu_dai = rtd->cpu_dai;
+	ret = cygnus_ssp_pll_tweak_initialize(&card_data->tweak_info, "Link0");
+	if (ret) {
+		dev_err(card->dev, "Could not init Tweak control\n");
+		return ret;
+	}
 
 	return 0;
 }
@@ -333,18 +371,67 @@ static struct snd_soc_dai_link cygnus_dai_links[] = {
 },
 };
 
+static int card_clocking_mode_get(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_card *soc_card = snd_kcontrol_chip(kcontrol);
+	struct card_state_data *card_data = snd_soc_card_get_drvdata(soc_card);
+
+	ucontrol->value.integer.value[0] = card_data->card_clocking_mode;
+	return 0;
+}
+
+static int card_clocking_mode_set(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct card_state_data *card_data = snd_soc_card_get_drvdata(card);
+	int value;
+
+	value = ucontrol->value.integer.value[0];
+	card_data->card_clocking_mode = value;
+
+	return 0;
+}
+
+static int card_clocking_mode_info(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 2;
+	return 0;
+}
+
+static struct snd_kcontrol_new card_clock_mode_control = {
+	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.name = "Board Clocking Mode",
+	.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+	.info = card_clocking_mode_info,
+	.get = card_clocking_mode_get,
+	.put = card_clocking_mode_set
+};
+
+int cygnus_audiobase_card_probe(struct snd_soc_card *card)
+{
+	return snd_soc_add_card_controls(card, &card_clock_mode_control, 1);
+}
+
 /* Audio machine driver */
 static struct snd_soc_card cygnus_audio_card = {
 	.name = "bcm-cygnus-aud-base",
 	.owner = THIS_MODULE,
 	.dai_link = cygnus_dai_links,
 	.num_links = ARRAY_SIZE(cygnus_dai_links),
+	.probe     = cygnus_audiobase_card_probe,
 };
 
 static int cygnus_aud_base_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &cygnus_audio_card;
 	struct snd_soc_pcm_runtime *rtd;
+	struct card_state_data *card_data;
 	struct device_node *link_np;
 	char name[PROP_LEN_MAX];
 	int ret = 0;
@@ -353,6 +440,12 @@ static int cygnus_aud_base_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "Enter %s\n", __func__);
 
 	card->dev = &pdev->dev;
+
+	card_data = devm_kzalloc(&pdev->dev, sizeof(*card_data), GFP_KERNEL);
+	if (card_data == NULL)
+		return -ENOMEM;
+
+	card_data->card_clocking_mode = 0;
 
 	for (i = 0; i < ARRAY_SIZE(cygnus_dai_links); i++) {
 		snprintf(name, PROP_LEN_MAX, "link%d", i);
@@ -367,6 +460,7 @@ static int cygnus_aud_base_probe(struct platform_device *pdev)
 			goto err_exit;
 	}
 
+	snd_soc_card_set_drvdata(card, card_data);
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed: %d\n", ret);
