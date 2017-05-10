@@ -72,6 +72,7 @@ struct iproc_msi;
  * @ep_is_internal: indicates an internal emulated endpoint device is connected
  * @nr_pf: number of physical functions (only valid for internally emulated
  * EPs)
+ * @iproc_cfg_read: indicates the iProc config read function should be used
  * @has_apb_err_disable: indicates the controller can be configured to prevent
  * unsupported request from being forwarded as an APB bus error
  *
@@ -104,6 +105,7 @@ struct iproc_pcie {
 	int (*map_irq)(const struct pci_dev *, u8, u8);
 	bool ep_is_internal;
 	unsigned int nr_pf;
+	bool iproc_cfg_read;
 	bool has_apb_err_disable;
 
 	bool need_ob_cfg;

@@ -575,6 +575,25 @@ static int iproc_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 	if (size <= 2)
 		*val = (*val >> (8 * (where & 3))) & ((1 << (size * 8)) - 1);
 
+	/*
+	 * For PAXCv2, the total number of PFs that one can enumerate depends
+	 * on the firmware configuration. Unfortunately, due to an ASIC bug,
+	 * unconfigured PFs cannot be properly hidden from the root complex. As
+	 * a result, write access to these PFs will cause bus lock up on the
+	 * embedded processor
+	 *
+	 * Since all unconfigured PFs are left with a device ID of 0x168e
+	 * (PCI_DEVICE_ID_NX2_57810), we try to catch those access early here
+	 * and reject them all
+	 */
+#define DEVICE_ID_MASK     0xffff0000
+#define DEVICE_ID_SHIFT    16
+	if (pcie->type == IPROC_PCIE_PAXC_V2 &&
+	    (where & CFG_ADDR_REG_NUM_MASK) == PCI_VENDOR_ID)
+		if ((*val & DEVICE_ID_MASK) ==
+		    (PCI_DEVICE_ID_NX2_57810 << DEVICE_ID_SHIFT))
+			return PCIBIOS_FUNC_NOT_SUPPORTED;
+
 	return PCIBIOS_SUCCESSFUL;
 }
 
@@ -585,7 +604,7 @@ static int iproc_pcie_config_read32(struct pci_bus *bus, unsigned int devfn,
 	struct iproc_pcie *pcie = iproc_data(bus);
 
 	iproc_pcie_apb_err_disable(bus, true);
-	if (pcie->type == IPROC_PCIE_PAXB_V2)
+	if (pcie->iproc_cfg_read)
 		ret = iproc_pcie_config_read(bus, devfn, where, size, val);
 	else
 		ret = pci_generic_config_read32(bus, devfn, where, size, val);
@@ -1341,6 +1360,7 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 		break;
 	case IPROC_PCIE_PAXB_V2:
 		regs = iproc_pcie_reg_paxb_v2;
+		pcie->iproc_cfg_read = true;
 		pcie->has_apb_err_disable = true;
 		if (pcie->need_ob_cfg) {
 			pcie->ob_map = paxb_v2_ob_map;
@@ -1358,12 +1378,8 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 	case IPROC_PCIE_PAXC_V2:
 		regs = iproc_pcie_reg_paxc_v2;
 		pcie->ep_is_internal = true;
+		pcie->iproc_cfg_read = true;
 		pcie->need_msi_steer = true;
-		/*
-		 * Limit max allowed number of PFs to 2 until Chimp can
-		 * properly hide unconfigured PFs
-		 */
-		pcie->nr_pf = 2;
 		break;
 	default:
 		dev_err(dev, "incompatible iProc PCIe interface\n");
