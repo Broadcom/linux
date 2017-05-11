@@ -7,6 +7,7 @@ dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742t.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742t-diag.dtb
 
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm957604k.dtb
+dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm957604k-diag.dtb
 
 dts-dirs	:= emulator
 always		:= $(dtb-y)
