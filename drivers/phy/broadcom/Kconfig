@@ -1,0 +1,146 @@
+#
+# Phy drivers for Broadcom platforms
+#
+config PHY_CYGNUS_PCIE
+	tristate "Broadcom Cygnus PCIe PHY driver"
+	depends on OF && (ARCH_BCM_CYGNUS || COMPILE_TEST)
+	select GENERIC_PHY
+	default ARCH_BCM_CYGNUS
+	help
+	  Enable this to support the Broadcom Cygnus PCIe PHY.
+	  If unsure, say N.
+
+config PHY_STINGRAY_PCIE
+	tristate "Broadcom Stingray PCIe PHY driver"
+	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
+	select GENERIC_PHY
+	select MFD_SYSCON
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Stingray PCIe PHY
+	  If unsure, say N.
+
+config PHY_STINGRAY_PCIE_PRBS
+	tristate "Broadcom Stingray PCIe PHY PRBS driver"
+	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Stingray PCIe PHY PRBS test.
+	  If unsure, say N.
+
+config PHY_STINGRAY_SATA_PRBS
+	tristate "Broadcom Stingray SATA PHY PRBS driver"
+	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Stingray SATA PHY PRBS test.
+	  If unsure, say N.
+
+config PHY_NS2_PCIE
+	tristate "Broadcom Northstar2 PCIe PHY driver"
+	depends on OF && MDIO_BUS_MUX_BCM_IPROC
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Northstar2 PCIe PHY.
+	  If unsure, say N.
+
+config PHY_NS2_USB2
+	tristate "Broadcom NS2 USB 2.0 PHY support"
+	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom NS2 USB 2.0 PHY.
+	  If unsure, say N.
+
+config PHY_NS2_USB3
+	tristate "Broadcom NorthStar2 USB3 PHY driver"
+	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
+	depends on MDIO_BUS_MUX_BCM_IPROC
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Northstar2 USB3 PHY.
+	  If unsure, say N.
+
+config PHY_STINGRAY_USB
+	tristate "Broadcom Stingray USB2 DRD PHY driver"
+	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Stingray USB PHY for DRDU3,
+	  DRDU2 and USB3H.
+	  If unsure, say N.
+
+config BCM_KONA_USB2_PHY
+	tristate "Broadcom Kona USB2 PHY Driver"
+	depends on HAS_IOMEM
+	select GENERIC_PHY
+	help
+	  Enable this to support the Broadcom Kona USB 2.0 PHY.
+
+config PHY_BCM_CYGNUS_USB
+	tristate "Broadcom Cygnus USB PHY support"
+	depends on OF
+	depends on ARCH_BCM_CYGNUS || COMPILE_TEST
+	select GENERIC_PHY
+	default n
+	help
+	  Enable this to support the USB PHY in Broadcom's Cygnus chip.
+	  The phys are capable of supporting host mode for all ports
+	  and device mode for port 2. The host or device configuration is
+	  read from the device tree.
+
+config PHY_BCM_NS_USB2
+	tristate "Broadcom Northstar USB 2.0 PHY Driver"
+	depends on ARCH_BCM_IPROC || COMPILE_TEST
+	depends on HAS_IOMEM && OF
+	select GENERIC_PHY
+	help
+	  Enable this to support Broadcom USB 2.0 PHY connected to the USB
+	  controller on Northstar family.
+
+config PHY_BCM_NS_USB3
+	tristate "Broadcom Northstar USB 3.0 PHY Driver"
+	depends on ARCH_BCM_IPROC || COMPILE_TEST
+	depends on HAS_IOMEM && OF
+	select GENERIC_PHY
+	help
+	  Enable this to support Broadcom USB 3.0 PHY connected to the USB
+	  controller on Northstar family.
+
+config PHY_NS2_PCIE
+	tristate "Broadcom Northstar2 PCIe PHY driver"
+	depends on OF && MDIO_BUS_MUX_BCM_IPROC
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Northstar2 PCIe PHY.
+	  If unsure, say N.
+
+config PHY_NS2_USB_DRD
+	tristate "Broadcom Northstar2 USB DRD PHY support"
+	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
+	select GENERIC_PHY
+	select EXTCON
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Northstar2 USB DRD PHY.
+	  This driver initializes the PHY in either HOST or DEVICE mode.
+	  The host or device configuration is read from device tree.
+
+	  If unsure, say N.
+
+config PHY_BRCM_SATA
+	tristate "Broadcom SATA PHY driver"
+	depends on ARCH_BRCMSTB || ARCH_BCM_IPROC || BMIPS_GENERIC || COMPILE_TEST
+	depends on OF
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom SATA PHY.
+	  If unsure, say N.
