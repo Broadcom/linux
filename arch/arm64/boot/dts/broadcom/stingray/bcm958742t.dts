@@ -54,3 +54,7 @@
 };
 
 #include "bcm958742-base.dtsi"
+
+&gphy0 {
+	enet-phy-lane-swap;
+};
