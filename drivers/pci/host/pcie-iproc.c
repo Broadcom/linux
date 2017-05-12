@@ -576,19 +576,19 @@ static int iproc_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 		*val = (*val >> (8 * (where & 3))) & ((1 << (size * 8)) - 1);
 
 	/*
-	 * For PAXCv2, the total number of PFs that one can enumerate depends
-	 * on the firmware configuration. Unfortunately, due to an ASIC bug,
-	 * unconfigured PFs cannot be properly hidden from the root complex. As
-	 * a result, write access to these PFs will cause bus lock up on the
-	 * embedded processor
+	 * For PAXC and PAXCv2, the total number of PFs that one can enumerate
+	 * depends on the firmware configuration. Unfortunately, due to an ASIC
+	 * bug, unconfigured PFs cannot be properly hidden from the root
+	 * complex. As a result, write access to these PFs will cause bus lock
+	 * up on the embedded processor
 	 *
-	 * Since all unconfigured PFs are left with a device ID of 0x168e
-	 * (PCI_DEVICE_ID_NX2_57810), we try to catch those access early here
-	 * and reject them all
+	 * Since all unconfigured PFs are left with an incorrect, staled device
+	 * ID of 0x168e (PCI_DEVICE_ID_NX2_57810), we try to catch those access
+	 * early here and reject them all
 	 */
 #define DEVICE_ID_MASK     0xffff0000
 #define DEVICE_ID_SHIFT    16
-	if (pcie->type == IPROC_PCIE_PAXC_V2 &&
+	if (pcie->rej_unconfig_pf &&
 	    (where & CFG_ADDR_REG_NUM_MASK) == PCI_VENDOR_ID)
 		if ((*val & DEVICE_ID_MASK) ==
 		    (PCI_DEVICE_ID_NX2_57810 << DEVICE_ID_SHIFT))
@@ -1373,12 +1373,14 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 	case IPROC_PCIE_PAXC:
 		regs = iproc_pcie_reg_paxc;
 		pcie->ep_is_internal = true;
+		pcie->rej_unconfig_pf = true;
 		pcie->nr_pf = 4;
 		break;
 	case IPROC_PCIE_PAXC_V2:
 		regs = iproc_pcie_reg_paxc_v2;
 		pcie->ep_is_internal = true;
 		pcie->iproc_cfg_read = true;
+		pcie->rej_unconfig_pf = true;
 		pcie->need_msi_steer = true;
 		break;
 	default:

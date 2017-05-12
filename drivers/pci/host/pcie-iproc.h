@@ -73,6 +73,8 @@ struct iproc_msi;
  * @nr_pf: number of physical functions (only valid for internally emulated
  * EPs)
  * @iproc_cfg_read: indicates the iProc config read function should be used
+ * @rej_unconfig_pf: indicates the root complex needs to detect and reject
+ * enumeration against unconfigured physical functions emulated in the ASIC
  * @has_apb_err_disable: indicates the controller can be configured to prevent
  * unsupported request from being forwarded as an APB bus error
  *
@@ -106,6 +108,7 @@ struct iproc_pcie {
 	bool ep_is_internal;
 	unsigned int nr_pf;
 	bool iproc_cfg_read;
+	bool rej_unconfig_pf;
 	bool has_apb_err_disable;
 
 	bool need_ob_cfg;
