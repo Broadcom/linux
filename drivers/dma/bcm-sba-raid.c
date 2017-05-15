@@ -39,7 +39,6 @@
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
-#include <linux/interrupt.h>
 #include <linux/list.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/brcm-message.h>
@@ -87,6 +86,7 @@
 
 #define SBA_MAX_REQ_PER_MBOX_CHANNEL			8192
 
+/* Driver helper macros */
 #define to_sba_request(tx)		\
 	container_of(tx, struct sba_request, tx)
 #define to_sba_device(dchan)		\
@@ -131,11 +131,11 @@ struct sba_device {
 	/* DT configuration parameters */
 	enum sba_version ver;
 	/* Derived configuration parameters */
+	u32 max_req;
 	u32 hw_buf_size;
 	u32 hw_resp_size;
 	u32 max_pq_coefs;
 	u32 max_pq_srcs;
-	u32 max_req;
 	u32 max_cmd_per_req;
 	u32 max_xor_srcs;
 	u32 max_resp_pool_size;
