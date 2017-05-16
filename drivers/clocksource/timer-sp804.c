@@ -29,7 +29,6 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/sched_clock.h>
-#include <linux/slab.h>
 
 #include <clocksource/timer-sp804.h>
 
@@ -81,7 +80,7 @@ void __init sp804_timer_disable(void __iomem *base)
 int  __init __sp804_clocksource_and_sched_clock_init(void __iomem *base,
 						     const char *name,
 						     struct clk *clk,
-						     bool use_sched_clock)
+						     int use_sched_clock)
 {
 	long rate;
 
@@ -221,18 +220,12 @@ int __init __sp804_clockevents_init(void __iomem *base, unsigned int irq, struct
 
 static int __init sp804_of_init(struct device_node *np)
 {
-	static bool sched_clock_provided = false;
-	static int init_count = 0;
-	bool use_sched_clock = true;
+	static bool initialized = false;
 	void __iomem *base;
 	int irq, ret = -EINVAL;
 	u32 irq_num = 0;
 	struct clk *clk1, *clk2;
-	char *new_name;
 	const char *name = of_get_property(np, "compatible", NULL);
-
-	if (of_property_read_bool(np, "arm,sp804-no-sched-clock"))
-		use_sched_clock = false;
 
 	base = of_iomap(np, 0);
 	if (!base)
@@ -242,8 +235,7 @@ static int __init sp804_of_init(struct device_node *np)
 	writel(0, base + TIMER_CTRL);
 	writel(0, base + TIMER_2_BASE + TIMER_CTRL);
 
-	if ((use_sched_clock && sched_clock_provided) ||
-	    !of_device_is_available(np)) {
+	if (initialized || !of_device_is_available(np)) {
 		ret = -EINVAL;
 		goto err;
 	}
@@ -267,15 +259,6 @@ static int __init sp804_of_init(struct device_node *np)
 	if (irq <= 0)
 		goto err;
 
-	if (init_count) {
-		new_name = kzalloc(strlen(name) + 16, GFP_KERNEL);
-		if (!new_name)
-			goto err;
-		scnprintf(new_name, strlen(name) + 16, "%s,%d",
-			  name, init_count);
-		name = new_name;
-	}
-
 	of_property_read_u32(np, "arm,sp804-has-irq", &irq_num);
 	if (irq_num == 2) {
 
@@ -283,8 +266,7 @@ static int __init sp804_of_init(struct device_node *np)
 		if (ret)
 			goto err;
 
-		ret = __sp804_clocksource_and_sched_clock_init(base, name,
-							       clk1, use_sched_clock);
+		ret = __sp804_clocksource_and_sched_clock_init(base, name, clk1, 1);
 		if (ret)
 			goto err;
 	} else {
@@ -294,14 +276,11 @@ static int __init sp804_of_init(struct device_node *np)
 			goto err;
 
 		ret =__sp804_clocksource_and_sched_clock_init(base + TIMER_2_BASE,
-							      name, clk2,
-							      use_sched_clock);
+							      name, clk2, 1);
 		if (ret)
 			goto err;
 	}
-	if (use_sched_clock)
-		sched_clock_provided = true;
-	init_count++;
+	initialized = true;
 
 	return 0;
 err:
@@ -337,8 +316,7 @@ static int __init integrator_cp_of_init(struct device_node *np)
 		goto err;
 
 	if (!init_count) {
-		ret = __sp804_clocksource_and_sched_clock_init(base, name, clk,
-							       false);
+		ret = __sp804_clocksource_and_sched_clock_init(base, name, clk, 0);
 		if (ret)
 			goto err;
 	} else {
