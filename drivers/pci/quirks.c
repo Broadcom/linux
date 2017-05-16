@@ -1685,6 +1685,29 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL,	0x260a, quirk_intel_pcie_pm);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL,	0x260b, quirk_intel_pcie_pm);
 
 #ifdef CONFIG_X86_IO_APIC
+static int dmi_disable_ioapicreroute(const struct dmi_system_id *d)
+{
+	noioapicreroute = 1;
+	pr_info("%s detected: disable boot interrupt reroute\n", d->ident);
+
+	return 0;
+}
+
+static struct dmi_system_id boot_interrupt_dmi_table[] = {
+	/*
+	 * Systems to exclude from boot interrupt reroute quirks
+	 */
+	{
+		.callback = dmi_disable_ioapicreroute,
+		.ident = "ASUSTek Computer INC. M2N-LR",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "ASUSTek Computer INC."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "M2N-LR"),
+		},
+	},
+	{}
+};
+
 /*
  * Boot interrupts on some chipsets cannot be turned off. For these chipsets,
  * remap the original interrupt in the linux kernel to the boot interrupt, so
@@ -1693,6 +1716,7 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL,	0x260b, quirk_intel_pcie_pm);
  */
 static void quirk_reroute_to_boot_interrupts_intel(struct pci_dev *dev)
 {
+	dmi_check_system(boot_interrupt_dmi_table);
 	if (noioapicquirk || noioapicreroute)
 		return;
 
@@ -3939,6 +3963,8 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_ASMEDIA, 0x1080,
 DECLARE_PCI_FIXUP_HEADER(0x10e3, 0x8113, quirk_use_pcie_bridge_dma_alias);
 /* ITE 8892, https://bugzilla.kernel.org/show_bug.cgi?id=73551 */
 DECLARE_PCI_FIXUP_HEADER(0x1283, 0x8892, quirk_use_pcie_bridge_dma_alias);
+/* ITE 8893 has the same problem as the 8892 */
+DECLARE_PCI_FIXUP_HEADER(0x1283, 0x8893, quirk_use_pcie_bridge_dma_alias);
 /* Intel 82801, https://bugzilla.kernel.org/show_bug.cgi?id=44881#c49 */
 DECLARE_PCI_FIXUP_HEADER(0x8086, 0x244e, quirk_use_pcie_bridge_dma_alias);
 
@@ -3956,6 +3982,20 @@ static void quirk_mic_x200_dma_alias(struct pci_dev *pdev)
 }
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x2260, quirk_mic_x200_dma_alias);
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x2264, quirk_mic_x200_dma_alias);
+
+/*
+ * The IOMMU and interrupt controller on Broadcom Vulcan/Cavium ThunderX2 are
+ * associated not at the root bus, but at a bridge below. This quirk avoids
+ * generating invalid DMA aliases.
+ */
+static void quirk_bridge_cavm_thrx2_pcie_root(struct pci_dev *pdev)
+{
+	pdev->dev_flags |= PCI_DEV_FLAGS_BRIDGE_XLATE_ROOT;
+}
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM, 0x9000,
+				quirk_bridge_cavm_thrx2_pcie_root);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM, 0x9084,
+				quirk_bridge_cavm_thrx2_pcie_root);
 
 /*
  * Intersil/Techwell TW686[4589]-based video capture cards have an empty (zero)
@@ -4094,6 +4134,9 @@ static int pci_quirk_cavium_acs(struct pci_dev *dev, u16 acs_flags)
 	 */
 	acs_flags &= ~(PCI_ACS_SV | PCI_ACS_TB | PCI_ACS_RR |
 		       PCI_ACS_CR | PCI_ACS_UF | PCI_ACS_DT);
+
+	if (!((dev->device >= 0xa000) && (dev->device <= 0xa0ff)))
+		return -ENOTTY;
 
 	return acs_flags ? 0 : 1;
 }

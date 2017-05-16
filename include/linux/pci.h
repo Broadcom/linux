@@ -28,6 +28,7 @@
 #include <linux/kobject.h>
 #include <linux/atomic.h>
 #include <linux/device.h>
+#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/resource_ext.h>
 #include <uapi/linux/pci.h>
@@ -178,6 +179,8 @@ enum pci_dev_flags {
 	PCI_DEV_FLAGS_NO_PM_RESET = (__force pci_dev_flags_t) (1 << 7),
 	/* Get VPD from function 0 VPD */
 	PCI_DEV_FLAGS_VPD_REF_F0 = (__force pci_dev_flags_t) (1 << 8),
+	/* a non-root bridge where translation occurs, stop alias search here */
+	PCI_DEV_FLAGS_BRIDGE_XLATE_ROOT = (__force pci_dev_flags_t) (1 << 9),
 };
 
 enum pci_irq_reroute_variant {
@@ -396,6 +399,8 @@ struct pci_dev {
 	phys_addr_t rom; /* Physical address of ROM if it's not from the BAR */
 	size_t romlen; /* Length of ROM if it's not from the BAR */
 	char *driver_override; /* Driver name to force a match */
+
+	unsigned long priv_flags; /* Private flags for the pci driver */
 };
 
 static inline struct pci_dev *pci_physfn(struct pci_dev *dev)
@@ -940,32 +945,12 @@ int pci_generic_config_write32(struct pci_bus *bus, unsigned int devfn,
 
 struct pci_ops *pci_bus_set_ops(struct pci_bus *bus, struct pci_ops *ops);
 
-static inline int pci_read_config_byte(const struct pci_dev *dev, int where, u8 *val)
-{
-	return pci_bus_read_config_byte(dev->bus, dev->devfn, where, val);
-}
-static inline int pci_read_config_word(const struct pci_dev *dev, int where, u16 *val)
-{
-	return pci_bus_read_config_word(dev->bus, dev->devfn, where, val);
-}
-static inline int pci_read_config_dword(const struct pci_dev *dev, int where,
-					u32 *val)
-{
-	return pci_bus_read_config_dword(dev->bus, dev->devfn, where, val);
-}
-static inline int pci_write_config_byte(const struct pci_dev *dev, int where, u8 val)
-{
-	return pci_bus_write_config_byte(dev->bus, dev->devfn, where, val);
-}
-static inline int pci_write_config_word(const struct pci_dev *dev, int where, u16 val)
-{
-	return pci_bus_write_config_word(dev->bus, dev->devfn, where, val);
-}
-static inline int pci_write_config_dword(const struct pci_dev *dev, int where,
-					 u32 val)
-{
-	return pci_bus_write_config_dword(dev->bus, dev->devfn, where, val);
-}
+int pci_read_config_byte(const struct pci_dev *dev, int where, u8 *val);
+int pci_read_config_word(const struct pci_dev *dev, int where, u16 *val);
+int pci_read_config_dword(const struct pci_dev *dev, int where, u32 *val);
+int pci_write_config_byte(const struct pci_dev *dev, int where, u8 val);
+int pci_write_config_word(const struct pci_dev *dev, int where, u16 val);
+int pci_write_config_dword(const struct pci_dev *dev, int where, u32 val);
 
 int pcie_capability_read_word(struct pci_dev *dev, int pos, u16 *val);
 int pcie_capability_read_dword(struct pci_dev *dev, int pos, u32 *val);
@@ -1071,6 +1056,11 @@ int __must_check pci_reassign_resource(struct pci_dev *dev, int i, resource_size
 int pci_select_bars(struct pci_dev *dev, unsigned long flags);
 bool pci_device_is_present(struct pci_dev *pdev);
 void pci_ignore_hotplug(struct pci_dev *dev);
+
+int __printf(6, 7) pci_request_irq(struct pci_dev *dev, unsigned int nr,
+		irq_handler_t handler, irq_handler_t thread_fn, void *dev_id,
+		const char *fmt, ...);
+void pci_free_irq(struct pci_dev *dev, unsigned int nr, void *dev_id);
 
 /* ROM control related routines */
 int pci_enable_rom(struct pci_dev *pdev);
@@ -1199,6 +1189,11 @@ unsigned long pci_address_to_pio(phys_addr_t addr);
 phys_addr_t pci_pio_to_address(unsigned long pio);
 int pci_remap_iospace(const struct resource *res, phys_addr_t phys_addr);
 void pci_unmap_iospace(struct resource *res);
+void __iomem *devm_pci_remap_cfgspace(struct device *dev,
+				      resource_size_t offset,
+				      resource_size_t size);
+void __iomem *devm_pci_remap_cfg_resource(struct device *dev,
+					  struct resource *res);
 
 static inline pci_bus_addr_t pci_bus_address(struct pci_dev *pdev, int bar)
 {
