@@ -355,7 +355,6 @@
 				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			arm,sp804-no-sched-clock;
 			status = "disabled";
 		};
 
@@ -367,7 +366,6 @@
 				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			arm,sp804-no-sched-clock;
 		};
 
 		timer2: timer@68950000 {
@@ -378,7 +376,7 @@
 				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			arm,sp804-no-sched-clock;
+			status = "disabled";
 		};
 
 		timer3: timer@68960000 {
@@ -389,7 +387,7 @@
 				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			arm,sp804-no-sched-clock;
+			status = "disabled";
 		};
 
 		timer4: timer@68970000 {
@@ -400,7 +398,7 @@
 				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			arm,sp804-no-sched-clock;
+			status = "disabled";
 		};
 
 		timer5: timer@68980000 {
@@ -411,7 +409,7 @@
 				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			arm,sp804-no-sched-clock;
+			status = "disabled";
 		};
 
 		timer6: timer@68990000 {
@@ -422,7 +420,7 @@
 				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			arm,sp804-no-sched-clock;
+			status = "disabled";
 		};
 
 		timer7: timer@689a0000 {
@@ -433,7 +431,7 @@
 				 <&hsls_25m_div2_clk>,
 				 <&hsls_div4_clk>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			arm,sp804-no-sched-clock;
+			status = "disabled";
 		};
 
 		i2c0: i2c@689b0000 {
