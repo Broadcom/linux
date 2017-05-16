@@ -149,7 +149,6 @@
 };
 
 &ssp0 {
-	pinctrl-0 = <&spi0_pins>;
 	cs-gpios = <&gpio_hsls 34 0>;
 #if (ENABLE_SSP0 == 1)
 	status = "okay";
@@ -165,7 +164,6 @@
 };
 
 &ssp1 {
-	pinctrl-0 = <&spi1_pins>;
 	cs-gpios = <&gpio_hsls 96 0>;
 #if (ENABLE_SSP1 == 1)
 	status = "okay";
