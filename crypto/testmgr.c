@@ -32,7 +32,6 @@
 #include <crypto/rng.h>
 #include <crypto/drbg.h>
 #include <crypto/akcipher.h>
-#include <crypto/rabin.h>
 #include <crypto/kpp.h>
 #include <crypto/acompress.h>
 
@@ -89,12 +88,6 @@ struct aead_test_suite {
 	} enc, dec;
 };
 
-struct rabin_test_suite {
-	struct rabin_testvec *vecs;
-	unsigned int count;
-};
-
-
 struct cipher_test_suite {
 	struct {
 		struct cipher_testvec *vecs;
@@ -148,7 +141,6 @@ struct alg_test_desc {
 		struct cprng_test_suite cprng;
 		struct drbg_test_suite drbg;
 		struct akcipher_test_suite akcipher;
-		struct rabin_test_suite rabin;
 		struct kpp_test_suite kpp;
 	} suite;
 };
@@ -207,119 +199,6 @@ static int wait_async_op(struct tcrypt_result *tr, int ret)
 		reinit_completion(&tr->completion);
 		ret = tr->err;
 	}
-	return ret;
-}
-
-static int __test_rabin(struct crypto_rabin *tfm,
-			struct rabin_testvec *template, unsigned int tcount)
-{
-	const char *algo = crypto_tfm_alg_driver_name(crypto_rabin_tfm(tfm));
-	struct rabin_request *req;
-	struct tcrypt_result tresult;
-	struct scatterlist src_sg, *sg;
-	struct dst_sgt;
-	char *dst_xbuf[XBUFSIZE];
-	struct sg_table dst_sgt;
-	struct fp_desc *fp_desc;
-	u8 *refp, *src_buf, *rfcdp = NULL;
-	u32 taglen, skip, rfcd_size, sg_cnt;
-	int i, j, ret = -ENOMEM;
-
-	init_completion(&tresult.completion);
-
-	req = rabin_request_alloc(tfm, GFP_KERNEL);
-	if (!req) {
-		pr_err("alg:rabin: Failed to allocate request for:%s\n", algo);
-		return -ENOMEM;
-	}
-	rabin_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
-				   tcrypt_complete, &tresult);
-
-	if (testmgr_alloc_buf(dst_xbuf))
-		goto out_no_xbuf;
-	ret = sg_alloc_table(&dst_sgt, XBUFSIZE, GFP_KERNEL);
-	if (ret)
-		goto out_no_sgtable;
-	sg_init_table(dst_sgt.sgl, XBUFSIZE);
-
-	for_each_sg(dst_sgt.sgl, sg, sg_nents(dst_sgt.sgl), i)
-		sg_set_buf(sg, dst_xbuf[i], PAGE_SIZE);
-
-	for (i = 0; i < tcount; i++) {
-		src_buf = kzalloc(template[i].psize, GFP_KERNEL);
-		if (!src_buf)
-			goto out_no_srcbuf;
-		memcpy(src_buf, template[i].plaintext, template[i].psize);
-		sg_init_one(&src_sg, src_buf, template[i].psize);
-		pr_info("%s: s:%u\n", __func__, template[i].psize);
-		crypto_rabin_set_polynomial(tfm, template[i].polynomial);
-		crypto_rabin_set_win_size(tfm, template[i].win_size);
-		crypto_rabin_set_chunk_size(tfm, template[i].min_chunk_size,
-						template[i].max_chunk_size);
-
-		for (j = 0; (template[i].tfp_flag & (1 << j)); j++)
-			crypto_rabin_set_termination(tfm,
-				template[i].tfp[j], template[i].tfp_mask[j]);
-
-
-		req->src_sg = &src_sg;
-		req->dst_sg = dst_sgt.sgl;
-		req->tag = template[i].tag;
-
-		ret = wait_async_op(&tresult,
-					crypto_rabin_get_finger_print(req));
-		if (ret) {
-			pr_err("rabin: fp failed on test %d for :%s, ret:%d",
-								i, algo, ret);
-			goto out_no_sgbuf;
-		}
-
-		refp = template[i].fp;
-		taglen = crypto_rabin_get_tag_size(template[i].tag);
-		rfcd_size = taglen + sizeof(*fp_desc);
-		rfcdp = kzalloc(rfcd_size, GFP_KERNEL);
-		if (!rfcdp)
-			goto out_no_sgbuf;
-		skip = 0;
-		sg_cnt = sg_nents(req->dst_sg);
-		do {
-			ret = sg_pcopy_to_buffer(req->dst_sg, sg_cnt,
-			  rfcdp, rfcd_size, skip);
-
-			if (ret != rfcd_size) {
-				pr_info("error in sg copy error :%x\n", skip);
-				goto out;
-			}
-			if (memcmp(rfcdp, refp + skip, rfcd_size)) {
-				pr_info("fp mismath :0x%x\n", skip);
-				goto out;
-			}
-			skip += rfcd_size;
-
-			fp_desc = (struct fp_desc *)(rfcdp + taglen);
-
-		} while (fp_desc->status == 0x0); /* check for end condition */
-
-		/* put buffers in sane state */
-		kfree(rfcdp);
-		rfcdp = NULL;
-		kfree(sg_virt(&src_sg));
-		src_buf = NULL;
-		for (j = 0; j < XBUFSIZE; j++)
-			memset(dst_xbuf[i], 0x0, PAGE_SIZE);
-	}
-	ret = 0;
-	pr_info("Finger print matched\n");
-out:
-	kfree(rfcdp);
-out_no_sgbuf:
-	kfree(src_buf);
-out_no_srcbuf:
-	sg_free_table(&dst_sgt);
-out_no_sgtable:
-	testmgr_free_buf(dst_xbuf);
-out_no_xbuf:
-	rabin_request_free(req);
 	return ret;
 }
 
@@ -657,12 +536,6 @@ out_nobuf:
 	kfree(key);
 	kfree(result);
 	return ret;
-}
-
-static int test_rabin(struct crypto_rabin *tfm, struct rabin_testvec *template,
-		     unsigned int tcount)
-{
-	return __test_rabin(tfm, template, tcount);
 }
 
 static int test_hash(struct crypto_ahash *tfm, struct hash_testvec *template,
@@ -1898,26 +1771,6 @@ static int alg_test_comp(const struct alg_test_desc *desc, const char *driver,
 
 		crypto_free_comp(comp);
 	}
-	return err;
-}
-
-static int alg_test_rabin(const struct alg_test_desc *desc, const char *driver,
-			 u32 type, u32 mask)
-{
-	struct crypto_rabin *tfm;
-	int err;
-
-	tfm = crypto_alloc_rabin(driver, type | CRYPTO_ALG_INTERNAL, mask);
-	if (IS_ERR(tfm)) {
-		pr_err("alg: rabin: Failed to load transform for %s: %ld\n",
-							driver, PTR_ERR(tfm));
-		return PTR_ERR(tfm);
-	}
-
-	err = test_rabin(tfm, desc->suite.rabin.vecs,
-			desc->suite.rabin.count);
-
-	crypto_free_rabin(tfm);
 	return err;
 }
 
@@ -3370,15 +3223,6 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.test = alg_test_hash,
 		.suite = {
 			.hash = __VECS(poly1305_tv_template)
-		}
-	}, {
-		.alg = "rabin-fp",
-		.test = alg_test_rabin,
-		.suite = {
-			.rabin = {
-				.vecs = rabin_tv_template,
-				.count = RABIN_TEST_VECTORS
-			}
 		}
 	}, {
 		.alg = "rfc3686(ctr(aes))",

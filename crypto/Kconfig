@@ -148,7 +148,6 @@ config CRYPTO_MANAGER2
 	select CRYPTO_AKCIPHER2
 	select CRYPTO_KPP2
 	select CRYPTO_ACOMP2
-	select CRYPTO_RABIN_FINGER_PRINT
 
 config CRYPTO_USER
 	tristate "Userspace cryptographic algorithm configuration"
@@ -643,28 +642,6 @@ config CRYPTO_RMD320
 
 	  Developed by Hans Dobbertin, Antoon Bosselaers and Bart Preneel.
 	  See <http://homes.esat.kuleuven.be/~bosselae/ripemd160.html>
-
-config CRYPTO_RABIN_FINGER_PRINT
-	tristate "Rabin Finger Print support"
-	help
-	  This supports framework for Rabin Finger print to calculate
-	  a rolling hash where the input is hashed in a window that moves
-	  through the input. This support provides an additional feature where
-	  hash could be calculated for that complete chunk along with finger
-	  print.
-
-config CRYPTO_RABIN_FINGER_PRINT_ALG
-	tristate "Rabin Finger Print algorithm"
-	select CRYPTO_MD5
-	select CRYPTO_SHA1
-	select CRYPTO_SHA256
-	select CRYPTO_SHA512
-	select CRYPTO_RABIN_FINGER_PRINT
-	help
-	  This implements the Rabin Finger print in software to calculate
-	  a rolling hash where the input is hashed in a window that moves
-	  through the input. This calculates requested hash along with
-	  finger prints.
 
 config CRYPTO_SHA1
 	tristate "SHA1 digest algorithm"

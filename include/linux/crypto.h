@@ -50,7 +50,6 @@
 #define CRYPTO_ALG_TYPE_SKCIPHER	0x00000005
 #define CRYPTO_ALG_TYPE_GIVCIPHER	0x00000006
 #define CRYPTO_ALG_TYPE_KPP		0x00000008
-#define CRYPTO_ALG_TYPE_RABIN		0x00000009
 #define CRYPTO_ALG_TYPE_ACOMPRESS	0x0000000a
 #define CRYPTO_ALG_TYPE_SCOMPRESS	0x0000000b
 #define CRYPTO_ALG_TYPE_RNG		0x0000000c
@@ -189,15 +188,6 @@ struct cipher_desc {
 	unsigned int (*prfn)(const struct cipher_desc *desc, u8 *dst,
 			     const u8 *src, unsigned int nbytes);
 	void *info;
-};
-
-struct hash_desc {
-	struct crypto_hash *tfm;
-	u32 flags;
-};
-
-struct rabin_desc {
-	struct crypto_rabin *tfm;
 };
 
 /**
@@ -525,25 +515,6 @@ struct cipher_tfm {
 	void (*cit_decrypt_one)(struct crypto_tfm *tfm, u8 *dst, const u8 *src);
 };
 
-struct hash_tfm {
-	int (*init)(struct hash_desc *desc);
-	int (*update)(struct hash_desc *desc,
-		      struct scatterlist *sg, unsigned int nsg);
-	int (*final)(struct hash_desc *desc, u8 *out);
-	int (*digest)(struct hash_desc *desc, struct scatterlist *sg,
-		      unsigned int nsg, u8 *out);
-	int (*setkey)(struct crypto_hash *tfm, const u8 *key,
-		      unsigned int keylen);
-	unsigned int digestsize;
-};
-
-struct rabin_tfm {
-	int (*init)(struct rabin_desc *desc);
-	int (*finger_print)(struct rabin_desc *desc, struct scatterlist *dst,
-		       struct scatterlist *src, unsigned int nsrc_sg);
-
-};
-
 struct compress_tfm {
 	int (*cot_compress)(struct crypto_tfm *tfm,
 	                    const u8 *src, unsigned int slen,
@@ -557,22 +528,20 @@ struct compress_tfm {
 #define crt_blkcipher	crt_u.blkcipher
 #define crt_cipher	crt_u.cipher
 #define crt_compress	crt_u.compress
-#define crt_rabin	crt_u.rabin
 
 struct crypto_tfm {
 
 	u32 crt_flags;
-
+	
 	union {
 		struct ablkcipher_tfm ablkcipher;
 		struct blkcipher_tfm blkcipher;
 		struct cipher_tfm cipher;
 		struct compress_tfm compress;
-		struct rabin_tfm rabin;
 	} crt_u;
 
 	void (*exit)(struct crypto_tfm *tfm);
-
+	
 	struct crypto_alg *__crt_alg;
 
 	void *__crt_ctx[] CRYPTO_MINALIGN_ATTR;
