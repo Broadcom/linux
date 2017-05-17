@@ -17,8 +17,6 @@ Optional properties:
 - arm,sp804-has-irq = <#>: In the case of only 1 timer irq line connected, this
 	specifies if the irq connection is for timer 1 or timer 2. A value of 1
 	or 2 should be used.
-- arm,sp804-no-sched-clock: Do not provide sched_clock which in-turn allows
-        multiple sp804 instances to be initialized.
 
 Example:
 
