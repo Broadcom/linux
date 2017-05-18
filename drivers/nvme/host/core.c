@@ -717,17 +717,6 @@ int nvme_get_log_page(struct nvme_ctrl *dev, struct nvme_smart_log **log)
 	return error;
 }
 
-int nvme_setup_interrupt_coal(struct nvme_ctrl *ctrl, unsigned int irq_coal)
-{
-	u32 feature_resp;
-	int ret;
-
-	ret = nvme_set_features(ctrl, NVME_FEAT_IRQ_COALESCE, irq_coal, NULL, 0,
-			&feature_resp);
-	return ret;
-}
-EXPORT_SYMBOL(nvme_setup_interrupt_coal);
-
 int nvme_set_queue_count(struct nvme_ctrl *ctrl, int *count)
 {
 	u32 q_count = (*count - 1) | ((*count - 1) << 16);

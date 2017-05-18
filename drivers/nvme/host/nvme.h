@@ -324,7 +324,7 @@ int nvme_set_features(struct nvme_ctrl *dev, unsigned fid, unsigned dword11,
 int nvme_set_queue_count(struct nvme_ctrl *ctrl, int *count);
 void nvme_start_keep_alive(struct nvme_ctrl *ctrl);
 void nvme_stop_keep_alive(struct nvme_ctrl *ctrl);
-int nvme_setup_interrupt_coal(struct nvme_ctrl *ctrl, unsigned int irq_coal);
+
 struct sg_io_hdr;
 
 int nvme_sg_io(struct nvme_ns *ns, struct sg_io_hdr __user *u_hdr);

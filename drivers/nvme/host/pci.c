@@ -71,9 +71,6 @@ static struct workqueue_struct *nvme_workq;
 struct nvme_dev;
 struct nvme_queue;
 
-static unsigned int irq_coal;
-module_param(irq_coal, uint, 0644);
-
 static int nvme_reset(struct nvme_dev *dev);
 static void nvme_process_cq(struct nvme_queue *nvmeq);
 static void nvme_dev_disable(struct nvme_dev *dev, bool shutdown);
@@ -1955,16 +1952,6 @@ static void nvme_reset_work(struct work_struct *work)
 	if (result)
 		goto out;
 
-	/* Setup up Interrupt Coalescing here.*/
-	if (irq_coal) {
-		result = nvme_setup_interrupt_coal(&dev->ctrl, irq_coal);
-		if (result < 0) {
-			dev_warn(dev->ctrl.dev,
-				 "%s: Could not set Interrupt coalesce\n",
-				  __func__);
-			goto out;
-		}
-	}
 	/*
 	 * A controller that can not execute IO typically requires user
 	 * intervention to correct. For such degraded controllers, the driver
