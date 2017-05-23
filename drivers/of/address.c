@@ -6,7 +6,6 @@
 #include <linux/ioport.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
-#include <linux/of_pci.h>
 #include <linux/pci.h>
 #include <linux/pci_regs.h>
 #include <linux/sizes.h>
@@ -830,54 +829,6 @@ int of_dma_get_range(struct device_node *np, u64 *dma_addr, u64 *paddr, u64 *siz
 	int len, naddr, nsize, pna;
 	int ret = 0;
 	u64 dmaaddr;
-
-#ifdef CONFIG_PCI
-	struct resource_entry *window;
-	LIST_HEAD(res);
-
-	if (!node)
-		return -EINVAL;
-
-	if (of_bus_pci_match(np)) {
-		*size = 0;
-		/*
-		 * PCI dma-ranges is not mandatory property.
-		 * many devices do no need to have it, since
-		 * host bridge does not require inbound memory
-		 * configuration or rather have design limitations.
-		 * so we look for dma-ranges, if missing we
-		 * just return the caller full size, and also
-		 * no dma-ranges suggests that, host bridge allows
-		 * whatever comes in, so we set dma_addr to 0.
-		 */
-		ret = of_pci_get_dma_ranges(np, &res);
-		if (!ret) {
-			resource_list_for_each_entry(window, &res) {
-			struct resource *res_dma = window->res;
-
-			if (*size < resource_size(res_dma)) {
-				*dma_addr = res_dma->start - window->offset;
-				*paddr = res_dma->start;
-				*size = resource_size(res_dma);
-				}
-			}
-		}
-		pci_free_resource_list(&res);
-
-		/* allow everything, return the full system size. */
-		if (*size == 0) {
-			pr_debug("empty/zero size dma-ranges found for node(%s)\n",
-				np->full_name);
-			*size = DMA_BIT_MASK(sizeof(dma_addr_t) * 8) - 1;
-			*dma_addr = *paddr = 0;
-			ret = 0;
-		}
-
-		pr_debug("dma_addr(%llx) cpu_addr(%llx) size(%llx)\n",
-			 *dma_addr, *paddr, *size);
-		goto out;
-	}
-#endif
 
 	if (!node)
 		return -EINVAL;
