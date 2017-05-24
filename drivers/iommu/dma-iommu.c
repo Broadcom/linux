@@ -27,7 +27,6 @@
 #include <linux/iova.h>
 #include <linux/irq.h>
 #include <linux/mm.h>
-#include <linux/of_pci.h>
 #include <linux/pci.h>
 #include <linux/scatterlist.h>
 #include <linux/vmalloc.h>
@@ -172,12 +171,8 @@ static void iova_reserve_pci_windows(struct pci_dev *dev,
 		struct iova_domain *iovad)
 {
 	struct pci_host_bridge *bridge = pci_find_host_bridge(dev->bus);
-	struct device_node *np = bridge->dev.parent->of_node;
 	struct resource_entry *window;
 	unsigned long lo, hi;
-	int ret;
-	dma_addr_t tmp_dma_addr = 0, dma_addr;
-	LIST_HEAD(res);
 
 	resource_list_for_each_entry(window, &bridge->windows) {
 		if (resource_type(window->res) != IORESOURCE_MEM &&
@@ -187,36 +182,6 @@ static void iova_reserve_pci_windows(struct pci_dev *dev,
 		lo = iova_pfn(iovad, window->res->start - window->offset);
 		hi = iova_pfn(iovad, window->res->end - window->offset);
 		reserve_iova(iovad, lo, hi);
-	}
-
-	/* PCI inbound memory reservation. */
-	ret = of_pci_get_dma_ranges(np, &res);
-	if (!ret) {
-		resource_list_for_each_entry(window, &res) {
-			struct resource *res_dma = window->res;
-
-			dma_addr = res_dma->start - window->offset;
-			if (tmp_dma_addr > dma_addr) {
-				pr_warn("PCI: failed to reserve iovas; ranges should be sorted\n");
-				return;
-			}
-			if (tmp_dma_addr != dma_addr) {
-				lo = iova_pfn(iovad, tmp_dma_addr);
-				hi = iova_pfn(iovad, dma_addr - 1);
-				reserve_iova(iovad, lo, hi);
-			}
-			tmp_dma_addr = window->res->end - window->offset;
-		}
-		/*
-		 * the last dma-range should honour based on the
-		 * 32/64-bit dma addresses.
-		 */
-		if (tmp_dma_addr < DMA_BIT_MASK(sizeof(dma_addr_t) * 8)) {
-			lo = iova_pfn(iovad, tmp_dma_addr);
-			hi = iova_pfn(iovad,
-				      DMA_BIT_MASK(sizeof(dma_addr_t) * 8) - 1);
-			reserve_iova(iovad, lo, hi);
-		}
 	}
 }
 
