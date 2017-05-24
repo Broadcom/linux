@@ -22,6 +22,7 @@
  */
 #define PCI_DMA_BUS_IS_PHYS	(0)
 
+#define HAVE_PCI_MMAP
 #define ARCH_GENERIC_PCI_MMAP_RESOURCE	1
 
 extern int isa_dma_bridge_buggy;
