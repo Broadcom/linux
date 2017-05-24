@@ -1606,7 +1606,6 @@ struct xhci_scratchpad {
 	u64 *sp_array;
 	dma_addr_t sp_dma;
 	void **sp_buffers;
-	dma_addr_t *sp_dma_buffers;
 };
 
 struct urb_priv {
@@ -1724,7 +1723,6 @@ struct xhci_hcd {
 	int		page_shift;
 	/* msi-x vectors */
 	int		msix_count;
-	struct msix_entry	*msix_entries;
 	/* optional clock */
 	struct clk		*clk;
 	/* data structures */
@@ -2007,13 +2005,8 @@ void xhci_init_driver(struct hc_driver *drv,
 int xhci_disable_slot(struct xhci_hcd *xhci,
 			struct xhci_command *command, u32 slot_id);
 
-#ifdef	CONFIG_PM
 int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup);
 int xhci_resume(struct xhci_hcd *xhci, bool hibernated);
-#else
-#define	xhci_suspend	NULL
-#define	xhci_resume	NULL
-#endif
 
 irqreturn_t xhci_irq(struct usb_hcd *hcd);
 irqreturn_t xhci_msi_irq(int irq, void *hcd);

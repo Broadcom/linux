@@ -15,7 +15,7 @@ struct blk_mq_hw_ctx {
 		unsigned long		state;		/* BLK_MQ_S_* flags */
 	} ____cacheline_aligned_in_smp;
 
-	struct work_struct	run_work;
+	struct delayed_work	run_work;
 	cpumask_var_t		cpumask;
 	int			next_cpu;
 	int			next_cpu_batch;
@@ -51,15 +51,17 @@ struct blk_mq_hw_ctx {
 
 	atomic_t		nr_active;
 
-	struct delayed_work	delayed_run_work;
-	struct delayed_work	delay_work;
-
 	struct hlist_node	cpuhp_dead;
 	struct kobject		kobj;
 
 	unsigned long		poll_considered;
 	unsigned long		poll_invoked;
 	unsigned long		poll_success;
+
+#ifdef CONFIG_BLK_DEBUG_FS
+	struct dentry		*debugfs_dir;
+	struct dentry		*sched_debugfs_dir;
+#endif
 };
 
 struct blk_mq_tag_set {
@@ -89,9 +91,9 @@ typedef int (queue_rq_fn)(struct blk_mq_hw_ctx *, const struct blk_mq_queue_data
 typedef enum blk_eh_timer_return (timeout_fn)(struct request *, bool);
 typedef int (init_hctx_fn)(struct blk_mq_hw_ctx *, void *, unsigned int);
 typedef void (exit_hctx_fn)(struct blk_mq_hw_ctx *, unsigned int);
-typedef int (init_request_fn)(void *, struct request *, unsigned int,
+typedef int (init_request_fn)(struct blk_mq_tag_set *set, struct request *,
 		unsigned int, unsigned int);
-typedef void (exit_request_fn)(void *, struct request *, unsigned int,
+typedef void (exit_request_fn)(struct blk_mq_tag_set *set, struct request *,
 		unsigned int);
 typedef int (reinit_request_fn)(void *, struct request *);
 
@@ -142,6 +144,14 @@ struct blk_mq_ops {
 	reinit_request_fn	*reinit_request;
 
 	map_queues_fn		*map_queues;
+
+#ifdef CONFIG_BLK_DEBUG_FS
+	/*
+	 * Used by the debugfs implementation to show driver-specific
+	 * information about a request.
+	 */
+	void (*show_rq)(struct seq_file *m, struct request *rq);
+#endif
 };
 
 enum {
@@ -161,6 +171,7 @@ enum {
 	BLK_MQ_S_TAG_ACTIVE	= 1,
 	BLK_MQ_S_SCHED_RESTART	= 2,
 	BLK_MQ_S_TAG_WAITING	= 3,
+	BLK_MQ_S_START_ON_RUN	= 4,
 
 	BLK_MQ_MAX_DEPTH	= 10240,
 

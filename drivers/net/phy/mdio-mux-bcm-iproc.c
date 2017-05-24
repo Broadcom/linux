@@ -284,7 +284,7 @@ static int mdio_mux_iproc_probe(struct platform_device *pdev)
 			   &md->mux_handle, md, md->mii_bus);
 	if (rc) {
 		dev_info(md->dev, "mdiomux initialization failed\n");
-		goto out;
+		goto out_register;
 	}
 
 	md->dentry_mux = debugfs_create_file("bcmmux", 0644, NULL,
@@ -294,6 +294,9 @@ static int mdio_mux_iproc_probe(struct platform_device *pdev)
 
 	dev_info(md->dev, "iProc mdiomux registered\n");
 	return 0;
+
+out_register:
+	mdiobus_unregister(bus);
 out:
 	mdiobus_free(bus);
 	return rc;

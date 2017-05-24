@@ -399,13 +399,15 @@ static int pblk_bb_discovery(struct nvm_tgt_dev *dev, struct pblk_lun *rlun)
 
 	nr_blks = nvm_bb_tbl_fold(dev->parent, blks, nr_blks);
 	if (nr_blks < 0) {
-		kfree(blks);
 		ret = nr_blks;
+		goto out;
 	}
 
 	rlun->bb_list = blks;
 
+	return 0;
 out:
+	kfree(blks);
 	return ret;
 }
 
@@ -678,6 +680,8 @@ add_emeta_page:
 
 	nr_free_blks = 0;
 	for (i = 0; i < l_mg->nr_lines; i++) {
+		int blk_in_line;
+
 		line = &pblk->lines[i];
 
 		line->pblk = pblk;
@@ -693,14 +697,15 @@ add_emeta_page:
 			goto fail_free_lines;
 		}
 
-		line->blk_in_line = lm->blk_per_line - nr_bad_blks;
-		if (line->blk_in_line < lm->min_blk_line) {
+		blk_in_line = lm->blk_per_line - nr_bad_blks;
+		if (blk_in_line < lm->min_blk_line) {
 			line->state = PBLK_LINESTATE_BAD;
 			list_add_tail(&line->list, &l_mg->bad_list);
 			continue;
 		}
 
-		nr_free_blks += line->blk_in_line;
+		nr_free_blks += blk_in_line;
+		atomic_set(&line->blk_in_line, blk_in_line);
 
 		l_mg->nr_free_lines++;
 		list_add_tail(&line->list, &l_mg->free_list);

@@ -219,7 +219,7 @@ config BLK_DEV_LOOP
 
 	  To use the loop device, you need the losetup utility, found in the
 	  util-linux package, see
-	  <ftp://ftp.kernel.org/pub/linux/utils/util-linux/>.
+	  <https://www.kernel.org/pub/linux/utils/util-linux/>.
 
 	  The loop device driver can also be used to "hide" a file system in
 	  a disk partition, floppy, or regular file, either using encryption
@@ -323,6 +323,7 @@ config BLK_DEV_SX8
 
 config BLK_DEV_RAM
 	tristate "RAM block device support"
+	select DAX if BLK_DEV_RAM_DAX
 	---help---
 	  Saying Y here will allow you to use a portion of your RAM memory as
 	  a block device, so that you can make file systems on it, read and
@@ -479,7 +480,7 @@ config VIRTIO_BLK_SCSI
 	  Enable support for SCSI passthrough (e.g. the SG_IO ioctl) on
 	  virtio-blk devices.  This is only supported for the legacy
 	  virtio protocol and not enabled by default by any hypervisor.
-	  Your probably want to virtio-scsi instead.
+	  You probably want to use virtio-scsi instead.
 
 config BLK_DEV_RBD
 	tristate "Rados block device (RBD)"
