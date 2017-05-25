@@ -57,30 +57,12 @@
 / {
 	model = "Broadcom Stingray Palladium";
 
-	aliases {
-		serial1 = &uart1;
-		serial3 = &uart3;
-	};
-
 	chosen { /* HACK: hard-code kernel args and initrd location */
-		bootargs = "root=/dev/ram rw console=ttyS1,4800n8 \
+		bootargs = "root=/dev/ram rw console=ttyS0,4800n8 \
 			    earlycon=uart8250,mmio32,0x68a10000 cma=64M \
 			    maxcpus=2";
-		linux,stdout-path = "/soc/uart@68a30000:4800n8";
 		linux,initrd-start = <0x0 0x81000000>;
 		linux,initrd-end = <0x0 0x81800000>;
-	};
-
-	cpus {
-		/delete-node/ cpu@100;
-		/delete-node/ cpu@101;
-		/delete-node/ cpu@200;
-		/delete-node/ cpu@201;
-		/delete-node/ cpu@300;
-		/delete-node/ cpu@301;
-		/delete-node/ l2-cache@100;
-		/delete-node/ l2-cache@200;
-		/delete-node/ l2-cache@300;
 	};
 };
 
