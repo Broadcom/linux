@@ -880,6 +880,7 @@ static struct pci_bus *pci_alloc_child_bus(struct pci_bus *parent,
 	child->dev.parent = child->bridge;
 	pci_set_bus_of_node(child);
 	pci_set_bus_speed(child);
+	mutex_init(&bridge->bridge_lock);
 
 	/* Set up default resource pointers and names.. */
 	for (i = 0; i < PCI_BRIDGE_RESOURCE_NUM; i++) {

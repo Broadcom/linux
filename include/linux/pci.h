@@ -271,6 +271,7 @@ struct pci_dev {
 	void		*sysdata;	/* hook for sys-specific extension */
 	struct proc_dir_entry *procent;	/* device entry in /proc/bus/pci */
 	struct pci_slot	*slot;		/* Physical slot this device is in */
+	struct mutex bridge_lock;
 
 	unsigned int	devfn;		/* encoded device & function index */
 	unsigned short	vendor;
