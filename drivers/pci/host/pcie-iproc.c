@@ -70,7 +70,7 @@
 #define APB_ERR_EN                   BIT(APB_ERR_EN_SHIFT)
 
 #define CFG_RETRY_STATUS             0xffff0001
-#define CFG_RETRY_STATUS_TIMEOUT_US  2000000 /* 2 seconds. */
+#define CFG_RETRY_STATUS_TIMEOUT_US  500000 /* 500 milli-seconds. */
 
 /* derive the enum index of the outbound/inbound mapping registers */
 #define MAP_REG(base_reg, index)      ((base_reg) + (index) * 2)
@@ -472,8 +472,6 @@ static int iproc_pcie_cfg_retry(void __iomem *cfg_data_p)
 		else
 			return PCIBIOS_SUCCESSFUL;
 	} while (timeout--);
-
-	WARN_ON(timeout <= 0);
 
 	return PCIBIOS_DEVICE_NOT_FOUND;
 }
