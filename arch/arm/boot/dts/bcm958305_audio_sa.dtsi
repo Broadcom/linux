@@ -76,6 +76,18 @@
 		};
 	};
 
+	wowl {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		wowl {
+			label = "wowl";
+			linux,code = <KEY_WAKEUP>;
+			gpios = <&gpio_crmu 3 0>;
+			wakeup-source;
+		};
+	};
+
 	rf_reg0: regulator@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "bt-rf-reg0";
@@ -185,6 +197,7 @@
 
 &sdhci0 {
 	keep-power-in-suspend;
+	wakeup-source;
 	status = "okay";
 	non-removable;
 
