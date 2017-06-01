@@ -108,8 +108,8 @@ static void kona_pwmc_apply_settings(struct kona_pwmc *kp, unsigned int chan)
 	ndelay(400);
 }
 
-static int kona_pwmc_config(struct pwm_chip *chip, struct pwm_device *pwm,
-			    int duty_ns, int period_ns)
+static int __pwmc_config(struct pwm_chip *chip, struct pwm_device *pwm,
+			 int duty_ns, int period_ns, bool pwmc_enabled)
 {
 	struct kona_pwmc *kp = to_kona_pwmc(chip);
 	u64 val, div, rate;
@@ -155,7 +155,7 @@ static int kona_pwmc_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	 * always calculated above to ensure the new values are
 	 * validated immediately instead of on enable.
 	 */
-	if (pwm_is_enabled(pwm)) {
+	if (pwm_is_enabled(pwm) || pwmc_enabled) {
 		kona_pwmc_prepare_for_settings(kp, chan);
 
 		value = readl(kp->base + PRESCALE_OFFSET);
@@ -171,6 +171,12 @@ static int kona_pwmc_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	}
 
 	return 0;
+}
+
+static int kona_pwmc_config(struct pwm_chip *chip, struct pwm_device *pwm,
+			    int duty_ns, int period_ns)
+{
+	return __pwmc_config(chip, pwm, duty_ns, period_ns, false);
 }
 
 static int kona_pwmc_set_polarity(struct pwm_chip *chip, struct pwm_device *pwm,
@@ -216,8 +222,8 @@ static int kona_pwmc_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 		return ret;
 	}
 
-	ret = kona_pwmc_config(chip, pwm, pwm_get_duty_cycle(pwm),
-			       pwm_get_period(pwm));
+	ret = __pwmc_config(chip, pwm, pwm_get_duty_cycle(pwm),
+			    pwm_get_period(pwm), true);
 	if (ret < 0) {
 		clk_disable_unprepare(kp->clk);
 		return ret;
