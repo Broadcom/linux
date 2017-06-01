@@ -532,6 +532,12 @@ static int bdc_probe(struct platform_device *pdev)
 	bdc->dev = dev;
 	dev_dbg(bdc->dev, "bdc->regs: %p irq=%d\n", bdc->regs, bdc->irq);
 
+	ret = bdc_phy_init(bdc);
+	if (ret) {
+		dev_err(bdc->dev, "BDC phy init failure:%d\n", ret);
+		return ret;
+	}
+
 	temp = bdc_readl(bdc->regs, BDC_BDCCAP1);
 	if ((temp & BDC_P64) &&
 			!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
@@ -543,12 +549,6 @@ static int bdc_probe(struct platform_device *pdev)
 			return -ENOTSUPP;
 		}
 		dev_dbg(bdc->dev, "Using 32-bit address\n");
-	}
-
-	ret = bdc_phy_init(bdc);
-	if (ret) {
-		dev_err(bdc->dev, "BDC phy init failure:%d\n", ret);
-		return ret;
 	}
 
 	ret = bdc_hw_init(bdc);
