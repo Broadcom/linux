@@ -662,6 +662,7 @@ int iproc_pcie_shutdown(struct iproc_pcie *pcie)
 
 	return 0;
 }
+EXPORT_SYMBOL(iproc_pcie_shutdown);
 
 static int iproc_pcie_check_link(struct iproc_pcie *pcie, struct pci_bus *bus)
 {
