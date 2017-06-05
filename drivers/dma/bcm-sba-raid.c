@@ -149,8 +149,6 @@ struct sba_device {
 	atomic_t mchans_current;
 	struct mbox_chan **mchans;
 	struct device *mbox_dev;
-	/* Tasklet for deferred work */
-	struct tasklet_struct task;
 	/* DMA device and DMA channel */
 	struct dma_device dma_dev;
 	struct dma_chan dma_chan;
@@ -487,10 +485,6 @@ static void sba_process_deferred_requests(struct sba_device *sba)
 		count = 1;
 
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
-
-	/* Schedule tasklet if required */
-	if (count)
-		tasklet_schedule(&sba->task);
 }
 
 static void sba_process_received_request(struct sba_device *sba,
@@ -510,13 +504,6 @@ static void sba_process_received_request(struct sba_device *sba,
 		_sba_free_request(sba, req);
 
 	spin_unlock_irqrestore(&sba->reqs_lock, flags);
-}
-
-/* ====== Tasklet work functions ===== */
-
-static void sba_deferred_work(unsigned long arg)
-{
-	sba_process_deferred_requests((struct sba_device *)arg);
 }
 
 /* ====== DMAENGINE callbacks ===== */
@@ -1712,9 +1699,6 @@ static int sba_probe(struct platform_device *pdev)
 	sba->client.knows_txdone	= false;
 	sba->client.tx_tout		= 0;
 
-	/* Setup tasklet */
-	tasklet_init(&sba->task, sba_deferred_work, (unsigned long)sba);
-
 	/* Number of channels equals number of mailbox channels */
 	ret = of_count_phandle_with_args(pdev->dev.of_node,
 					 "mboxes", "#mbox-cells");
@@ -1796,8 +1780,6 @@ static int sba_remove(struct platform_device *pdev)
 {
 	int i;
 	struct sba_device *sba = platform_get_drvdata(pdev);
-
-	tasklet_kill(&sba->task);
 
 	dma_async_device_unregister(&sba->dma_dev);
 
