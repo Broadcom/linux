@@ -49,12 +49,6 @@
 
 #include "dmaengine.h"
 
-/* ====== Module parameters ===== */
-
-static unsigned int max_requests = 20480;
-module_param(max_requests, uint, 0644);
-MODULE_PARM_DESC(max_requests, "Maximum number of pending requests");
-
 /* ====== Driver macros and defines ===== */
 
 #define SBA_TYPE_SHIFT					48
@@ -90,6 +84,8 @@ MODULE_PARM_DESC(max_requests, "Maximum number of pending requests");
 #define SBA_CMD_WRITE_BUFFER				0xc
 #define SBA_CMD_GALOIS					0xe
 
+#define SBA_MAX_REQ_PER_MBOX_CHANNEL			8192
+
 #define to_sba_request(tx)		\
 	container_of(tx, struct sba_request, tx)
 #define to_sba_device(dchan)		\
@@ -119,9 +115,10 @@ struct sba_request {
 	struct list_head next;
 	atomic_t next_pending_count;
 	/* BRCM message data */
-	struct brcm_sba_command *cmds;
 	struct brcm_message msg;
 	struct dma_async_tx_descriptor tx;
+	/* SBA commands */
+	struct brcm_sba_command cmds[0];
 };
 
 enum sba_version {
@@ -139,6 +136,7 @@ struct sba_device {
 	u32 hw_resp_size;
 	u32 max_pq_coefs;
 	u32 max_pq_srcs;
+	u32 max_req;
 	u32 max_cmd_per_req;
 	u32 max_xor_srcs;
 	u32 max_resp_pool_size;
@@ -158,7 +156,6 @@ struct sba_device {
 	void *cmds_base;
 	dma_addr_t cmds_dma_base;
 	spinlock_t reqs_lock;
-	struct sba_request *reqs;
 	bool reqs_fence;
 	struct list_head reqs_alloc_list;
 	struct list_head reqs_pending_list;
@@ -598,8 +595,7 @@ static void sba_fillup_interrupt_msg(struct sba_request *req,
 {
 	u64 cmd;
 	u32 c_mdata;
-	dma_addr_t resp_dma = req->sba->resp_dma_base +
-			((req - req->sba->reqs) * req->sba->hw_resp_size);
+	dma_addr_t resp_dma = req->tx.phys;
 	struct brcm_sba_command *cmdsp = cmds;
 
 	/* Type-B command to load dummy data into buf0 */
@@ -687,8 +683,7 @@ static void sba_fillup_memcpy_msg(struct sba_request *req,
 {
 	u64 cmd;
 	u32 c_mdata;
-	dma_addr_t resp_dma = req->sba->resp_dma_base +
-			((req - req->sba->reqs) * req->sba->hw_resp_size);
+	dma_addr_t resp_dma = req->tx.phys;
 	struct brcm_sba_command *cmdsp = cmds;
 
 	/* Type-B command to load data into buf0 */
@@ -808,8 +803,7 @@ static void sba_fillup_xor_msg(struct sba_request *req,
 	u64 cmd;
 	u32 c_mdata;
 	unsigned int i;
-	dma_addr_t resp_dma = req->sba->resp_dma_base +
-			((req - req->sba->reqs) * req->sba->hw_resp_size);
+	dma_addr_t resp_dma = req->tx.phys;
 	struct brcm_sba_command *cmdsp = cmds;
 
 	/* Type-B command to load data into buf0 */
@@ -954,8 +948,7 @@ static void sba_fillup_pq_msg(struct sba_request *req,
 	u64 cmd;
 	u32 c_mdata;
 	unsigned int i;
-	dma_addr_t resp_dma = req->sba->resp_dma_base +
-			((req - req->sba->reqs) * req->sba->hw_resp_size);
+	dma_addr_t resp_dma = req->tx.phys;
 	struct brcm_sba_command *cmdsp = cmds;
 
 	if (pq_continue) {
@@ -1130,8 +1123,7 @@ static void sba_fillup_pq_single_msg(struct sba_request *req,
 	u64 cmd;
 	u32 c_mdata;
 	u8 pos, dpos = raid6_gflog[scf];
-	dma_addr_t resp_dma = req->sba->resp_dma_base +
-			((req - req->sba->reqs) * req->sba->hw_resp_size);
+	dma_addr_t resp_dma = req->tx.phys;
 	struct brcm_sba_command *cmdsp = cmds;
 
 	if (!dst_p)
@@ -1525,27 +1517,21 @@ static int sba_prealloc_channel_resources(struct sba_device *sba)
 	INIT_LIST_HEAD(&sba->reqs_aborted_list);
 	INIT_LIST_HEAD(&sba->reqs_free_list);
 
-	sba->reqs = devm_kcalloc(sba->dev, max_requests,
-				 sizeof(*req), GFP_KERNEL);
-	if (!sba->reqs) {
-		ret = -ENOMEM;
-		goto fail_free_cmds_pool;
-	}
-
-	for (i = 0, p = 0; i < max_requests; i++) {
-		req = &sba->reqs[i];
+	for (i = 0, p = 0; i < sba->max_req; i++) {
+		req = devm_kzalloc(sba->dev,
+				sizeof(*req) +
+				sba->max_cmd_per_req * sizeof(req->cmds[0]),
+				GFP_KERNEL);
+		if (!req) {
+			ret = -ENOMEM;
+			goto fail_free_cmds_pool;
+		}
 		INIT_LIST_HEAD(&req->node);
 		req->sba = sba;
 		req->flags = SBA_REQUEST_STATE_FREE;
 		INIT_LIST_HEAD(&req->next);
 		atomic_set(&req->next_pending_count, 0);
 		p += sba->hw_resp_size;
-		req->cmds = devm_kcalloc(sba->dev, sba->max_cmd_per_req,
-					 sizeof(*req->cmds), GFP_KERNEL);
-		if (!req->cmds) {
-			ret = -ENOMEM;
-			goto fail_free_cmds_pool;
-		}
 		for (j = 0; j < sba->max_cmd_per_req; j++) {
 			req->cmds[j].cmd = 0;
 			req->cmds[j].cmd_dma = sba->cmds_base +
@@ -1557,8 +1543,7 @@ static int sba_prealloc_channel_resources(struct sba_device *sba)
 		memset(&req->msg, 0, sizeof(req->msg));
 		dma_async_tx_descriptor_init(&req->tx, &sba->dma_chan);
 		req->tx.tx_submit = sba_tx_submit;
-		req->tx.phys = sba->resp_dma_base +
-			       (req - sba->reqs) * sba->hw_resp_size;
+		req->tx.phys = sba->resp_dma_base + i * sba->hw_resp_size;
 		list_add_tail(&req->node, &sba->reqs_free_list);
 	}
 
@@ -1671,6 +1656,13 @@ static int sba_probe(struct platform_device *pdev)
 	sba->dev = &pdev->dev;
 	platform_set_drvdata(pdev, sba);
 
+	/* Number of channels equals number of mailbox channels */
+	ret = of_count_phandle_with_args(pdev->dev.of_node,
+					 "mboxes", "#mbox-cells");
+	if (ret <= 0)
+		return -ENODEV;
+	mchans_count = ret;
+
 	/* Determine SBA version from DT compatible string */
 	if (of_device_is_compatible(sba->dev->of_node, "brcm,iproc-sba"))
 		sba->ver = SBA_VER_1;
@@ -1702,10 +1694,11 @@ static int sba_probe(struct platform_device *pdev)
 	default:
 		return -EINVAL;
 	}
+	sba->max_req = SBA_MAX_REQ_PER_MBOX_CHANNEL * mchans_count;
 	sba->max_cmd_per_req = sba->max_pq_srcs + 3;
 	sba->max_xor_srcs = sba->max_cmd_per_req - 1;
-	sba->max_resp_pool_size = max_requests * sba->hw_resp_size;
-	sba->max_cmds_pool_size = max_requests *
+	sba->max_resp_pool_size = sba->max_req * sba->hw_resp_size;
+	sba->max_cmds_pool_size = sba->max_req *
 				  sba->max_cmd_per_req * sizeof(u64);
 
 	/* Setup mailbox client */
@@ -1715,15 +1708,6 @@ static int sba_probe(struct platform_device *pdev)
 	sba->client.knows_txdone	= false;
 	sba->client.tx_tout		= 0;
 
-	/* Number of channels equals number of mailbox channels */
-	ret = of_count_phandle_with_args(pdev->dev.of_node,
-					 "mboxes", "#mbox-cells");
-	if (ret <= 0)
-		return -ENODEV;
-	mchans_count = ret;
-	sba->mchans_count = 0;
-	atomic_set(&sba->mchans_current, 0);
-
 	/* Allocate mailbox channel array */
 	sba->mchans = devm_kcalloc(&pdev->dev, mchans_count,
 				   sizeof(*sba->mchans), GFP_KERNEL);
@@ -1731,6 +1715,7 @@ static int sba_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	/* Request mailbox channels */
+	sba->mchans_count = 0;
 	for (i = 0; i < mchans_count; i++) {
 		sba->mchans[i] = mbox_request_channel(&sba->client, i);
 		if (IS_ERR(sba->mchans[i])) {
@@ -1739,6 +1724,7 @@ static int sba_probe(struct platform_device *pdev)
 		}
 		sba->mchans_count++;
 	}
+	atomic_set(&sba->mchans_current, 0);
 
 	/* Find-out underlying mailbox device */
 	ret = of_parse_phandle_with_args(pdev->dev.of_node,
