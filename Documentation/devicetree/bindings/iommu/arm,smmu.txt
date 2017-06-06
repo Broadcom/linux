@@ -71,6 +71,24 @@ conditions.
                   or using stream matching with #iommu-cells = <2>, and
                   may be ignored if present in such cases.
 
+- reserved-context-banks: Number of S1 context banks (from end) to be
+                  reserved for non-secure bootloader (or firmware). The
+                  bootloader (or firmware) can use these reserved context
+                  banks for devices requiring System MMU configuration
+                  at boot time.
+
+- reserved-s2-context-banks: Number of S2 context banks (from end) to
+                  be reserved for non-secure bootloader (or firmware).
+                  The bootloader (or firmware) can use these reserved
+                  S2 context banks for devices requiring System MMU
+                  configuration at boot time.
+
+- reserved-mapping-groups: Number of SMRs and S2CRs (from end) to be
+                  reserved for non-secure bootloader (or firmware).
+                  The bootloader (or firmware) can use these reserved
+                  SMRs and S2CRs for devices requiring System MMU
+                  configuration at boot time.
+
 ** Deprecated properties:
 
 - mmu-masters (deprecated in favour of the generic "iommus" binding) :
