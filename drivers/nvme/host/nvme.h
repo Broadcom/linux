@@ -76,11 +76,6 @@ enum nvme_quirks {
 	 * The deepest sleep state should not be used.
 	 */
 	NVME_QUIRK_NO_DEEPEST_PS		= (1 << 5),
-
-	/*
-	 * CSTS poll while DATA transfer causing TRANSIENT INTERNAL error.
-	 */
-	NVME_QUIRK_STOP_CSTS_POLL		= (1 << 6)
 };
 
 /*
