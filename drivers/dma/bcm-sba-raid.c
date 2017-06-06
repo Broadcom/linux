@@ -591,11 +591,11 @@ static enum dma_status sba_tx_status(struct dma_chan *dchan,
 	enum dma_status ret;
 	struct sba_device *sba = to_sba_device(dchan);
 
-	sba_peek_mchans(sba);
-
 	ret = dma_cookie_status(dchan, cookie, txstate);
 	if (ret == DMA_COMPLETE)
 		return ret;
+
+	sba_peek_mchans(sba);
 
 	return dma_cookie_status(dchan, cookie, txstate);
 }
