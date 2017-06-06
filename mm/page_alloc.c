@@ -7567,8 +7567,21 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 
 	/* Make sure the range is really isolated. */
 	if (test_pages_isolated(outer_start, end, false)) {
+#if 0
 		pr_info("%s: [%lx, %lx) PFNs busy\n",
 			__func__, outer_start, end);
+#else
+		/*
+		 * WORKAROUND to SOC-5471
+		 * Print slows down NVMF connection procedure causing
+		 * timeout.
+		 * CMA changes introduced in 4.11 kernel
+		 * cause this problem.
+		 * This JIRA to be further investigated.
+		 */
+		pr_debug("%s: [%lx, %lx) PFNs busy\n",
+			__func__, outer_start, end);
+#endif
 		ret = -EBUSY;
 		goto done;
 	}
