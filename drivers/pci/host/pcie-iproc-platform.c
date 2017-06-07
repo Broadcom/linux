@@ -61,6 +61,12 @@ static int iproc_pcie_pltfm_probe(struct platform_device *pdev)
 	pcie->dev = dev;
 	pcie->type = (enum iproc_pcie_type) of_device_get_match_data(dev);
 
+	if (of_device_is_compatible(np, "brcm,iproc-pcie-paxc-v2") &&
+	    of_device_is_compatible(np, "brcm,sr-pcie")) {
+		pcie->disable_msi_parse = true;
+		dev_info(dev, "msi parsing hw is disabled\n");
+	}
+
 	ret = of_address_to_resource(np, 0, &reg);
 	if (ret < 0) {
 		dev_err(dev, "unable to obtain controller resources\n");

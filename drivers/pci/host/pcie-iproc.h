@@ -77,6 +77,8 @@ struct iproc_msi;
  * enumeration against unconfigured physical functions emulated in the ASIC
  * @has_apb_err_disable: indicates the controller can be configured to prevent
  * unsupported request from being forwarded as an APB bus error
+ * @disable_msi_parse: indicates MSI parsing logic needs to be disabled since
+ * some SoCs have errata that does not parse MSI message correctly
  *
  * @need_ob_cfg: indicates SW needs to configure the outbound mapping window
  * @ob: outbound mapping related parameters
@@ -110,6 +112,7 @@ struct iproc_pcie {
 	bool iproc_cfg_read;
 	bool rej_unconfig_pf;
 	bool has_apb_err_disable;
+	bool disable_msi_parse;
 
 	bool need_ob_cfg;
 	struct iproc_pcie_ob ob;

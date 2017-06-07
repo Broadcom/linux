@@ -1228,6 +1228,9 @@ static void iproc_pcie_paxc_v2_msi_steer(struct iproc_pcie *pcie, u64 msi_addr)
 {
 	u32 val;
 
+	if (pcie->disable_msi_parse)
+		return;
+
 	/*
 	 * Program bits [43:13] of address of GITS_TRANSLATER register into
 	 * bits [30:0] of the MSI base address register.  In fact, in all iProc
