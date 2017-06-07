@@ -12,6 +12,12 @@ controller, used in NS2
 controller, used in Stingray
   PAXB-based root complex is used for external endpoint devices. PAXC-based
 root complex is connected to emulated endpoint devices internal to the ASIC
+
+      May also contain an SoC-specific compatible string to accommodate any
+      SoC-specific features/errata
+
+      "brcm,sr-pcie" for Stingray
+
 - reg: base address and length of the PCIe controller I/O register space
 - #interrupt-cells: set to <1>
 - interrupt-controller: claims itself as an interrupt controller for INTx
