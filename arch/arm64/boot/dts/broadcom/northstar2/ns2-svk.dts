@@ -60,6 +60,10 @@
 	status = "okay";
 };
 
+&ehci2 {
+	status = "okay";
+};
+
 &enet {
 	status = "okay";
 };
@@ -69,6 +73,10 @@
 };
 
 &ohci1 {
+	status = "okay";
+};
+
+&ohci2 {
 	status = "okay";
 };
 
@@ -264,6 +272,10 @@
 	};
 };
 
+&udc_dwc {
+	status = "okay";
+};
+
 &usb2_phy0 {
 	status = "okay";
 };
@@ -277,6 +289,10 @@
 };
 
 &usb3_phy1 {
+	status = "okay";
+};
+
+&usbdrd_phy {
 	status = "okay";
 };
 
