@@ -22,7 +22,8 @@ bcm_cygnus_defconfig="base-arm32 cygnus  \
     watchdog wifi"
 
 iproc_defconfig="base-arm64 ns2 stingray \
-    ata blk bpf clocksource crypto       \
+    ata blk bpf                          \
+    clocksource crypto crashdump         \
     dbg dma                              \
     efi fs hba                           \
     i2c infiniband iomux                 \
