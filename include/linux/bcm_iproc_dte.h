@@ -58,8 +58,10 @@ struct bcm_dte {
 	uint32_t usr_cnt; /* tracks num of users */
 	struct dte_user_info *user;
 	struct timer_list fifo_timer;
+	struct timer_list ovf_timer;
 	unsigned int num_of_clients;
 	struct dte_client_mapping *dte_cli;
+	uint32_t nco_susp_val;
 
 	int (*enable_ts)(struct bcm_dte *dte,
 		unsigned int client, bool enable,

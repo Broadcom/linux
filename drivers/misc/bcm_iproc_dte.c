@@ -84,6 +84,13 @@
 #define DTE_DEFAULT_INTERVAL                     500000000
 #define DTE_DIV_YES                              1
 #define DTE_DIV_NO                               0
+/*
+ * if the interval is above 4s, we will start having
+ * issues in the ISR as 32-bits can overflow in this
+ * time.
+ */
+#define DTE_POLL_INTERVAL_MIN                    3000000000U /* 3s */
+#define DTE_NCO_OVF_TIMEOUT_MS                   3600000 /* 1 hour */
 
 /* Registers */
 #define DTE_CTRL_REG_BASE                        0x600
@@ -202,6 +209,60 @@ static const struct bcm_iproc_dte_params dte_soc_params[BCM_SOC_MAX] = {
 };
 
 static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx);
+static void dte_nco_ovf_tmr(unsigned long data);
+
+static int dte_read_nco_time(struct bcm_dte *iproc_dte,
+	uint64_t *nco_time, uint32_t *ts_ovf)
+{
+	uint32_t sum1;
+	uint32_t sum2;
+	uint32_t sum3;
+
+	if ((!iproc_dte) || (!nco_time) || (!ts_ovf))
+		return -EINVAL;
+
+	*nco_time = 0;
+	*ts_ovf = 0;
+
+	/* Read Timers */
+	sum1 = readl(iproc_dte->audioeav + DTE_NCO_LOW_TIME_REG_BASE);
+	sum2 = readl(iproc_dte->audioeav + DTE_NCO_TIME_REG_BASE);
+	sum3 = readl(iproc_dte->audioeav + DTE_NCO_OVERFLOW_REG_BASE);
+
+/*
+ * Register            |     sum3    |          sum2     |         sum1       |
+ *                     |7           0|31  28            0|31    28:27        0|
+ * Timestamp[71:0]     |71                                      28:27        0|
+
+ */
+
+	/* Current time in ns */
+	*nco_time = (((uint64_t)(sum3 & 0xff) << 36) |
+		((uint64_t)sum2 << 4) |
+		(uint64_t)((sum1 >> 28) & 0xf));
+
+	/*
+	 * Timestamp overflow only includes the bottom 8 bits of sum3
+	 * and the top 4 bits of sum2
+	 * Units of 2^32 ns = 4.294967296 sec
+	 */
+	*ts_ovf = (*nco_time >> 32) & 0xfff;
+
+	/*
+	 * Check if Wrap around has occurred and not
+	 * reflected in ts_ref.
+	 * Full wrap around amount is 44bits in ns
+	 * Precisely 17592.186044416 sec = ~4.887 hrs
+	 */
+	if (*ts_ovf < iproc_dte->timestamp_overflow_last)
+		iproc_dte->ts_ref = timespec_add(iproc_dte->ts_ref,
+			ns_to_timespec((uint64_t)1 << 44));
+
+	iproc_dte->timestamp_overflow_last = *ts_ovf;
+
+	return 0;
+
+}
 
 static void bcm_iproc_dte_enable(struct bcm_dte *iproc_dte, bool enable)
 {
@@ -229,7 +290,7 @@ static int dte_enable_timestamp(struct bcm_dte *iproc_dte,
 	if (client >= iproc_dte->num_of_clients)
 		return -EINVAL;
 
-	spin_lock(&iproc_dte->lock);
+	spin_lock_bh(&iproc_dte->lock);
 
 	src_ena = readl(iproc_dte->audioeav +
 		DTE_LTS_SRC_EN_REG_BASE);
@@ -241,7 +302,7 @@ static int dte_enable_timestamp(struct bcm_dte *iproc_dte,
 	writel(src_ena,
 		iproc_dte->audioeav + DTE_LTS_SRC_EN_REG_BASE);
 
-	spin_unlock(&iproc_dte->lock);
+	spin_unlock_bh(&iproc_dte->lock);
 
 	return 0;
 }
@@ -266,7 +327,7 @@ static int dte_set_client_divider(struct bcm_dte *iproc_dte,
 	if (divider > DTE_LTS_DIV_MASK)
 		return -EINVAL;
 
-	spin_lock(&iproc_dte->lock);
+	spin_lock_bh(&iproc_dte->lock);
 
 	lts_div = readl(iproc_dte->audioeav +
 			iproc_dte->dte_cli[client].reg_offset);
@@ -275,7 +336,7 @@ static int dte_set_client_divider(struct bcm_dte *iproc_dte,
 	writel(lts_div, iproc_dte->audioeav +
 		iproc_dte->dte_cli[client].reg_offset);
 
-	spin_unlock(&iproc_dte->lock);
+	spin_unlock_bh(&iproc_dte->lock);
 
 	return 0;
 }
@@ -291,6 +352,62 @@ static void dte_hw_fifo_tmr(unsigned long data)
 	/* reset timer */
 	mod_timer(&iproc_dte->fifo_timer, (jiffies +
 		nsecs_to_jiffies((iproc_dte->irq_interval_ns))));
+}
+
+static void dte_init_nco_ovf_tmr(struct bcm_dte *iproc_dte)
+{
+	init_timer(&iproc_dte->ovf_timer);
+	iproc_dte->ovf_timer.function = dte_nco_ovf_tmr;
+	iproc_dte->ovf_timer.data = (unsigned long)iproc_dte->pdev;
+}
+
+static void dte_start_nco_ovf_tmr(struct bcm_dte *iproc_dte)
+{
+	iproc_dte->ovf_timer.expires =
+		jiffies + msecs_to_jiffies(DTE_NCO_OVF_TIMEOUT_MS);
+	add_timer(&iproc_dte->ovf_timer);
+}
+
+static void dte_stop_nco_ovf_tmr(struct bcm_dte *iproc_dte)
+{
+	del_timer_sync(&iproc_dte->ovf_timer);
+}
+
+static void dte_disable_nco(struct bcm_dte *iproc_dte)
+{
+	/* Disable NCO Increment */
+	writel(0, iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+
+	/* Reset Timers */
+	writel(0, iproc_dte->audioeav + DTE_NCO_LOW_TIME_REG_BASE);
+	writel(0, iproc_dte->audioeav + DTE_NCO_TIME_REG_BASE);
+	writel(0, iproc_dte->audioeav + DTE_NCO_OVERFLOW_REG_BASE);
+
+	/* Initialize last overflow value to track wrap condition */
+	iproc_dte->timestamp_overflow_last = 0;
+}
+
+static void dte_enable_nco(struct bcm_dte *iproc_dte,
+	uint32_t nco_incr)
+{
+	/* start the nco if it is stopped */
+	if (!nco_incr)
+		nco_incr = NCO_INC_NOMINAL;
+
+	/* enable NCO Increment */
+	writel(nco_incr, iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+}
+
+static void dte_en_nco_if_stopped(struct bcm_dte *iproc_dte)
+{
+	uint32_t nco_incr;
+
+	spin_lock_bh(&iproc_dte->lock);
+	nco_incr = readl(iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+
+	if (!nco_incr)
+		dte_enable_nco(iproc_dte, nco_incr);
+	spin_unlock_bh(&iproc_dte->lock);
 }
 
 static int dte_set_irq_interval(struct bcm_dte *iproc_dte,
@@ -319,7 +436,7 @@ static int dte_set_irq_interval(struct bcm_dte *iproc_dte,
 		return 0;
 	}
 
-	spin_lock(&iproc_dte->lock);
+	spin_lock_bh(&iproc_dte->lock);
 
 	/*
 	 * To ensure proper operation of the isochronous time interval
@@ -354,7 +471,7 @@ static int dte_set_irq_interval(struct bcm_dte *iproc_dte,
 		/* disable isochronous interrupt */
 		bcm_iproc_dte_enable(iproc_dte, false);
 
-	spin_unlock(&iproc_dte->lock);
+	spin_unlock_bh(&iproc_dte->lock);
 
 	if (!nanosec)
 		/* make sure the interrupt handler isn't running */
@@ -383,29 +500,18 @@ static int dte_get_timestamp(struct bcm_dte *iproc_dte,
 
 static int dte_set_time(struct bcm_dte *iproc_dte, struct timespec *ts)
 {
+	uint32_t nco_incr;
+
 	if (!iproc_dte)
 		return -EINVAL;
 
-	spin_lock(&iproc_dte->lock);
-
-	/* Disable NCO Increment */
-	writel(0, iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
-
-	/* Reset Timers */
-	writel(0, iproc_dte->audioeav + DTE_NCO_LOW_TIME_REG_BASE);
-	writel(0, iproc_dte->audioeav + DTE_NCO_TIME_REG_BASE);
-	writel(0, iproc_dte->audioeav + DTE_NCO_OVERFLOW_REG_BASE);
-
-	/* Initialize last overflow value to track wrap condition */
-	iproc_dte->timestamp_overflow_last = 0;
-
+	spin_lock_bh(&iproc_dte->lock);
+	nco_incr = readl(iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+	dte_disable_nco(iproc_dte);
 	/* Initialize Reference timespec */
 	iproc_dte->ts_ref = *ts;
-
-	/* re-enable nco increment */
-	writel(NCO_INC_NOMINAL, iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
-
-	spin_unlock(&iproc_dte->lock);
+	dte_enable_nco(iproc_dte, nco_incr);
+	spin_unlock_bh(&iproc_dte->lock);
 
 	return 0;
 }
@@ -413,61 +519,21 @@ static int dte_set_time(struct bcm_dte *iproc_dte, struct timespec *ts)
 static int dte_get_time(struct bcm_dte *iproc_dte,
 			struct timespec *ts)
 {
-	uint32_t current_time_sum1;
-	uint32_t current_time_sum2;
-	uint32_t current_time_sum3;
-	uint32_t timestamp_overflow;
+	int rc;
+	uint32_t ts_ovf;
 	uint64_t ns;
 
 	if (!iproc_dte)
 		return -EINVAL;
 
-	spin_lock(&iproc_dte->lock);
-
-	/* Read Timers */
-	current_time_sum1 = readl(iproc_dte->audioeav +
-				DTE_NCO_LOW_TIME_REG_BASE);
-	current_time_sum2 = readl(iproc_dte->audioeav +
-				DTE_NCO_TIME_REG_BASE);
-	current_time_sum3 = readl(iproc_dte->audioeav +
-				DTE_NCO_OVERFLOW_REG_BASE);
-
-	/*
-	 * Register            |  sum3 |  sum2  | sum1     |
-	 *                     |7     0|31 28  0|31 28:27 0|
-	 * Timestamp[71:0]     |71                  28:27 0|
-	 */
-
-	/* Current time in units of ns */
-	ns = (((uint64_t)(current_time_sum3 & 0xff) << 36) |
-		((uint64_t)current_time_sum2 << 4) |
-		(uint64_t)((current_time_sum1 >> 28) & 0xf));
-
-	/*
-	 * Determined if wraparound has occurred
-	 * Timestamp overflow only includes the bottom 8 bits of sum3
-	 * and the top 4 bits of sum2
-	 * Units of 2^32 ns = 4.294967296 sec
-	 */
-	timestamp_overflow = (ns >> 32) & 0xfff;
-	if (timestamp_overflow < iproc_dte->timestamp_overflow_last)
-		/*
-		 * Wrap around has occurred but not yet reflected in
-		 * the reference timespec
-		 * Full wrap around amount is 44bits in ns
-		 * Precisely 17592.186044416 sec = ~4.887 hrs
-		 */
-		ns += (uint64_t)0x1<<44;
-
-	/* Convert current timestamp(ns) to timespec */
-	*ts = ns_to_timespec(ns);
+	spin_lock_bh(&iproc_dte->lock);
+	rc = dte_read_nco_time(iproc_dte, &ns, &ts_ovf);
+	spin_unlock_bh(&iproc_dte->lock);
 
 	/* Add the current time to the reference time */
-	*ts = timespec_add(iproc_dte->ts_ref, *ts);
+	*ts = timespec_add(iproc_dte->ts_ref, ns_to_timespec(ns));
 
-	spin_unlock(&iproc_dte->lock);
-
-	return 0;
+	return rc;
 }
 
 static int dte_adj_time(struct bcm_dte *iproc_dte, int64_t delta)
@@ -479,12 +545,12 @@ static int dte_adj_time(struct bcm_dte *iproc_dte, int64_t delta)
 
 	ts_delta = ns_to_timespec(delta);
 
-	spin_lock(&iproc_dte->lock);
+	spin_lock_bh(&iproc_dte->lock);
 
 	/* Update Reference timespec */
 	iproc_dte->ts_ref = timespec_add(iproc_dte->ts_ref, ts_delta);
 
-	spin_unlock(&iproc_dte->lock);
+	spin_unlock_bh(&iproc_dte->lock);
 
 	return 0;
 }
@@ -512,12 +578,12 @@ static int dte_adj_freq(struct bcm_dte *iproc_dte, int32_t ppb)
 			(u32)(div64_u64((((u64)abs(ppb) * BIT(28)) +
 				62500000ULL), 125000000ULL));
 
-	spin_lock(&iproc_dte->lock);
+	spin_lock_bh(&iproc_dte->lock);
 
 	/* Update NCO Increment */
 	writel(nco_incr, iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
 
-	spin_unlock(&iproc_dte->lock);
+	spin_unlock_bh(&iproc_dte->lock);
 
 	return 0;
 }
@@ -529,9 +595,9 @@ static int dte_get_freq_adj(struct bcm_dte *iproc_dte, int32_t *ppb)
 	if ((!iproc_dte) || (!ppb))
 		return -EINVAL;
 
-	spin_lock(&iproc_dte->lock);
+	spin_lock_bh(&iproc_dte->lock);
 	nco_incr = readl(iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
-	spin_unlock(&iproc_dte->lock);
+	spin_unlock_bh(&iproc_dte->lock);
 
 	/* Calculate the ppb adjustment from the NCO value */
 	if (nco_incr < NCO_INC_NOMINAL)
@@ -542,6 +608,25 @@ static int dte_get_freq_adj(struct bcm_dte *iproc_dte, int32_t *ppb)
 			125000000ULL) + 0x8000000, (u64)BIT(28));
 
 	return 0;
+}
+
+static void dte_nco_ovf_tmr(unsigned long data)
+{
+	struct platform_device *pdev = (struct platform_device *)data;
+	struct bcm_dte *iproc_dte;
+	uint64_t nco_time;
+	uint32_t ts_ovf;
+
+	iproc_dte = (struct bcm_dte *)platform_get_drvdata(pdev);
+
+	/* handle nco overflow */
+	spin_lock_bh(&iproc_dte->lock);
+	dte_read_nco_time(iproc_dte, &nco_time, &ts_ovf);
+	spin_unlock_bh(&iproc_dte->lock);
+
+	/* reset timer */
+	mod_timer(&iproc_dte->ovf_timer, (jiffies +
+		msecs_to_jiffies(DTE_NCO_OVF_TIMEOUT_MS)));
 }
 
 static void dte_update_user(struct bcm_dte *iproc_dte,
@@ -613,6 +698,9 @@ static int dte_enable_ts(struct bcm_dte *iproc_dte,
 		}
 
 		if (!iproc_dte->usr_cnt) {
+			/* start DTE NCO if it is not running */
+			dte_en_nco_if_stopped(iproc_dte);
+
 			/*
 			 * IRQ Interval needs to be set only
 			 * once (when enabling first client)
@@ -887,23 +975,61 @@ static const struct file_operations dte_cdev_fops = {
 	.release = dte_release,
 };
 
-static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx)
+static int dte_read_client_ts_fifo(struct bcm_dte *iproc_dte,
+	uint32_t *clients, uint32_t *ts)
 {
 	uint32_t fifo_csr;
-	uint32_t rd_data;
-	uint32_t current_time_sum2;
-	uint32_t current_time_sum3;
+	int rc = 0;
+
+	*clients = 0;
+	*ts = 0;
+
+	fifo_csr = readl(iproc_dte->audioeav +
+		DTE_LTS_CSR_REG_BASE);
+	if (fifo_csr & BIT(DTE_LTS_CSR_REG__FIFO_EMPTY)) {
+		if (fifo_csr & BIT(DTE_LTS_CSR_REG__FIFO_UNDERFLOW)) {
+			iproc_dte->fifouf++;
+			dev_err(&iproc_dte->pdev->dev,
+				"fifouf = %d\n", iproc_dte->fifouf);
+		}
+		if (fifo_csr & BIT(DTE_LTS_CSR_REG__FIFO_OVERFLOW)) {
+			iproc_dte->fifoof++;
+			dev_err(&iproc_dte->pdev->dev,
+				"fifoof =%d\n", iproc_dte->fifoof);
+		}
+
+		/* overflow/underflow error, reset fifo */
+		if (fifo_csr & 0xc) {
+			writel(0, iproc_dte->audioeav + DTE_LTS_CSR_REG_BASE);
+			dev_err(&iproc_dte->pdev->dev, "Resetting HW FIFO\n");
+		}
+
+		rc = -ENODATA;
+	} else {
+		/* first event contains active clients */
+		*clients = readl(iproc_dte->audioeav +
+			DTE_LTS_FIFO_REG_BASE);
+
+		/* then timestamp */
+		*ts = readl(iproc_dte->audioeav + DTE_LTS_FIFO_REG_BASE);
+	}
+
+	return rc;
+}
+
+static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx)
+{
 	uint32_t i = 0;
 	uint32_t active_clients;
 	int client;
 	int inlen;
 	struct platform_device *pdev = (struct platform_device *)drv_ctx;
 	struct bcm_dte *iproc_dte;
-	uint32_t timestamp_overflow;
-	uint32_t timestamp_ns;
-	uint64_t ns;
-	struct timespec ts_stamp;
 	uint32_t status;
+	uint32_t client_ts_ns;
+	uint64_t nco_time;
+	uint32_t nco_ovf;
+	struct timespec client_tstamp = {0, 0};
 
 	iproc_dte = (struct bcm_dte *)platform_get_drvdata(pdev);
 
@@ -920,96 +1046,59 @@ static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx)
 		DTE_INTR_STATUS_TIMEOUT_INTR_SHIFT);
 	writel(status, iproc_dte->audioeav + DTE_INTR_STATUS_REG);
 
-	/* get data from dte fifo */
 	do {
-		fifo_csr = readl(iproc_dte->audioeav +
-			DTE_LTS_CSR_REG_BASE);
-		/* exit if fifo is empty */
-		if (fifo_csr & BIT(DTE_LTS_CSR_REG__FIFO_EMPTY))
+		spin_lock(&iproc_dte->lock);
+		/* get data from dte fifo */
+		if (dte_read_client_ts_fifo(iproc_dte,
+				&active_clients, &client_ts_ns)) {
+			spin_unlock(&iproc_dte->lock);
 			break;
+		}
 
-		spin_lock(&iproc_dte->lock);
+		dte_read_nco_time(iproc_dte, &nco_time, &nco_ovf);
 
-		/* first event contains active clients */
-		active_clients = readl(iproc_dte->audioeav +
-			DTE_LTS_FIFO_REG_BASE);
-
-		/* then timestamp */
-		rd_data = readl(iproc_dte->audioeav +
-			DTE_LTS_FIFO_REG_BASE);
-
-		/* Save the actual timestamp */
-		timestamp_ns = rd_data;
-
-		/* Get the timestamp overflow counters */
-		current_time_sum2 = readl(iproc_dte->audioeav +
-			DTE_NCO_TIME_REG_BASE);
-		current_time_sum3 = readl(iproc_dte->audioeav +
-			DTE_NCO_OVERFLOW_REG_BASE);
-		spin_unlock(&iproc_dte->lock);
+		client_tstamp.tv_sec = iproc_dte->ts_ref.tv_sec;
+		client_tstamp.tv_nsec = iproc_dte->ts_ref.tv_nsec;
 
 		/*
-		 * Timestamp overflow only includes the bottom
-		 * 8 bits of sum3 and the top 4 bits of sum2.
+		 * The client_ts is only 32bits. So we need the MSB
+		 * 12-bits which is available in the current NCO time.
+		 * But we need to account for overflows that
+		 * happened between client_ts and the nco_time.
 		 *
-		 * Combine sum3 and sum2 to the timestamp_overflow.
-		 * Units of 2^32 ns = 4.294967296 sec
+		 * The API should run fast enough (once every 4s) so
+		 * that the below can catch the 32-bit overflows,
+		 * which it typically does.
 		 */
-		timestamp_overflow =
-			((current_time_sum3 & 0xff) << 4) |
-			((current_time_sum2 >> 28) & 0xffffff);
-		/*
-		 * If the current time is less than the fifo timestamped time
-		 * then wrap around must have occurred.
-		 * Convert current_time_sum2 to ns before comparison
-		 */
-		if ((current_time_sum2 << 4) <= timestamp_ns) {
-			if (timestamp_overflow > 0)
+		if (((uint32_t)(nco_time & 0xFFFFFFFF)) <= client_ts_ns) {
+			/* account for 44-bit overflow boundary */
+			if (nco_ovf > 0) {
+				nco_ovf--;
+			} else {
+				/* wrap around condition */
+				nco_ovf = 0xfff;
+
 				/*
-				 * Decrement the overflow counter since the fifo
-				 * timestamp occurred before overflow counter
-				 * had incremented
+				 * ts_ref nedds to be used to account for
+				 * previous ovf's etc. to get the time to
+				 * current value.
+				 *
+				 * dte_read_nco_time() adds overflow to
+				 * ts_ref. This needs to be taken off
+				 * from the ref time to get to the current
+				 * time when the wrap around happens.
 				 */
-				timestamp_overflow--;
-			else
-				/*
-				 * If the overflow counter is zero *and*
-				 * the timestamp wrapped then the overflow
-				 * counter also wrapped.
-				 * Set to max value of 12 bits wide.
-				 * sum3 (8 bits) and sum2 (top 4 bits)
-				 */
-				timestamp_overflow = 0xfff;
+				client_tstamp = timespec_sub(
+					iproc_dte->ts_ref,
+					ns_to_timespec((uint64_t)1 << 44));
+			}
 		}
 
-		spin_lock(&iproc_dte->lock);
-		/*
-		 * Update reference timespec if wrap of the timestamp overflow
-		 * occurred
-		 */
-		if (timestamp_overflow < iproc_dte->timestamp_overflow_last) {
-			struct timespec ts_wrapamount;
-			/*
-			 * Wrap around occurred.
-			 * Full wrap around amount is 44 bits in ns.
-			 * Includes sum3 (8bits), sum2 (32 bits), sum1 (4 bits)
-			 * Precisely 17592.186044416 sec = ~4.887 hrs
-			 */
-			ts_wrapamount = ns_to_timespec((uint64_t)0x1<<44);
-			/* Increment the reference */
-			iproc_dte->ts_ref =
-				timespec_add(iproc_dte->ts_ref, ts_wrapamount);
-		}
-		/* Track the last timestamp overflow value */
-		iproc_dte->timestamp_overflow_last = timestamp_overflow;
+		/* add the client_ts + 12 MSB bits to the ts_ref value */
+		client_tstamp = timespec_add(client_tstamp,
+			ns_to_timespec(((uint64_t)client_ts_ns +
+			((uint64_t)nco_ovf << 32))));
 
-		/* Convert current timestamp(ns) to timespec */
-		ns = ((uint64_t)timestamp_overflow << 32) +
-			timestamp_ns;
-		ts_stamp = ns_to_timespec(ns);
-
-		/* Add the current time to the reference time */
-		ts_stamp = timespec_add(iproc_dte->ts_ref, ts_stamp);
 		spin_unlock(&iproc_dte->lock);
 
 		/*
@@ -1027,7 +1116,7 @@ static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx)
 			/* Insert full timestamps into software fifo */
 			inlen = kfifo_in(
 				&iproc_dte->recv_fifo[client],
-				&ts_stamp,
+				&client_tstamp,
 				sizeof(struct timespec));
 
 			if (inlen != sizeof(struct timespec)) {
@@ -1042,23 +1131,6 @@ static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx)
 				&iproc_dte->user[client].ts_wait_queue);
 		}
 	} while (++i < DTE_HW_FIFO_SIZE); /* at most get FIFO size */
-
-	if (fifo_csr & BIT(DTE_LTS_CSR_REG__FIFO_UNDERFLOW)) {
-		iproc_dte->fifouf++;
-		dev_err(&iproc_dte->pdev->dev,
-			"fifouf = %d\n", iproc_dte->fifouf);
-	}
-	if (fifo_csr & BIT(DTE_LTS_CSR_REG__FIFO_OVERFLOW)) {
-		iproc_dte->fifoof++;
-		dev_err(&iproc_dte->pdev->dev,
-			"fifoof =%d\n", iproc_dte->fifoof);
-	}
-
-	/* overflow/underflow error, reset fifo */
-	if (fifo_csr & DTE_FLOW_ERROR_MASK) {
-		writel(0, iproc_dte->audioeav + DTE_LTS_CSR_REG_BASE);
-		dev_err(&iproc_dte->pdev->dev, "Resetting HW FIFO\n");
-	}
 
 	return IRQ_HANDLED;
 }
@@ -1115,6 +1187,7 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 	}
 
 	spin_lock_init(&iproc_dte->lock);
+	dte_disable_nco(iproc_dte);
 
 	/* get interrupt */
 	irq = platform_get_irq(pdev, 0);
@@ -1128,6 +1201,11 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "interval not specified, defaulting to %d\n",
 			DTE_DEFAULT_INTERVAL);
 		iproc_dte->irq_interval_ns = DTE_DEFAULT_INTERVAL;
+	} else if (iproc_dte->irq_interval_ns > DTE_POLL_INTERVAL_MIN) {
+		dev_info(&pdev->dev,
+			"poll interval cannot be more than %d, chainging poll to min\n",
+			DTE_POLL_INTERVAL_MIN);
+		iproc_dte->irq_interval_ns = DTE_POLL_INTERVAL_MIN;
 	}
 
 	if (irq > 0) {
@@ -1248,6 +1326,9 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, iproc_dte);
 	iproc_dte->devt = devt;
 
+	dte_init_nco_ovf_tmr(iproc_dte);
+	dte_start_nco_ovf_tmr(iproc_dte);
+
 	dev_info(dev, "DTE Initialized.\n");
 
 	return 0;
@@ -1274,6 +1355,9 @@ static int bcm_iproc_dte_remove(struct platform_device *pdev)
 	unregister_chrdev_region(iproc_dte->devt, DTE_MAX_DEVS);
 	cdev_del(&iproc_dte->dte_cdev);
 
+	dte_disable_nco(iproc_dte);
+	dte_stop_nco_ovf_tmr(iproc_dte);
+
 	/* Disable all clients */
 	dte_disable_all_clients(iproc_dte);
 
@@ -1296,6 +1380,11 @@ static int bcm_iproc_dte_suspend(struct device *dev)
 	/* disable intr or timer */
 	dte_set_irq_interval(iproc_dte, 0);
 
+	iproc_dte->nco_susp_val =
+		readl(iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+	dte_disable_nco(iproc_dte);
+	dte_stop_nco_ovf_tmr(iproc_dte);
+
 	/* Store and disable all sources */
 	iproc_dte->src_ena = readl(
 		iproc_dte->audioeav + DTE_LTS_SRC_EN_REG_BASE);
@@ -1310,6 +1399,10 @@ static int bcm_iproc_dte_resume(struct device *dev)
 	struct bcm_dte *iproc_dte = platform_get_drvdata(pdev);
 
 	dev_info(dev, "Resuming DTE driver\n");
+
+	dte_start_nco_ovf_tmr(iproc_dte);
+	if ((iproc_dte->nco_susp_val) || (iproc_dte->usr_cnt))
+		dte_enable_nco(iproc_dte, iproc_dte->nco_susp_val);
 
 	if (iproc_dte->usr_cnt) {
 		/* re-enable intr or timer */
