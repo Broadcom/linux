@@ -1347,39 +1347,21 @@ static void pci_enable_bridge(struct pci_dev *dev)
 {
 	struct pci_dev *bridge;
 	int retval;
-	int err;
-	int i;
-	unsigned int bars = 0;
-	unsigned long flags = IORESOURCE_MEM | IORESOURCE_IO;
 
 	bridge = pci_upstream_bridge(dev);
 	if (bridge)
 		pci_enable_bridge(bridge);
 
-	if (dev->pm_cap) {
-		u16 pmcsr;
-
-		pci_read_config_word(dev, dev->pm_cap + PCI_PM_CTRL, &pmcsr);
-		dev->current_state = (pmcsr & PCI_PM_CTRL_STATE_MASK);
-	}
-
-	if (atomic_inc_return(&dev->enable_cnt) > 1)
-		return;		/* already enabled */
-
-	/* only skip sriov related */
-	for (i = 0; i <= PCI_ROM_RESOURCE; i++)
-		if (dev->resource[i].flags & flags)
-			bars |= (1 << i);
-	for (i = PCI_BRIDGE_RESOURCES; i < DEVICE_COUNT_RESOURCE; i++)
-		if (dev->resource[i].flags & flags)
-			bars |= (1 << i);
-
-	err = do_pci_enable_device(dev, bars);
-	if (err < 0) {
-		atomic_dec(&dev->enable_cnt);
+	if (pci_is_enabled(dev)) {
+		if (!dev->is_busmaster)
+			pci_set_master(dev);
 		return;
 	}
 
+	retval = pci_enable_device(dev);
+	if (retval)
+		dev_err(&dev->dev, "Error enabling bridge (%d), continuing\n",
+			retval);
 	pci_set_master(dev);
 }
 
