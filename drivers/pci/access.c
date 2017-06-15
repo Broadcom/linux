@@ -153,9 +153,23 @@ int pci_generic_config_write32(struct pci_bus *bus, unsigned int devfn,
 	 * write happen to have any RW1C (write-one-to-clear) bits set, we
 	 * just inadvertently cleared something we shouldn't have.
 	 */
+
+	/*
+	 * FIXME
+	 *
+	 * Disable the following warning print from open source PCI stack to
+	 * prevent developers from mistakenly treating this warning as fatal
+	 * errors
+	 */
+#if 0
 	dev_warn_ratelimited(&bus->dev, "%d-byte config write to %04x:%02x:%02x.%d offset %#x may corrupt adjacent RW1C bits\n",
 			     size, pci_domain_nr(bus), bus->number,
 			     PCI_SLOT(devfn), PCI_FUNC(devfn), where);
+#else
+	dev_dbg(&bus->dev, "%d-byte config write to %04x:%02x:%02x.%d offset %#x may corrupt adjacent RW1C bits\n",
+		size, pci_domain_nr(bus), bus->number, PCI_SLOT(devfn),
+		PCI_FUNC(devfn), where);
+#endif
 
 	mask = ~(((1 << (size * 8)) - 1) << ((where & 0x3) * 8));
 	tmp = readl(addr) & mask;
