@@ -90,7 +90,6 @@ config PTP_1588_CLOCK_PCH
 	  To compile this driver as a module, choose M here: the module
 	  will be called ptp_pch.
 
-
 config PTP_1588_CLOCK_KVM
 	tristate "KVM virtual PTP clock"
 	depends on PTP_1588_CLOCK
@@ -102,22 +101,5 @@ config PTP_1588_CLOCK_KVM
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called ptp_kvm.
-
-config PTP_1588_CLOCK_IPROC_DTE
-	tristate "Broadcom IPROC DTE as PTP clock"
-	depends on NET
-	depends on ARCH_BCM_IPROC || COMPILE_TEST
-	depends on HAS_IOMEM
-	select PTP_1588_CLOCK
-	default ARCH_BCM_IPROC
-	help
-	  This driver adds support for using the Digital timing engine
-	  (DTE) in the Broadcom IPROC SoC's as a PTP clock.
-
-	  The clock can be used in both wired and wireless networking
-	  for PTP purposes.
-
-	  To compile this driver as a module, choose M here: the module
-	  will be called ptp_iproc_dte.
 
 endmenu
