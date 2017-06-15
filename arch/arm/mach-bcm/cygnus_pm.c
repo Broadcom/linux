@@ -291,7 +291,7 @@ void __init cygnus_pm_init(void)
 {
 	cygnus_pm = cygnus_pm_device_init();
 	if (!cygnus_pm) {
-		pr_err("Failed to register cygnus pm device. PM unavailable.\n");
+		pr_err("PM device not registered\n");
 		return;
 	}
 
