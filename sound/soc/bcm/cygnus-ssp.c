@@ -211,7 +211,7 @@ static const struct snd_pcm_hw_constraint_list cygnus_rate_constraint = {
 	.list = cygnus_rates,
 };
 
-static int update_ssp_cfg(struct cygnus_aio_port *aio);
+static void update_ssp_cfg(struct cygnus_aio_port *aio);
 
 static struct cygnus_aio_port *cygnus_dai_get_portinfo(struct snd_soc_dai *dai)
 {
@@ -735,7 +735,9 @@ static int cygnus_ssp_hw_params(struct snd_pcm_substream *substream,
 			value |= BIT(IOP_LOGIC_RESET_IN_OFFSET(aio->portnum));
 			writel(value, aio->i2s_in + IOP_SW_INIT_LOGIC);
 		}
-		update_ssp_cfg(aio);
+
+		if (aio->port_type != PORT_SPDIF)
+			update_ssp_cfg(aio);
 
 		aio->lrclk = rate;
 
@@ -1096,7 +1098,7 @@ static int cygnus_ssp_set_pll(struct snd_soc_dai *cpu_dai, int pll_id,
 /* Input cfg is same as output, but the FS width is not a valid field */
 #define I2S_IN_CFG_REG_UPDATE_MASK  (I2S_OUT_CFG_REG_UPDATE_MASK | 0x03fc0000)
 
-static int update_ssp_cfg(struct cygnus_aio_port *aio)
+static void update_ssp_cfg(struct cygnus_aio_port *aio)
 {
 	u32 valid_slots;       /* reg val to program */
 	int bits_per_slot_cmn;
@@ -1108,6 +1110,9 @@ static int update_ssp_cfg(struct cygnus_aio_port *aio)
 	u32 ssp_outcfg;
 	u32 ssp_incfg;
 	u32 fsync_width;
+
+	if (aio->port_type == PORT_SPDIF)
+		return;
 
 	/* We encode 16 slots as 0 in the reg */
 	valid_slots = aio->active_slots;
@@ -1121,9 +1126,6 @@ static int update_ssp_cfg(struct cygnus_aio_port *aio)
 
 	bits_per_slot_in = bits_per_slot_cmn;
 	bits_per_slot_out = bits_per_slot_cmn;
-
-	if (aio->port_type == PORT_SPDIF)
-		return -EINVAL;
 
 	ssp_newcfg = 0;
 
@@ -1191,8 +1193,6 @@ static int update_ssp_cfg(struct cygnus_aio_port *aio)
 	ssp_outcfg |= (bits_per_slot_out << I2S_OUT_CFGX_BITS_PER_SLOT);
 
 	writel(ssp_outcfg, aio->audio + aio->regs.i2s_cfg);
-
-	return 0;
 }
 
 /*
@@ -1253,6 +1253,13 @@ static const struct snd_soc_dai_ops cygnus_ssp_dai_ops = {
 	.set_pll	= cygnus_ssp_set_pll,
 };
 
+static const struct snd_soc_dai_ops cygnus_spdif_dai_ops = {
+	.startup	= cygnus_ssp_startup,
+	.shutdown	= cygnus_ssp_shutdown,
+	.trigger	= cygnus_ssp_trigger,
+	.hw_params	= cygnus_ssp_hw_params,
+	.set_sysclk	= cygnus_ssp_set_sysclk,
+};
 
 #define INIT_CPU_DAI(num) { \
 	.name = "cygnus-ssp" #num, \
@@ -1268,8 +1275,8 @@ static const struct snd_soc_dai_ops cygnus_ssp_dai_ops = {
 		.channels_min = 2, \
 		.channels_max = 16, \
 		.rates = SNDRV_PCM_RATE_KNOT, \
-		.formats =  SNDRV_PCM_FMTBIT_S16_LE | \
-					SNDRV_PCM_FMTBIT_S32_LE, \
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | \
+				SNDRV_PCM_FMTBIT_S32_LE, \
 	}, \
 	.ops = &cygnus_ssp_dai_ops, \
 }
@@ -1287,9 +1294,9 @@ static struct snd_soc_dai_driver cygnus_spdif_dai_info = {
 		.channels_max = 2,
 		.rates = SNDRV_PCM_RATE_KNOT,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE |
-			SNDRV_PCM_FMTBIT_S32_LE,
+				SNDRV_PCM_FMTBIT_S32_LE,
 	},
-	.ops = &cygnus_ssp_dai_ops,
+	.ops = &cygnus_spdif_dai_ops,
 };
 
 static struct snd_soc_dai_driver cygnus_ssp_dai[CYGNUS_MAX_PORTS];
