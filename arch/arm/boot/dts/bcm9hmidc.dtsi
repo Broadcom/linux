@@ -40,3 +40,23 @@
 	touchscreen-inverted-y;
 	status = "okay";
 };
+
+&clcd {
+	status = "okay";
+	panel {
+		panel-timing {
+			clock-frequency = <50000>;
+			hactive = <800>;
+			hback-porch = <88>;
+			hfront-porch = <40>;
+			hsync-len = <48>;
+			vactive = <480>;
+			vback-porch = <32>;
+			vfront-porch = <13>;
+			vsync-len = <3>;
+			vsync-active = <1>;
+			hsync-active = <1>;
+			pixelclk-active = <1>;
+		};
+	};
+};
