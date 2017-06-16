@@ -176,3 +176,7 @@
 	phy-names = "usbp0", "usbp1", "usbp2";
 	status = "okay";
 };
+
+&pm {
+	status = "okay";
+};
