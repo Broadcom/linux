@@ -40,7 +40,7 @@
 #define ENABLE_UART2	0
 #define ENABLE_UART3	0
 #ifndef NUM_SATA
-#define NUM_SATA	0
+#define NUM_SATA	2
 #endif
 
 / {
