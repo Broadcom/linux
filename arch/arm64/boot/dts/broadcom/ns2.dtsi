@@ -351,6 +351,11 @@
 			      <0x660009b0 0x40>;
 		};
 
+		crmu_usb_ctl: syscon@6501d144 {
+			compatible = "brcm,ns2-crmu-usbctl", "syscon";
+			reg = <0x6501d144 0x8>;
+		};
+
 		gpio_aon: gpio@65024800 {
 			compatible = "brcm,iproc-gpio";
 			reg = <0x65024800 0x50>,
@@ -755,5 +760,72 @@
 			#size-cells = <0>;
 		};
 
+		ehci0: usb@66480000 {
+			compatible = "generic-ehci";
+			reg = <0x66480000 0x100>;
+			interrupts = <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb2_phy0>;
+			phy-names = "usb2-phy";
+			dma-coherent;
+			status = "disabled";
+		};
+
+		ohci0: usb@66480800 {
+			compatible = "generic-ohci";
+			reg = <0x66480800 0x100>;
+			interrupts = <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb2_phy0>;
+			phy-names = "usb2-phy";
+			dma-coherent;
+			status = "disabled";
+		};
+
+		ehci1: usb@664a0000 {
+			compatible = "generic-ehci";
+			reg = <0x664a0000 0x100>;
+			interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb2_phy1>;
+			phy-names = "usb2-phy";
+			dma-coherent;
+			status = "disabled";
+		};
+
+		ohci1: usb@664a0800 {
+			compatible = "generic-ohci";
+			reg = <0x664a0800 0x100>;
+			interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb2_phy1>;
+			phy-names = "usb2-phy";
+			dma-coherent;
+			status = "disabled";
+		};
+
+		usb2_phy0: usbphy@67010800 {
+			#phy-cells = <0>;
+			compatible = "brcm,ns2-usb2-phy";
+			reg = <0x67010408 0x400>,
+			      <0x66490200 0x600>,
+			      <0x66000888 0x4>;
+			reg-names = "usb2-idm-ctl",
+				    "usb2-phy-ctl",
+				    "usb2-icfg-sts";
+			usb-ctl-syscon = <&crmu_usb_ctl>;
+			brcm,ns2-usbh-afe = <13>;
+			status = "disabled";
+		};
+
+		usb2_phy1: usbphy@67011800 {
+			#phy-cells = <0>;
+			compatible = "brcm,ns2-usb2-phy";
+			reg = <0x67011408 0x400>,
+			      <0x664b0200 0x600>,
+			      <0x660008d8 0x4>;
+			reg-names = "usb2-idm-ctl",
+				    "usb2-phy-ctl",
+				    "usb2-icfg-sts";
+			usb-ctl-syscon = <&crmu_usb_ctl>;
+			brcm,ns2-usbh-afe = <6>;
+			status = "disabled";
+		};
 	};
 };

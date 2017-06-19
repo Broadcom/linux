@@ -56,7 +56,23 @@
 	};
 };
 
+&ehci0 {
+	status = "okay";
+};
+
+&ehci1 {
+	status = "okay";
+};
+
 &enet {
+	status = "okay";
+};
+
+&ohci0 {
+	status = "okay";
+};
+
+&ohci1 {
 	status = "okay";
 };
 
@@ -233,4 +249,12 @@
 			reg = <0x00700000 0x01900000>;
 		};
 	};
+};
+
+&usb2_phy0 {
+	status = "okay";
+};
+
+&usb2_phy1 {
+	status = "okay";
 };
