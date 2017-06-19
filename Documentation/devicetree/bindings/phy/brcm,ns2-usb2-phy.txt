@@ -1,0 +1,49 @@
+BROADCOM NORTHSTAR2 USB2 HOST PHY
+
+This USB 2.0 host PHY is used in Northstar2 platform.
+There are two such PHYs connected to two EHCI/OHCI controllers.
+
+Required PHY properties:
+ - compatible: brcm,ns2-usb2-phy
+ - reg: Address and length of the NS2 PHY related registers.
+ - reg-names:
+   The below registers must be provided.
+	usb2-idm-ctl: IDM control registers
+	usb2-phy-ctl: Phy control registers
+	usb2-icfg-sts: ICFG register to check PLL lock status
+ - #phy-cells: Must be 0. No args required.
+ - usb-ctl-syscon: Handler of syscon node to access NS2 CRMU USB
+	control registers. There are 2 registers - one for USB2
+	 and other for USB3.
+ - brcm,ns2-usbh-afe: The AFE bit value for USB2 phy
+
+Optional PHY properties:
+ - brcm,ns2-inv-ppc-pol: This property is optional. This can be
+	provided when ppc inversion/overcurrent polarity bits needs
+	to be reversed in the ehci_ohci_strap register.
+
+Required CRMU USB control properties:
+ - compatibility strings: "brcm,ns2-crmu-usbctl", "syscon"
+ - reg: The CRMU USB control registers address and length.
+	There are 2 registers - one each for USB2 and USB3.
+
+Refer to phy/phy-bindings.txt for the generic PHY binding properties
+
+Example:
+	crmu_usb_ctl: syscon@6501d144 {
+		compatible = "brcm,ns2-crmu-usbctl", "syscon";
+		reg = <0x6501d144 0x8>;
+	};
+
+	usbphy0: usbphy@67010800 {
+		#phy-cells = <0>;
+		compatible = "brcm,ns2-usb2-phy";
+		reg = <0x67010408 0x400>,
+		      <0x66490200 0x600>,
+		      <0x66000888 0x4>;
+		reg-names = "usb2-idm-ctl",
+			    "usb2-phy-ctl",
+			    "usb2-icfg-sts";
+		usb-ctl-syscon = <&crmu_usb_ctl>;
+		brcm,ns2-usbh-afe = <13>;
+	};
