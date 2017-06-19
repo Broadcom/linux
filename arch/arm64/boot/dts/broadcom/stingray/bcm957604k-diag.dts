@@ -34,6 +34,13 @@
 
 #include "bcm957604k.dts"
 
+/*
+ * We do not want to perform PRBS on the two SATA ports of
+ * SmartIO board. Instead, read-write test will be done
+ */
+#undef NUM_SATA
+#define NUM_SATA 0
+
 #include "stingray-diag.dtsi"
 
 / {
