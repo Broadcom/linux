@@ -110,6 +110,7 @@ dtb-$(CONFIG_ARCH_BCM_63XX) += \
 	bcm963138dvt.dtb
 dtb-$(CONFIG_ARCH_BCM_CYGNUS) += \
 	bcm911360_entphn.dtb \
+	bcm911360_entphn-emmc.dtb \
 	bcm911360k.dtb \
 	bcm958300k.dtb \
 	bcm958305k.dtb \
