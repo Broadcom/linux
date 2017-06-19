@@ -285,6 +285,35 @@ parse_failed:
 EXPORT_SYMBOL_GPL(of_pci_get_host_bridge_resources);
 #endif /* CONFIG_OF_ADDRESS */
 
+static inline u32 out_masked_rid(u32 rid, u32 drop_mask)
+{
+	u32 id = 0;
+	u32 i = 0;
+
+	/* RID's BUS, DEV, FUN values not inside the mask are invalid */
+	if (rid & ~drop_mask)
+		return -EINVAL;
+
+	/*
+	 * RID value is translated to sideband data using drop_mask
+	 * by dropping bits corresponding zero bits in drop_mask.
+	 *
+	 * Example: If drop_mask is 0xFF09 then sideband data is
+	 * 8 bits bus number followed by 1 bit of device number and
+	 * 1 bit function number. This means drop_mask=0xFF09 will
+	 * convert RID=0x1a10 (16bits) to sideband data 0x6a (10bits).
+	 */
+	while (drop_mask) {
+		if (drop_mask & 0x1) {
+			id |= ((rid & 0x1) << i);
+			i++;
+		}
+		rid = rid >> 1;
+		drop_mask = drop_mask >> 1;
+	}
+
+	return id;
+}
 /**
  * of_pci_map_rid - Translate a requester ID through a downstream mapping.
  * @np: root complex device node.
@@ -304,11 +333,11 @@ EXPORT_SYMBOL_GPL(of_pci_get_host_bridge_resources);
  *
  * Return: 0 on success or a standard error code on failure.
  */
-int of_pci_map_rid(struct device_node *np, u32 rid,
-		   const char *map_name, const char *map_mask_name,
+int of_pci_map_rid(struct device_node *np, u32 rid, const char *map_name,
+		   const char *map_mask_name, const char *drop_mask_name,
 		   struct device_node **target, u32 *id_out)
 {
-	u32 map_mask, masked_rid;
+	u32 map_mask, masked_rid, drop_mask;
 	int map_len;
 	const __be32 *map = NULL;
 
@@ -340,7 +369,20 @@ int of_pci_map_rid(struct device_node *np, u32 rid,
 	if (map_mask_name)
 		of_property_read_u32(np, map_mask_name, &map_mask);
 
+	/* The default is to select all bits. */
+	drop_mask = 0xffffffff;
+
+	/*
+	 * Can be overridden by "{iommu,msi}-map-drop-mask" property.
+	 * If of_property_read_u32() fails, the default is used.
+	 */
+	if (drop_mask_name)
+		of_property_read_u32(np, drop_mask_name, &drop_mask);
+
 	masked_rid = map_mask & rid;
+
+	masked_rid = out_masked_rid(masked_rid, drop_mask);
+
 	for ( ; map_len > 0; map_len -= 4 * sizeof(*map), map += 4) {
 		struct device_node *phandle_node;
 		u32 rid_base = be32_to_cpup(map + 0);

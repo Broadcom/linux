@@ -169,8 +169,8 @@ static const struct iommu_ops
 	 */
 	iommu_spec.np = NULL;
 	err = of_pci_map_rid(bridge_np, iommu_spec.args[0], "iommu-map",
-			     "iommu-map-mask", &iommu_spec.np,
-			     iommu_spec.args);
+			     "iommu-map-mask", "iommu-map-drop-mask",
+			     &iommu_spec.np, iommu_spec.args);
 	if (err)
 		return err == -ENODEV ? NULL : ERR_PTR(err);
 
