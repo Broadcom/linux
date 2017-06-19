@@ -2625,7 +2625,7 @@ static int aead_need_fallback(struct aead_request *req)
 	 */
 	if (((ctx->cipher.mode == CIPHER_MODE_GCM) ||
 	     (ctx->cipher.mode == CIPHER_MODE_CCM)) &&
-	    (req->assoclen == 0)) {
+	     ((req->assoclen == 0) || (req->cryptlen == 0))) {
 		if ((rctx->is_encrypt && (req->cryptlen == 0)) ||
 		    (!rctx->is_encrypt && (req->cryptlen == ctx->digestsize))) {
 			flow_log("AES GCM/CCM needs fallback for 0 len req\n");
@@ -3223,7 +3223,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       },
 	 .auth_first = 0,
 	 },
-#if 0
 	{
 	 .type = CRYPTO_ALG_TYPE_AEAD,
 	 .alg.aead = {
@@ -3247,7 +3246,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       },
 	 .auth_first = 0,
 	 },
-#endif
 	{
 	 .type = CRYPTO_ALG_TYPE_AEAD,
 	 .alg.aead = {
