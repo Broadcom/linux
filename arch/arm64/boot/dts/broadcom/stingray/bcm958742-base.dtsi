@@ -70,6 +70,7 @@
 			  1800000 0x1>;
 	};
 
+#if (ENABLE_PAXC_IOMMU == 1)
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -80,6 +81,8 @@
 			no-map;
 		};
 	};
+#endif
+
 };
 
 &memory {

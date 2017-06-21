@@ -204,8 +204,10 @@
 			compatible = "arm,mmu-500";
 			reg = <0x64000000 0x80000>;
 			#global-interrupts = <1>;
+#if (ENABLE_PAXC_IOMMU == 0)
 			reserved-context-banks = <1>;
 			reserved-mapping-groups = <8>;
+#endif
 			interrupts = <GIC_SPI 704 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 711 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 712 IRQ_TYPE_LEVEL_HIGH>,
@@ -269,7 +271,12 @@
 				     <GIC_SPI 770 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 771 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 772 IRQ_TYPE_LEVEL_HIGH>,
+#if (ENABLE_PAXC_IOMMU == 0)
 				     <GIC_SPI 773 IRQ_TYPE_LEVEL_HIGH>;
+#else
+				     <GIC_SPI 773 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 774 IRQ_TYPE_LEVEL_HIGH>;
+#endif
 			#iommu-cells = <2>;
 		};
 	};
