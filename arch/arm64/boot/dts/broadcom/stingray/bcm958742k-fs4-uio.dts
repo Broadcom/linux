@@ -45,6 +45,11 @@
 	};
 };
 
+&crypto_mbox {
+	compatible = "brcm,uio";
+	status = "okay";
+};
+
 &raid_mbox {
 	compatible = "brcm,uio";
 	status = "okay";
