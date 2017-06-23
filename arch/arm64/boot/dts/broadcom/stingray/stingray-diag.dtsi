@@ -135,90 +135,90 @@
 	};
 };
 
+#if (NUM_SATA > 0)
 &sata0 {
 	status = "disabled";
 };
 
 &sata_phy0 {
 	compatible = "brcm,stingray-sata-phy-prbs";
-#if (NUM_SATA > 0)
 	status = "okay";
-#endif
 };
+#endif
 
+#if (NUM_SATA > 1)
 &sata1 {
 	status = "disabled";
 };
 
 &sata_phy1 {
 	compatible = "brcm,stingray-sata-phy-prbs";
-#if (NUM_SATA > 1)
 	status = "okay";
-#endif
 };
+#endif
 
+#if (NUM_SATA > 2)
 &sata2 {
 	status = "disabled";
 };
 
 &sata_phy2 {
 	compatible = "brcm,stingray-sata-phy-prbs";
-#if (NUM_SATA > 2)
 	status = "okay";
-#endif
 };
+#endif
 
+#if (NUM_SATA > 3)
 &sata3 {
 	status = "disabled";
 };
 
 &sata_phy3 {
 	compatible = "brcm,stingray-sata-phy-prbs";
-#if (NUM_SATA > 3)
 	status = "okay";
-#endif
 };
+#endif
 
+#if (NUM_SATA > 4)
 &sata4 {
 	status = "disabled";
 };
 
 &sata_phy4 {
 	compatible = "brcm,stingray-sata-phy-prbs";
-#if (NUM_SATA > 4)
 	status = "okay";
-#endif
 };
+#endif
 
+#if (NUM_SATA > 5)
 &sata5 {
 	status = "disabled";
 };
 
 &sata_phy5 {
 	compatible = "brcm,stingray-sata-phy-prbs";
-#if (NUM_SATA > 5)
 	status = "okay";
-#endif
 };
+#endif
 
+#if (NUM_SATA > 6)
 &sata6 {
 	status = "disabled";
 };
 
 &sata_phy6 {
 	compatible = "brcm,stingray-sata-phy-prbs";
-#if (NUM_SATA > 6)
 	status = "okay";
-#endif
 };
+#endif
 
+#if (NUM_SATA > 7)
 &sata7 {
 	status = "disabled";
 };
 
 &sata_phy7 {
 	compatible = "brcm,stingray-sata-phy-prbs";
-#if (NUM_SATA > 7)
 	status = "okay";
-#endif
 };
+#endif
