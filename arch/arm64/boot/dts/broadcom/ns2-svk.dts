@@ -210,10 +210,38 @@
 
 &pinctrl {
 	pinctrl-names = "default";
-	pinctrl-0 = <&nand_sel>;
+	pinctrl-0 = <&nand_sel &uart0_sel &uart1_sel &uart2_sel &usb2_sel
+		     &gpio_sel>;
 	nand_sel: nand_sel {
 		function = "nand";
 		groups = "nand_grp";
+	};
+
+	uart0_sel: uart0_sel {
+		function = "uart0";
+		groups = "uart0_rts_cts_grp", "uart0_in_out_grp",
+			 "uart0_modem_grp";
+	};
+
+	uart1_sel: uart1_sel {
+		function = "uart1";
+		groups = "uart1_ri_dtr_grp", "uart1_rts_cts_grp",
+			 "uart1_in_out_grp";
+	};
+
+	uart2_sel: uart2_sel {
+		function = "uart2";
+		groups = "uart2_rts_cts_grp";
+	};
+
+	usb2_sel: usb2_sel {
+		pins = "usb2_presence_indication";
+		bias-pull-up;
+	};
+
+	gpio_sel: gpio_sel {
+		function = "gpio";
+		groups = "gpio_0_1_grp";
 	};
 };
 
