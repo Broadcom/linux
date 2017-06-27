@@ -1,0 +1,610 @@
+/*
+ *  BSD LICENSE
+ *
+ *  Copyright(c) 2017 Broadcom.  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above copyright
+ *      notice, this list of conditions and the following disclaimer in
+ *      the documentation and/or other materials provided with the
+ *      distribution.
+ *    * Neither the name of Broadcom nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ *  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ *  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ *  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ *  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/* LCD module settings for INNOLUX DSI Video mode display */
+
+/ {
+	panel_innolux: dsi_panel_innolux {
+		brcm,module-name = "INNOLUX";
+		brcm,col-mod-i = <3>;
+		brcm,col-mod-o = <2>;
+		brcm,panel-width-mm = <94>;
+		brcm,panel-height-mm = <150>;
+		brcm,vmode; /* Video mode display */
+		brcm,fps = <30>;
+		brcm,lanes = <2>;
+		brcm,cmd-lp; /* Commands in LP mode*/
+		brcm,hs-bitrate = <420000000>;
+		brcm,lp-bitrate = <16000000>;
+
+		brcm,dsi-timing =
+			<0 0 0 0 00 00 00 00 00 0 0 0x0000003F 10 1 0 0
+			1 1 0 0 1000000 00 00 00 00 0 0 0x00FFFFFF 0 0 0 0
+			2 1 0 0 1000000 00 00 00 00 0 0 0x00FFFFFF 0 0 0 0
+			3 2 0 0 1000000 00 00 00 00 0 0 0x00FFFFFF 10 1 0 0
+			4 1 0 0 00 8 00 00 00 0 0 0x000001FF 0 0 0 0
+			5 1 1 0 38 00 00 00 95 0 0 0x000001FF 0 0 0 0
+			6 1 0 0 262 00 00 00 00 0 0 0x000001FF 0 0 0 0
+			7 1 0 0 60 52 00 00 00 0 0 0x000001FF 0 0 0 0
+			8 1 0 0 60 00 00 00 00 0 0 0x000001FF 0 0 0 0
+			9 1 0 0 50 00 00 00 00 0 0 0x000001FF 0 0 0 0
+			10 1 1 0 40 04 00 00 85 6 0 0x000001FF 0 0 0 0
+			11 1 0 0 105 06 00 00 00 0 0 0x000001FF 0 0 0 0
+			12 1 2 0 0 32 60 16 00 0 0 0x000001FF 0 0 0 0
+			13 1 0 0 110 00 00 00 00 0 0 0x000001FF 0 0 0 0
+			14 2 0 1 0 00 00 00 00 0 0 0x000000FF 10 1 0 0
+			15 2 0 4 0 00 00 00 00 0 0 0x000000FF 10 1 0 0
+			16 2 0 1 0 00 00 00 00 0 0 0x000000FF 10 1 0 0
+			17 2 0 5 0 00 00 00 00 0 0 0x000000FF 10 1 0 0>;
+
+		brcm,scrn-on = [ 01 29
+				00 00 ];
+		brcm,scrn-off = [ 01 28
+				00 00 ];
+		brcm,slp-in = [ 01 28
+				01 10
+				04 78
+				00 00 ];
+		brcm,slp-out = [ 01 11
+				04 78
+				00 00 ];
+		brcm,init-panel =[ 01 FF
+				03 AA
+				03 55
+				03 A5
+				03 80
+				01 6F
+				03 11
+				03 00
+				01 F7
+				03 20
+				03 00
+				01 6F
+				03 07
+				01 F7
+				03 60
+				01 6F
+				03 19
+				01 F7
+				03 12
+				01 F0
+				03 55
+				03 AA
+				03 52
+				03 08
+				03 00
+				01 C8
+				03 80
+				01 B1
+				03 6C
+				03 01
+				01 B6
+				03 08
+				01 6F
+				03 02
+				01 B8
+				03 08
+				01 BB
+				03 54
+				03 54
+				01 BC
+				03 05
+				03 05
+				01 C7
+				03 01
+				01 BD
+				03 02
+				03 B0
+				03 0C
+				03 0A
+				03 00
+				01 F0
+				03 55
+				03 AA
+				03 52
+				03 08
+				03 01
+				01 B0
+				03 05
+				03 05
+				01 B1
+				03 05
+				03 05
+				01 BC
+				03 8E
+				03 00
+				01 BD
+				03 92
+				03 00
+				01 CA
+				03 00
+				01 C0
+				03 04
+				01 B3
+				03 19
+				03 19
+				01 B4
+				03 12
+				03 12
+				01 B9
+				03 24
+				03 24
+				01 BA
+				03 14
+				03 14
+				01 F0
+				03 55
+				03 AA
+				03 52
+				03 08
+				03 02
+				01 EE
+				03 02
+				01 EF
+				03 09
+				03 06
+				03 15
+				03 18
+				01 B0
+				03 00
+				03 00
+				03 00
+				03 11
+				03 00
+				03 27
+				01 6F
+				03 06
+				01 B0
+				03 00
+				03 36
+				03 00
+				03 45
+				03 00
+				03 5F
+				01 6F
+				03 0C
+				01 B0
+				03 00
+				03 74
+				03 00
+				03 A5
+				01 B1
+				03 00
+				03 CF
+				03 01
+				03 13
+				03 01
+				03 47
+				01 6F
+				03 06
+				01 B1
+				03 01
+				03 9B
+				03 01
+				03 DF
+				03 01
+				03 E1
+				01 6F
+				03 0C
+				01 B1
+				03 02
+				03 23
+				03 02
+				03 6C
+				01 B2
+				03 02
+				03 9A
+				03 02
+				03 D7
+				03 03
+				03 05
+				01 6F
+				03 06
+				01 B2
+				03 03
+				03 42
+				03 03
+				03 68
+				03 03
+				03 91
+				01 6F
+				03 0C
+				01 B2
+				03 03
+				03 A5
+				03 03
+				03 BD
+				01 B3
+				03 03
+				03 D7
+				03 03
+				03 FF
+				01 BC
+				03 00
+				03 00
+				03 00
+				03 11
+				03 00
+				03 27
+				01 6F
+				03 06
+				01 BC
+				03 00
+				03 38
+				03 00
+				03 47
+				03 00
+				03 61
+				01 6F
+				03 0C
+				01 BC
+				03 00
+				03 78
+				03 00
+				03 AB
+				01 BD
+				03 00
+				03 D7
+				03 01
+				03 1B
+				03 01
+				03 4F
+				01 6F
+				03 06
+				01 BD
+				03 01
+				03 A1
+				03 01
+				03 E5
+				03 01
+				03 E7
+				01 6F
+				03 0C
+				01 BD
+				03 02
+				03 27
+				03 02
+				03 70
+				01 BE
+				03 02
+				03 9E
+				03 02
+				03 DB
+				03 03
+				03 07
+				01 6F
+				03 06
+				01 BE
+				03 03
+				03 44
+				03 03
+				03 6A
+				03 03
+				03 93
+				01 6F
+				03 0C
+				01 BE
+				03 03
+				03 A5
+				03 03
+				03 BD
+				01 BF
+				03 03
+				03 D7
+				03 03
+				03 FF
+				01 F0
+				03 55
+				03 AA
+				03 52
+				03 08
+				03 06
+				01 B0
+				03 00
+				03 17
+				01 B1
+				03 16
+				03 15
+				01 B2
+				03 14
+				03 13
+				01 B3
+				03 12
+				03 11
+				01 B4
+				03 10
+				03 2D
+				01 B5
+				03 01
+				03 08
+				01 B6
+				03 09
+				03 31
+				01 B7
+				03 31
+				03 31
+				01 B8
+				03 31
+				03 31
+				01 B9
+				03 31
+				03 31
+				01 BA
+				03 31
+				03 31
+				01 BB
+				03 31
+				03 31
+				01 BC
+				03 31
+				03 31
+				01 BD
+				03 31
+				03 09
+				01 BE
+				03 08
+				03 01
+				01 BF
+				03 2D
+				03 10
+				01 C0
+				03 11
+				03 12
+				01 C1
+				03 13
+				03 14
+				01 C2
+				03 15
+				03 16
+				01 C3
+				03 17
+				03 00
+				01 E5
+				03 31
+				03 31
+				01 C4
+				03 00
+				03 17
+				01 C5
+				03 16
+				03 15
+				01 C6
+				03 14
+				03 13
+				01 C7
+				03 12
+				03 11
+				01 C8
+				03 10
+				03 2D
+				01 C9
+				03 01
+				03 08
+				01 CA
+				03 09
+				03 31
+				01 CB
+				03 31
+				03 31
+				01 CC
+				03 31
+				03 31
+				01 CD
+				03 31
+				03 31
+				01 CE
+				03 31
+				03 31
+				01 CF
+				03 31
+				03 31
+				01 D0
+				03 31
+				03 31
+				01 D1
+				03 31
+				03 09
+				01 D2
+				03 08
+				03 01
+				01 D3
+				03 2D
+				03 10
+				01 D4
+				03 11
+				03 12
+				01 D5
+				03 13
+				03 14
+				01 D6
+				03 15
+				03 16
+				01 D7
+				03 17
+				03 00
+				01 E6
+				03 31
+				03 31
+				01 D8
+				03 00
+				03 00
+				03 00
+				03 00
+				03 00
+				01 D9
+				03 00
+				03 00
+				03 00
+				03 00
+				03 00
+				01 E7
+				03 00
+				01 F0
+				03 55
+				03 AA
+				03 52
+				03 08
+				03 03
+				01 B0
+				03 20
+				03 00
+				01 B1
+				03 20
+				03 00
+				01 B2
+				03 05
+				03 00
+				03 42
+				03 00
+				03 00
+				01 B6
+				03 05
+				03 00
+				03 42
+				03 00
+				03 00
+				01 BA
+				03 53
+				03 00
+				03 42
+				03 00
+				03 00
+				01 BB
+				03 53
+				03 00
+				03 42
+				03 00
+				03 00
+				01 C4
+				03 40
+				01 F0
+				03 55
+				03 AA
+				03 52
+				03 08
+				03 05
+				01 B0
+				03 17
+				03 06
+				01 B8
+				03 00
+				01 BD
+				03 03
+				03 01
+				03 01
+				03 00
+				03 01
+				01 B1
+				03 17
+				03 06
+				01 B9
+				03 00
+				03 01
+				01 B2
+				03 17
+				03 06
+				01 BA
+				03 00
+				03 01
+				01 B3
+				03 17
+				03 06
+				01 BB
+				03 0A
+				03 00
+				01 B4
+				03 17
+				03 06
+				01 B5
+				03 17
+				03 06
+				01 B6
+				03 14
+				03 03
+				01 B7
+				03 00
+				03 00
+				01 BC
+				03 02
+				03 01
+				01 C0
+				03 05
+				01 C4
+				03 A5
+				01 C8
+				03 03
+				03 30
+				01 C9
+				03 03
+				03 51
+				01 D1
+				03 00
+				03 05
+				03 03
+				03 00
+				03 00
+				01 D2
+				03 00
+				03 05
+				03 09
+				03 00
+				03 00
+				01 E5
+				03 02
+				01 E6
+				03 02
+				01 E7
+				03 02
+				01 E9
+				03 02
+				01 ED
+				03 33
+				04 78
+				01 11
+				04 78
+				01 29
+				04 78
+				00 00 ];
+
+		panel-timing {
+			clock-frequency = <1141344000>;
+			hactive = <800>;
+			vactive = <1280>;
+			hfront-porch = <40>;
+			hback-porch = <60>;
+			hsync-len = <10>;
+			vfront-porch = <21>;
+			vback-porch = <20>;
+			vsync-len = <20>;
+		};
+	};
+};
