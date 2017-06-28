@@ -182,9 +182,12 @@
 };
 
 &mipipll {
-	assigned-clocks = <&mipipll 2>, <&mipipll 0>;
-	assigned-clock-parents = <&mipipll 0>;
-	assigned-clock-rates = <0>, <2100000000>;
+	assigned-clocks = <&mipipll BCM_CYGNUS_MIPIPLL_CH0_DSI>,
+			<&mipipll BCM_CYGNUS_MIPIPLL_CH1_LCD>,
+			<&mipipll BCM_CYGNUS_MIPIPLL>;
+	assigned-clock-parents = <&mipipll BCM_CYGNUS_MIPIPLL>,
+			<&mipipll BCM_CYGNUS_MIPIPLL>;
+	assigned-clock-rates = <0>, <0>, <2100000000>;
 };
 
 &clcd {

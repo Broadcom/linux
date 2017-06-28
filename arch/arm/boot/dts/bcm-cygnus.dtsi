@@ -739,7 +739,7 @@
 			interrupts = <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 156 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&mipipll 0>;
+			clocks = <&mipipll BCM_CYGNUS_MIPIPLL_CH0_DSI>;
 			clock-names = "mipidsi_clk";
 			brcm,num-fb = <3>;
 			brcm,iproc-mipi-reg-errata;
