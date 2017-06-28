@@ -8,3 +8,4 @@ bcm958742k-paxc-extsram.dtb            - enable PAXC for ext SRAM SVK board
 bcm958742k-qa1-i2c-extsram.dtb         - re-configure I2C0 for QA for ext SRAM SVK board
 bcm958742k-qa2-gpioc-extsram.dtb       - remove GPIO controller for QA for ext SRAM SVK board
 bcm958742k-qa3-crypto-extsram.dts      - set "NUM_CRYPTO 1" and "NUM_RAID 0" to enable SPU2 for QA for ext SRAM SVK board
+bcm957322m.dtb                         - PS150xx 50G smartIO NIC board
