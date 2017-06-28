@@ -211,7 +211,7 @@
 &pinctrl {
 	pinctrl-names = "default";
 	pinctrl-0 = <&nand_sel &uart0_sel &uart1_sel &uart2_sel &usb2_sel
-		     &gpio_sel>;
+		     &gpio_sel &pwm_sel>;
 	nand_sel: nand_sel {
 		function = "nand";
 		groups = "nand_grp";
@@ -243,6 +243,15 @@
 		function = "gpio";
 		groups = "gpio_0_1_grp";
 	};
+
+	pwm_sel: pwm_sel {
+		function = "pwm";
+		groups = "pwm_0_grp", "pwm_1_grp";
+	};
+};
+
+&pwm {
+	status = "okay";
 };
 
 &qspi {
