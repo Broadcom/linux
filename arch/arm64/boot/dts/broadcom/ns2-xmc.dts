@@ -52,6 +52,10 @@
 	status = "okay";
 };
 
+&ehci0 {
+	status = "okay";
+};
+
 &i2c0 {
 	status = "okay";
 };
@@ -114,6 +118,10 @@
 			reg = <0x0a400000 0x35c00000>; /*  860MB */
 		};
 	};
+};
+
+&ohci0 {
+	status = "okay";
 };
 
 &pci_phy0 {
@@ -182,5 +190,9 @@
 };
 
 &uart3 {
+	status = "okay";
+};
+
+&usb2_phy0 {
 	status = "okay";
 };
