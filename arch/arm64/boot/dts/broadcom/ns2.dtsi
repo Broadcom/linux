@@ -474,6 +474,11 @@
 			};
 		};
 
+		usb3_icfg_ctl: syscon@66000910 {
+			compatible = "brcm,ns2-usb3-icfg-ctl", "syscon";
+			reg = <0x66000910 0x14>;
+		};
+
 		pwm: pwm@66010000 {
 			compatible = "brcm,iproc-pwm";
 			reg = <0x66010000 0x28>;
@@ -498,6 +503,33 @@
 					reg = <0x0>;
 					#phy-cells = <0>;
 					status = "disabled";
+				};
+			};
+
+			mdio@1 {
+				reg = <0x1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				usb3_phy: usb3-phy@0 {
+					compatible = "brcm,ns2-usb3-phy";
+					reg = <0x0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					usb3-icfg-syscon = <&usb3_icfg_ctl>;
+					usb3-idm-syscon = <&usb3_idm_ctl>;
+
+					usb3_phy0: usb3-phy@0 {
+						reg = <0>;
+						#phy-cells = <0>;
+						status = "disabled";
+					};
+
+					usb3_phy1: usb3-phy@1 {
+						reg = <1>;
+						#phy-cells = <0>;
+						status = "disabled";
+					};
 				};
 			};
 
@@ -670,6 +702,26 @@
 			reg = <0x66220000 0x28>;
 		};
 
+		xhci0: usb@66300000 {
+			compatible = "generic-xhci";
+			reg = <0x66300000 0x1000>;
+			interrupts = <GIC_SPI 429 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb3_phy0>;
+			phy-names = "usb3-phy";
+			dma-coherent;
+			status = "disabled";
+		};
+
+		xhci1: usb@66310000 {
+			compatible = "generic-xhci";
+			reg = <0x66310000 0x1000>;
+			interrupts = <GIC_SPI 433 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb3_phy1>;
+			phy-names = "usb3-phy";
+			dma-coherent;
+			status = "disabled";
+		};
+
 		sata_phy: sata_phy@663f0100 {
 			compatible = "brcm,iproc-ns2-sata-phy";
 			reg = <0x663f0100 0x1f00>,
@@ -803,6 +855,11 @@
 			phy-names = "usb2-phy";
 			dma-coherent;
 			status = "disabled";
+		};
+
+		usb3_idm_ctl: syscon@67000408 {
+			compatible = "brcm,ns2-usb3-idm-ctl", "syscon";
+			reg = <0x67000408 0x1808>;
 		};
 
 		usb2_phy0: usbphy@67010800 {
