@@ -1,0 +1,75 @@
+Broadcom USB3 dual port phy for Northstar2 SoC
+
+This is a child bus node of "brcm,mdio-mux-iproc" node.
+
+Required mdio bus properties:
+ - reg: MDIO Bus number for the MDIO interface
+ - #address-cells: must be 1
+ - #size-cells: must be 0
+
+Required PHY properties:
+ - compatible: should be "brcm,ns2-usb3-phy"
+ - reg: Phy address in the MDIO interface
+ - usb3-icfg-syscon: handler of syscon node for usb3 phy icfg region
+ - usb3-idm-syscon: handler of syscon node for usb3 phy idm control
+		    registers
+ - #phy-cells: must be 0
+ - #address-cells: must be 1
+ - #size-cells: must be 0
+
+Sub-nodes:
+  Each port's PHY should be represented as a sub-node.
+
+Sub-nodes required properties:
+ - reg: the PHY number
+ - phy-cells: from the generic PHY bindings, must be 0
+
+Required usb3 phy icfg config properties:
+ - compatible: should be "brcm,ns2-usb3-icfg-ctl"
+ - reg: offset and length of the icfg control registers
+
+Required usb3 reset control properties:
+ - compatible: should be "brcm,ns2-usb3-idm-ctl"
+ - reg: offset and length of the idm control registers
+
+Optional PHY properties:
+ - brcm,ns2-inv-vbus-ppc-pol: This property is optional. This can be
+	provided when vbus ppc polarity bits needs to be reversed
+	in the idm_ppc_cfg register.
+
+Example:
+
+mdio@1 {
+	reg = <0x1>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	usb3_phy: usb3-phy@0 {
+		compatible = "brcm,ns2-usb3-phy";
+		reg = <0x0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		usb3-icfg-syscon = <&usb3_icfg_ctl>;
+		usb3-idm-syscon = <&usb3_idm_ctl>;
+
+		usb3_phy0: usb3-phy@0 {
+			reg = <0>;
+			#phy-cells = <0>;
+		};
+
+		usb3_phy1: usb3-phy@1 {
+			reg = <1>;
+			#phy-cells = <0>;
+		};
+	};
+};
+
+usb3_icfg_ctl: syscon@66000910 {
+	compatible = "brcm,ns2-usb3-icfg-ctl", "syscon";
+	reg = <0x66000910 0x14>;
+};
+
+usb3_idm_ctrl: syscon@67000800 {
+	compatible = "brcm,ns2-usb3-idm-ctl", "syscon";
+	reg = <0x67000800 0x1808>;
+};
