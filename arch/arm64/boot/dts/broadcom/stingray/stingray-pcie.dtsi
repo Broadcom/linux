@@ -406,7 +406,7 @@
 	};
 
 	pcie8: pcie@60400000 {
-		compatible = "brcm,sr-pcie", "brcm,iproc-pcie-paxc-v2";
+		compatible = "brcm,iproc-pcie-paxc-v2";
 		reg = <0 0x60400000 0 0x1000>;
 		linux,pci-domain = <8>;
 
