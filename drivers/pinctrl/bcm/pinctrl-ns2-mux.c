@@ -356,6 +356,7 @@ static const unsigned int uart0_in_out_pins[] = {45, 46};
 
 static const unsigned int gpio_22_23_pins[] = {47, 48};
 static const unsigned int uart1_dcd_dsr_pins[] = {47, 48};
+static const unsigned int synce_pins[] = {47, 48};
 
 static const unsigned int gpio_24_25_pins[] = {49, 50};
 static const unsigned int uart1_ri_dtr_pins[] = {49, 50};
@@ -426,6 +427,7 @@ static const struct ns2_pin_group ns2_pin_groups[] = {
 
 	NS2_PIN_GROUP(gpio_22_23, 0, 4, 12, 3, 0),
 	NS2_PIN_GROUP(uart1_dcd_dsr, 0, 4, 12, 3, 1),
+	NS2_PIN_GROUP(synce, 0, 4, 12, 3, 3),
 
 	NS2_PIN_GROUP(gpio_24_25, 0, 4, 10, 3, 0),
 	NS2_PIN_GROUP(uart1_ri_dtr, 0, 4, 10, 3, 1),
@@ -477,6 +479,8 @@ static const char * const uart2_grps[] = {"uart2_rts_cts_grp"};
 static const char * const pwm_grps[] = {"pwm_0_grp", "pwm_1_grp",
 	"pwm_2_grp", "pwm_3_grp"};
 
+static const char * const synce_grps[] = {"synce_grp"};
+
 #define NS2_PIN_FUNCTION(func)				\
 {							\
 	.name = #func,					\
@@ -496,6 +500,7 @@ static const struct ns2_pin_function ns2_pin_functions[] = {
 	NS2_PIN_FUNCTION(uart1),
 	NS2_PIN_FUNCTION(uart2),
 	NS2_PIN_FUNCTION(pwm),
+	NS2_PIN_FUNCTION(synce),
 };
 
 static int ns2_get_groups_count(struct pinctrl_dev *pctrl_dev)
