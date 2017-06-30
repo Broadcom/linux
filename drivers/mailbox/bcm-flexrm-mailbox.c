@@ -97,7 +97,7 @@
 
 /* Register RING_CMPL_START_ADDR fields */
 #define CMPL_START_ADDR_VALUE(pa)			\
-	((u32)((((u64)(pa)) >> RING_CMPL_ALIGN_ORDER) & 0x03ffffff))
+	((u32)((((u64)(pa)) >> RING_CMPL_ALIGN_ORDER) & 0x07ffffff))
 
 /* Register RING_CONTROL fields */
 #define CONTROL_MASK_DISABLE_CONTROL			12
@@ -1594,8 +1594,8 @@ static int flexrm_mbox_probe(struct platform_device *pdev)
 		ring->cmpl_read_offset = 0;
 	}
 
-	/* FlexRM is capable of 39-bit physical addresses only */
-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(39));
+	/* FlexRM is capable of 40-bit physical addresses only */
+	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40));
 	if (ret) {
 		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
 		if (ret)
