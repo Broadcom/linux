@@ -65,6 +65,7 @@ obj-$(CONFIG_PHY_CYGNUS_PCIE)		+= phy-bcm-cygnus-pcie.o
 obj-$(CONFIG_ARCH_TEGRA) += tegra/
 obj-$(CONFIG_PHY_NS2_PCIE)		+= phy-bcm-ns2-pcie.o
 obj-$(CONFIG_PHY_NS2_USB2)		+= phy-bcm-ns2-usb2.o
+obj-$(CONFIG_PHY_NS2_USB3)		+= phy-bcm-ns2-usb3.o
 obj-$(CONFIG_PHY_STINGRAY_PCIE)		+= phy-bcm-stingray-pcie.o
 obj-$(CONFIG_PHY_STINGRAY_PCIE_PRBS)	+= phy-bcm-stingray-pcie-prbs.o
 obj-$(CONFIG_PHY_STINGRAY_SATA_PRBS)	+= phy-bcm-stingray-sata-prbs.o

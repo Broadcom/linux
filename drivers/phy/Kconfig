@@ -565,6 +565,16 @@ config PHY_NS2_USB2
 	  Enable this to support the Broadcom NS2 USB 2.0 PHY.
 	  If unsure, say N.
 
+config PHY_NS2_USB3
+	tristate "Broadcom NorthStar2 USB3 PHY driver"
+	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
+	depends on MDIO_BUS_MUX_BCM_IPROC
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Northstar2 USB3 PHY.
+	  If unsure, say N.
+
 config PHY_STINGRAY_USB
 	tristate "Broadcom Stingray USB2 DRD PHY driver"
 	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
