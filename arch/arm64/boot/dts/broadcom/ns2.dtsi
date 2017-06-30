@@ -89,6 +89,7 @@
 
 	timer {
 		compatible = "arm,armv8-timer";
+		arm,no-tick-in-suspend;
 		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_RAW(0xff) |
 			      IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 14 (GIC_CPU_MASK_RAW(0xff) |
@@ -520,6 +521,7 @@
 			};
 		};
 
+		/* This timer is being used by ATF. DON'T USE in Linux. */
 		timer0: timer@66030000 {
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x66030000 0x1000>;
@@ -528,6 +530,7 @@
 				 <&iprocslow>,
 				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
+			status = "disabled";
 		};
 
 		timer1: timer@66040000 {
@@ -548,6 +551,7 @@
 				 <&iprocslow>,
 				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
+			status = "disabled";
 		};
 
 		timer3: timer@66060000 {
@@ -558,6 +562,7 @@
 				 <&iprocslow>,
 				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
+			status = "disabled";
 		};
 
 		i2c0: i2c@66080000 {
