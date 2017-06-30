@@ -1380,6 +1380,7 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 		break;
 	case IPROC_PCIE_PAXC_V2:
 		regs = iproc_pcie_reg_paxc_v2;
+		pcie->disable_msi_parse = true;
 		pcie->ep_is_internal = true;
 		pcie->iproc_cfg_read = true;
 		pcie->rej_unconfig_pf = true;
