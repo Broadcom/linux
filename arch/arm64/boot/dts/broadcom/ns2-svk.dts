@@ -49,11 +49,6 @@
 		stdout-path = "serial0:115200n8";
 		bootargs = "earlycon=uart8250,mmio32,0x66130000";
 	};
-
-	memory {
-		device_type = "memory";
-		reg = <0x000000000 0x80000000 0x00000000 0x40000000>;
-	};
 };
 
 &ehci0 {
