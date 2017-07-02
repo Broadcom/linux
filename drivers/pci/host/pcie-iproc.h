@@ -87,6 +87,10 @@ struct iproc_msi;
  * @ib: inbound mapping related parameters
  * @ib_map: outbound mapping region related parameters
  *
+ * @enable_hotplug: indicates PCI hotplug feature is enabled
+ * @ep_is_present: when PCIe hotplug is enabled, this flag is used to
+ * indicate whether or not the endpoint device is present
+
  * @irq: interrupt line wired to the generic GIC for INTx
  * @irq_domain: IRQ domain for INTx
  *
@@ -120,6 +124,9 @@ struct iproc_pcie {
 
 	struct iproc_pcie_ib ib;
 	const struct iproc_pcie_ib_map *ib_map;
+
+	bool enable_hotplug;
+	bool ep_is_present;
 
 	int irq;
 	struct irq_domain *irq_domain;

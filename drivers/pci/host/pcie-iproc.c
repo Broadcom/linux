@@ -29,6 +29,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/phy/phy.h>
+#include <linux/gpio.h>
 
 #include "pcie-iproc.h"
 
@@ -65,6 +66,17 @@
 #define PCIE_PHYLINKUP               BIT(PCIE_PHYLINKUP_SHIFT)
 #define PCIE_DL_ACTIVE_SHIFT         2
 #define PCIE_DL_ACTIVE               BIT(PCIE_DL_ACTIVE_SHIFT)
+
+#define CFG_RC_LTSSM                 0x1cf8
+#define CFG_RC_PHY_CTL               0x1804
+#define CFG_RC_LTSSM_TIMEOUT         1000
+#define CFG_RC_LTSSM_STATE_MASK      0xff
+#define CFG_RC_LTSSM_STATE_L1        0x1
+
+#define CFG_RC_CLR_LTSSM_HIST_SHIFT  29
+#define CFG_RC_CLR_LTSSM_HIST_MASK   BIT(CFG_RC_CLR_LTSSM_HIST_SHIFT)
+#define CFG_RC_CLR_RECOV_HIST_SHIFT  31
+#define CFG_RC_CLR_RECOV_HIST_MASK   BIT(CFG_RC_CLR_RECOV_HIST_SHIFT)
 
 #define APB_ERR_EN_SHIFT             0
 #define APB_ERR_EN                   BIT(APB_ERR_EN_SHIFT)
@@ -1407,12 +1419,106 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 	return 0;
 }
 
+static bool iproc_pci_hp_check_ltssm(struct iproc_pcie *pcie)
+{
+	struct pci_bus *bus = pcie->root_bus;
+	u32 val, timeout = CFG_RC_LTSSM_TIMEOUT;
+
+	/* Clear LTSSM history. */
+	pci_bus_read_config_dword(pcie->root_bus, 0,
+				  CFG_RC_PHY_CTL, &val);
+	pci_bus_write_config_dword(bus, 0, CFG_RC_PHY_CTL,
+				   val | CFG_RC_CLR_RECOV_HIST_MASK |
+				   CFG_RC_CLR_LTSSM_HIST_MASK);
+	/* write back the origional value. */
+	pci_bus_write_config_dword(bus, 0, CFG_RC_PHY_CTL, val);
+
+	do {
+		pci_bus_read_config_dword(pcie->root_bus, 0,
+					  CFG_RC_LTSSM, &val);
+		/* check link state to see if link moved to L1 state. */
+		if ((val & CFG_RC_LTSSM_STATE_MASK) ==
+		     CFG_RC_LTSSM_STATE_L1)
+			return true;
+		timeout--;
+		usleep_range(500, 1000);
+	} while (timeout);
+
+	return false;
+}
+
+static irqreturn_t iproc_pci_hotplug_thread(int irq, void *data)
+{
+	struct iproc_pcie *pcie = data;
+	struct pci_bus *bus = pcie->root_bus, *child;
+	bool link_status;
+
+	iproc_pcie_perst_ctrl(pcie, true);
+	iproc_pcie_perst_ctrl(pcie, false);
+
+	link_status = iproc_pci_hp_check_ltssm(pcie);
+
+	if (link_status &&
+	    !iproc_pcie_check_link(pcie, bus) &&
+	    !pcie->ep_is_present) {
+		pci_rescan_bus(bus);
+		list_for_each_entry(child, &bus->children, node)
+			pcie_bus_configure_settings(child);
+		pcie->ep_is_present = true;
+		dev_info(pcie->dev,
+			 "PCI Hotplug: <device detected and enumerated>\n");
+	} else if (link_status && pcie->ep_is_present)
+		/*
+		 * ep_is_present makes sure, enumuration done only once.
+		 * So it can handle spurious intrrupts, and also if we
+		 * get multiple interrupts for all the implemented pins,
+		 * we handle it only once.
+		 */
+		dev_info(pcie->dev,
+			 "PCI Hotplug: <device already present>\n");
+	else {
+		iproc_pcie_perst_ctrl(pcie, true);
+		pcie->ep_is_present = false;
+		dev_info(pcie->dev,
+			 "PCI Hotplug: <device removed>\n");
+	}
+	return IRQ_HANDLED;
+}
+
+static int iproc_pci_hp_gpio_irq_get(struct iproc_pcie *pcie)
+{
+	struct gpio_descs *hp_gpiod;
+	struct device *dev = pcie->dev;
+	int i;
+
+	hp_gpiod = devm_gpiod_get_array(dev, "brcm,prsnt", GPIOD_IN);
+	if (PTR_ERR(hp_gpiod) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+
+	if (!IS_ERR(hp_gpiod) && (hp_gpiod->ndescs > 0)) {
+		for (i = 0; i < hp_gpiod->ndescs; ++i) {
+			gpiod_direction_input(hp_gpiod->desc[i]);
+			if (request_threaded_irq(gpiod_to_irq
+						 (hp_gpiod->desc[i]),
+						 NULL, iproc_pci_hotplug_thread,
+						 IRQF_TRIGGER_FALLING,
+						 "PCI-hotplug", pcie))
+				dev_err(dev,
+					"PCI hotplug prsnt: request irq failed\n");
+			}
+	}
+	pcie->ep_is_present = false;
+
+	return 0;
+}
+
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 {
 	struct device *dev;
 	int ret;
 	void *sysdata;
 	struct pci_bus *bus, *child;
+	bool is_link_active;
 
 	dev = pcie->dev;
 
@@ -1436,6 +1542,12 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	if (ret) {
 		dev_err(dev, "unable to power on PCIe PHY\n");
 		goto err_exit_phy;
+	}
+
+	if (pcie->enable_hotplug) {
+		ret = iproc_pci_hp_gpio_irq_get(pcie);
+		if (ret < 0)
+			return ret;
 	}
 
 	iproc_pcie_perst_ctrl(pcie, true);
@@ -1468,8 +1580,11 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	}
 	pcie->root_bus = bus;
 
-	ret = iproc_pcie_check_link(pcie, bus);
-	if (ret) {
+	is_link_active = iproc_pcie_check_link(pcie, bus);
+	if (is_link_active && pcie->enable_hotplug) {
+		dev_err(dev, "no PCIe EP device detected\n");
+		iproc_pcie_perst_ctrl(pcie, true);
+	} else if (is_link_active) {
 		dev_err(dev, "no PCIe EP device detected\n");
 		goto err_rm_root_bus;
 	}
@@ -1484,14 +1599,17 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 		if (iproc_pcie_msi_enable(pcie))
 			dev_info(dev, "not using iProc MSI\n");
 
-	pci_scan_child_bus(bus);
-	pci_assign_unassigned_bus_resources(bus);
+	if (!is_link_active) {
+		pci_scan_child_bus(bus);
+		pci_assign_unassigned_bus_resources(bus);
+	}
 
 	if (pcie->map_irq)
 		pci_fixup_irqs(pci_common_swizzle, pcie->map_irq);
 
-	list_for_each_entry(child, &bus->children, node)
-		pcie_bus_configure_settings(child);
+	if (!is_link_active)
+		list_for_each_entry(child, &bus->children, node)
+			pcie_bus_configure_settings(child);
 
 	pci_bus_add_devices(bus);
 
