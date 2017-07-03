@@ -85,6 +85,7 @@ List of supported functions and groups in Northstar2:
 
 "pwm": "pwm_0_grp", "pwm_1_grp", "pwm_2_grp", "pwm_3_grp"
 
+"synce": "synce_grp"
 
 List of pins that support pinconf parameters:
 
