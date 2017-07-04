@@ -45,9 +45,13 @@
 #define PCAL953X_INT_MASK	37
 #define PCAL953X_INT_STAT	38
 
+#define PCAL9505_INT_MASK	36
+
 #define PCA_GPIO_MASK		0x00FF
 #define PCA_INT			0x0100
 #define PCA_PCAL		0x0200
+#define PCA_PCAL_9505_FIX	0x0400
+
 #define PCA953X_TYPE		0x1000
 #define PCA957X_TYPE		0x2000
 #define PCA_TYPE_MASK		0xF000
@@ -55,7 +59,8 @@
 #define PCA_CHIP_TYPE(x)	((x) & PCA_TYPE_MASK)
 
 static const struct i2c_device_id pca953x_id[] = {
-	{ "pca9505", 40 | PCA953X_TYPE | PCA_INT, },
+	{ "pca9505", 40 | PCA953X_TYPE | PCA_INT | PCA_PCAL |
+	  PCA_PCAL_9505_FIX, },
 	{ "pca9534", 8  | PCA953X_TYPE | PCA_INT, },
 	{ "pca9535", 16 | PCA953X_TYPE | PCA_INT, },
 	{ "pca9536", 4  | PCA953X_TYPE, },
@@ -121,6 +126,7 @@ struct pca953x_chip {
 	unsigned gpio_start;
 	u8 reg_output[MAX_BANK];
 	u8 reg_direction[MAX_BANK];
+	u8 prev_stat[MAX_BANK];
 	struct mutex i2c_lock;
 
 #ifdef CONFIG_GPIO_PCA953X_IRQ
@@ -471,14 +477,20 @@ static void pca953x_irq_bus_sync_unlock(struct irq_data *d)
 	u8 invert_irq_mask[MAX_BANK];
 
 	if (chip->driver_data & PCA_PCAL) {
-		/* Enable latch on interrupt-enabled inputs */
-		pca953x_write_regs(chip, PCAL953X_IN_LATCH, chip->irq_mask);
+		if (!(chip->driver_data & PCA_PCAL_9505_FIX)) {
+			/* Enable latch on interrupt-enabled inputs */
+			pca953x_write_regs(chip, PCAL953X_IN_LATCH,
+					   chip->irq_mask);
+		}
 
 		for (i = 0; i < NBANK(chip); i++)
 			invert_irq_mask[i] = ~chip->irq_mask[i];
 
 		/* Unmask enabled interrupts */
-		pca953x_write_regs(chip, PCAL953X_INT_MASK, invert_irq_mask);
+		if (chip->driver_data & PCA_PCAL_9505_FIX)
+			invert_irq_mask[MAX_BANK - 1] = 0x0;
+		pca953x_write_regs(chip, PCAL9505_INT_MASK,
+				   invert_irq_mask);
 	}
 
 	/* Look for any newly setup interrupt */
@@ -542,15 +554,29 @@ static bool pca953x_irq_pending(struct pca953x_chip *chip, u8 *pending)
 	int ret, i;
 
 	if (chip->driver_data & PCA_PCAL) {
-		/* Read the current interrupt status from the device */
-		ret = pca953x_read_regs(chip, PCAL953X_INT_STAT, trigger);
-		if (ret)
-			return false;
+
+		if (!(chip->driver_data & PCA_PCAL_9505_FIX)) {
+			/* Read the current interrupt status from the device */
+			ret = pca953x_read_regs(chip, PCAL953X_INT_STAT,
+						trigger);
+			if (ret)
+				return false;
+		}
 
 		/* Check latched inputs and clear interrupt status */
 		ret = pca953x_read_regs(chip, PCA953X_INPUT, cur_stat);
 		if (ret)
 			return false;
+
+		if (chip->driver_data & PCA_PCAL_9505_FIX) {
+			for (i = 0; i < NBANK(chip); i++) {
+				pending[i] = (cur_stat[i] ^ chip->prev_stat[i]);
+				if (pending[i])
+					pending_seen = true;
+			}
+			memcpy(chip->prev_stat, cur_stat, NBANK(chip));
+			return pending_seen;
+		}
 
 		for (i = 0; i < NBANK(chip); i++) {
 			/* Apply filter for rising/falling edge selection */
@@ -624,7 +650,7 @@ static int pca953x_irq_setup(struct pca953x_chip *chip,
 			     int irq_base)
 {
 	struct i2c_client *client = chip->client;
-	int ret, i;
+	int ret, i, irqflags;
 
 	if (client->irq && irq_base != -1
 			&& (chip->driver_data & PCA_INT)) {
@@ -633,6 +659,8 @@ static int pca953x_irq_setup(struct pca953x_chip *chip,
 		if (ret)
 			return ret;
 
+		if (chip->driver_data & PCA_PCAL_9505_FIX)
+			pca953x_read_regs(chip, PCA953X_INPUT, chip->prev_stat);
 		/*
 		 * There is no way to know which GPIO line generated the
 		 * interrupt.  We have to rely on the previous read for
@@ -642,13 +670,19 @@ static int pca953x_irq_setup(struct pca953x_chip *chip,
 			chip->irq_stat[i] &= chip->reg_direction[i];
 		mutex_init(&chip->irq_lock);
 
+		if (chip->driver_data & PCA_PCAL_9505_FIX)
+			irqflags = IRQF_TRIGGER_FALLING | IRQF_ONESHOT |
+				   IRQF_SHARED;
+		else
+			irqflags = IRQF_TRIGGER_LOW | IRQF_ONESHOT |
+				   IRQF_SHARED;
+
+		/* Stingray PCI present on falling edge. */
 		ret = devm_request_threaded_irq(&client->dev,
-					client->irq,
-					   NULL,
-					   pca953x_irq_handler,
-					   IRQF_TRIGGER_LOW | IRQF_ONESHOT |
-						   IRQF_SHARED,
-					   dev_name(&client->dev), chip);
+						client->irq,
+						NULL,
+						pca953x_irq_handler, irqflags,
+						dev_name(&client->dev), chip);
 		if (ret) {
 			dev_err(&client->dev, "failed to request irq %d\n",
 				client->irq);
