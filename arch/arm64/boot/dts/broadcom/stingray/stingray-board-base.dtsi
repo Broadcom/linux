@@ -1,0 +1,229 @@
+/*
+ *  BSD LICENSE
+ *
+ *  Copyright(c) 2016-2017 Broadcom.  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above copyright
+ *      notice, this list of conditions and the following disclaimer in
+ *      the documentation and/or other materials provided with the
+ *      distribution.
+ *    * Neither the name of Broadcom nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ *  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ *  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ *  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ *  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#ifndef ENABLE_EMMC
+#define ENABLE_EMMC	1
+#endif
+
+#ifndef ENABLE_NAND
+#define ENABLE_NAND	0
+#endif
+
+#ifndef ENABLE_PAXC
+#define ENABLE_PAXC	1
+#endif
+
+#ifndef ENABLE_PWM
+#define ENABLE_PWM	0
+#endif
+
+#ifndef ENABLE_SDCARD
+#define ENABLE_SDCARD	0
+#endif
+
+#ifndef ENABLE_USB
+#define ENABLE_USB	1
+#endif
+
+#ifndef NUM_PAXB
+#define NUM_PAXB	8
+#endif
+
+#include "stingray.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+#define PCIE_DMA_RANGES dma-ranges = < \
+	0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000 \
+	0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000 \
+	0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
+
+/ {
+
+#if (ENABLE_PAXC_IOMMU == 1)
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		smmu_pg_region {
+			reg = <0x0 0xc0000000 0x0 0x200000>;
+			no-map;
+		};
+	};
+#endif
+
+};
+
+&memory {
+	reg = <0x00000000 0x80000000 0x0 0x80000000>, /* 2G @ 2G */
+	      <0x00000008 0x80000000 0x1 0x80000000>; /* 6G @ 34G */
+};
+
+&pcie0 {
+	PCIE_DMA_RANGES
+};
+
+&pcie1 {
+	PCIE_DMA_RANGES
+};
+
+&pcie2 {
+	PCIE_DMA_RANGES
+};
+
+&pcie3 {
+	PCIE_DMA_RANGES
+};
+
+&pcie4 {
+	PCIE_DMA_RANGES
+};
+
+&pcie5 {
+	PCIE_DMA_RANGES
+};
+
+&pcie6 {
+	PCIE_DMA_RANGES
+};
+
+&pcie7 {
+	PCIE_DMA_RANGES
+};
+
+&enet {
+	max-speed = <1000>;
+	phy-mode = "rgmii-id";
+	phy-handle = <&gphy0>;
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
+#if (ENABLE_UART2 == 1)
+	status = "okay";
+#endif
+};
+
+&uart3 {
+#if (ENABLE_UART3 == 1)
+	status = "okay";
+#endif
+};
+
+&sdio0 {
+#if (ENABLE_EMMC == 1)
+	non-removable;
+	full-pwr-cycle;
+	status = "okay";
+#endif
+};
+
+&sdio1 {
+#if (ENABLE_SDCARD == 1)
+	full-pwr-cycle;
+	status = "okay";
+#endif
+};
+
+&pwm {
+#if (ENABLE_PWM == 1)
+	status = "okay";
+#endif
+};
+
+&ssp0 {
+	cs-gpios = <&gpio_hsls 34 0>;
+#if (ENABLE_SSP0 == 1)
+	status = "okay";
+#endif
+};
+
+&ssp1 {
+	cs-gpios = <&gpio_hsls 96 0>;
+#if (ENABLE_SSP1 == 1)
+	status = "okay";
+#endif
+};
+
+&i2c0 {
+#if (ENABLE_I2C0 == 1)
+	status = "okay";
+#endif
+};
+
+&i2c1 {
+#if (ENABLE_I2C1 == 1)
+	status = "okay";
+#endif
+};
+
+&mdio_mux_iproc {
+	mdio@10 {
+		gphy0: eth-phy@10 {
+			reg = <0x10>;
+		};
+	};
+};
+
+&nand {
+#if (ENABLE_NAND == 1)
+	status = "ok";
+#endif
+};
+
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&qspi_pins>;
+	bspi-sel = <0>;
+/* reserve QSPI for Chimp NVRAM when PAXC is enabled */
+#if (ENABLE_PAXC != 1)
+	status = "okay";
+#endif
+
+	flash: w25q64@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		reg = <0x0>;
+		spi-max-frequency = <12500000>;
+	};
+};
+
+&rtc {
+#if (ENABLE_RTC == 1)
+	status = "okay";
+#endif
+};

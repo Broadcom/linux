@@ -58,12 +58,7 @@
 #define NUM_PAXB	8
 #endif
 
-#include "stingray.dtsi"
-#include <dt-bindings/gpio/gpio.h>
-
-#define PCIE_DMA_RANGES dma-ranges = <0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000 \
-				      0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000 \
-				      0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
+#include "stingray-board-base.dtsi"
 
 / {
 	sdio0_vddo_ctrl_reg: sdio0_vddo_ctrl {
@@ -88,110 +83,17 @@
 			  1800000 0x1>;
 	};
 
-#if (ENABLE_PAXC_IOMMU == 1)
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		smmu_pg_region {
-			reg = <0x0 0xc0000000 0x0 0x200000>;
-			no-map;
-		};
-	};
-#endif
-
-};
-
-&memory {
-	reg = <0x00000000 0x80000000 0x0 0x80000000>, /* 2G @ 2G */
-	      <0x00000008 0x80000000 0x1 0x80000000>; /* 6G @ 34G */
-};
-
-&pcie0 {
-	PCIE_DMA_RANGES
-};
-
-&pcie1 {
-	PCIE_DMA_RANGES
-};
-
-&pcie2 {
-	PCIE_DMA_RANGES
-};
-
-&pcie3 {
-	PCIE_DMA_RANGES
-};
-
-&pcie4 {
-	PCIE_DMA_RANGES
-};
-
-&pcie5 {
-	PCIE_DMA_RANGES
-};
-
-&pcie6 {
-	PCIE_DMA_RANGES
-};
-
-&pcie7 {
-	PCIE_DMA_RANGES
-};
-
-&enet {
-	max-speed = <1000>;
-	phy-mode = "rgmii-id";
-	phy-handle = <&gphy0>;
-	status = "okay";
-};
-
-&uart1 {
-	status = "okay";
-};
-
-&uart2 {
-#if (ENABLE_UART2 == 1)
-	status = "okay";
-#endif
-};
-
-&uart3 {
-#if (ENABLE_UART3 == 1)
-	status = "okay";
-#endif
 };
 
 &sdio0 {
 	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
-#if (ENABLE_EMMC == 1)
-	non-removable;
-	full-pwr-cycle;
-	status = "okay";
-#endif
 };
 
 &sdio1 {
 	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
-#if (ENABLE_SDCARD == 1)
-	full-pwr-cycle;
-	status = "okay";
-#endif
-};
-
-&pwm {
-#if (ENABLE_PWM == 1)
-	status = "okay";
-#endif
 };
 
 &ssp0 {
-	cs-gpios = <&gpio_hsls 34 0>;
-#if (ENABLE_SSP0 == 1)
-	status = "okay";
-#endif
-
 	spi-flash@0 {
 		compatible = "jedec,spi-nor";
 		reg = <0>;
@@ -202,11 +104,6 @@
 };
 
 &ssp1 {
-	cs-gpios = <&gpio_hsls 96 0>;
-#if (ENABLE_SSP1 == 1)
-	status = "okay";
-#endif
-
 	spi-flash@0 {
 		compatible = "jedec,spi-nor";
 		reg = <0>;
@@ -218,9 +115,6 @@
 
 #if (ENABLE_I2C0 == 1)
 &i2c0 {
-#if (ENABLE_I2C0 == 1)
-	status = "okay";
-#endif
 	pca9505: pca9505@20 {
 		compatible = "nxp,pca9505";
 		gpio-controller;
@@ -232,9 +126,6 @@
 
 #if (ENABLE_I2C1 == 1)
 &i2c1 {
-#if (ENABLE_I2C1 == 1)
-	status = "okay";
-#endif
 	pcf8574: pcf8574@20 {
 		compatible = "nxp,pcf8574a";
 		gpio-controller;
@@ -244,18 +135,7 @@
 };
 #endif
 
-&mdio_mux_iproc {
-	mdio@10 {
-		gphy0: eth-phy@10 {
-			reg = <0x10>;
-		};
-	};
-};
-
 &nand {
-#if (ENABLE_NAND == 1)
-	status = "ok";
-#endif
 	nandcs@0 {
 		compatible = "brcm,nandcs";
 		reg = <0>;
@@ -267,28 +147,4 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 	};
-};
-
-&qspi {
-	pinctrl-names = "default";
-	pinctrl-0 = <&qspi_pins>;
-	bspi-sel = <0>;
-/* reserve QSPI for Chimp NVRAM when PAXC is enabled */
-#if (ENABLE_PAXC != 1)
-	status = "okay";
-#endif
-
-	flash: w25q64@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "jedec,spi-nor";
-		reg = <0x0>;
-		spi-max-frequency = <12500000>;
-	};
-};
-
-&rtc {
-#if (ENABLE_RTC == 1)
-	status = "okay";
-#endif
 };
