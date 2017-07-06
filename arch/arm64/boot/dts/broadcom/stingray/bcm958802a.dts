@@ -45,7 +45,7 @@
 #endif
 
 / {
-	model = "Stingray PS150xx (BCM9578802A)";
+	model = "Stingray PS150xx (BCM958802A)";
 };
 
 #include "bcm958742-base.dtsi"
