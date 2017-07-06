@@ -427,12 +427,7 @@ static void nvmet_rdma_free_rsps(struct nvmet_rdma_queue *queue)
 	for (i = 0; i < nr_rsps; i++) {
 		struct nvmet_rdma_rsp *rsp = &queue->rsps[i];
 
-		if (rsp->free_list.next != LIST_POISON1 &&
-		    rsp->free_list.prev != LIST_POISON2)
-			list_del(&rsp->free_list);
-		else
-			pr_err("Ray was here\n");
-
+		list_del(&rsp->free_list);
 		nvmet_rdma_free_rsp(ndev, rsp);
 	}
 	kfree(queue->rsps);
