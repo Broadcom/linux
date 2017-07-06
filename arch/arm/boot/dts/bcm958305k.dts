@@ -206,3 +206,29 @@
 	};
 };
 
+&mipipll {
+	assigned-clocks = <&mipipll 2>, <&mipipll 0>;
+	assigned-clock-parents = <&mipipll 0>;
+	assigned-clock-rates = <0>, <2100000000>;
+};
+
+&clcd {
+	clocks =  <&mipipll 2>, <&apb_clk>;
+	clcd-clock-select = <1>;
+
+	port {
+		clcd_pads: endpoint {
+			remote-endpoint = <&clcd_panel>;
+			arm,pl11x,tft-r0g0b0-pads = <0 8 16>;
+		};
+	};
+
+	panel {
+		compatible = "panel-dpi";
+		port {
+			clcd_panel: endpoint {
+				remote-endpoint = <&clcd_pads>;
+			};
+		};
+	};
+};
