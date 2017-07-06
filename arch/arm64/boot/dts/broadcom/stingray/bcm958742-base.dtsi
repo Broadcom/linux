@@ -30,11 +30,29 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ENABLE_PAXC
-#define ENABLE_PAXC     1
+#ifndef ENABLE_EMMC
+#define ENABLE_EMMC	1
 #endif
 
+#ifndef ENABLE_NAND
+#define ENABLE_NAND	1
+#endif
+
+#ifndef ENABLE_PAXC
+#define ENABLE_PAXC	1
+#endif
+
+#ifndef ENABLE_PWM
+#define ENABLE_PWM	1
+#endif
+
+#ifndef ENABLE_SDCARD
+#define ENABLE_SDCARD	1
+#endif
+
+#ifndef ENABLE_USB
 #define ENABLE_USB	1
+#endif
 
 #ifndef NUM_PAXB
 #define NUM_PAXB	8
@@ -147,19 +165,25 @@
 
 &sdio0 {
 	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
+#if (ENABLE_EMMC == 1)
 	non-removable;
 	full-pwr-cycle;
 	status = "okay";
+#endif
 };
 
 &sdio1 {
 	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
+#if (ENABLE_SDCARD == 1)
 	full-pwr-cycle;
 	status = "okay";
+#endif
 };
 
 &pwm {
+#if (ENABLE_PWM == 1)
 	status = "okay";
+#endif
 };
 
 &ssp0 {
@@ -194,8 +218,9 @@
 
 #if (ENABLE_I2C0 == 1)
 &i2c0 {
+#if (ENABLE_I2C0 == 1)
 	status = "okay";
-
+#endif
 	pca9505: pca9505@20 {
 		compatible = "nxp,pca9505";
 		gpio-controller;
@@ -207,8 +232,9 @@
 
 #if (ENABLE_I2C1 == 1)
 &i2c1 {
+#if (ENABLE_I2C1 == 1)
 	status = "okay";
-
+#endif
 	pcf8574: pcf8574@20 {
 		compatible = "nxp,pcf8574a";
 		gpio-controller;
@@ -227,7 +253,9 @@
 };
 
 &nand {
+#if (ENABLE_NAND == 1)
 	status = "ok";
+#endif
 	nandcs@0 {
 		compatible = "brcm,nandcs";
 		reg = <0>;
