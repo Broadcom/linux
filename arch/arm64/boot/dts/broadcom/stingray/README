@@ -1,11 +1,13 @@
+bcm957604k.dtb                         - SmartIO SVK
+bcm957604k-diag.dtb                    - SmartIO SVK for userspace diag
+bcm957604k-fs4.dtb                     - SmartIO SVK w/FS4
+
 bcm9578802a.dtb                        - PS150xx 50G smartIO NIC board
-bcm958742k.dtb                         - standard SVK board
-bcm958742k-diag.dtb                    - HW entries for iprocdiags userspace testing tools
-bcm958742k-extsram.dtb                 - standard ext SRAM SVK board
-bcm958742k-diag-extsram.dtb            - HW entries for iprocdiags for ext SRAM SVK board
-bcm958742k-initrd-extsram-tinyboot.dtb - ramdisk memory allocation for ext SRAM SVK board
-bcm958742k-paxc.dtb                    - enable PAXC
-bcm958742k-paxc-extsram.dtb            - enable PAXC for ext SRAM SVK board
-bcm958742k-qa1-i2c-extsram.dtb         - re-configure I2C0 for QA for ext SRAM SVK board
-bcm958742k-qa2-gpioc-extsram.dtb       - remove GPIO controller for QA for ext SRAM SVK board
-bcm958742k-qa3-crypto-extsram.dts      - set "NUM_CRYPTO 1" and "NUM_RAID 0" to enable SPU2 for QA for ext SRAM SVK board
+
+bcm958742k.dtb                         - Combo SVK
+bcm958742k-diag.dtb                    - Combo SVK for userspace diag
+bcm958742k-fs4.dtb                     - Combo SVK w/FS4
+
+bcm958742t.dtb                         - SST100
+bcm958742t-diag.dtb                    - SST100 for userspace diag
+bcm958742t-fs4.dtb                     - SST100 w/FS4
