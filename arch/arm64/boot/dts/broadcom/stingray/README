@@ -9,5 +9,6 @@ bcm958742k-fs4.dtb                     - Combo SVK w/FS4
 bcm958742t.dtb                         - SST100
 bcm958742t-diag.dtb                    - SST100 for userspace diag
 bcm958742t-fs4.dtb                     - SST100 w/FS4
+bcm958742t-fs4-uio.dtb                 - SST100 w/FS4 PMD
 
 bcm958802a.dtb                         - PS150xx 50G smartIO NIC board
