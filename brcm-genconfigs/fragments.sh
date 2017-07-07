@@ -11,6 +11,7 @@ bcm_cygnus_defconfig="base-arm32 cygnus  \
     blk bt                               \
     dbg dma dte                          \
     fs i2c                               \
+    iio                                  \
     input                                \
     lcd mailbox misc mmc mtd             \
     net                                  \
