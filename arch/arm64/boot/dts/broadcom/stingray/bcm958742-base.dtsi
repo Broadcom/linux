@@ -61,6 +61,7 @@
 #include "stingray-board-base.dtsi"
 
 / {
+#if (ENABLE_I2C0 == 1)
 	sdio0_vddo_ctrl_reg: sdio0_vddo_ctrl {
 		compatible = "regulator-gpio";
 		regulator-name = "sdio0_vddo_ctrl_reg";
@@ -71,7 +72,9 @@
 		states = <3300000 0x0
 			  1800000 0x1>;
 	};
+#endif
 
+#if (ENABLE_I2C0 == 1)
 	sdio1_vddo_ctrl_reg: sdio1_vddo_ctrl {
 		compatible = "regulator-gpio";
 		regulator-name = "sdio1_vddo_ctrl_reg";
@@ -82,15 +85,19 @@
 		states = <3300000 0x0
 			  1800000 0x1>;
 	};
-
+#endif
 };
 
 &sdio0 {
+#if (ENABLE_I2C0 == 1)
 	vqmmc-supply = <&sdio0_vddo_ctrl_reg>;
+#endif
 };
 
 &sdio1 {
+#if (ENABLE_I2C0 == 1)
 	vqmmc-supply = <&sdio1_vddo_ctrl_reg>;
+#endif
 };
 
 &ssp0 {

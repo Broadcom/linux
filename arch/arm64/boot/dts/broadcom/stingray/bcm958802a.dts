@@ -32,7 +32,7 @@
 
 /dts-v1/;
 
-#define ENABLE_I2C0     1
+#define ENABLE_I2C0     0
 #define ENABLE_I2C1     0
 #define NUM_PAXB        0
 #define ENABLE_RTC      0
@@ -66,10 +66,22 @@
 	status = "disabled";
 };
 
-&xhci0 {
+&xhci1 {
 	status = "disabled";
 };
 
-&bdc0 {
+&usb1_phy0 {
+	status = "disabled";
+};
+
+&usb1_phy1 {
+	status = "disabled";
+};
+
+&usb1_phy2 {
+	status = "disabled";
+};
+
+&bdc1 {
 	status = "disabled";
 };
