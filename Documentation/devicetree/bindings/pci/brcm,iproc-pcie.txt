@@ -74,6 +74,29 @@ Optional properties:
 - brcm,pcie-msi-inten: Needs to be present for some older iProc platforms that
 require the interrupt enable registers to be set explicitly to enable MSI
 
+Optional properties:
+- brcm,pci-hotplug: PCI hotplug feature is supported.
+
+If the brcm,pcie-hotplug property is present, the following properties become
+effective:
+
+- brcm,prsnt-gpio: Array of gpios, needs to be present if Hotplug is supported.
+
+PCI hotplug implementation is SOC/Board specific, and also it depends on
+how add-in card is designed (e.g. how many present pins are grounded).
+
+If x8 card is connected, then it might be possible that all the
+3 present pins could go low, or atleast one pin goes low.
+
+If x4 card is connected, then it might be possible that 2 present
+pins go low, or atleast one pin goes low.
+
+Example:
+brcm,prsnt-gpio: <&pca9505 32 1>, <&pca9505 33 1>;
+This is x4 connector: monitoring max 2 present lines.
+brcm,prsnt-gpio: <&pca9505 32 1>, <&pca9505 33 1>, <&pca9505 34 1>;
+This is x8 connector: monitoring max 3 present lines.
+
 Example:
 	pcie0: pcie@18012000 {
 		compatible = "brcm,iproc-pcie";
