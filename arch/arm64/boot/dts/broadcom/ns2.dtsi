@@ -722,6 +722,26 @@
 			status = "disabled";
 		};
 
+		dma1: dma@66330000 {
+			compatible = "arm,pl330", "arm,primecell";
+			reg = <0x66330000 0x1000>;
+			interrupts = <GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 411 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 413 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 414 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 415 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 417 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			#dma-channels = <8>;
+			#dma-requests = <32>;
+			clocks = <&iprocslow>;
+			clock-names = "apb_pclk";
+			iommus = <&smmu 0x408>;
+		};
+
 		sata_phy: sata_phy@663f0100 {
 			compatible = "brcm,iproc-ns2-sata-phy";
 			reg = <0x663f0100 0x1f00>,
