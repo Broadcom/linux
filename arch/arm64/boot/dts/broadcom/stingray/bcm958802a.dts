@@ -32,37 +32,15 @@
 
 /dts-v1/;
 
-#define ENABLE_I2C0     0
-#define ENABLE_I2C1     0
 #define NUM_PAXB        0
-#define ENABLE_RTC      0
-#define ENABLE_SSP0     0
-#define ENABLE_SSP1     0
-#define ENABLE_UART2    0
-#define ENABLE_UART3    0
-#ifndef NUM_SATA
-#define NUM_SATA        0
-#endif
 
 / {
 	model = "Stingray PS150xx (BCM958802A)";
 };
 
-#include "bcm958742-base.dtsi"
+#include "stingray-board-base.dtsi"
 
 &enet {
-	status = "disabled";
-};
-
-&nand {
-	status = "disabled";
-};
-
-&pwm {
-	status = "disabled";
-};
-
-&sdio1 {
 	status = "disabled";
 };
 
