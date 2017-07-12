@@ -20,7 +20,8 @@ bcm_cygnus_defconfig="base-arm32 cygnus  \
     regulator rng                        \
     sound spi stmpe trace                \
     usb usbd                             \
-    watchdog wifi"
+    watchdog wifi                        \
+    media"
 
 iproc_defconfig="base-arm64 ns2 stingray \
     ata blk bpf                          \
