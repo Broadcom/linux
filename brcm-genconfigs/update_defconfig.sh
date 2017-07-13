@@ -86,6 +86,9 @@ main() {
 	# for uses when NS2/Stingray run standalone without NB host
 	do_update ${ARCH64} iproc $iproc_defconfig
 
+	# Omega
+	do_update ${ARCH64} bcm_omega $bcm_omega_defconfig
+
 	#Cleanup 64 bit
 	make ARCH=${ARCH64} mrproper > /dev/null
 	if [ -e defconfig ]; then
