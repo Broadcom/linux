@@ -34,6 +34,10 @@
 #define ENABLE_EMMC	1
 #endif
 
+#ifndef ENABLE_ENET
+#define ENABLE_ENET	1
+#endif
+
 #ifndef ENABLE_NAND
 #define ENABLE_NAND	0
 #endif
@@ -124,7 +128,9 @@
 	max-speed = <1000>;
 	phy-mode = "rgmii-id";
 	phy-handle = <&gphy0>;
+#if (ENABLE_ENET == 1)
 	status = "okay";
+#endif
 };
 
 &uart1 {

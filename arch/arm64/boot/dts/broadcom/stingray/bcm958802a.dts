@@ -32,17 +32,14 @@
 
 /dts-v1/;
 
-#define NUM_PAXB        0
+#define ENABLE_ENET	0
+#define NUM_PAXB	0
 
 / {
 	model = "Stingray PS150xx (BCM958802A)";
 };
 
 #include "stingray-board-base.dtsi"
-
-&enet {
-	status = "disabled";
-};
 
 &xhci1 {
 	status = "disabled";
