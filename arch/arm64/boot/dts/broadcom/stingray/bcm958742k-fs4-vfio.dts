@@ -36,13 +36,6 @@
 
 #include "bcm958742k.dts"
 
-/ {
-	chosen {
-		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
-			    earlycon=uart8250,mmio32,0x68a10000 cma=64M";
-	};
-};
-
 &crypto_mbox {
 	status = "okay";
 };

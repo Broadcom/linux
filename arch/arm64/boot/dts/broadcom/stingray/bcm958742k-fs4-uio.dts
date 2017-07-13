@@ -36,15 +36,6 @@
 
 #include "bcm958742k.dts"
 
-/ {
-	chosen {
-		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
-			    earlycon=uart8250,mmio32,0x68a10000 cma=64M \
-			    uio_dmem_genirq.of_id=brcm,uio uio_dmem_genirq.dmem_dma_bits=40 \
-			    uio_dmem_genirq.dmem_sizes=raid_mbox:8M,288K,8K,32M;";
-	};
-};
-
 &crypto_mbox {
 	compatible = "brcm,uio";
 	status = "okay";

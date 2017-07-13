@@ -32,17 +32,17 @@
 
 #include <dt-bindings/pinctrl/brcm,pinctrl-stingray.h>
 
-		pinconf: pinconf@68a40000 {
+		pinconf: pinconf@00140000 {
 			compatible = "pinconf-single";
-			reg = <0x68a40000 0x250>;
+			reg = <0x00140000 0x250>;
 			pinctrl-single,register-width = <32>;
 
 			/* pinconf functions */
 		};
 
-		pinmux: pinmux@68a4029c {
+		pinmux: pinmux@0014029c {
 			compatible = "pinctrl-single";
-			reg = <0x68a4029c 0x250>;
+			reg = <0x0014029c 0x250>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			pinctrl-single,register-width = <32>;

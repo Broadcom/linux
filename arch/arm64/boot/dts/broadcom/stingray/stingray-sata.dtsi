@@ -34,11 +34,11 @@
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0 0 0 0xffffffff>;
+		ranges = <0x0 0x0 0x67d00000 0x00800000>;
 
-		sata0: ahci@67f10000 {
+		sata0: ahci@00210000 {
 			compatible = "brcm,iproc-ahci", "generic-ahci";
-			reg = <0x67f10000 0x1000>;
+			reg = <0x00210000 0x1000>;
 			reg-names = "ahci";
 			interrupts = <GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
@@ -56,9 +56,9 @@
 			};
 		};
 
-		sata_phy0: sata_phy@67f12100 {
+		sata_phy0: sata_phy@00212100 {
 			compatible = "brcm,iproc-sr-sata-phy";
-			reg = <0x67f12100 0x1000>;
+			reg = <0x00212100 0x1000>;
 			reg-names = "phy";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -74,9 +74,9 @@
 			};
 		};
 
-		sata1: ahci@68010000 {
+		sata1: ahci@00310000 {
 			compatible = "brcm,iproc-ahci", "generic-ahci";
-			reg = <0x68010000 0x1000>;
+			reg = <0x00310000 0x1000>;
 			reg-names = "ahci";
 			interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
@@ -94,9 +94,9 @@
 			};
 		};
 
-		sata_phy1: sata_phy@68012100 {
+		sata_phy1: sata_phy@00312100 {
 			compatible = "brcm,iproc-sr-sata-phy";
-			reg = <0x68012100 0x1000>;
+			reg = <0x00312100 0x1000>;
 			reg-names = "phy";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -112,9 +112,9 @@
 			};
 		};
 
-		sata2: ahci@67e20000 {
+		sata2: ahci@00120000 {
 			compatible = "brcm,iproc-ahci", "generic-ahci";
-			reg = <0x67e20000 0x1000>;
+			reg = <0x00120000 0x1000>;
 			reg-names = "ahci";
 			interrupts = <GIC_SPI 333 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
@@ -132,9 +132,9 @@
 			};
 		};
 
-		sata_phy2: sata_phy@67e22100 {
+		sata_phy2: sata_phy@00122100 {
 			compatible = "brcm,iproc-sr-sata-phy";
-			reg = <0x67e22100 0x1000>;
+			reg = <0x00122100 0x1000>;
 			reg-names = "phy";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -150,9 +150,9 @@
 			};
 		};
 
-		sata3: ahci@67e30000 {
+		sata3: ahci@00130000 {
 			compatible = "brcm,iproc-ahci", "generic-ahci";
-			reg = <0x67e30000 0x1000>;
+			reg = <0x00130000 0x1000>;
 			reg-names = "ahci";
 			interrupts = <GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
@@ -170,9 +170,9 @@
 			};
 		};
 
-		sata_phy3: sata_phy@67e32100 {
+		sata_phy3: sata_phy@00132100 {
 			compatible = "brcm,iproc-sr-sata-phy";
-			reg = <0x67e32100 0x1000>;
+			reg = <0x00132100 0x1000>;
 			reg-names = "phy";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -188,9 +188,9 @@
 			};
 		};
 
-		sata4: ahci@68030000 {
+		sata4: ahci@00330000 {
 			compatible = "brcm,iproc-ahci", "generic-ahci";
-			reg = <0x68030000 0x1000>;
+			reg = <0x00330000 0x1000>;
 			reg-names = "ahci";
 			interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
@@ -208,9 +208,9 @@
 			};
 		};
 
-		sata_phy4: sata_phy@68032100 {
+		sata_phy4: sata_phy@00332100 {
 			compatible = "brcm,iproc-sr-sata-phy";
-			reg = <0x68032100 0x1000>;
+			reg = <0x00332100 0x1000>;
 			reg-names = "phy";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -226,9 +226,9 @@
 			};
 		};
 
-		sata5: ahci@68100000 {
+		sata5: ahci@00400000 {
 			compatible = "brcm,iproc-ahci", "generic-ahci";
-			reg = <0x68100000 0x1000>;
+			reg = <0x00400000 0x1000>;
 			reg-names = "ahci";
 			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
@@ -246,9 +246,9 @@
 			};
 		};
 
-		sata_phy5: sata_phy@68102100 {
+		sata_phy5: sata_phy@00402100 {
 			compatible = "brcm,iproc-sr-sata-phy";
-			reg = <0x68102100 0x1000>;
+			reg = <0x00402100 0x1000>;
 			reg-names = "phy";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -264,9 +264,9 @@
 			};
 		};
 
-		sata6: ahci@68110000 {
+		sata6: ahci@00410000 {
 			compatible = "brcm,iproc-ahci", "generic-ahci";
-			reg = <0x68110000 0x1000>;
+			reg = <0x00410000 0x1000>;
 			reg-names = "ahci";
 			interrupts = <GIC_SPI 355 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
@@ -284,9 +284,9 @@
 			};
 		};
 
-		sata_phy6: sata_phy@68112100 {
+		sata_phy6: sata_phy@00412100 {
 			compatible = "brcm,iproc-sr-sata-phy";
-			reg = <0x68112100 0x1000>;
+			reg = <0x00412100 0x1000>;
 			reg-names = "phy";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -302,9 +302,9 @@
 			};
 		};
 
-		sata7: ahci@68120000 {
+		sata7: ahci@00420000 {
 			compatible = "brcm,iproc-ahci", "generic-ahci";
-			reg = <0x68120000 0x1000>;
+			reg = <0x00420000 0x1000>;
 			reg-names = "ahci";
 			interrupts = <GIC_SPI 357 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
@@ -322,9 +322,9 @@
 			};
 		};
 
-		sata_phy7: sata_phy@68122100 {
+		sata_phy7: sata_phy@00422100 {
 			compatible = "brcm,iproc-sr-sata-phy";
-			reg = <0x68122100 0x1000>;
+			reg = <0x00422100 0x1000>;
 			reg-names = "phy";
 			#address-cells = <1>;
 			#size-cells = <0>;

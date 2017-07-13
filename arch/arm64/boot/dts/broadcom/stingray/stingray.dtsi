@@ -31,7 +31,6 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
-#include <dt-bindings/pinctrl/brcm,pinctrl-stingray.h>
 
 #ifndef ENABLE_PAXB_IOMMU
 #define ENABLE_PAXB_IOMMU	0
@@ -42,17 +41,6 @@
 	interrupt-parent = <&gic>;
 	#address-cells = <2>;
 	#size-cells = <2>;
-
-	aliases {
-		serial0 = &uart1;
-		serial1 = &uart0;
-		serial2 = &uart2;
-		serial3 = &uart3;
-	};
-
-	chosen {
-		linux,stdout-path = "serial0:115200n8";
-	};
 
 	cpus {
 		#address-cells = <2>;
@@ -156,53 +144,53 @@
 
 	timer {
 		compatible = "arm,armv8-timer";
-		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(8) |
-			      IRQ_TYPE_LEVEL_LOW)>,
-			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(8) |
-			      IRQ_TYPE_LEVEL_LOW)>,
-			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(8) |
-			      IRQ_TYPE_LEVEL_LOW)>,
-			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(8) |
-			      IRQ_TYPE_LEVEL_LOW)>;
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
 	};
 
 	#include "stingray-pcie.dtsi"
+
+	mhb: syscon@60401000 {
+		compatible = "brcm,sr-mhb", "syscon";
+		reg = <0 0x60401000 0 0x38c>;
+	};
 
 	scr {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0 0 0 0xffffffff>;
+		ranges = <0x0 0x0 0x61000000 0x05000000>;
 
-		ccn: ccn@61000000 {
+		ccn: ccn@00000000 {
 			compatible = "arm,ccn-502";
-			reg = <0x61000000 0x900000>;
+			reg = <0x00000000 0x900000>;
 			interrupts = <GIC_SPI 799 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
-		gic: interrupt-controller@63c00000 {
+		gic: interrupt-controller@02c00000 {
 			compatible = "arm,gic-v3";
 			#interrupt-cells = <3>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges;
 			interrupt-controller;
-			reg = <0x63c00000 0x010000>, /* GICD */
-			      <0x63e00000 0x600000>; /* GICR */
-			interrupts = <GIC_PPI 9 (GIC_CPU_MASK_RAW(0xf) |
-				      IRQ_TYPE_LEVEL_HIGH)>;
+			reg = <0x02c00000 0x010000>, /* GICD */
+			      <0x02e00000 0x600000>; /* GICR */
+			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 
 			gic_its: gic-its@63c20000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
-				reg = <0x63c20000 0x10000>;
+				reg = <0x02c20000 0x10000>;
 			};
 		};
 
-		smmu: mmu@64000000 {
+		smmu: mmu@03000000 {
 			compatible = "arm,mmu-500";
-			reg = <0x64000000 0x80000>;
+			reg = <0x03000000 0x80000>;
 			#global-interrupts = <1>;
 #if (ENABLE_PAXC_IOMMU == 0)
 			reserved-context-banks = <1>;
@@ -281,43 +269,50 @@
 		};
 	};
 
-	mhb: syscon@60401000 {
-		compatible = "brcm,sr-mhb", "syscon";
-		reg = <0 0x60401000 0 0x38c>;
+	crmu: crmu {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x66400000 0x100000>;
+
+		#include "stingray-clock.dtsi"
+
+		cdru: syscon@0001d000 {
+			compatible = "brcm,sr-cdru", "syscon";
+			reg = <0x0001d000 0x400>;
+		};
+
+		otp: otp@0001c400 {
+			compatible = "brcm,ocotp-v2";
+			reg = <0x0001c400 0x68>;
+			brcm,ocotp-size = <2048>;
+			status = "okay";
+		};
+
+		gpio_crmu: gpio@00024800 {
+			compatible = "brcm,iproc-gpio";
+			reg = <0x00024800 0x4c>;
+			ngpios = <6>;
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
 	};
 
-	cdru: syscon@6641d000 {
-		compatible = "brcm,sr-cdru", "syscon";
-		reg = <0 0x6641d000 0 0x400>;
-	};
+	#include "stingray-fs4.dtsi"
+	#include "stingray-sata.dtsi"
+	#include "stingray-usb.dtsi"
 
 	hsls {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0 0 0 0xffffffff>;
+		ranges = <0x0 0x0 0x68900000 0x17700000>;
 
-		#include "stingray-clock.dtsi"
 		#include "stingray-pinctrl.dtsi"
 
-		otp: otp@6641c400 {
-			compatible = "brcm,ocotp-v2";
-			reg = <0x6641c400 0x68>;
-			brcm,ocotp-size = <2048>;
-			status = "okay";
-		};
-
-		gpio_crmu: gpio@66424800 {
-			compatible = "brcm,iproc-gpio";
-			reg = <0x66424800 0x4c>;
-			ngpios = <6>;
-			#gpio-cells = <2>;
-			gpio-controller;
-		};
-
-		mdio_mux_iproc: mdio-mux@6892023c {
+		mdio_mux_iproc: mdio-mux@0002023c {
 			compatible = "brcm,mdio-mux-iproc";
-			reg = <0x6892023c 0x14>;
+			reg = <0x0002023c 0x14>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -346,18 +341,18 @@
 			};
 		};
 
-		pwm: pwm@68910000{
+		pwm: pwm@00010000 {
 			compatible = "brcm,iproc-pwm";
-			reg = <0x68910000 0x1000>;
+			reg = <0x00010000 0x1000>;
 			clocks = <&crmu_ref25m>;
 			#pwm-cells = <3>;
 			status = "disabled";
 		};
 
 		/* Don't use this timer it is being used by ATF */
-		timer0: timer@68930000 {
+		timer0: timer@00030000 {
 			compatible = "arm,sp804", "arm,primecell";
-			reg = <0x68930000 0x1000>;
+			reg = <0x00030000 0x1000>;
 			interrupts = <GIC_SPI 179 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_25m_div2_clk>,
 				 <&hsls_25m_div2_clk>,
@@ -366,9 +361,9 @@
 			status = "disabled";
 		};
 
-		timer1: timer@68940000 {
+		timer1: timer@00040000 {
 			compatible = "arm,sp804", "arm,primecell";
-			reg = <0x68940000 0x1000>;
+			reg = <0x00040000 0x1000>;
 			interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_25m_div2_clk>,
 				 <&hsls_25m_div2_clk>,
@@ -376,9 +371,9 @@
 			clock-names = "timer1", "timer2", "apb_pclk";
 		};
 
-		timer2: timer@68950000 {
+		timer2: timer@00050000 {
 			compatible = "arm,sp804", "arm,primecell";
-			reg = <0x68950000 0x1000>;
+			reg = <0x00050000 0x1000>;
 			interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_25m_div2_clk>,
 				 <&hsls_25m_div2_clk>,
@@ -387,9 +382,9 @@
 			status = "disabled";
 		};
 
-		timer3: timer@68960000 {
+		timer3: timer@00060000 {
 			compatible = "arm,sp804", "arm,primecell";
-			reg = <0x68960000 0x1000>;
+			reg = <0x00060000 0x1000>;
 			interrupts = <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_25m_div2_clk>,
 				 <&hsls_25m_div2_clk>,
@@ -398,9 +393,9 @@
 			status = "disabled";
 		};
 
-		timer4: timer@68970000 {
+		timer4: timer@00070000 {
 			compatible = "arm,sp804", "arm,primecell";
-			reg = <0x68970000 0x1000>;
+			reg = <0x00070000 0x1000>;
 			interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_25m_div2_clk>,
 				 <&hsls_25m_div2_clk>,
@@ -409,9 +404,9 @@
 			status = "disabled";
 		};
 
-		timer5: timer@68980000 {
+		timer5: timer@00080000 {
 			compatible = "arm,sp804", "arm,primecell";
-			reg = <0x68980000 0x1000>;
+			reg = <0x00080000 0x1000>;
 			interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_25m_div2_clk>,
 				 <&hsls_25m_div2_clk>,
@@ -420,9 +415,9 @@
 			status = "disabled";
 		};
 
-		timer6: timer@68990000 {
+		timer6: timer@00090000 {
 			compatible = "arm,sp804", "arm,primecell";
-			reg = <0x68990000 0x1000>;
+			reg = <0x00090000 0x1000>;
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_25m_div2_clk>,
 				 <&hsls_25m_div2_clk>,
@@ -431,9 +426,9 @@
 			status = "disabled";
 		};
 
-		timer7: timer@689a0000 {
+		timer7: timer@000a0000 {
 			compatible = "arm,sp804", "arm,primecell";
-			reg = <0x689a0000 0x1000>;
+			reg = <0x000a0000 0x1000>;
 			interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_25m_div2_clk>,
 				 <&hsls_25m_div2_clk>,
@@ -442,9 +437,9 @@
 			status = "disabled";
 		};
 
-		i2c0: i2c@689b0000 {
+		i2c0: i2c@000b0000 {
 			compatible = "brcm,iproc-i2c";
-			reg = <0x689b0000 0x100>;
+			reg = <0x000b0000 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 177 IRQ_TYPE_NONE>;
@@ -452,17 +447,17 @@
 			status = "disabled";
 		};
 
-		wdt0: watchdog@689c0000 {
+		wdt0: watchdog@000c0000 {
 			compatible = "arm,sp805", "arm,primecell";
-			reg = <0x689c0000 0x1000>;
+			reg = <0x000c0000 0x1000>;
 			interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_25m_div2_clk>, <&hsls_div4_clk>;
 			clock-names = "wdogclk", "apb_pclk";
 		};
 
-		gpio_hsls: gpio@689d0000 {
+		gpio_hsls: gpio@000d0000 {
 			compatible = "brcm,iproc-gpio";
-			reg = <0x689d0000 0x864>;
+			reg = <0x000d0000 0x864>;
 			ngpios = <151>;
 			#gpio-cells = <2>;
 			gpio-controller;
@@ -486,9 +481,9 @@
 					<&pinmux 151 91 4>;
 		};
 
-		i2c1: i2c@689e0000 {
+		i2c1: i2c@000e0000 {
 			compatible = "brcm,iproc-i2c";
-			reg = <0x689e0000 0x100>;
+			reg = <0x000e0000 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 178 IRQ_TYPE_NONE>;
@@ -496,10 +491,10 @@
 			status = "disabled";
 		};
 
-		uart0: uart@68a00000 {
+		uart0: uart@00100000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
-			reg = <0x68a00000 0x1000>;
+			reg = <0x00100000 0x1000>;
 			reg-shift = <2>;
 			clock-frequency = <25000000>;
 			interrupt-parent = <&gic>;
@@ -507,10 +502,10 @@
 			status = "disabled";
 		};
 
-		uart1: uart@68a10000 {
+		uart1: uart@00110000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
-			reg = <0x68a10000 0x1000>;
+			reg = <0x00110000 0x1000>;
 			reg-shift = <2>;
 			clock-frequency = <25000000>;
 			interrupt-parent = <&gic>;
@@ -518,10 +513,10 @@
 			status = "disabled";
 		};
 
-		uart2: uart@68a20000 {
+		uart2: uart@00120000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
-			reg = <0x68a20000 0x1000>;
+			reg = <0x00120000 0x1000>;
 			reg-shift = <2>;
 			clock-frequency = <25000000>;
 			interrupt-parent = <&gic>;
@@ -529,10 +524,10 @@
 			status = "disabled";
 		};
 
-		uart3: uart@68a30000 {
+		uart3: uart@00130000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
-			reg = <0x68a30000 0x1000>;
+			reg = <0x00130000 0x1000>;
 			reg-shift = <2>;
 			clock-frequency = <25000000>;
 			interrupt-parent = <&gic>;
@@ -540,9 +535,9 @@
 			status = "disabled";
 		};
 
-		ssp0: ssp@68a80000 {
+		ssp0: ssp@00180000 {
 			compatible = "arm,pl022", "arm,primecell";
-			reg = <0x68a80000 0x1000>;
+			reg = <0x00180000 0x1000>;
 			interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_div2_clk>, <&hsls_div2_clk>;
 			clock-names = "spiclk", "apb_pclk";
@@ -552,9 +547,9 @@
 			status = "disabled";
 		};
 
-		ssp1: ssp@68a90000 {
+		ssp1: ssp@00190000 {
 			compatible = "arm,pl022", "arm,primecell";
-			reg = <0x68a90000 0x1000>;
+			reg = <0x00190000 0x1000>;
 			interrupts = <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hsls_div2_clk>, <&hsls_div2_clk>;
 			clock-names = "spiclk", "apb_pclk";
@@ -564,20 +559,20 @@
 			status = "disabled";
 		};
 
-		dte: dte@68aa1600 {
+		dte: dte@001a1600 {
 			compatible = "brcm,iproc-dte";
-			reg = <0x68aa1600 0x1000>;
+			reg = <0x001a1600 0x1000>;
 			status = "disabled";
 		};
 
-		hwrng: hwrng@68b20000 {
+		hwrng: hwrng@00220000 {
 			compatible = "brcm,iproc-rng200";
-			reg = <0x68b20000 0x28>;
+			reg = <0x00220000 0x28>;
 		};
 
-		dma0: dma@68c10000 {
+		dma0: dma@00310000 {
 			compatible = "arm,pl330", "arm,primecell";
-			reg = <0x68c10000 0x1000>;
+			reg = <0x00310000 0x1000>;
 			interrupts = <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>,
@@ -595,11 +590,20 @@
 			iommus = <&smmu 0x6000 0x0000>;
 		};
 
-		nand: nand@68c60000 {
+		enet: ethernet@00340000{
+			compatible = "brcm,amac";
+			reg = <0x00340000 0x1000>;
+			reg-names = "amac_base";
+			dma-coherent;
+			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>;
+			status= "disabled";
+		};
+
+		nand: nand@00360000 {
 			compatible = "brcm,nand-iproc", "brcm,brcmnand-v6.1";
-			reg = <0x68c60000 0x600>,
-			      <0x68e0a408 0x600>,
-			      <0x68c60f00 0x20>;
+			reg = <0x00360000 0x600>,
+			      <0x0050a408 0x600>,
+			      <0x00360f00 0x20>;
 			reg-names = "nand", "iproc-idm", "iproc-ext";
 			interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
@@ -608,13 +612,13 @@
 			status = "disabled";
 		};
 
-		qspi: spi@68c70200 {
+		qspi: spi@00370200 {
 			compatible = "brcm,spi-iproc-qspi-v1",
 				     "brcm,spi-bcm-qspi";
-			reg = <0x68c70200 0x184>,
-				<0x68c70000 0x124>,
-				<0x68e0c408 0x004>,
-				<0x68c703a0 0x01c>;
+			reg = <0x00370200 0x184>,
+				<0x00370000 0x124>,
+				<0x0050c408 0x004>,
+				<0x003703a0 0x01c>;
 			reg-names = "mspi", "bspi", "intr_regs",
 				"intr_status_reg";
 			interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>;
@@ -628,18 +632,9 @@
 			status = "disabled";
 		};
 
-		enet: ethernet@68c40000{
-			compatible = "brcm,amac";
-			reg = <0x68c40000 0x1000>;
-			reg-names = "amac_base";
-			dma-coherent;
-			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>;
-			status= "disabled";
-		};
-
-		sdio0: sdhci@68cf1000 {
+		sdio0: sdhci@003f1000 {
 			compatible = "brcm,sdhci-iproc";
-			reg = <0x68cf1000 0x100>;
+			reg = <0x003f1000 0x100>;
 			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 			clocks = <&sdio0_clk>;
@@ -647,9 +642,9 @@
 			status = "disabled";
 		};
 
-		sdio1: sdhci@68cf2000 {
+		sdio1: sdhci@003f2000 {
 			compatible = "brcm,sdhci-iproc";
-			reg = <0x68cf2000 0x100>;
+			reg = <0x003f2000 0x100>;
 			interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 			clocks = <&sdio1_clk>;
@@ -657,10 +652,6 @@
 			status = "disabled";
 		};
 	};
-
-	#include "stingray-fs4.dtsi"
-	#include "stingray-sata.dtsi"
-	#include "stingray-usb.dtsi"
 
 	rtc: rtc {
 		compatible = "brcm,iproc-rtc";
