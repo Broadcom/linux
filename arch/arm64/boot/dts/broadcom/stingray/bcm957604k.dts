@@ -34,6 +34,7 @@
 
 #define ENABLE_I2C0	1
 #define ENABLE_I2C1	1
+#define ENABLE_PWM	0
 #define ENABLE_RTC	1
 #define ENABLE_SSP0	1
 #define ENABLE_SSP1	1
@@ -49,7 +50,3 @@
 };
 
 #include "bcm958742-base.dtsi"
-
-&pwm {
-	status = "disabled";
-};
