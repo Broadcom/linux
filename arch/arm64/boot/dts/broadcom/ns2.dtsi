@@ -681,6 +681,7 @@
 			interrupts = <GIC_SPI 404 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&iprocslow>, <&iprocslow>;
 			clock-names = "spiclk", "apb_pclk";
+			num-cs = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -692,6 +693,7 @@
 			interrupts = <GIC_SPI 405 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&iprocslow>, <&iprocslow>;
 			clock-names = "spiclk", "apb_pclk";
+			num-cs = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
