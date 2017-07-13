@@ -46,19 +46,15 @@
 			usb0_phy0: phy@0 {
 				reg = <0>;
 				#phy-cells = <1>;
-#if (ENABLE_USB == 1)
+#if (ENABLE_USB0 == 1)
 				status = "okay";
-#else
-				status = "disabled";
 #endif
 			};
 			usb0_phy1: phy@1 {
 				reg = <1>;
 				#phy-cells = <1>;
-#if (ENABLE_USB == 1)
+#if (ENABLE_USB0 == 1)
 				status = "okay";
-#else
-				status = "disabled";
 #endif
 			};
 
@@ -73,10 +69,8 @@
 #if (USB_DMA_COHERENT == 1)
 			dma-coherent;
 #endif
-#if (ENABLE_USB == 1)
+#if (ENABLE_USB0 == 1)
 			status = "okay";
-#else
-			status = "disabled";
 #endif
 		};
 
@@ -89,10 +83,8 @@
 #if (USB_DMA_COHERENT == 1)
 			dma-coherent;
 #endif
-#if (ENABLE_USB == 1)
+#if (ENABLE_USB0 == 1)
 			status = "okay";
-#else
-			status = "disabled";
 #endif
 		};
 
@@ -105,10 +97,8 @@
 #if (USB_DMA_COHERENT == 1)
 			dma-coherent;
 #endif
-#if (ENABLE_USB == 1)
+#if (ENABLE_USB1 == 1)
 			status = "okay";
-#else
-			status = "disabled";
 #endif
 		};
 
@@ -123,28 +113,22 @@
 			usb1_phy0: phy@0 {
 				reg = <0>;
 				#phy-cells = <1>;
-#if (ENABLE_USB == 1)
+#if (ENABLE_USB1 == 1)
 				status = "okay";
-#else
-				status = "disabled";
 #endif
 			};
 			usb1_phy1: phy@1 {
 				reg = <1>;
 				#phy-cells = <1>;
-#if (ENABLE_USB == 1)
+#if (ENABLE_USB1 == 1)
 				status = "okay";
-#else
-				status = "disabled";
 #endif
 			};
 			usb1_phy2: phy@2 {
 				reg = <2>;
 				#phy-cells = <1>;
-#if (ENABLE_USB == 1)
+#if (ENABLE_USB1 == 1)
 				status = "okay";
-#else
-				status = "disabled";
 #endif
 			};
 		};
@@ -158,10 +142,8 @@
 #if (USB_DMA_COHERENT == 1)
 			dma-coherent;
 #endif
-#if (ENABLE_USB == 1)
+#if (ENABLE_USB1 == 1)
 			status = "okay";
-#else
-			status = "disabled";
 #endif
 		};
 	};

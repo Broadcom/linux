@@ -32,7 +32,8 @@
 
 /dts-v1/;
 
-#define ENABLE_USB	1
+#define ENABLE_USB0	1
+#define ENABLE_USB1	1
 
 /* HACK: Reserve initrd location
  * The memreserve entry for initrd is supposed

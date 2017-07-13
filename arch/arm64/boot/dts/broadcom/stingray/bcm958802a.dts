@@ -33,6 +33,7 @@
 /dts-v1/;
 
 #define ENABLE_ENET	0
+#define ENABLE_USB1	0
 #define NUM_PAXB	0
 
 / {
@@ -40,23 +41,3 @@
 };
 
 #include "stingray-board-base.dtsi"
-
-&xhci1 {
-	status = "disabled";
-};
-
-&usb1_phy0 {
-	status = "disabled";
-};
-
-&usb1_phy1 {
-	status = "disabled";
-};
-
-&usb1_phy2 {
-	status = "disabled";
-};
-
-&bdc1 {
-	status = "disabled";
-};

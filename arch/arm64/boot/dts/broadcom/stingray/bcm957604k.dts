@@ -39,6 +39,7 @@
 #define ENABLE_SSP1	1
 #define ENABLE_UART2	0
 #define ENABLE_UART3	0
+#define ENABLE_USB1	0
 #ifndef NUM_SATA
 #define NUM_SATA	2
 #endif
@@ -48,26 +49,6 @@
 };
 
 #include "bcm958742-base.dtsi"
-
-&xhci1 {
-	status = "disabled";
-};
-
-&usb1_phy0 {
-	status = "disabled";
-};
-
-&usb1_phy1 {
-	status = "disabled";
-};
-
-&usb1_phy2 {
-	status = "disabled";
-};
-
-&bdc1 {
-	status = "disabled";
-};
 
 &pwm {
 	status = "disabled";

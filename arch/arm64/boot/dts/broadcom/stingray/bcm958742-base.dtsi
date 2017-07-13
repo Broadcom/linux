@@ -50,10 +50,6 @@
 #define ENABLE_SDCARD	1
 #endif
 
-#ifndef ENABLE_USB
-#define ENABLE_USB	1
-#endif
-
 #ifndef NUM_PAXB
 #define NUM_PAXB	8
 #endif
