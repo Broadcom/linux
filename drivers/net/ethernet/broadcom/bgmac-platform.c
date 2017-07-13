@@ -213,6 +213,7 @@ static int bgmac_probe(struct platform_device *pdev)
 	bgmac->feature_flags |= BGMAC_FEAT_CMDCFG_SR_REV4;
 	bgmac->feature_flags |= BGMAC_FEAT_TX_MASK_SETUP;
 	bgmac->feature_flags |= BGMAC_FEAT_RX_MASK_SETUP;
+	bgmac->feature_flags |= BGMAC_FEAT_IDM_MASK;
 
 	bgmac->dev = &pdev->dev;
 	bgmac->dma_dev = &pdev->dev;
@@ -246,6 +247,7 @@ static int bgmac_probe(struct platform_device *pdev)
 		bgmac->plat.idm_base = devm_ioremap_resource(&pdev->dev, regs);
 		if (IS_ERR(bgmac->plat.idm_base))
 			return PTR_ERR(bgmac->plat.idm_base);
+		bgmac->feature_flags &= ~BGMAC_FEAT_IDM_MASK;
 	}
 
 	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nicpm_base");

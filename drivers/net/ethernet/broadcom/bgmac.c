@@ -622,7 +622,7 @@ static int bgmac_dma_alloc(struct bgmac *bgmac)
 	BUILD_BUG_ON(BGMAC_MAX_TX_RINGS > ARRAY_SIZE(ring_base));
 	BUILD_BUG_ON(BGMAC_MAX_RX_RINGS > ARRAY_SIZE(ring_base));
 
-	if (bgmac->plat.idm_base) {
+	if (!(bgmac->feature_flags & BGMAC_FEAT_IDM_MASK)) {
 		if (!(bgmac_idm_read(bgmac, BCMA_IOST) & BCMA_IOST_DMA64)) {
 			dev_err(bgmac->dev, "Core does not report 64-bit DMA\n");
 			return -ENOTSUPP;
@@ -857,7 +857,7 @@ static void bgmac_mac_speed(struct bgmac *bgmac)
 static void bgmac_miiconfig(struct bgmac *bgmac)
 {
 	if (bgmac->feature_flags & BGMAC_FEAT_FORCE_SPEED_2500) {
-		if (bgmac->plat.idm_base) {
+		if (!(bgmac->feature_flags & BGMAC_FEAT_IDM_MASK)) {
 			bgmac_idm_write(bgmac, BCMA_IOCTL,
 					bgmac_idm_read(bgmac, BCMA_IOCTL) |
 					0x40 | BGMAC_BCMA_IOCTL_SW_CLKEN);
@@ -928,7 +928,7 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
 		/* TODO: Clear software multicast filter list */
 	}
 
-	if (bgmac->plat.idm_base)
+	if (!(bgmac->feature_flags & BGMAC_FEAT_IDM_MASK))
 		bgmac_chip_reset_idm_config(bgmac);
 
 	/* Request Misc PLL for corerev > 2 */
@@ -1509,7 +1509,7 @@ int bgmac_enet_probe(struct bgmac *bgmac)
 	bgmac_clk_enable(bgmac, 0);
 
 	/* This seems to be fixing IRQ by assigning OOB #6 to the core */
-	if (bgmac->plat.idm_base) {
+	if (!(bgmac->feature_flags & BGMAC_FEAT_IDM_MASK)) {
 		if (bgmac->feature_flags & BGMAC_FEAT_IRQ_ID_OOB_6)
 			bgmac_idm_write(bgmac, BCMA_OOB_SEL_OUT_A30, 0x86);
 	}
