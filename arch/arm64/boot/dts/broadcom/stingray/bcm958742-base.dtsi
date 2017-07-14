@@ -155,3 +155,40 @@
 		#size-cells = <1>;
 	};
 };
+
+&gpio_hsls {
+	pin181 {
+		gpio-hog;
+		gpios = <181 0>;
+		input;
+	};
+};
+
+&pcie0 {
+#if (ENABLE_I2C0 == 1)
+	brcm,pci-hotplug;
+	brcm,prsnt-gpio = <&pca9505 32 1>, <&pca9505 33 1>;
+#endif
+};
+
+&pcie1 {
+#if (ENABLE_I2C0 == 1)
+	brcm,pci-hotplug;
+	brcm,prsnt-gpio = <&pca9505 34 1>, <&pca9505 35 1>;
+#endif
+
+};
+
+&pcie6 {
+#if (ENABLE_I2C0 == 1)
+	brcm,pci-hotplug;
+	brcm,prsnt-gpio = <&pca9505 36 1>, <&pca9505 37 1>;
+#endif
+};
+
+&pcie7 {
+#if (ENABLE_I2C0 == 1)
+	brcm,pci-hotplug;
+	brcm,prsnt-gpio = <&pca9505 38 1>, <&pca9505 39 1>;
+#endif
+};
