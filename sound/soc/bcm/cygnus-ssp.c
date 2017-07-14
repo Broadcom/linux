@@ -863,6 +863,8 @@ EXPORT_SYMBOL_GPL(cygnus_ssp_set_custom_fsync_width);
 static int cygnus_ssp_set_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt)
 {
 	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(cpu_dai);
+	u32 val;
+	u32 mask;
 
 	dev_dbg(aio->dev, "%s Enter  fmt: %x\n", __func__, fmt);
 
@@ -938,28 +940,23 @@ static int cygnus_ssp_set_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt)
 		return -EINVAL;
 	}
 
-	if ((aio->portnum >= 0) && (aio->portnum <= 2)) {
-		u32 val;
-		u32 mask;
+	val = readl(aio->audio + AUD_MISC_SEROUT_OE_REG_BASE);
 
-		val = readl(aio->audio + AUD_MISC_SEROUT_OE_REG_BASE);
-
-		/*
-		 * Configure the word clk and bit clk as output or tristate
-		 * Each port has 4 bits for controlling its pins.
-		 * Shift the mask based upon port number.
-		 */
-		mask = BIT(AUD_MISC_SEROUT_LRCK_OE)
+	/*
+	 * Configure the word clk and bit clk as output or tristate
+	 * Each port has 4 bits for controlling its pins.
+	 * Shift the mask based upon port number.
+	 */
+	mask = BIT(AUD_MISC_SEROUT_LRCK_OE)
 			| BIT(AUD_MISC_SEROUT_SCLK_OE);
-		mask = mask << (aio->portnum * 4);
-		if (aio->is_slave)
-			val |= mask;   /* Set bit for tri-state */
-		else
-			val &= ~mask;  /* Clear bit for active */
+	mask = mask << (aio->portnum * 4);
+	if (aio->is_slave)
+		val |= mask;   /* Set bit for tri-state */
+	else
+		val &= ~mask;  /* Clear bit for drive */
 
-		dev_dbg(aio->dev, "%s  Set OE bits 0x%x\n", __func__, val);
-		writel(val, aio->audio + AUD_MISC_SEROUT_OE_REG_BASE);
-	}
+	dev_dbg(aio->dev, "%s  Set OE bits 0x%x\n", __func__, val);
+	writel(val, aio->audio + AUD_MISC_SEROUT_OE_REG_BASE);
 
 	return 0;
 }
