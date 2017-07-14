@@ -14,7 +14,7 @@ bcm_cygnus_defconfig="base-arm32 cygnus  \
     fs i2c                               \
     iio                                  \
     input                                \
-    lcd mailbox misc mmc mtd             \
+    lcd mailbox media misc mmc mtd       \
     net                                  \
     optee                                \
     pwm                                  \
@@ -22,7 +22,7 @@ bcm_cygnus_defconfig="base-arm32 cygnus  \
     sound spi stmpe trace                \
     usb usbd                             \
     watchdog wifi                        \
-    media"
+    "
 
 bcm_omega_defconfig="base-arm64          \
     blk bt                               \
