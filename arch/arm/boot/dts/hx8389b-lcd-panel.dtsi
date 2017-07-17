@@ -10,7 +10,7 @@
 		brcm,panel-width-mm = <54>;
 		brcm,panel-height-mm = <95>;
 		brcm,vmode;	/* Video mode display */
-		brcm,fps = <60>;
+		brcm,fps = <30>;
 		brcm,lanes = <2>;
 		brcm,cmd-lp; /* Commands in LP mode*/
 		brcm,hs-bitrate = <420000000>;
