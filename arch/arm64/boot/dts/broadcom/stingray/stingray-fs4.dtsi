@@ -46,11 +46,6 @@
 			iommus = <&smmu 0x4000 0x00ff>,
 				 <&smmu 0x4100 0x0000>;
 #endif
-#if (NUM_CRYPTO > 0)
-			status = "okay";
-#else
-			status = "disabled";
-#endif
 		};
 
 		raid_mbox: raid_mbox@00400000 {
@@ -62,11 +57,6 @@
 #if (ENABLE_FS4_IOMMU == 1)
 			iommus = <&smmu 0x4200 0x00ff>,
 				 <&smmu 0x4300 0x0000>;
-#endif
-#if (NUM_RAID > 0)
-			status = "okay";
-#else
-			status = "disabled";
 #endif
 		};
 
