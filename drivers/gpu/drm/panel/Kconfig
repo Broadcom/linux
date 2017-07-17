@@ -104,4 +104,12 @@ config DRM_PANEL_SITRONIX_ST7789V
 	  Say Y here if you want to enable support for the Sitronix
 	  ST7789V controller for 240x320 LCD panels
 
+config DRM_PANEL_WINTEK_WD_F6448X_EFLWC
+	tristate "Wintek WD-F6448X-EFLWC"
+	depends on OF && SPI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for Wintek WD-F6448X-EFLWC
+	  (640x480) panel as found on the BCM911360_ENTPHN platform
+
 endmenu
