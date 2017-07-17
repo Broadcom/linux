@@ -34,8 +34,21 @@
 #include "cygnus-clk-utils.h"
 #include "../codecs/wm8994.h"
 
+/*
+ * This code is only here to provide a mechanism to do a basic test using TDM
+ * mode.  There is never any real need to use both i2s and tdm on the same port.
+ * To mark what extra code has been added we are wrapping it all in a define.
+ */
+#define USE_CUSTOM_TRANSFER_CONTROL  1
+
+#define AUD_BASE_WM8994_TRANSFER_MODE_I2S   1
+#define AUD_BASE_WM8994_TRANSFER_MODE_TDM   2
+
 struct card_state_data {
 	unsigned int    card_clocking_mode;
+#if USE_CUSTOM_TRANSFER_CONTROL
+	unsigned int    wm8994_ssp_mode;
+#endif
 	struct pll_tweak_info tweak_info;
 };
 
@@ -90,6 +103,9 @@ static int cygnus_hw_params_wm8994(struct snd_pcm_substream *substream,
 	int ret = 0;
 	unsigned int mclk_freq = 0;
 	unsigned long pll_freq = 0;
+#if USE_CUSTOM_TRANSFER_CONTROL
+	unsigned int format = 0;
+#endif
 
 	card_data = snd_soc_card_get_drvdata(rtd->card);
 
@@ -146,6 +162,56 @@ static int cygnus_hw_params_wm8994(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
+#if USE_CUSTOM_TRANSFER_CONTROL
+	if (card_data->wm8994_ssp_mode == AUD_BASE_WM8994_TRANSFER_MODE_TDM) {
+		dev_dbg(dev, "%s Set wm8994 as TDM slave.\n", __func__);
+		format = SND_SOC_DAIFMT_CBS_CFS | SND_SOC_DAIFMT_DSP_A
+			| SND_SOC_DAIFMT_NB_NF;
+	} else {
+		dev_dbg(dev, "%s Set wm8994 as I2S slave.\n", __func__);
+		format = SND_SOC_DAIFMT_CBS_CFS | SND_SOC_DAIFMT_I2S;
+	}
+
+	ret = snd_soc_dai_set_fmt(codec_dai, format);
+	if (ret < 0) {
+		dev_err(dev, "%s Failed snd_soc_dai_set_fmt codec_dai\n",
+			__func__);
+		return ret;
+	}
+
+	ret = snd_soc_dai_set_fmt(cpu_dai, format);
+	if (ret < 0) {
+		dev_err(dev, "%s Failed snd_soc_dai_set_fmt cpu_dai\n",
+			__func__);
+		return ret;
+	}
+
+	if (card_data->wm8994_ssp_mode == AUD_BASE_WM8994_TRANSFER_MODE_TDM) {
+		unsigned int channels = 0;
+		unsigned int width = 0;
+		unsigned int mask;
+		unsigned int bit_per_frame = 64;
+		int slots;
+		int i;
+
+		channels = params_channels(params);
+		width = snd_pcm_format_physical_width(params_format(params));
+
+		mask = 0;
+		for (i = 0; i < channels; i++)
+			mask |= BIT(i);
+
+		slots = bit_per_frame / width;
+
+		ret = snd_soc_dai_set_tdm_slot(cpu_dai, mask, mask,
+					slots, width);
+		if (ret < 0) {
+			dev_err(dev, "%s Failed snd_soc_dai_set_tdm_slot\n",
+				__func__);
+			return ret;
+		}
+	}
+#endif
 	return ret;
 }
 
@@ -404,18 +470,66 @@ static int card_clocking_mode_info(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static struct snd_kcontrol_new card_clock_mode_control = {
+#if USE_CUSTOM_TRANSFER_CONTROL
+static int card_transfer_mode_get(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_card *soc_card = snd_kcontrol_chip(kcontrol);
+	struct card_state_data *card_data = snd_soc_card_get_drvdata(soc_card);
+
+	ucontrol->value.integer.value[0] = card_data->wm8994_ssp_mode;
+	return 0;
+}
+
+static int card_transfer_mode_set(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct card_state_data *card_data = snd_soc_card_get_drvdata(card);
+	int value;
+
+	value = ucontrol->value.integer.value[0];
+	card_data->wm8994_ssp_mode = value;
+
+	return 0;
+}
+
+static int card_transfer_mode_info(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 1;
+	uinfo->value.integer.max = 2;
+	return 0;
+}
+#endif
+
+static struct snd_kcontrol_new aud_base_card_controls[] = {
+{
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 	.name = "Board Clocking Mode",
 	.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
 	.info = card_clocking_mode_info,
 	.get = card_clocking_mode_get,
 	.put = card_clocking_mode_set
+},
+#if USE_CUSTOM_TRANSFER_CONTROL
+{
+	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.name = "Aud Base wm8894 Transfer Mode",
+	.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+	.info = card_transfer_mode_info,
+	.get = card_transfer_mode_get,
+	.put = card_transfer_mode_set
+}
+#endif
 };
 
 int cygnus_audiobase_card_probe(struct snd_soc_card *card)
 {
-	return snd_soc_add_card_controls(card, &card_clock_mode_control, 1);
+	return snd_soc_add_card_controls(card, aud_base_card_controls,
+					 ARRAY_SIZE(aud_base_card_controls));
 }
 
 /* Audio machine driver */
@@ -446,7 +560,9 @@ static int cygnus_aud_base_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	card_data->card_clocking_mode = 0;
-
+#if USE_CUSTOM_TRANSFER_CONTROL
+	card_data->wm8994_ssp_mode = AUD_BASE_WM8994_TRANSFER_MODE_I2S;
+#endif
 	for (i = 0; i < ARRAY_SIZE(cygnus_dai_links); i++) {
 		snprintf(name, PROP_LEN_MAX, "link%d", i);
 		link_np = of_get_child_by_name(pdev->dev.of_node, name);
