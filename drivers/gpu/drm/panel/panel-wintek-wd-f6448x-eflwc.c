@@ -11,18 +11,21 @@
 #include <drm/drmP.h>
 #include <drm/drm_panel.h>
 
+#include <linux/device.h>
 #include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
+#include <linux/types.h>
 
 #include <video/mipi_display.h>
 #include <video/of_videomode.h>
 #include <video/videomode.h>
 
-static const struct {
-	uint16_t cmd;
-	uint8_t XXX;
+static struct wdf6448x_spi_seq {
+	u16 cmd;
+	u8 delay;
 } init_seq[] = {
+	/* CMD, DELAY (msec) */
 	{ 0x0203, 0 },
 	{ 0x06c2, 0 },
 	{ 0x0a11, 0 },
@@ -53,6 +56,13 @@ static const struct {
 	{ 0xb620, 0 },
 };
 
+
+struct wdf6448x_data {
+	u8 bits_per_word;
+	u32 seq_length;
+	const struct wdf6448x_spi_seq *seq;
+};
+
 struct wdf6448x {
 	struct device *dev;
 	struct drm_panel panel;
@@ -61,7 +71,64 @@ struct wdf6448x {
 	struct gpio_desc *reset_gpio;
 	struct gpio_desc *enable_gpio;
 	struct backlight_device *backlight;
+	struct spi_device *spi;
 };
+
+static const struct wdf6448x_data
+	wintek_wd_f6448x_eflwc_data = {
+		.bits_per_word = 16,
+		.seq_length = ARRAY_SIZE(init_seq),
+		.seq = init_seq,
+};
+
+static int send_spi_sequence(struct spi_device *spi,
+	const struct wdf6448x_spi_seq seq[], u32 seq_length)
+{
+	struct spi_message spi_msg;
+	struct spi_transfer spi_tran = {};
+	u16 cmd;
+	int ret;
+	int i;
+
+	ret = spi_setup(spi);
+	if (ret < 0) {
+		dev_err(&spi->dev, "Failed to setup spi with error %d\n", ret);
+		return ret;
+	}
+
+	for (i = 0; i < seq_length ; i++) {
+		spi_message_init(&spi_msg);
+
+		cmd = seq[i].cmd;
+		spi_tran.tx_buf = &cmd;
+		spi_tran.len = sizeof(cmd);
+
+		spi_message_add_tail(&spi_tran, &spi_msg);
+
+		ret = spi_sync(spi, &spi_msg);
+		if (ret < 0) {
+			dev_err(&spi->dev,
+				"Failed to spi_sync with error %d\n", ret);
+			break;
+		}
+
+		msleep(seq[i].delay);
+	}
+	return ret;
+}
+
+static int send_init_sequence(struct spi_device *spi)
+{
+	const struct wdf6448x_spi_seq *seq = init_seq;
+	u32 seq_length = ARRAY_SIZE(init_seq);
+	int ret;
+
+	spi->bits_per_word = 16;
+
+	ret = send_spi_sequence(spi, seq, seq_length);
+
+	return ret;
+}
 
 static inline struct wdf6448x *panel_to_f6448x(struct drm_panel *panel)
 {
@@ -117,7 +184,8 @@ static int wdf6448x_unprepare(struct drm_panel *panel)
 static int wdf6448x_prepare(struct drm_panel *panel)
 {
 	struct wdf6448x *wd = panel_to_f6448x(panel);
-	int ret, i;
+	struct spi_device *spi = to_spi_device(wd->dev);
+	int ret;
 
 	ret = regulator_enable(wd->supply);
 	if (ret < 0)
@@ -132,16 +200,7 @@ static int wdf6448x_prepare(struct drm_panel *panel)
 	 */
 	msleep(100);
 
-	for (i = 0; i < ARRAY_SIZE(init_seq); i++) {
-		ret = wdf6448x_spi_write_word(wd, init_seq[i].cmd);
-		if (ret) {
-			dev_err(panel->dev, "SPI init write %d failed: %d\n",
-				i, ret);
-
-			wdf6448x_unprepare(panel);
-			return ret;
-		}
-	}
+	ret = send_init_sequence(spi);
 
 	return ret;
 }
@@ -179,7 +238,7 @@ static int wdf6448x_get_modes(struct drm_panel *panel)
 
 		/* XXX: .width_mm */
 	};
-	u32 bus_format = MEDIA_BUS_FMT_RGB666_1X18;
+	u32 bus_format = MEDIA_BUS_FMT_RGB888_1X24;
 
 	mode = drm_mode_duplicate(connector->dev, &static_mode);
 	if (!mode) {
