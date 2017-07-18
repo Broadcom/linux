@@ -125,7 +125,7 @@ These clock IDs are defined in:
     ch5_unused lcpll0           6       BCM_CYGNUS_LCPLL0_CH5_UNUSED
 
     mipipll    crystal          0       BCM_CYGNUS_MIPIPLL
-    ch0_unused mipipll          1       BCM_CYGNUS_MIPIPLL_CH0_UNUSED
+    ch0_dsi    mipipll          1       BCM_CYGNUS_MIPIPLL_CH0_DSI
     ch1_lcd    mipipll          2       BCM_CYGNUS_MIPIPLL_CH1_LCD
     ch2_v3d    mipipll          3       BCM_CYGNUS_MIPIPLL_CH2_V3D
     ch3_unused mipipll          4       BCM_CYGNUS_MIPIPLL_CH3_UNUSED
