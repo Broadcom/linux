@@ -48,6 +48,8 @@
 				#phy-cells = <1>;
 #if (ENABLE_USB0 == 1)
 				status = "okay";
+#else
+				status = "disabled";
 #endif
 			};
 			usb0_phy1: phy@1 {
@@ -55,6 +57,8 @@
 				#phy-cells = <1>;
 #if (ENABLE_USB0 == 1)
 				status = "okay";
+#else
+				status = "disabled";
 #endif
 			};
 
@@ -71,6 +75,8 @@
 #endif
 #if (ENABLE_USB0 == 1)
 			status = "okay";
+#else
+			status = "disabled";
 #endif
 		};
 
@@ -85,6 +91,8 @@
 #endif
 #if (ENABLE_USB0 == 1)
 			status = "okay";
+#else
+			status = "disabled";
 #endif
 		};
 
@@ -99,6 +107,8 @@
 #endif
 #if (ENABLE_USB1 == 1)
 			status = "okay";
+#else
+			status = "disabled";
 #endif
 		};
 
@@ -115,6 +125,8 @@
 				#phy-cells = <1>;
 #if (ENABLE_USB1 == 1)
 				status = "okay";
+#else
+				status = "disabled";
 #endif
 			};
 			usb1_phy1: phy@1 {
@@ -122,6 +134,8 @@
 				#phy-cells = <1>;
 #if (ENABLE_USB1 == 1)
 				status = "okay";
+#else
+				status = "disabled";
 #endif
 			};
 			usb1_phy2: phy@2 {
@@ -129,6 +143,8 @@
 				#phy-cells = <1>;
 #if (ENABLE_USB1 == 1)
 				status = "okay";
+#else
+				status = "disabled";
 #endif
 			};
 		};
@@ -144,6 +160,8 @@
 #endif
 #if (ENABLE_USB1 == 1)
 			status = "okay";
+#else
+			status = "disabled";
 #endif
 		};
 	};
