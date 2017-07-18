@@ -1,7 +1,6 @@
-dtb-$(CONFIG_ARCH_BCM_IPROC) += ns2-b0-svk.dtb
 dtb-$(CONFIG_ARCH_BCM2835) += bcm2837-rpi-3-b.dtb
-dtb-$(CONFIG_ARCH_BCM_IPROC) += ns2-svk.dtb ns2-xmc.dtb
 
+dts-dirs	+= northstar2
 dts-dirs	+= omega
 dts-dirs	+= stingray
 always		:= $(dtb-y)
