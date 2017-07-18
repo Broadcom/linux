@@ -53,7 +53,7 @@
 
 /* MIPI PLL clock ID */
 #define BCM_CYGNUS_MIPIPLL                    0
-#define BCM_CYGNUS_MIPIPLL_CH0_UNUSED         1
+#define BCM_CYGNUS_MIPIPLL_CH0_DSI            1
 #define BCM_CYGNUS_MIPIPLL_CH1_LCD            2
 #define BCM_CYGNUS_MIPIPLL_CH2_V3D            3
 #define BCM_CYGNUS_MIPIPLL_CH3_UNUSED         4

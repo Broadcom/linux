@@ -205,8 +205,8 @@ static const struct iproc_pll_ctrl mipipll = {
 };
 
 static const struct iproc_clk_ctrl mipipll_clk[] = {
-	[BCM_CYGNUS_MIPIPLL_CH0_UNUSED] = {
-		.channel = BCM_CYGNUS_MIPIPLL_CH0_UNUSED,
+	[BCM_CYGNUS_MIPIPLL_CH0_DSI] = {
+		.channel = BCM_CYGNUS_MIPIPLL_CH0_DSI,
 		.flags = IPROC_CLK_NEEDS_READ_BACK,
 		.enable = ENABLE_VAL(0x4, 12, 6, 18),
 		.mdiv = REG_VAL(0x20, 0, 8),
