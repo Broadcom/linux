@@ -10,7 +10,7 @@ arm64_defconfigs+="bcm_omega_defconfig"
 # same as the defconfig file.
 bcm_cygnus_defconfig="base-arm32 cygnus  \
     blk bt                               \
-    dbg dma dte                          \
+    dbg dma drm dte                      \
     fs i2c                               \
     iio                                  \
     input                                \
