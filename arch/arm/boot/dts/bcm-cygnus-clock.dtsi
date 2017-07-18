@@ -108,7 +108,7 @@ clocks {
 		compatible = "brcm,cygnus-mipipll";
 		reg = <0x180a9800 0x2c>, <0x0301c020 0x4>, <0x180aa024 0x4>;
 		clocks = <&osc>;
-		clock-output-names = "mipipll", "ch0_unused", "ch1_lcd",
+		clock-output-names = "mipipll", "ch0_dsi", "ch1_lcd",
 				     "ch2_v3d", "ch3_unused", "ch4_unused",
 				     "ch5_unused";
 	};
