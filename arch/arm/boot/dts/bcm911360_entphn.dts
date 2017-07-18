@@ -220,12 +220,19 @@
 	num-cs = <1>;
 	status = "okay";
 
-	panel@0 {
+	lcd@0 {
 		compatible = "wintek,wd-f6448x-eflwc";
 		spi-max-frequency = <500000>;
 		reg = <0>;
-		power-enable-gpio = <&gpio_asiu 64 0>;
-		reset-gpio = <&gpio_asiu 68 0>;
+		enable-gpios = <&gpio_asiu 64 0>;
+		reset-gpios = <&gpio_asiu 68 0>;
+		backlight = <&bl>;
+
+		port {
+			clcd_panel: endpoint {
+				remote-endpoint = <&clcd_pads>;
+			};
+		};
 	};
 };
 
@@ -235,39 +242,12 @@
 	assigned-clock-rates = <0>, <2100000000>;
 };
 
-&clcd {
-	clocks =  <&mipipll 2>, <&apb_clk>;
-	clcd-clock-select = <1>;
+&drm_clcd {
 	status = "okay";
-
 	port {
 		clcd_pads: endpoint {
 			remote-endpoint = <&clcd_panel>;
 			arm,pl11x,tft-r0g0b0-pads = <0 8 16>;
-		};
-	};
-
-	panel {
-		compatible = "panel-dpi";
-		port {
-			clcd_panel: endpoint {
-				remote-endpoint = <&clcd_pads>;
-			};
-		};
-
-		panel-timing {
-			clock-frequency = <27000000>;
-			hactive = <640>;
-			hback-porch = <140>;
-			hfront-porch = <60>;
-			hsync-len = <70>;
-			vactive = <480>;
-			vback-porch = <33>;
-			vfront-porch = <5>;
-			vsync-len = <3>;
-			vsync-active = <1>;
-			hsync-active = <1>;
-			pixelclk-active = <1>;
 		};
 	};
 };
