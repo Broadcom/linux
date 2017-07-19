@@ -795,6 +795,7 @@
 			dma-coherent;
 			bus-width = <8>;
 			clocks = <&sdio_clk>;
+			sdhci,auto-cmd12;
 			status = "disabled";
 		};
 
@@ -805,6 +806,7 @@
 			dma-coherent;
 			bus-width = <8>;
 			clocks = <&sdio_clk>;
+			sdhci,auto-cmd12;
 			status = "disabled";
 		};
 

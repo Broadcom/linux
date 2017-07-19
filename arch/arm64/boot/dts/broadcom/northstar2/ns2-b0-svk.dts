@@ -33,6 +33,7 @@
 /dts-v1/;
 
 #include "ns2-b0.dtsi"
+#include "ns2-svk-common.dtsi"
 
 / {
 	model = "Broadcom NS2 B0 SVK";
