@@ -823,10 +823,7 @@ void __init iproc_pll_clk_setup(struct device_node *node,
 
 		init.name = clk_name;
 		init.ops = &iproc_clk_ops;
-		if (iclk->ctrl->flags & IPROC_CLK_SET_RATE_PARENT)
-			init.flags = CLK_SET_RATE_PARENT;
-		else
-			init.flags = 0;
+		init.flags = 0;
 		init.parent_names = (parent_name ? &parent_name : NULL);
 		init.num_parents = (parent_name ? 1 : 0);
 		iclk->hw.init = &init;

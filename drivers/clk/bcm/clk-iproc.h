@@ -81,16 +81,9 @@
 #define IPROC_CLK_PLL_RESET_ACTIVE_LOW BIT(9)
 
 /*
- * Some clocks allow the rate change operation to propagate up to clock's
- * parent
- */
-#define IPROC_CLK_SET_RATE_PARENT BIT(10)
-
-
-/*
  * Calculate the PLL parameters are runtime, instead of using table
  */
-#define IPROC_CLK_PLL_CALC_PARAM BIT(11)
+#define IPROC_CLK_PLL_CALC_PARAM BIT(10)
 
 /*
  * Parameters for VCO frequency configuration
@@ -227,11 +220,5 @@ void iproc_asiu_setup(struct device_node *node,
 		      const struct iproc_asiu_div *div,
 		      const struct iproc_asiu_gate *gate,
 		      unsigned int num_clks);
-void iproc_audiopll_clk_setup(struct device_node *node,
-			      const struct iproc_pll_ctrl *pll_ctrl,
-			      const struct iproc_pll_vco_param *vco,
-			      unsigned int num_vco_entries,
-			      const struct iproc_clk_ctrl *clk_ctrl,
-			      unsigned int num_clks);
 
 #endif /* _CLK_IPROC_H */
