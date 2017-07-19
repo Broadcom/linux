@@ -1155,8 +1155,6 @@ int spum_status_process(u8 *statp)
 	status = __be32_to_cpu(*(__be32 *)statp);
 	flow_log("SPU response STATUS %#08x\n", status);
 	if (status & SPU_STATUS_ERROR_FLAG) {
-		pr_err("%s() Warning: Error result from SPU: %#08x\n",
-		       __func__, status);
 		if (status & SPU_STATUS_INVALID_ICV)
 			return SPU_INVALID_ICV;
 		return -EBADMSG;
