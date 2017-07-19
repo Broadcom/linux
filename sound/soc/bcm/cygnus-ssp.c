@@ -1310,9 +1310,9 @@ static const struct snd_soc_component_driver cygnus_ssp_component = {
 static int parse_ssp_child_node(struct platform_device *pdev,
 				struct device_node *dn,
 				struct cygnus_audio *cygaud,
-				struct snd_soc_dai_driver *p_dai)
+				struct snd_soc_dai_driver *p_dai,
+				struct cygnus_aio_port *aio)
 {
-	struct cygnus_aio_port *aio;
 	struct cygnus_ssp_regs ssp_regs[3];
 	u32 rawval;
 	int portnum = -1;
@@ -1346,8 +1346,6 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 		dev_err(&pdev->dev, "Bad value for reg %u\n", rawval);
 		return -EINVAL;
 	}
-
-	aio = &cygaud->portinfo[portnum];
 
 	aio->audio = cygaud->audio;
 	aio->i2s_in = cygaud->i2s_in;
@@ -1452,7 +1450,8 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	active_port_count = 0;
 	for_each_available_child_of_node(pdev->dev.of_node, child_node) {
 		err = parse_ssp_child_node(pdev, child_node, cygaud,
-					&cygnus_ssp_dai[active_port_count]);
+					&cygnus_ssp_dai[active_port_count],
+					&cygaud->portinfo[active_port_count]);
 
 		/* negative is err, 0 is active and good, 1 is disabled */
 		if (err < 0)
