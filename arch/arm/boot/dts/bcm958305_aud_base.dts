@@ -142,7 +142,7 @@
 };
 
 &i2c0 {
-	clock-frequency = <100000>;
+	clock-frequency = <400000>;
 	status = "okay";
 
 	wm8994_codec: wm8994@1a {
