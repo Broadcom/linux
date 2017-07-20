@@ -85,11 +85,25 @@
 		};
 
 		link2 {
-			format = "i2s";
+			format = "dsp_a";
 			bitclock-master = <&dailink2_master>;
 			frame-master = <&dailink2_master>;
 
 			dailink2_master: cpu {
+				sound-dai = <&cygnus_audio 2>;
+			};
+
+			codec {
+				sound-dai = <&bt_codec>;
+			};
+		};
+
+		link3 {
+			format = "i2s";
+			bitclock-master = <&dailink3_master>;
+			frame-master = <&dailink3_master>;
+
+			dailink3_master: cpu {
 				sound-dai = <&cygnus_audio 3>;
 			};
 
@@ -97,6 +111,15 @@
 				sound-dai = <&spdif_dummy_tx>;
 			};
 		};
+	};
+
+	bt_codec: bt_voice_codec {
+		#sound-dai-cells = <0>;
+		status = "okay";
+		compatible = "cypress,bt_voice_codec";
+
+		cypress,bt-voice-link-mode = "tdm";
+		cypress,bt-voice-tdm-bps = <2048000>;
 	};
 
 	/* dummy codec to model spdif tx */

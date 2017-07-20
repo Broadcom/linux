@@ -50,6 +50,9 @@ struct card_state_data {
 	unsigned int    wm8994_ssp_mode;
 #endif
 	struct pll_tweak_info tweak_info;
+
+	unsigned int  bt_bclk_bps;
+	bool bt_tdm_mode;
 };
 
 /*
@@ -383,6 +386,75 @@ static int cygnus_init_ak4385(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+static int bcm_audbase_hw_params_bluetooth(
+	struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct device *dev = rtd->card->dev;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_card *soc_card = rtd->card;
+	struct card_state_data *card_data =
+				snd_soc_card_get_drvdata(soc_card);
+	unsigned int channels = 0;
+	unsigned int width = 0;
+	unsigned int bits_per_frame = 0;
+	unsigned int mask = 0;
+	unsigned int rate = 0;
+	unsigned int mclk_freq = 0;
+	int slots;
+	int ret = 0;
+
+	if (card_data->bt_tdm_mode == true)
+		mclk_freq = 12288000;
+	else
+		mclk_freq = 6144000;
+
+	ret = snd_soc_dai_set_sysclk(cpu_dai, CYGNUS_SSP_CLKSRC_PLL,
+				mclk_freq, SND_SOC_CLOCK_OUT);
+	if (ret < 0) {
+		dev_err(dev, "%s Failed snd_soc_dai_set_sysclk\n", __func__);
+		return ret;
+	}
+
+	/* Nothing else to do if we are not in TDM mode */
+	if (!card_data->bt_tdm_mode)
+		return 0;
+
+	/*
+	 * The Bluetooth chip wants a constant bps, so half the number of bits
+	 * per frame when we do wideband (16 kHz)
+	 */
+	rate = params_rate(params);
+	bits_per_frame = card_data->bt_bclk_bps / rate;
+
+	/*
+	 * The BT codec driver will enforce a width of 16 and a channel
+	 * count of 2.  Nonetheless, extract the info from the params rather
+	 * than hardcoding it.
+	 */
+	channels = params_channels(params);
+	width = snd_pcm_format_physical_width(params_format(params));
+	slots = bits_per_frame / width;
+
+	/* Set a bit for each valid slot */
+	mask = (1 << channels) - 1;
+
+	ret = snd_soc_dai_set_tdm_slot(cpu_dai, mask, mask, slots, width);
+	if (ret < 0) {
+		dev_err(dev, "%s Failed snd_soc_dai_set_tdm_slot\n", __func__);
+		return ret;
+	}
+	dev_dbg(dev, "%s set_tdm_slot: mask 0x%x slots %d slot width %d\n",
+		__func__, mask, slots, width);
+
+	return 0;
+}
+
+static struct snd_soc_ops bcm_audbase_ops_bluetooth = {
+	.hw_params = bcm_audbase_hw_params_bluetooth,
+};
+
 static int cygnus_hw_params_spdif(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
 {
@@ -423,18 +495,27 @@ static struct snd_soc_ops cygnus_ops_spdif = {
 	.hw_params = cygnus_hw_params_spdif,
 };
 
+
+#define WM8994_LINK	0
+#define AK4385_LINK	1
+#define BT_LINK		2
+#define SPDIF_LINK	3
+
 static struct snd_soc_dai_link cygnus_dai_links[] = {
-{
-	.ops = &cygnus_ops_wm8994,
-	.init = cygnus_init_wm8994,
-},
-{
-	.ops = &cygnus_ops_ak4385,
-	.init = cygnus_init_ak4385,
-},
-{
-	.ops = &cygnus_ops_spdif,
-},
+[WM8994_LINK] =	{
+		.ops = &cygnus_ops_wm8994,
+		.init = cygnus_init_wm8994,
+	},
+[AK4385_LINK] = {
+		.ops = &cygnus_ops_ak4385,
+		.init = cygnus_init_ak4385,
+	},
+[BT_LINK] = {
+		.ops = &bcm_audbase_ops_bluetooth,
+	},
+[SPDIF_LINK] = {
+		.ops = &cygnus_ops_spdif,
+	},
 };
 
 static int card_clocking_mode_get(struct snd_kcontrol *kcontrol,
@@ -541,6 +622,33 @@ static struct snd_soc_card cygnus_audio_card = {
 	.probe     = cygnus_audiobase_card_probe,
 };
 
+#define  PROP_NAME_BT_BCLK "cypress,bt-voice-tdm-bps"
+
+static int get_bt_info(struct device *dev,
+		struct snd_soc_dai_link *dai_link,
+		struct card_state_data *card_data)
+{
+	unsigned int format;
+	int ret;
+
+	format = (dai_link->dai_fmt & SND_SOC_DAIFMT_FORMAT_MASK);
+	card_data->bt_tdm_mode = false;
+	if (format == SND_SOC_DAIFMT_DSP_A) {
+		card_data->bt_tdm_mode = true;
+
+		ret = of_property_read_u32(dai_link->codec_of_node,
+					PROP_NAME_BT_BCLK,
+					&card_data->bt_bclk_bps);
+		if (ret) {
+			dev_err(dev,
+				"Could not find %s property in device tree\n",
+				PROP_NAME_BT_BCLK);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 static int cygnus_aud_base_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &cygnus_audio_card;
@@ -576,6 +684,12 @@ static int cygnus_aud_base_probe(struct platform_device *pdev)
 			goto err_exit;
 	}
 
+	ret = get_bt_info(&pdev->dev, &cygnus_dai_links[BT_LINK], card_data);
+	if (ret) {
+		dev_err(&pdev->dev, "Problem with getting bt info %d\n", ret);
+		goto err_exit;
+	}
+
 	snd_soc_card_set_drvdata(card, card_data);
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret) {
@@ -584,7 +698,7 @@ static int cygnus_aud_base_probe(struct platform_device *pdev)
 	}
 
 	/* Need early MCLK for wm8994 to be configured */
-	rtd = snd_soc_get_pcm_runtime(card, cygnus_dai_links[0].name);
+	rtd = snd_soc_get_pcm_runtime(card, cygnus_dai_links[WM8994_LINK].name);
 	cygnus_ssp_get_clk(rtd->cpu_dai, 12288000);
 
 err_exit:
