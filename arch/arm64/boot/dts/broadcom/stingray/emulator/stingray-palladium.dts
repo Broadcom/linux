@@ -52,7 +52,7 @@
  */
 /memreserve/ 0x8f000000 0x00100000;
 
-#include "../stingray.dtsi"
+#include "./stingray-pd-base.dtsi"
 
 / {
 	model = "Broadcom Stingray Palladium";

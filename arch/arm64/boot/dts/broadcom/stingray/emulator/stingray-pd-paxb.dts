@@ -49,15 +49,10 @@
  */
 /memreserve/ 0x8f000000 0x00100000;
 
-#include "../stingray.dtsi"
+#include "./stingray-pd-base.dtsi"
 
 / {
 	model = "Broadcom Stingray PAXB Palladium";
-
-	aliases {
-		serial1 = &uart1;
-		serial3 = &uart3;
-	};
 
 	chosen { /* HACK: hard-code kernel args and initrd location */
 		bootargs = "root=/dev/ram rw console=ttyS3,4800n8 \
