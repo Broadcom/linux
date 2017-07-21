@@ -50,3 +50,6 @@
 };
 
 #include "bcm958742-base.dtsi"
+&sdio0 {
+	mmc-ddr-1_8v;
+};

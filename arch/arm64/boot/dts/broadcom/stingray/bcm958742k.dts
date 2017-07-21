@@ -52,3 +52,6 @@
 &gphy0 {
 	enet-phy-lane-swap;
 };
+&sdio0 {
+	mmc-ddr-1_8v;
+};
