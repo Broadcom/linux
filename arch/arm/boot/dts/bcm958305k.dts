@@ -159,6 +159,15 @@
 
 &pcie1 {
 	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	brcmf: bcrmf@1 {
+		reg = <0x1>;
+		compatible = "brcm,bcm4329-fmac";
+		status = "okay";
+	};
 };
 
 &uart3 {
