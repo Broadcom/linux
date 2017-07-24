@@ -219,6 +219,11 @@
 	};
 };
 
+&sdhci0 {
+	status = "okay";
+	no-1-8-v;
+};
+
 &mipipll {
 	assigned-clocks = <&mipipll 2>, <&mipipll 0>;
 	assigned-clock-parents = <&mipipll 0>;
