@@ -37,7 +37,6 @@
 #include "bcm958742t.dts"
 
 / {
-
 	model = "Stingray SST100 w/FS4 PMD (BCM958742T)";
 };
 

@@ -34,10 +34,10 @@
 #define NUM_RAID		0
 #define ENABLE_FS4_IOMMU	0
 
-#include "bcm958742k.dts"
+#include "bcm957604k.dts"
 
 / {
-	model = "Stingray Combo SVK w/FS4 PMD (BCM958742K)";
+	model = "Stingray SmartIO SVK w/FS4 PMD (BCM957604K)";
 };
 
 &crypto_mbox {
