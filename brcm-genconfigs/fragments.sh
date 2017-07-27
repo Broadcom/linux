@@ -50,5 +50,6 @@ iproc_defconfig="base-arm64 ns2 stingray \
     pci perf profiling pwm               \
     regulator rng rtc                    \
     spi                                  \
+    tmon                                 \
     uio usb usbd                         \
     vfio watchdog"
