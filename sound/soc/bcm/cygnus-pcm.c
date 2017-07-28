@@ -250,68 +250,17 @@ static void ringbuf_set_initial(void __iomem *audio_io,
 	writel(initial_wr, audio_io + p_rbuf->wraddr);
 }
 
-static int configure_ringbuf_regs(struct snd_pcm_substream *substream)
+static void get_ringbuf(struct snd_pcm_substream *substream,
+			struct ringbuf_regs *rb_regs)
 {
 	struct cygnus_aio_port *aio;
-	struct ringbuf_regs *p_rbuf;
-	int status = 0;
-
-	aio = cygnus_dai_get_dma_data(substream);
-
-	/* Map the ssp portnum to a set of ring buffers. */
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		p_rbuf = &aio->play_rb_regs;
-
-		switch (aio->portnum) {
-		case 0:
-			*p_rbuf = RINGBUF_REG_PLAYBACK(0);
-			break;
-		case 1:
-			*p_rbuf = RINGBUF_REG_PLAYBACK(2);
-			break;
-		case 2:
-			*p_rbuf = RINGBUF_REG_PLAYBACK(4);
-			break;
-		case 3: /* SPDIF */
-			*p_rbuf = RINGBUF_REG_PLAYBACK(6);
-			break;
-		default:
-			status = -EINVAL;
-		}
-	} else {
-		p_rbuf = &aio->capture_rb_regs;
-
-		switch (aio->portnum) {
-		case 0:
-			*p_rbuf = RINGBUF_REG_CAPTURE(0);
-			break;
-		case 1:
-			*p_rbuf = RINGBUF_REG_CAPTURE(2);
-			break;
-		case 2:
-			*p_rbuf = RINGBUF_REG_CAPTURE(4);
-			break;
-		default:
-			status = -EINVAL;
-		}
-	}
-
-	return status;
-}
-
-static struct ringbuf_regs *get_ringbuf(struct snd_pcm_substream *substream)
-{
-	struct cygnus_aio_port *aio;
-	struct ringbuf_regs *p_rbuf = NULL;
 
 	aio = cygnus_dai_get_dma_data(substream);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		p_rbuf = &aio->play_rb_regs;
+		*rb_regs = RINGBUF_REG_PLAYBACK(aio->portnum * 2);
 	else
-		p_rbuf = &aio->capture_rb_regs;
-
-	return p_rbuf;
+		*rb_regs = RINGBUF_REG_CAPTURE(aio->portnum * 2);
 }
 
 static void enable_intr(struct snd_pcm_substream *substream)
@@ -397,12 +346,12 @@ static int cygnus_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 static void cygnus_pcm_period_elapsed(struct snd_pcm_substream *substream)
 {
 	struct cygnus_aio_port *aio;
-	struct ringbuf_regs *p_rbuf = NULL;
+	struct ringbuf_regs rbuf;
 	u32 regval;
 
 	aio = cygnus_dai_get_dma_data(substream);
 
-	p_rbuf = get_ringbuf(substream);
+	get_ringbuf(substream, &rbuf);
 
 	/*
 	 * If free/full mark interrupt occurs, provide timestamp
@@ -412,13 +361,13 @@ static void cygnus_pcm_period_elapsed(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Set the ring buffer to full */
-		regval = readl(aio->audio + p_rbuf->rdaddr);
+		regval = readl(aio->audio + rbuf.rdaddr);
 		regval = regval ^ BIT(31);
-		writel(regval, aio->audio + p_rbuf->wraddr);
+		writel(regval, aio->audio + rbuf.wraddr);
 	} else {
 		/* Set the ring buffer to empty */
-		regval = readl(aio->audio + p_rbuf->wraddr);
-		writel(regval, aio->audio + p_rbuf->rdaddr);
+		regval = readl(aio->audio + rbuf.wraddr);
+		writel(regval, aio->audio + rbuf.rdaddr);
 	}
 }
 
@@ -668,7 +617,7 @@ static int cygnus_pcm_prepare(struct snd_pcm_substream *substream)
 	int ret = 0;
 	bool is_play;
 	u32 start;
-	struct ringbuf_regs *p_rbuf = NULL;
+	struct ringbuf_regs rbuf;
 
 	aio = cygnus_dai_get_dma_data(substream);
 	dev_dbg(rtd->cpu_dai->dev, "%s port %d\n", __func__, aio->portnum);
@@ -679,15 +628,13 @@ static int cygnus_pcm_prepare(struct snd_pcm_substream *substream)
 	dev_dbg(rtd->cpu_dai->dev, "%s (buf_size %lu) (period_size %lu)\n",
 			__func__, bufsize, periodsize);
 
-	configure_ringbuf_regs(substream);
-
-	p_rbuf = get_ringbuf(substream);
+	get_ringbuf(substream, &rbuf);
 
 	start = runtime->dma_addr;
 
 	is_play = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? 1 : 0;
 
-	ringbuf_set_initial(aio->audio, p_rbuf, is_play, start,
+	ringbuf_set_initial(aio->audio, &rbuf, is_play, start,
 				periodsize, bufsize);
 
 	return ret;
@@ -697,7 +644,7 @@ static snd_pcm_uframes_t cygnus_pcm_pointer(struct snd_pcm_substream *substream)
 {
 	struct cygnus_aio_port *aio;
 	unsigned int res = 0, cur = 0, base = 0;
-	struct ringbuf_regs *p_rbuf = NULL;
+	struct ringbuf_regs rbuf;
 
 	aio = cygnus_dai_get_dma_data(substream);
 
@@ -705,13 +652,13 @@ static snd_pcm_uframes_t cygnus_pcm_pointer(struct snd_pcm_substream *substream)
 	 * Get the offset of the current read (for playack) or write
 	 * index (for capture).  Report this value back to the asoc framework.
 	 */
-	p_rbuf = get_ringbuf(substream);
+	get_ringbuf(substream, &rbuf);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		cur = readl(aio->audio + p_rbuf->rdaddr);
+		cur = readl(aio->audio + rbuf.rdaddr);
 	else
-		cur = readl(aio->audio + p_rbuf->wraddr);
+		cur = readl(aio->audio + rbuf.wraddr);
 
-	base = readl(aio->audio + p_rbuf->baseaddr);
+	base = readl(aio->audio + rbuf.baseaddr);
 
 	/*
 	 * Mask off the MSB of the rdaddr,wraddr and baseaddr
