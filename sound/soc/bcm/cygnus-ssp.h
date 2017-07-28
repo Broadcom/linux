@@ -37,8 +37,6 @@ struct ringbuf_regs {
 	unsigned int baseaddr;
 	unsigned int endaddr;
 	unsigned int fmark;   /* freemark for play, fullmark for caputure */
-	u32 period_bytes;
-	u32 buf_size;
 };
 
 #define RINGBUF_REG_PLAYBACK(num) ((struct ringbuf_regs) { \
@@ -47,8 +45,6 @@ struct ringbuf_regs {
 	.baseaddr = SRC_RBUF_ ##num## _BASEADDR_OFFSET, \
 	.endaddr = SRC_RBUF_ ##num## _ENDADDR_OFFSET, \
 	.fmark = SRC_RBUF_ ##num## _FREE_MARK_OFFSET, \
-	.period_bytes = 0, \
-	.buf_size = 0, \
 })
 
 #define RINGBUF_REG_CAPTURE(num) ((struct ringbuf_regs)  { \
@@ -57,8 +53,6 @@ struct ringbuf_regs {
 	.baseaddr = DST_RBUF_ ##num## _BASEADDR_OFFSET, \
 	.endaddr = DST_RBUF_ ##num## _ENDADDR_OFFSET, \
 	.fmark = DST_RBUF_ ##num## _FULL_MARK_OFFSET, \
-	.period_bytes = 0, \
-	.buf_size = 0, \
 })
 
 enum cygnus_audio_port_type {

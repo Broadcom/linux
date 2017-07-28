@@ -224,9 +224,6 @@ static void ringbuf_set_initial(void __iomem *audio_io,
 	u32 end;
 	u32 fmark_val; /* free or full mark */
 
-	p_rbuf->period_bytes = periodsize;
-	p_rbuf->buf_size = bufsize;
-
 	if (is_playback) {
 		/* Set the pointers to indicate full (flip uppermost bit) */
 		initial_rd = start;
