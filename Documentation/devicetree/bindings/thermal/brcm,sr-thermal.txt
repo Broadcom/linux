@@ -1,0 +1,45 @@
+* Broadcom Stingray Thermal
+
+This binding describes thermal sensors that is part of Stingray SoCs.
+
+Required properties:
+- compatible : Must be "brcm,sr-thermal"
+- reg : memory where tmon data will be available.
+
+Example:
+	tmons {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		tmon_ihost0: thermal@8f100000 {
+			compatible = "brcm,sr-thermal";
+			reg = <0x8f100000 0x4>;
+		};
+
+		tmon_ihost1: thermal@8f100004 {
+			compatible = "brcm,sr-thermal";
+			reg = <0x8f100004 0x4>;
+		};
+
+		tmon_ihost2: thermal@8f100008 {
+			compatible = "brcm,sr-thermal";
+			reg = <0x8f100008 0x4>;
+		};
+
+		tmon_ihost3: thermal@8f10000c {
+			compatible = "brcm,sr-thermal";
+			reg = <0x8f10000c 0x4>;
+		};
+
+		tmon_crmu: thermal@8f100010 {
+			compatible = "brcm,sr-thermal";
+			reg = <0x8f100010 0x4>;
+		};
+
+		tmon_nitro: thermal@8f100014 {
+			compatible = "brcm,sr-thermal";
+			reg = <0x8f100014 0x4>;
+		};
+	};
