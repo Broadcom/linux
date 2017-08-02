@@ -24,7 +24,6 @@ struct sr_thermal {
 
 static int sr_get_temp(struct thermal_zone_device *tz, int *temp)
 {
-	unsigned int *entp;
 	struct sr_thermal *sr_thermal = tz->devdata;
 
 	*temp = readl(sr_thermal->regs);
@@ -77,7 +76,6 @@ static int sr_thermal_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct sr_thermal *sr_thermal;
 	struct resource *res;
-	int ret;
 
 	sr_thermal = devm_kzalloc(dev, sizeof(*sr_thermal), GFP_KERNEL);
 	if (!sr_thermal)

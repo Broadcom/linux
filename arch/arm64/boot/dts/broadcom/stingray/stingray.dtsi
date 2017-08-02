@@ -664,36 +664,36 @@
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges;
+		ranges = <0x0 0x0 0x8f100000 0x100>;
 
-		tmon_ihost0: thermal@8f100000 {
+		tmon_ihost0: thermal@0 {
 			compatible = "brcm,sr-thermal";
-			reg = <0x8f100000 0x4>;
+			reg = <0x0 0x4>;
 		};
 
-		tmon_ihost1: thermal@8f100004 {
+		tmon_ihost1: thermal@4 {
 			compatible = "brcm,sr-thermal";
-			reg = <0x8f100004 0x4>;
+			reg = <0x4 0x4>;
 		};
 
-		tmon_ihost2: thermal@8f100008 {
+		tmon_ihost2: thermal@8 {
 			compatible = "brcm,sr-thermal";
-			reg = <0x8f100008 0x4>;
+			reg = <0x8 0x4>;
 		};
 
-		tmon_ihost3: thermal@8f10000c {
+		tmon_ihost3: thermal@c {
 			compatible = "brcm,sr-thermal";
-			reg = <0x8f10000c 0x4>;
+			reg = <0xc 0x4>;
 		};
 
-		tmon_crmu: thermal@8f100010 {
+		tmon_crmu: thermal@10 {
 			compatible = "brcm,sr-thermal";
-			reg = <0x8f100010 0x4>;
+			reg = <0x10 0x4>;
 		};
 
-		tmon_nitro: thermal@8f100014 {
+		tmon_nitro: thermal@14 {
 			compatible = "brcm,sr-thermal";
-			reg = <0x8f100014 0x4>;
+			reg = <0x14 0x4>;
 		};
 	};
 };
