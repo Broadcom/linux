@@ -89,6 +89,9 @@ static int sr_thermal_probe(struct platform_device *pdev)
 		return PTR_ERR(sr_thermal->regs);
 	}
 
+	/* initialize tmon value to 0 */
+	writel(0, sr_thermal->regs);
+
 	sr_thermal->tz = thermal_zone_device_register(dev_name(dev), 1, 0,
 							 sr_thermal,
 							 &sr_thermal_ops,
