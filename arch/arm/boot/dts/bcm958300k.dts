@@ -32,6 +32,8 @@
 
 /dts-v1/;
 
+#include <dt-bindings/input/input.h>
+
 #include "bcm-cygnus.dtsi"
 #include "bcm9hmidc.dtsi"
 
@@ -83,6 +85,18 @@
 		gpio = <&gpio_ccm 7 0>;
 		enable-active-high;
 		status = "okay";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		status = "okay";
+
+		power {
+			label = "power";
+			gpios = <&gpio_crmu 5 0>;
+			linux,code = <KEY_POWER>;
+			gpio-key,wakeup;
+		};
 	};
 };
 
