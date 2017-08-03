@@ -712,6 +712,7 @@
 			phys = <&usb3_phy0>;
 			phy-names = "usb3-phy";
 			dma-coherent;
+			needs-reset-on-resume;
 			status = "disabled";
 		};
 
@@ -722,6 +723,7 @@
 			phys = <&usb3_phy1>;
 			phy-names = "usb3-phy";
 			dma-coherent;
+			needs-reset-on-resume;
 			status = "disabled";
 		};
 
