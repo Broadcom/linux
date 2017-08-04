@@ -224,6 +224,16 @@
 	no-1-8-v;
 };
 
+&pwm {
+	status = "okay";
+};
+
+&bl {
+	brightness-levels = <0 16 24 32 50 64 128 255>;
+	default-brightness-level = <6>;
+	status = "okay";
+};
+
 &mipipll {
 	assigned-clocks = <&mipipll 2>, <&mipipll 0>;
 	assigned-clock-parents = <&mipipll 0>;
@@ -243,6 +253,7 @@
 
 	panel {
 		compatible = "panel-dpi";
+		backlight = <&bl>;
 		port {
 			clcd_panel: endpoint {
 				remote-endpoint = <&clcd_pads>;
