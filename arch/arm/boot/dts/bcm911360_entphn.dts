@@ -81,6 +81,14 @@
 		regulator-always-on;
 	};
 
+	vdd_3v3_reg: regulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "power";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
 	bluetooth {
 		compatible = "brcm,bt-rfkill";
 
@@ -224,6 +232,7 @@
 		compatible = "wintek,wd-f6448x-eflwc";
 		spi-max-frequency = <500000>;
 		reg = <0>;
+		power-supply = <&vdd_3v3_reg>;
 		enable-gpios = <&gpio_asiu 64 0>;
 		reset-gpios = <&gpio_asiu 68 0>;
 		backlight = <&bl>;
