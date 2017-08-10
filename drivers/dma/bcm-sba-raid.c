@@ -479,7 +479,8 @@ static void sba_write_stats_in_seqfile(struct sba_device *sba,
 	spin_lock_irqsave(&sba->reqs_lock, flags);
 
 	list_for_each_entry(req, &sba->reqs_free_list, node)
-		free_count++;
+		if (async_tx_test_ack(&req->tx))
+			free_count++;
 
 	list_for_each_entry(req, &sba->reqs_alloc_list, node)
 		alloced_count++;
