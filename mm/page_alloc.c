@@ -7568,7 +7568,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 	/* Make sure the range is really isolated. */
 	if (test_pages_isolated(outer_start, end, false)) {
 #if 0
-		pr_info("%s: [%lx, %lx) PFNs busy\n",
+		pr_info_ratelimited("%s: [%lx, %lx) PFNs busy\n",
 			__func__, outer_start, end);
 #else
 		/*
@@ -7579,7 +7579,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 		 * cause this problem.
 		 * This JIRA to be further investigated.
 		 */
-		pr_debug("%s: [%lx, %lx) PFNs busy\n",
+		pr_debug_ratelimited("%s: [%lx, %lx) PFNs busy\n",
 			__func__, outer_start, end);
 #endif
 		ret = -EBUSY;
