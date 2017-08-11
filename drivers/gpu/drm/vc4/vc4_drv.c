@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015 Broadcom
+ * Copyright (C) 2014-2017 Broadcom
  * Copyright (C) 2013 Red Hat
  *
  * This program is free software; you can redistribute it and/or modify
@@ -308,11 +308,13 @@ static const struct component_master_ops vc4_drm_ops = {
 };
 
 static struct platform_driver *const component_drivers[] = {
+#ifdef CONFIG_DRM_VC4_DISPLAY
 	&vc4_hdmi_driver,
 	&vc4_vec_driver,
 	&vc4_dpi_driver,
 	&vc4_dsi_driver,
 	&vc4_hvs_driver,
+#endif
 	&vc4_crtc_driver,
 	&vc4_v3d_driver,
 };

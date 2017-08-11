@@ -1,5 +1,5 @@
 /*
- *  Copyright © 2014 Broadcom
+ *  Copyright © 2014-2017 Broadcom
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,14 +17,18 @@
 
 static const struct drm_info_list vc4_debugfs_list[] = {
 	{"bo_stats", vc4_bo_stats_debugfs, 0},
+#ifdef CONFIG_DRM_VC4_DISPLAY
 	{"dpi_regs", vc4_dpi_debugfs_regs, 0},
 	{"dsi1_regs", vc4_dsi_debugfs_regs, 0, (void *)(uintptr_t)1},
 	{"hdmi_regs", vc4_hdmi_debugfs_regs, 0},
 	{"vec_regs", vc4_vec_debugfs_regs, 0},
 	{"hvs_regs", vc4_hvs_debugfs_regs, 0},
+#endif
 	{"crtc0_regs", vc4_crtc_debugfs_regs, 0, (void *)(uintptr_t)0},
+#ifdef CONFIG_DRM_VC4_DISPLAY
 	{"crtc1_regs", vc4_crtc_debugfs_regs, 0, (void *)(uintptr_t)1},
 	{"crtc2_regs", vc4_crtc_debugfs_regs, 0, (void *)(uintptr_t)2},
+#endif
 	{"v3d_ident", vc4_v3d_debugfs_ident, 0},
 	{"v3d_regs", vc4_v3d_debugfs_regs, 0},
 };
