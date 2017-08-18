@@ -71,6 +71,16 @@
 		status = "okay";
 	};
 
+	vbus_p2: regulator@3 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb-vbus-p2";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio_ccm 7 0>;
+		enable-active-high;
+		status = "okay";
+	};
+
 	wlan_reg0: regulator@1 {
 		compatible = "regulator-fixed";
 		regulator-name = "wlan-rf-reg0";
@@ -167,8 +177,14 @@
 	};
 };
 
-&usbphy0 {
-	vbus-p0-supply = <&vbus_p0>;
+&usbphy {
+	usbphy0: usb-phy@0 {
+		vbus-p0-supply = <&vbus_p0>;
+	};
+
+	usbphy2: usb-phy@2 {
+		vbus-p2-supply = <&vbus_p2>;
+	};
 };
 
 &uart0 {
@@ -213,14 +229,14 @@
 };
 
 &ehci0 {
-	phys = <&usbphy0 0>;
-	phy-names = "usbp0";
+	phys = <&usbphy0 0 &usbphy2 2>;
+	phy-names = "usbp0", "usbp2";
 	status = "okay";
 };
 
 &ohci0 {
-	phys = <&usbphy0 0>;
-	phy-names = "usbp0";
+	phys = <&usbphy0 0 &usbphy2 2>;
+	phy-names = "usbp0", "usbp2";
 	status = "okay";
 };
 
@@ -294,4 +310,8 @@
 	spdif: spdif_port@3 {
 		status = "okay";
 	};
+};
+
+&usb2 {
+	status = "okay";
 };
