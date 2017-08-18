@@ -232,14 +232,13 @@ static void cygnus_pm_soc_enter_sleep(enum cygnus_power_status state)
 
 	cygnus_pm_prepare_enter_pm_mode(state);
 
-	/* Clean, invalidate, disable L2C. */
-	cygnus_pm_l2c_enable(false);
+	pr_info("Flushing L1 cache, L2 cache, then suspending...\n");
 
 	/* Flush D-cache and I-cache. */
-	pr_info("Flushing D-cache and I-cache\n");
 	flush_cache_all();
 
-	pr_info("Suspending ...\n");
+	/* Clean, invalidate, disable L2C. */
+	cygnus_pm_l2c_enable(false);
 
 	cpu_suspend(state, cygnus_pm_finish_switch);
 
