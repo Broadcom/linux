@@ -54,8 +54,12 @@ static int sr_get_trip_temp(struct thermal_zone_device *tz, int trip, int *temp)
 
 	switch (trip) {
 	case 0:
-		/* Need to be fine tuned */
-		*temp = 0x110000;
+		/*
+		 * Critical temperature is set 110000 milli C in CRMU.
+		 * Considering 5% less as subcritial temperature.
+		 * setting the same here to 105000 milliC.
+		 */
+		*temp = 105000;
 		break;
 	default:
 		dev_err(sr_thermal->dev,
