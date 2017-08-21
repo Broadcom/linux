@@ -484,6 +484,34 @@ static const struct phy_ops ns2_usb3_ops = {
 	.owner = THIS_MODULE,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int ns2_usb3_phy_suspend(struct device *dev)
+{
+	struct mdio_device *mdio_dev = to_mdio_device(dev);
+	struct ns2_usb3_phy_master *mphy = dev_get_drvdata(&mdio_dev->dev);
+	int i;
+
+	for (i = 0; i < PHY_MAX_PORTS && mphy->iphys[i].phy; i++)
+		ns2_usb3_exit(mphy->iphys[i].phy);
+	return 0;
+}
+
+static int ns2_usb3_phy_resume(struct device *dev)
+{
+	struct mdio_device *mdio_dev = to_mdio_device(dev);
+	struct ns2_usb3_phy_master *mphy = dev_get_drvdata(&mdio_dev->dev);
+	int i;
+
+	for (i = 0; i < PHY_MAX_PORTS && mphy->iphys[i].phy; i++)
+		ns2_usb3_init(mphy->iphys[i].phy);
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops ns2_usb3_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(ns2_usb3_phy_suspend, ns2_usb3_phy_resume)
+};
+
 static int ns2_usb3_probe(struct mdio_device *mdiodev)
 {
 	struct device *dev = &mdiodev->dev;
@@ -496,6 +524,7 @@ static int ns2_usb3_probe(struct mdio_device *mdiodev)
 	if (!mphy)
 		return -ENOMEM;
 	mphy->mdiodev = mdiodev;
+	mphy->mdiodev->pm_ops = &ns2_usb3_pm_ops;
 	mutex_init(&mphy->phy_mutex);
 	mphy->port_cnt = 0;
 
