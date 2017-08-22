@@ -39,13 +39,19 @@ struct bcm_iproc_rtc {
 	struct device *dev;
 	struct rtc_device  *rtc;
 	int periodic_irq;
+	int alarm_irq;
 };
 
 static irqreturn_t rtc_sec_smc_irq(int irq, void *pdev_data)
 {
 	struct bcm_iproc_rtc *rtc = pdev_data;
+	unsigned long events = RTC_IRQF;
 
-	rtc_update_irq(rtc->rtc, 1, (RTC_IRQF | RTC_PF));
+	if (irq == rtc->periodic_irq)
+		events |= RTC_PF;
+	else
+		events |= RTC_AF;
+	rtc_update_irq(rtc->rtc, 1, events);
 
 	return IRQ_HANDLED;
 }
@@ -169,7 +175,7 @@ static int rtc_probe(struct platform_device *pdev)
 
 	rtc->periodic_irq = platform_get_irq(pdev, 0);
 	if (rtc->periodic_irq < 0) {
-		dev_err(rtc->dev, "RTC interrupt not defined\n");
+		dev_err(rtc->dev, "RTC periodic interrupt not defined\n");
 		return rtc->periodic_irq;
 	}
 
@@ -178,12 +184,24 @@ static int rtc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	rtc->alarm_irq = platform_get_irq(pdev, 1);
+	if (rtc->alarm_irq > 0) {
+		ret = devm_request_irq(rtc->dev, rtc->alarm_irq,
+				       rtc_sec_smc_irq, 0,
+				       "iproc_alarm_rtc", rtc);
+		if (ret)
+			return ret;
+	}
+	ret = device_init_wakeup(rtc->dev, true);
+	if (ret)
+		return ret;
+
 	rtc->rtc = devm_rtc_device_register(rtc->dev, pdev->name,
 					    &rtc_ops, THIS_MODULE);
 	if (IS_ERR(rtc->rtc))
 		return PTR_ERR(rtc->rtc);
 
-	dev_info(rtc->dev, "rtc_probe done\n");
+	dev_info(rtc->dev, "iproc-rtc registered\n");
 	return 0;
 }
 
