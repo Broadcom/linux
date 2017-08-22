@@ -303,3 +303,7 @@
 &xhci1 {
 	status = "okay";
 };
+
+&rtc {
+	status = "okay";
+};
