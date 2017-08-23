@@ -16,10 +16,13 @@
 #include <linux/platform_device.h>
 #include <linux/thermal.h>
 
+#define TMON_CRIT_TEMP 110000 /* temp in millidegree C */
+
 struct sr_thermal {
 	struct thermal_zone_device *tz;
 	struct device *dev;
 	void __iomem *regs;
+	unsigned int crit_temp;
 };
 
 static int sr_get_temp(struct thermal_zone_device *tz, int *temp)
@@ -54,12 +57,7 @@ static int sr_get_trip_temp(struct thermal_zone_device *tz, int trip, int *temp)
 
 	switch (trip) {
 	case 0:
-		/*
-		 * Critical temperature is set 110000 milli C in CRMU.
-		 * Considering 5% less as subcritial temperature.
-		 * setting the same here to 105000 milliC.
-		 */
-		*temp = 105000;
+		*temp = sr_thermal->crit_temp;
 		break;
 	default:
 		dev_err(sr_thermal->dev,
@@ -69,10 +67,28 @@ static int sr_get_trip_temp(struct thermal_zone_device *tz, int trip, int *temp)
 	return 0;
 }
 
+static int sr_set_trip_temp(struct thermal_zone_device *tz, int trip, int temp)
+{
+	struct sr_thermal *sr_thermal = tz->devdata;
+
+	switch (trip) {
+	case 0:
+		if (temp <= TMON_CRIT_TEMP)
+			sr_thermal->crit_temp = temp;
+		else
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static struct thermal_zone_device_ops sr_thermal_ops = {
 	.get_temp = sr_get_temp,
 	.get_trip_type = sr_get_trip_type,
 	.get_trip_temp = sr_get_trip_temp,
+	.set_trip_temp = sr_set_trip_temp,
 };
 
 static int sr_thermal_probe(struct platform_device *pdev)
@@ -95,8 +111,9 @@ static int sr_thermal_probe(struct platform_device *pdev)
 
 	/* initialize tmon value to 0 */
 	writel(0, sr_thermal->regs);
+	sr_thermal->crit_temp = TMON_CRIT_TEMP;
 
-	sr_thermal->tz = thermal_zone_device_register(dev_name(dev), 1, 0,
+	sr_thermal->tz = thermal_zone_device_register(dev_name(dev), 1, 1,
 							 sr_thermal,
 							 &sr_thermal_ops,
 							 NULL, 1000, 1000);
