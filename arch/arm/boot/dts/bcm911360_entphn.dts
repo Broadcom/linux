@@ -161,6 +161,11 @@
 	};
 };
 
+&sdhci0 {
+	status = "okay";
+	no-1-8-v;
+};
+
 &sdhci1 {
 	status = "okay";
 	vmmc-supply = <&wlan_reg0>;
