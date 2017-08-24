@@ -1,0 +1,16 @@
+Broadcom SWREG Device Tree Bindings
+-------------------------------------------------------------
+
+Required properties:
+	- compatible: Should contain the SWREG compatibility string
+		      and the SoC compatibility string.
+		      "brcm,swreg"
+	- reg       : Physical base address and size of the
+		      SWREG registers
+
+Examples:
+	swreg: swreg@6641c028 {
+		compatible = "brcm,swreg";
+		reg = <0x6641c028 0x8>;
+		status = "disabled";
+	};
