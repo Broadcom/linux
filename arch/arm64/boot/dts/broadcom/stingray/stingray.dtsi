@@ -277,16 +277,16 @@
 
 		#include "stingray-clock.dtsi"
 
-		cdru: syscon@0001d000 {
-			compatible = "brcm,sr-cdru", "syscon";
-			reg = <0x0001d000 0x400>;
-		};
-
 		otp: otp@0001c400 {
 			compatible = "brcm,ocotp-v2";
 			reg = <0x0001c400 0x68>;
 			brcm,ocotp-size = <2048>;
 			status = "okay";
+		};
+
+		cdru: syscon@0001d000 {
+			compatible = "brcm,sr-cdru", "syscon";
+			reg = <0x0001d000 0x400>;
 		};
 
 		gpio_crmu: gpio@00024800 {
