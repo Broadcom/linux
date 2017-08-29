@@ -1486,7 +1486,7 @@ static int sba_debugfs_stats_show(struct seq_file *file, void *offset)
 
 static int sba_prealloc_channel_resources(struct sba_device *sba)
 {
-	int i, j, p, ret = 0;
+	int i, j, ret = 0;
 	struct sba_request *req = NULL;
 
 	sba->resp_base = dma_alloc_coherent(sba->mbox_dev,
@@ -1511,7 +1511,7 @@ static int sba_prealloc_channel_resources(struct sba_device *sba)
 	INIT_LIST_HEAD(&sba->reqs_aborted_list);
 	INIT_LIST_HEAD(&sba->reqs_free_list);
 
-	for (i = 0, p = 0; i < sba->max_req; i++) {
+	for (i = 0; i < sba->max_req; i++) {
 		req = devm_kzalloc(sba->dev,
 				sizeof(*req) +
 				sba->max_cmd_per_req * sizeof(req->cmds[0]),
@@ -1525,7 +1525,6 @@ static int sba_prealloc_channel_resources(struct sba_device *sba)
 		req->flags = SBA_REQUEST_STATE_FREE;
 		INIT_LIST_HEAD(&req->next);
 		atomic_set(&req->next_pending_count, 0);
-		p += sba->hw_resp_size;
 		for (j = 0; j < sba->max_cmd_per_req; j++) {
 			req->cmds[j].cmd = 0;
 			req->cmds[j].cmd_dma = sba->cmds_base +
@@ -1753,25 +1752,29 @@ static int sba_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail_free_mchans;
 
+	/* Check availability of debugfs */
+	if (!debugfs_initialized())
+		goto skip_debugfs;
+
 	/* Create debugfs root entry */
 	sba->root = debugfs_create_dir(dev_name(sba->dev), NULL);
 	if (IS_ERR_OR_NULL(sba->root)) {
-		ret = PTR_ERR_OR_ZERO(sba->root);
-		goto fail_free_resources;
+		dev_err(sba->dev, "failed to create debugfs root entry\n");
+		sba->root = NULL;
+		goto skip_debugfs;
 	}
 
 	/* Create debugfs stats entry */
 	sba->stats = debugfs_create_devm_seqfile(sba->dev, "stats", sba->root,
 						 sba_debugfs_stats_show);
-	if (IS_ERR_OR_NULL(sba->stats)) {
-		ret = PTR_ERR_OR_ZERO(sba->stats);
-		goto fail_free_debugfs_root;
-	}
+	if (IS_ERR_OR_NULL(sba->stats))
+		dev_err(sba->dev, "failed to create debugfs stats file\n");
+skip_debugfs:
 
-	/* Register DMA device with linux async framework */
+	/* Register DMA device with Linux async framework */
 	ret = sba_async_register(sba);
 	if (ret)
-		goto fail_free_debugfs_root;
+		goto fail_free_resources;
 
 	/* Print device info */
 	dev_info(sba->dev, "%s using SBAv%d and %d mailbox channels",
@@ -1780,9 +1783,8 @@ static int sba_probe(struct platform_device *pdev)
 
 	return 0;
 
-fail_free_debugfs_root:
-	debugfs_remove_recursive(sba->root);
 fail_free_resources:
+	debugfs_remove_recursive(sba->root);
 	sba_freeup_channel_resources(sba);
 fail_free_mchans:
 	for (i = 0; i < sba->mchans_count; i++)
