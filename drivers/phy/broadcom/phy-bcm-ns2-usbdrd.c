@@ -214,6 +214,9 @@ static int ns2_drd_phy_poweron(struct phy *phy)
 		val &= ~IDM_RST_BIT;
 		writel(val, driver->idmdrd_regs + IDM_RST_CTL_OFFSET);
 
+		/* Give hardware time to settle */
+		usleep_range(150, 300);
+
 		/* port over current Polarity */
 		val = readl(driver->usb2h_strap_reg);
 		val |= OHCI_OVRCUR_POL;
