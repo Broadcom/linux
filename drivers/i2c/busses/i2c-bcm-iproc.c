@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014, 2017 Broadcom
+ * Copyright (C) 2014-2017 Broadcom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -50,7 +50,6 @@
 #define M_CMD_PROTOCOL_MASK          0xf
 #define M_CMD_PROTOCOL_BLK_WR        0x7
 #define M_CMD_PROTOCOL_BLK_RD        0x8
-#define M_CMD_PROTOCOL_PROCESS       0xa
 #define M_CMD_PEC_SHIFT              8
 #define M_CMD_RD_CNT_SHIFT           0
 #define M_CMD_RD_CNT_MASK            0xff
@@ -303,17 +302,13 @@ static int bcm_iproc_i2c_check_status(struct bcm_iproc_i2c_dev *iproc_i2c,
 }
 
 static int bcm_iproc_i2c_xfer_single_msg(struct bcm_iproc_i2c_dev *iproc_i2c,
-					struct i2c_msg *msgs, bool process_call)
+					 struct i2c_msg *msg)
 {
 	int ret, i;
 	u8 addr;
 	u32 val, tmp, val_intr_en;
 	unsigned int tx_bytes;
 	unsigned long time_left = msecs_to_jiffies(I2C_TIMEOUT_MSEC);
-	struct i2c_msg *msg;
-
-	/* Process the first message */
-	msg = &msgs[0];
 
 	/* check if bus is busy */
 	if (!!(readl(iproc_i2c->base + M_CMD_OFFSET) &
@@ -339,26 +334,12 @@ static int bcm_iproc_i2c_xfer_single_msg(struct bcm_iproc_i2c_dev *iproc_i2c,
 			val = msg->buf[i];
 
 			/* mark the last byte */
-			if (!process_call && (i == msg->len - 1))
+			if (i == msg->len - 1)
 				val |= 1 << M_TX_WR_STATUS_SHIFT;
 
 			writel(val, iproc_i2c->base + M_TX_OFFSET);
 		}
 		iproc_i2c->tx_bytes = tx_bytes;
-	}
-
-	/* Process the read message if this is process call */
-	if (process_call) {
-		msg++;
-
-		/*
-		 * The last byte to be sent out should be a slave
-		 * address with read operation
-		 */
-		addr = msg->addr << 1 | 1;
-		/* mark it the last byte out */
-		val = addr | (1 << M_TX_WR_STATUS_SHIFT);
-		writel(val, iproc_i2c->base + M_TX_OFFSET);
 	}
 
 	/* mark as incomplete before starting the transaction */
@@ -377,7 +358,7 @@ static int bcm_iproc_i2c_xfer_single_msg(struct bcm_iproc_i2c_dev *iproc_i2c,
 	 * underrun interrupt, which will be triggerred when the TX FIFO is
 	 * empty. When that happens we can then pump more data into the FIFO
 	 */
-	if (!process_call && !(msg->flags & I2C_M_RD) &&
+	if (!(msg->flags & I2C_M_RD) &&
 	    msg->len > iproc_i2c->tx_bytes)
 		val_intr_en |= BIT(IE_M_TX_UNDERRUN_SHIFT);
 
@@ -387,8 +368,6 @@ static int bcm_iproc_i2c_xfer_single_msg(struct bcm_iproc_i2c_dev *iproc_i2c,
 	 */
 	val = BIT(M_CMD_START_BUSY_SHIFT);
 	if (msg->flags & I2C_M_RD) {
-		u32 protocol = M_CMD_PROTOCOL_BLK_RD;
-
 		iproc_i2c->rx_bytes = 0;
 		if (msg->len > M_RX_FIFO_MAX_THLD_VALUE)
 			iproc_i2c->thld_bytes = M_RX_FIFO_THLD_VALUE;
@@ -404,11 +383,8 @@ static int bcm_iproc_i2c_xfer_single_msg(struct bcm_iproc_i2c_dev *iproc_i2c,
 		/* enable the RX threshold interrupt */
 		val_intr_en |= BIT(IE_M_RX_THLD_SHIFT);
 
-		if (process_call)
-			protocol = M_CMD_PROTOCOL_PROCESS;
-
-		val |= (protocol << M_CMD_PROTOCOL_SHIFT) |
-			(msg->len << M_CMD_RD_CNT_SHIFT);
+		val |= (M_CMD_PROTOCOL_BLK_RD << M_CMD_PROTOCOL_SHIFT) |
+		       (msg->len << M_CMD_RD_CNT_SHIFT);
 	} else {
 		val |= (M_CMD_PROTOCOL_BLK_WR << M_CMD_PROTOCOL_SHIFT);
 	}
@@ -451,30 +427,15 @@ static int bcm_iproc_i2c_xfer(struct i2c_adapter *adapter,
 			      struct i2c_msg msgs[], int num)
 {
 	struct bcm_iproc_i2c_dev *iproc_i2c = i2c_get_adapdata(adapter);
-	int ret;
-	bool process_call;
+	int ret, i;
 
-	switch (num) {
-	case 1:
-		process_call = false;
-		break;
-	case 2:
-		/* Repeated start, use process call */
-		process_call = true;
-		if (msgs[1].flags & I2C_M_NOSTART) {
-			dev_err(iproc_i2c->device, "Invalid repeated start\n");
-			return -EOPNOTSUPP;
+	/* go through all messages */
+	for (i = 0; i < num; i++) {
+		ret = bcm_iproc_i2c_xfer_single_msg(iproc_i2c, &msgs[i]);
+		if (ret) {
+			dev_dbg(iproc_i2c->device, "xfer failed\n");
+			return ret;
 		}
-		break;
-	default:
-		dev_err(iproc_i2c->device, "Too many messages to transfer\n");
-		return -EOPNOTSUPP;
-	}
-
-	ret = bcm_iproc_i2c_xfer_single_msg(iproc_i2c, msgs, process_call);
-	if (ret) {
-		dev_dbg(iproc_i2c->device, "xfer failed\n");
-		return ret;
 	}
 
 	return num;
@@ -491,9 +452,6 @@ static const struct i2c_algorithm bcm_iproc_algo = {
 };
 
 static const struct i2c_adapter_quirks bcm_iproc_i2c_quirks = {
-	.flags = I2C_AQ_COMB_WRITE_THEN_READ,
-	.max_comb_1st_msg_len = M_TX_RX_FIFO_SIZE,
-	.max_comb_2nd_msg_len = M_TX_RX_FIFO_SIZE,
 	.max_read_len = M_RX_MAX_READ_LEN,
 };
 
