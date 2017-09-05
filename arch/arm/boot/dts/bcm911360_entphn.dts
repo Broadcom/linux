@@ -320,3 +320,11 @@
 &usb2 {
 	status = "okay";
 };
+
+&touchscreen {
+	compatible = "brcm,iproc-touchscreen";
+	/* Touchscreen is rotated 180 degrees. */
+	touchscreen-inverted-x;
+	touchscreen-inverted-y;
+	status = "okay";
+};
