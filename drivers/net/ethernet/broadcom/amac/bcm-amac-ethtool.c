@@ -99,17 +99,6 @@ static const struct amac_ethtool_stats amac_get_strings_stats[] = {
 
 #define AMAC_STATS_LEN ARRAY_SIZE(amac_get_strings_stats)
 
-static int amac_ethtool_get_settings(struct net_device *ndev,
-				     struct ethtool_cmd *cmd)
-{
-	struct bcm_amac_priv *privp = netdev_priv(ndev);
-
-	if (!privp->port.ext_port.phydev)
-		return -ENODEV;
-
-	return phy_ethtool_gset(privp->port.ext_port.phydev, cmd);
-}
-
 int amac_ethtool_set_settings(struct net_device *ndev,
 			      struct ethtool_cmd *cmd)
 {
@@ -212,7 +201,6 @@ static void amac_ethtool_get_pauseparam(struct net_device *ndev,
 }
 
 static const struct ethtool_ops amac_ethtool_ops = {
-	.get_settings = amac_ethtool_get_settings,
 	.set_settings = amac_ethtool_set_settings,
 	.get_drvinfo = amac_ethtool_get_drvinfo,
 	.nway_reset = amac_ethtool_nway_reset,

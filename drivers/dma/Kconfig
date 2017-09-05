@@ -62,8 +62,10 @@ config AMBA_PL08X
 	select DMA_ENGINE
 	select DMA_VIRTUAL_CHANNELS
 	help
-	  Platform has a PL08x DMAC device
-	  which can provide DMA engine support
+	  Say yes if your platform has a PL08x DMAC device which can
+	  provide DMA engine support. This includes the original ARM
+	  PL080 and PL081, Samsungs PL080 derivative and Faraday
+	  Technology's FTDMAC020 PL080 derivative.
 
 config AMCC_PPC440SPE_ADMA
 	tristate "AMCC PPC440SPe ADMA support"
@@ -369,13 +371,12 @@ config MV_XOR_V2
 
 config MXS_DMA
 	bool "MXS DMA support"
-	depends on SOC_IMX23 || SOC_IMX28 || SOC_IMX6Q || SOC_IMX6UL
+	depends on ARCH_MXS || ARCH_MXC || COMPILE_TEST
 	select STMP_DEVICE
 	select DMA_ENGINE
 	help
 	  Support the MXS DMA engine. This engine including APBH-DMA
-	  and APBX-DMA is integrated into Freescale
-	  i.MX23/28/MX6Q/MX6DL/MX6UL chips.
+	  and APBX-DMA is integrated into some Freescale chips.
 
 config MX3_IPU
 	bool "MX3x Image Processing Unit support"

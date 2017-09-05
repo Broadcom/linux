@@ -34,6 +34,7 @@
 #define ICFG_DRD_P0CTL		0x1C
 #define ICFG_STRAP_CTRL		0x20
 #define ICFG_FSM_CTRL		0x24
+
 #define ICFG_DEV_BIT		BIT(2)
 #define STRAP_CTRL_VAL		0x7ff0001
 #define DRD_AFE_VAL		0xc0000001

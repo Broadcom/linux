@@ -138,6 +138,8 @@ static const struct drm_ioctl_desc vc4_drm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(VC4_GET_HANG_STATE, vc4_get_hang_state_ioctl,
 			  DRM_ROOT_ONLY),
 	DRM_IOCTL_DEF_DRV(VC4_GET_PARAM, vc4_get_param_ioctl, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(VC4_SET_TILING, vc4_set_tiling_ioctl, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(VC4_GET_TILING, vc4_get_tiling_ioctl, DRM_RENDER_ALLOW),
 };
 
 static struct drm_driver vc4_drm_driver = {
@@ -154,7 +156,7 @@ static struct drm_driver vc4_drm_driver = {
 	.irq_uninstall = vc4_irq_uninstall,
 
 	.get_scanout_position = vc4_crtc_get_scanoutpos,
-	.get_vblank_timestamp = vc4_crtc_get_vblank_timestamp,
+	.get_vblank_timestamp = drm_calc_vbltimestamp_from_scanoutpos,
 
 #if defined(CONFIG_DEBUG_FS)
 	.debugfs_init = vc4_debugfs_init,
