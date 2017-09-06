@@ -45,6 +45,12 @@
 
 #include "bcm958742-base.dtsi"
 
+&i2c0 {
+	pca9505: pca9505@20 {
+		interrupts = <111 1 1>;
+	};
+};
+
 &gphy0 {
 	enet-phy-lane-swap;
 };

@@ -156,14 +156,6 @@
 	};
 };
 
-&gpio_hsls {
-	pin181 {
-		gpio-hog;
-		gpios = <181 0>;
-		input;
-	};
-};
-
 &pcie0 {
 #if (ENABLE_I2C0 == 1)
 	brcm,pci-hotplug;
