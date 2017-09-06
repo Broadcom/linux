@@ -797,7 +797,7 @@
 			interrupts = <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>;
 			dma-coherent;
 			bus-width = <8>;
-			clocks = <&sdio_clk>;
+			clocks = <&genpll_sw BCM_NS2_GENPLL_SW_SDIO_CLK>;
 			sdhci,auto-cmd12;
 			status = "disabled";
 		};
@@ -808,7 +808,7 @@
 			interrupts = <GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>;
 			dma-coherent;
 			bus-width = <8>;
-			clocks = <&sdio_clk>;
+			clocks = <&genpll_sw BCM_NS2_GENPLL_SW_SDIO_CLK>;
 			sdhci,auto-cmd12;
 			status = "disabled";
 		};
