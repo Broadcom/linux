@@ -19,7 +19,6 @@ dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742t-fs4-uio.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742t-paxb-iommu.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742t-pcie-iommu.dtb
 
-dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958802a.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958802a8020.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958802a8021.dtb
 
