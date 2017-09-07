@@ -284,7 +284,21 @@
 
 &pinctrl {
 	pinctrl-names = "default";
-	pinctrl-0 = <&i2s0_default_mux &i2s1_default_mux &i2s2_default_mux>;
+	pinctrl-0 = <
+		&keypad_5x5
+		&i2s0_default_mux
+		&i2s1_default_mux
+		&i2s2_default_mux
+		>;
+
+	/* Configures 5x5 keypad. */
+	keypad_5x5: keypad_5x5 {
+		function = "key";
+		groups = "key0_grp", "key1_grp", "key2_grp",
+			 "key3_grp", "key4_grp", "key8_grp",
+			 "key9_grp", "key10_grp", "key11_grp",
+			 "key12_grp";
+	};
 };
 
 &i2c1 {
@@ -326,4 +340,36 @@
 	touchscreen-inverted-x;
 	touchscreen-inverted-y;
 	status = "okay";
+};
+
+&keypad {
+	keypad,num-rows = <5>;
+	keypad,num-columns = <5>;
+	status = "okay";
+
+	linux,keymap = <
+		MATRIX_KEY(0x00, 0x02, KEY_F) /* key_forward */
+		MATRIX_KEY(0x00, 0x03, KEY_HOME) /* key_home */
+		MATRIX_KEY(0x00, 0x04, KEY_M) /* key_message */
+		MATRIX_KEY(0x01, 0x00, KEY_A) /* key_contacts */
+		MATRIX_KEY(0x01, 0x01, KEY_1) /* key_1 */
+		MATRIX_KEY(0x01, 0x02, KEY_2) /* key_2 */
+		MATRIX_KEY(0x01, 0x03, KEY_3) /* key_3 */
+		MATRIX_KEY(0x01, 0x04, KEY_S) /* key_speaker */
+		MATRIX_KEY(0x02, 0x00, KEY_P) /* key_phone */
+		MATRIX_KEY(0x02, 0x01, KEY_4) /* key_4 */
+		MATRIX_KEY(0x02, 0x02, KEY_5) /* key_5 */
+		MATRIX_KEY(0x02, 0x03, KEY_6) /* key_6 */
+		MATRIX_KEY(0x02, 0x04, KEY_VOLUMEUP) /* key_vol_up */
+		MATRIX_KEY(0x03, 0x00, KEY_C) /* key_call_log */
+		MATRIX_KEY(0x03, 0x01, KEY_7) /* key_7 */
+		MATRIX_KEY(0x03, 0x02, KEY_8) /* key_8 */
+		MATRIX_KEY(0x03, 0x03, KEY_9) /* key_9 */
+		MATRIX_KEY(0x03, 0x04, KEY_VOLUMEDOWN) /* key_vol_down */
+		MATRIX_KEY(0x04, 0x00, KEY_H) /* key_headset */
+		MATRIX_KEY(0x04, 0x01, KEY_KPASTERISK) /* key_* */
+		MATRIX_KEY(0x04, 0x02, KEY_0) /* key_0 */
+		MATRIX_KEY(0x04, 0x03, KEY_GRAVE) /* key_# */
+		MATRIX_KEY(0x04, 0x04, KEY_MUTE) /* key_mute */
+	>;
 };
