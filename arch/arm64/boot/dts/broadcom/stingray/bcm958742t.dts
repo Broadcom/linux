@@ -32,6 +32,8 @@
 
 /dts-v1/;
 
+#define NUM_CRYPTO	32
+#define NUM_RAID	8
 #define ENABLE_I2C0	1
 #ifndef NUM_SATA
 #define NUM_SATA	8
