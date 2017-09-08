@@ -95,7 +95,7 @@
 			reg-io-width = <4>;
 			clock-frequency = <25000000>;
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		gic: interrupt-controller@2a001000 {
