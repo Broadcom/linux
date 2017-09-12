@@ -663,9 +663,6 @@ static int uio_mmap_physical(struct vm_area_struct *vma, int memtype)
 	case UIO_MEM_PHYS_CACHE:
 		/* Do nothing. */
 		break;
-	case UIO_MEM_DEVICE:
-		vma->vm_page_prot = pgprot_device(vma->vm_page_prot);
-		break;
 	default:
 		return -EINVAL;
 	}
@@ -717,7 +714,6 @@ static int uio_mmap(struct file *filep, struct vm_area_struct *vma)
 	switch (idev->info->mem[mi].memtype) {
 	case UIO_MEM_PHYS:
 	case UIO_MEM_PHYS_CACHE:
-	case UIO_MEM_DEVICE:
 		return uio_mmap_physical(vma, idev->info->mem[mi].memtype);
 	case UIO_MEM_LOGICAL:
 	case UIO_MEM_VIRTUAL:
