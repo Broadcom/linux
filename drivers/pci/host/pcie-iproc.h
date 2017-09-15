@@ -132,6 +132,7 @@ struct iproc_pcie {
 	struct irq_domain *irq_domain;
 
 	bool need_msi_steer;
+	struct delayed_work work;
 	struct iproc_msi *msi;
 };
 

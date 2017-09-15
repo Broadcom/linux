@@ -114,6 +114,8 @@
 
 #define NUM_INTX                     4
 
+#define HOTPLUG_DEBOUNCE             100
+
 /**
  * iProc PCIe outbound mapping controller specific parameters
  *
@@ -1528,11 +1530,61 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 	return 0;
 }
 
+int iproc_pcie_detect_enable(struct iproc_pcie *pcie)
+{
+	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
+	struct pci_bus *child;
+	int ret;
+
+	host->dev.parent = pcie->dev;
+	ret = pci_scan_root_bus_bridge(host);
+	if (ret < 0) {
+		dev_err(pcie->dev, "failed to scan host: %d\n", ret);
+		return ret;
+	}
+
+	pci_assign_unassigned_bus_resources(host->bus);
+
+	pcie->root_bus = host->bus;
+
+	list_for_each_entry(child, &host->bus->children, node)
+		pcie_bus_configure_settings(child);
+
+	pci_bus_add_devices(host->bus);
+	pcie->ep_is_present = true;
+
+	return 0;
+}
+
+void iproc_pcie_detect_disable(struct iproc_pcie *pcie)
+{
+	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
+
+	if (pcie->root_bus) {
+		pci_stop_root_bus(pcie->root_bus);
+		pci_remove_root_bus(pcie->root_bus);
+		pcie->ep_is_present = false;
+		pcie->root_bus = NULL;
+		memset(&host->dev, 0, sizeof(struct device));
+	}
+}
+
 static irqreturn_t iproc_pci_hotplug_thread(int irq, void *data)
 {
 	struct iproc_pcie *pcie = data;
-	struct pci_bus *bus = pcie->root_bus, *child;
+
+	queue_delayed_work(system_power_efficient_wq,
+			   &pcie->work, HOTPLUG_DEBOUNCE);
+
+	return IRQ_HANDLED;
+}
+static void iproc_pci_hotplug_work(struct work_struct *work)
+{
+	struct iproc_pcie *pcie =
+		container_of(to_delayed_work(work), struct iproc_pcie,
+				work);
 	bool link_status;
+	int ret;
 
 	iproc_pcie_reset(pcie);
 
@@ -1541,10 +1593,11 @@ static irqreturn_t iproc_pci_hotplug_thread(int irq, void *data)
 	if (link_status &&
 	    !iproc_pcie_check_link(pcie) &&
 	    !pcie->ep_is_present) {
-		pci_rescan_bus(bus);
-		list_for_each_entry(child, &bus->children, node)
-			pcie_bus_configure_settings(child);
-		pcie->ep_is_present = true;
+		ret = iproc_pcie_detect_enable(pcie);
+		if (ret < 0) {
+			dev_err(pcie->dev, "failed to enable: %d\n", ret);
+			return;
+		}
 		dev_info(pcie->dev,
 			 "PCI Hotplug: <device detected and enumerated>\n");
 	} else if (link_status && pcie->ep_is_present)
@@ -1558,11 +1611,10 @@ static irqreturn_t iproc_pci_hotplug_thread(int irq, void *data)
 			 "PCI Hotplug: <device already present>\n");
 	else {
 		iproc_pcie_perst_ctrl(pcie, true);
-		pcie->ep_is_present = false;
+		iproc_pcie_detect_disable(pcie);
 		dev_info(pcie->dev,
 			 "PCI Hotplug: <device removed>\n");
 	}
-	return IRQ_HANDLED;
 }
 
 static int iproc_pci_hp_gpio_irq_get(struct iproc_pcie *pcie)
@@ -1586,6 +1638,7 @@ static int iproc_pci_hp_gpio_irq_get(struct iproc_pcie *pcie)
 				dev_err(dev,
 					"PCI hotplug prsnt: request irq failed\n");
 			}
+		INIT_DELAYED_WORK(&pcie->work, iproc_pci_hotplug_work);
 	}
 	pcie->ep_is_present = false;
 
@@ -1597,7 +1650,6 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	struct device *dev;
 	int ret;
 	void *sysdata;
-	struct pci_bus *child;
 	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
 	bool is_link_active;
 
@@ -1671,31 +1723,20 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 		if (iproc_pcie_msi_enable(pcie))
 			dev_info(dev, "not using iProc MSI\n");
 
-	if (!is_link_active) {
-		list_splice_init(res, &host->windows);
-		host->busnr = 0;
-		host->dev.parent = dev;
-		host->ops = &iproc_pcie_ops;
-		host->sysdata = sysdata;
-		host->map_irq = pcie->map_irq;
-		host->swizzle_irq = pci_common_swizzle;
+	list_splice_init(res, &host->windows);
+	host->busnr = 0;
+	host->ops = &iproc_pcie_ops;
+	host->sysdata = sysdata;
+	host->map_irq = pcie->map_irq;
+	host->swizzle_irq = pci_common_swizzle;
 
-		ret = pci_scan_root_bus_bridge(host);
+	if (!is_link_active) {
+		ret = iproc_pcie_detect_enable(pcie);
 		if (ret < 0) {
-			dev_err(dev, "failed to scan host: %d\n", ret);
+			dev_err(dev, "failed to enable: %d\n", ret);
 			goto err_power_off_phy;
 		}
-
-		pci_assign_unassigned_bus_resources(host->bus);
-
-		pcie->root_bus = host->bus;
-
-		list_for_each_entry(child, &host->bus->children, node)
-			pcie_bus_configure_settings(child);
-
-		pci_bus_add_devices(host->bus);
 	}
-
 	return 0;
 
 err_power_off_phy:
@@ -1708,6 +1749,7 @@ EXPORT_SYMBOL(iproc_pcie_setup);
 
 int iproc_pcie_remove(struct iproc_pcie *pcie)
 {
+	cancel_delayed_work_sync(&pcie->work);
 	pci_stop_root_bus(pcie->root_bus);
 	pci_remove_root_bus(pcie->root_bus);
 
