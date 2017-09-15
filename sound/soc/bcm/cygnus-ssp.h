@@ -31,36 +31,6 @@
 /* Max string length of our dt property names */
 #define PROP_LEN_MAX 40
 
-/*
- * The ring buffer regs are arranged as an array in io space. This is the size
- * of each array element.
- */
-#define RBUF_REG_STEP_SIZE    0x18
-
-struct ringbuf_regs {
-	unsigned int rdaddr;
-	unsigned int wraddr;
-	unsigned int baseaddr;
-	unsigned int endaddr;
-	unsigned int fmark;   /* freemark for play, fullmark for caputure */
-};
-
-#define RINGBUF_REG_PLAYBACK(num) ((struct ringbuf_regs) { \
-	.rdaddr = SRC_RBUF_0_RDADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.wraddr = SRC_RBUF_0_WRADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.baseaddr = SRC_RBUF_0_BASEADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)),\
-	.endaddr = SRC_RBUF_0_ENDADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.fmark = SRC_RBUF_0_FREE_MARK_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-})
-
-#define RINGBUF_REG_CAPTURE(num) ((struct ringbuf_regs)  { \
-	.rdaddr = DST_RBUF_0_RDADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.wraddr = DST_RBUF_0_WRADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.baseaddr = DST_RBUF_0_BASEADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)),\
-	.endaddr = DST_RBUF_0_ENDADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.fmark = DST_RBUF_0_FULL_MARK_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-})
-
 enum cygnus_audio_port_type {
 	PORT_TDM,
 	PORT_SPDIF,
