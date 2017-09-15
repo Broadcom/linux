@@ -754,6 +754,33 @@ int iproc_pcie_shutdown(struct iproc_pcie *pcie)
 }
 EXPORT_SYMBOL(iproc_pcie_shutdown);
 
+static bool iproc_pci_hp_check_ltssm(struct iproc_pcie *pcie)
+{
+	u32 val, timeout = CFG_RC_LTSSM_TIMEOUT;
+
+	/* Clear LTSSM history. */
+	iproc_pci_raw_config_read32(pcie, 0,
+				  CFG_RC_PHY_CTL, 4, &val);
+	iproc_pci_raw_config_write32(pcie, 0, CFG_RC_PHY_CTL, 4,
+				     val | CFG_RC_CLR_RECOV_HIST_MASK |
+				     CFG_RC_CLR_LTSSM_HIST_MASK);
+	/* write back the origional value. */
+	iproc_pci_raw_config_write32(pcie, 0, CFG_RC_PHY_CTL, 4, val);
+
+	do {
+		usleep_range(500, 1000);
+		iproc_pci_raw_config_read32(pcie, 0,
+					    CFG_RC_LTSSM, 4, &val);
+		/* check link state to see if link moved to L1 state. */
+		if ((val & CFG_RC_LTSSM_STATE_MASK) ==
+		     CFG_RC_LTSSM_STATE_L1)
+			return true;
+		timeout--;
+	} while (timeout);
+
+	return false;
+}
+
 static int iproc_pcie_check_link(struct iproc_pcie *pcie)
 {
 	struct device *dev = pcie->dev;
@@ -770,8 +797,10 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie)
 
 	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_LINK_STATUS);
 	if (!(val & PCIE_PHYLINKUP) || !(val & PCIE_DL_ACTIVE)) {
-		dev_err(dev, "PHY or data link is INACTIVE!\n");
-		return -ENODEV;
+		if (!iproc_pci_hp_check_ltssm(pcie)) {
+			dev_err(dev, "PHY or data link is INACTIVE!\n");
+			return -ENODEV;
+		}
 	}
 
 	/* make sure we are not in EP mode */
@@ -1497,34 +1526,6 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 			regs[reg_idx] : IPROC_PCIE_REG_INVALID;
 
 	return 0;
-}
-
-static bool iproc_pci_hp_check_ltssm(struct iproc_pcie *pcie)
-{
-	struct pci_bus *bus = pcie->root_bus;
-	u32 val, timeout = CFG_RC_LTSSM_TIMEOUT;
-
-	/* Clear LTSSM history. */
-	pci_bus_read_config_dword(pcie->root_bus, 0,
-				  CFG_RC_PHY_CTL, &val);
-	pci_bus_write_config_dword(bus, 0, CFG_RC_PHY_CTL,
-				   val | CFG_RC_CLR_RECOV_HIST_MASK |
-				   CFG_RC_CLR_LTSSM_HIST_MASK);
-	/* write back the origional value. */
-	pci_bus_write_config_dword(bus, 0, CFG_RC_PHY_CTL, val);
-
-	do {
-		pci_bus_read_config_dword(pcie->root_bus, 0,
-					  CFG_RC_LTSSM, &val);
-		/* check link state to see if link moved to L1 state. */
-		if ((val & CFG_RC_LTSSM_STATE_MASK) ==
-		     CFG_RC_LTSSM_STATE_L1)
-			return true;
-		timeout--;
-		usleep_range(500, 1000);
-	} while (timeout);
-
-	return false;
 }
 
 static irqreturn_t iproc_pci_hotplug_thread(int irq, void *data)
