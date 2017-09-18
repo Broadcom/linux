@@ -24,6 +24,7 @@
 #include <sound/soc-dai.h>
 
 #include "cygnus-ssp.h"
+#include "iproc-pcm.h"
 
 #define CAPTURE_FCI_ID_BASE 0x180
 #define CYGNUS_SSP_TRISTATE_MASK 0x001fff
@@ -826,9 +827,20 @@ static int cygnus_ssp_set_sysclk(struct snd_soc_dai *dai,
 static int cygnus_ssp_startup(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
+	struct cygnus_audio *cygaud = snd_soc_dai_get_drvdata(dai);
 	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(dai);
+	struct iproc_pcm_dma_info *dma_info;
 
-	snd_soc_dai_set_dma_data(dai, substream, aio);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		dma_info = &cygaud->dma_info_play[aio->portnum];
+	else
+		dma_info = &cygaud->dma_info_cap[aio->portnum];
+
+	dma_info->portnum = aio->portnum;
+	dma_info->audio = aio->audio;
+	dma_info->substream = substream;
+
+	snd_soc_dai_set_dma_data(dai, substream, dma_info);
 
 	substream->runtime->hw.rate_min = CYGNUS_RATE_MIN;
 	substream->runtime->hw.rate_max = CYGNUS_RATE_MAX;
@@ -1419,6 +1431,7 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	int err = -EINVAL;
 	int node_count;
 	int active_port_count;
+	int irq_num;
 
 	cygaud = devm_kzalloc(dev, sizeof(struct cygnus_audio), GFP_KERNEL);
 	if (!cygaud)
@@ -1473,14 +1486,24 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	cygaud->irq_num = platform_get_irq(pdev, 0);
-	if (cygaud->irq_num <= 0) {
+	irq_num = platform_get_irq(pdev, 0);
+	if (irq_num <= 0) {
 		dev_err(dev, "platform_get_irq failed\n");
-		err = cygaud->irq_num;
+		err = irq_num;
 		goto err_irq;
 	}
 
-	err = cygnus_soc_platform_register(dev, cygaud);
+	cygaud->rb_info.dev = dev;
+	cygaud->rb_info.audio = cygaud->audio;
+	cygaud->rb_info.irq_num = irq_num;
+
+	cygaud->rb_info.num_playback = CYGNUS_MAX_PLAYBACK_PORTS;
+	cygaud->rb_info.rb_state_play = &cygaud->dma_info_play[0];
+
+	cygaud->rb_info.num_capture = CYGNUS_MAX_CAPTURE_PORTS;
+	cygaud->rb_info.rb_state_cap = &cygaud->dma_info_cap[0];
+
+	err = iproc_pcm_platform_register(dev, &cygaud->rb_info);
 	if (err) {
 		dev_err(dev, "platform reg error %d\n", err);
 		goto err_irq;
@@ -1495,7 +1518,7 @@ err_irq:
 
 static int cygnus_ssp_remove(struct platform_device *pdev)
 {
-	cygnus_soc_platform_unregister(&pdev->dev);
+	iproc_pcm_platform_unregister(&pdev->dev);
 	snd_soc_unregister_component(&pdev->dev);
 
 	return 0;

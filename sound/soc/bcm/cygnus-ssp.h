@@ -13,6 +13,8 @@
 #ifndef __CYGNUS_SSP_H__
 #define __CYGNUS_SSP_H__
 
+#include "iproc-pcm.h"
+
 #define CYGNUS_TDM_DAI_MAX_SLOTS 16
 
 #define CYGNUS_MAX_PLAYBACK_PORTS 4
@@ -81,17 +83,16 @@ struct cygnus_aio_port {
 
 	struct cygnus_ssp_regs regs;
 
-	struct snd_pcm_substream *play_stream;
-	struct snd_pcm_substream *capture_stream;
-
 	struct cygnus_audio_clkinfo clk_info;
 };
 
 
 struct cygnus_audio {
 	struct cygnus_aio_port  portinfo[CYGNUS_MAX_PORTS];
+	struct iproc_rb_info    rb_info;
+	struct iproc_pcm_dma_info   dma_info_play[CYGNUS_MAX_PLAYBACK_PORTS];
+	struct iproc_pcm_dma_info   dma_info_cap[CYGNUS_MAX_CAPTURE_PORTS];
 
-	int irq_num;
 	void __iomem *audio;
 	void __iomem *i2s_in;
 	struct device *dev;
@@ -99,11 +100,6 @@ struct cygnus_audio {
 
 extern int cygnus_ssp_set_custom_fsync_width(struct snd_soc_dai *cpu_dai,
 						int len);
-extern int cygnus_soc_platform_register(struct device *dev,
-					struct cygnus_audio *cygaud);
-extern int cygnus_soc_platform_unregister(struct device *dev);
-extern int cygnus_ssp_set_custom_fsync_width(struct snd_soc_dai *cpu_dai,
-	int len);
 int cygnus_ssp_get_clk(struct snd_soc_dai *dai, unsigned int freq);
 int cygnus_ssp_put_clk(struct snd_soc_dai *dai);
 #endif
