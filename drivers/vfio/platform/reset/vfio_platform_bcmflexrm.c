@@ -5,15 +5,26 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
  * This driver provides reset support for Broadcom FlexRM ring manager
  * to VFIO platform.
  */
 
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
 #include <linux/delay.h>
+#include <linux/device.h>
+#include <linux/init.h>
 #include <linux/io.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
 
 #include "vfio_platform_private.h"
 
@@ -28,31 +39,48 @@
 
 /* Register RING_CONTROL fields */
 #define CONTROL_FLUSH_SHIFT				5
-#define CONTROL_ACTIVE_SHIFT				4
 
 /* Register RING_FLUSH_DONE fields */
 #define FLUSH_DONE_MASK					0x1
 
-static void vfio_platform_bcmflexrm_shutdown(void __iomem *ring)
+static int vfio_platform_bcmflexrm_shutdown(void __iomem *ring)
 {
 	unsigned int timeout;
 
 	/* Disable/inactivate ring */
 	writel_relaxed(0x0, ring + RING_CONTROL);
 
-	/* Flush ring with timeout of 1s */
-	timeout = 1000;
+	/* Set ring flush state */
+	timeout = 1000; /* timeout of 1s */
 	writel_relaxed(BIT(CONTROL_FLUSH_SHIFT), ring + RING_CONTROL);
 	do {
-		if (readl_relaxed(ring + RING_FLUSH_DONE) & FLUSH_DONE_MASK)
+		if (readl_relaxed(ring + RING_FLUSH_DONE) &
+		    FLUSH_DONE_MASK)
 			break;
 		mdelay(1);
-	} while (timeout--);
+	} while (--timeout);
+	if (!timeout)
+		return -ETIMEDOUT;
+
+	/* Clear ring flush state */
+	timeout = 1000; /* timeout of 1s */
+	writel_relaxed(0x0, ring + RING_CONTROL);
+	do {
+		if (!(readl_relaxed(ring + RING_FLUSH_DONE) &
+		      FLUSH_DONE_MASK))
+			break;
+		mdelay(1);
+	} while (--timeout);
+	if (!timeout)
+		return -ETIMEDOUT;
+
+	return 0;
 }
 
 static int vfio_platform_bcmflexrm_reset(struct vfio_platform_device *vdev)
 {
 	void __iomem *ring;
+	int rc = 0, ret = 0, ring_num = 0;
 	struct vfio_platform_region *reg = &vdev->regions[0];
 
 	/* Map FlexRM ring registers if not mapped */
@@ -65,11 +93,19 @@ static int vfio_platform_bcmflexrm_reset(struct vfio_platform_device *vdev)
 	/* Discover and shutdown each FlexRM ring */
 	for (ring = reg->ioaddr;
 	     ring < (reg->ioaddr + reg->size); ring += RING_REGS_SIZE) {
-		if (readl_relaxed(ring + RING_VER) == RING_VER_MAGIC)
-			vfio_platform_bcmflexrm_shutdown(ring);
+		if (readl_relaxed(ring + RING_VER) == RING_VER_MAGIC) {
+			rc = vfio_platform_bcmflexrm_shutdown(ring);
+			if (rc) {
+				dev_warn(vdev->device,
+					 "FlexRM ring%d shutdown error %d\n",
+					 ring_num, rc);
+				ret |= rc;
+			}
+			ring_num++;
+		}
 	}
 
-	return 0;
+	return ret;
 }
 
 module_vfio_reset_handler("brcm,iproc-flexrm-mbox",
