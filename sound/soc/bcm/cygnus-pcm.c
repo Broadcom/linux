@@ -234,6 +234,18 @@ static const struct snd_pcm_hardware cygnus_pcm_hw = {
 
 static u64 cygnus_dma_dmamask = DMA_BIT_MASK(32);
 
+static int iproc_reg_read(void __iomem *io_base, unsigned int offset, u32 *val)
+{
+	*val = readl(io_base + offset);
+	return 0;
+}
+
+static int iproc_reg_write(void __iomem *io_base, unsigned int offset, u32 val)
+{
+	writel(val, io_base + offset);
+	return 0;
+}
+
 static struct iproc_pcm_dma_info *cygnus_dai_get_dma_data(
 				struct snd_pcm_substream *substream)
 {
@@ -273,11 +285,11 @@ static void ringbuf_set_initial(void __iomem *audio_io,
 	 */
 	fmark_val = periodsize - PERIOD_BYTES_MIN;
 
-	writel(start, audio_io + p_rbuf->baseaddr);
-	writel(end, audio_io + p_rbuf->endaddr);
-	writel(fmark_val, audio_io + p_rbuf->fmark);
-	writel(initial_rd, audio_io + p_rbuf->rdaddr);
-	writel(initial_wr, audio_io + p_rbuf->wraddr);
+	iproc_reg_write(audio_io, p_rbuf->baseaddr, start);
+	iproc_reg_write(audio_io, p_rbuf->endaddr, end);
+	iproc_reg_write(audio_io, p_rbuf->fmark, fmark_val);
+	iproc_reg_write(audio_io, p_rbuf->rdaddr, initial_rd);
+	iproc_reg_write(audio_io, p_rbuf->wraddr, initial_wr);
 }
 
 static void get_ringbuf(struct snd_pcm_substream *substream,
@@ -305,24 +317,24 @@ static void enable_intr(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Clear interrupt status before enabling them */
-		writel(clear_mask, aio->audio + ESR0_STATUS_CLR_OFFSET);
-		writel(clear_mask, aio->audio + ESR1_STATUS_CLR_OFFSET);
-		writel(clear_mask, aio->audio + ESR3_STATUS_CLR_OFFSET);
+		iproc_reg_write(aio->audio, ESR0_STATUS_CLR_OFFSET, clear_mask);
+		iproc_reg_write(aio->audio, ESR1_STATUS_CLR_OFFSET, clear_mask);
+		iproc_reg_write(aio->audio, ESR3_STATUS_CLR_OFFSET, clear_mask);
 		/* Unmask the interrupts of the given port*/
-		writel(clear_mask, aio->audio + ESR0_MASK_CLR_OFFSET);
-		writel(clear_mask, aio->audio + ESR1_MASK_CLR_OFFSET);
-		writel(clear_mask, aio->audio + ESR3_MASK_CLR_OFFSET);
+		iproc_reg_write(aio->audio, ESR0_MASK_CLR_OFFSET, clear_mask);
+		iproc_reg_write(aio->audio, ESR1_MASK_CLR_OFFSET, clear_mask);
+		iproc_reg_write(aio->audio, ESR3_MASK_CLR_OFFSET, clear_mask);
 
-		writel(ANY_PLAYBACK_IRQ,
-			aio->audio + INTH_R5F_MASK_CLEAR_OFFSET);
+		iproc_reg_write(aio->audio, INTH_R5F_MASK_CLEAR_OFFSET,
+				ANY_PLAYBACK_IRQ);
 	} else {
-		writel(clear_mask, aio->audio + ESR2_STATUS_CLR_OFFSET);
-		writel(clear_mask, aio->audio + ESR4_STATUS_CLR_OFFSET);
-		writel(clear_mask, aio->audio + ESR2_MASK_CLR_OFFSET);
-		writel(clear_mask, aio->audio + ESR4_MASK_CLR_OFFSET);
+		iproc_reg_write(aio->audio, ESR2_STATUS_CLR_OFFSET, clear_mask);
+		iproc_reg_write(aio->audio, ESR4_STATUS_CLR_OFFSET, clear_mask);
+		iproc_reg_write(aio->audio, ESR2_MASK_CLR_OFFSET, clear_mask);
+		iproc_reg_write(aio->audio, ESR4_MASK_CLR_OFFSET, clear_mask);
 
-		writel(ANY_CAPTURE_IRQ,
-			aio->audio + INTH_R5F_MASK_CLEAR_OFFSET);
+		iproc_reg_write(aio->audio, INTH_R5F_MASK_CLEAR_OFFSET,
+				ANY_CAPTURE_IRQ);
 	}
 }
 
@@ -341,12 +353,12 @@ static void disable_intr(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Mask the interrupts of the given port*/
-		writel(set_mask, aio->audio + ESR0_MASK_SET_OFFSET);
-		writel(set_mask, aio->audio + ESR1_MASK_SET_OFFSET);
-		writel(set_mask, aio->audio + ESR3_MASK_SET_OFFSET);
+		iproc_reg_write(aio->audio, ESR0_MASK_SET_OFFSET, set_mask);
+		iproc_reg_write(aio->audio, ESR1_MASK_SET_OFFSET, set_mask);
+		iproc_reg_write(aio->audio, ESR3_MASK_SET_OFFSET, set_mask);
 	} else {
-		writel(set_mask, aio->audio + ESR2_MASK_SET_OFFSET);
-		writel(set_mask, aio->audio + ESR4_MASK_SET_OFFSET);
+		iproc_reg_write(aio->audio, ESR2_MASK_SET_OFFSET, set_mask);
+		iproc_reg_write(aio->audio, ESR4_MASK_SET_OFFSET, set_mask);
 	}
 }
 
@@ -389,13 +401,13 @@ static void cygnus_pcm_period_elapsed(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Set the ring buffer to full */
-		regval = readl(aio->audio + rbuf.rdaddr);
+		iproc_reg_read(aio->audio, rbuf.rdaddr, &regval);
 		regval = regval ^ BIT(31);
-		writel(regval, aio->audio + rbuf.wraddr);
+		iproc_reg_write(aio->audio, rbuf.wraddr, regval);
 	} else {
 		/* Set the ring buffer to empty */
-		regval = readl(aio->audio + rbuf.wraddr);
-		writel(regval, aio->audio + rbuf.rdaddr);
+		iproc_reg_read(aio->audio, rbuf.wraddr, &regval);
+		iproc_reg_write(aio->audio, rbuf.rdaddr, regval);
 	}
 }
 
@@ -411,6 +423,7 @@ static void handle_playback_irq(struct iproc_rb_info *rb_info)
 	void __iomem *audio_io;
 	u32 port;
 	u32 esr_status0, esr_status1, esr_status3;
+	u32 esr_mask0, esr_mask1, esr_mask3;
 
 	audio_io = rb_info->audio;
 
@@ -420,12 +433,17 @@ static void handle_playback_irq(struct iproc_rb_info *rb_info)
 	 * disable status and use it to determine which ESR status
 	 * should be serviced.
 	 */
-	esr_status0 = readl(audio_io + ESR0_STATUS_OFFSET);
-	esr_status0 &= ~readl(audio_io + ESR0_MASK_STATUS_OFFSET);
-	esr_status1 = readl(audio_io + ESR1_STATUS_OFFSET);
-	esr_status1 &= ~readl(audio_io + ESR1_MASK_STATUS_OFFSET);
-	esr_status3 = readl(audio_io + ESR3_STATUS_OFFSET);
-	esr_status3 &= ~readl(audio_io + ESR3_MASK_STATUS_OFFSET);
+	iproc_reg_read(audio_io, ESR0_STATUS_OFFSET, &esr_status0);
+	iproc_reg_read(audio_io, ESR0_MASK_STATUS_OFFSET, &esr_mask0);
+	esr_status0 &= ~esr_mask0;
+
+	iproc_reg_read(audio_io, ESR1_STATUS_OFFSET, &esr_status1);
+	iproc_reg_read(audio_io, ESR1_MASK_STATUS_OFFSET, &esr_mask1);
+	esr_status1 &= ~esr_mask1;
+
+	iproc_reg_read(audio_io, ESR3_STATUS_OFFSET, &esr_status3);
+	iproc_reg_read(audio_io, ESR3_MASK_STATUS_OFFSET, &esr_mask3);
+	esr_status3 &= ~esr_mask3;
 
 	for (port = 0; port < rb_info->num_playback; port++) {
 		u32 esrmask = BIT(port);
@@ -456,11 +474,11 @@ static void handle_playback_irq(struct iproc_rb_info *rb_info)
 	}
 
 	/* Clear ESR interrupt */
-	writel(esr_status0, audio_io + ESR0_STATUS_CLR_OFFSET);
-	writel(esr_status1, audio_io + ESR1_STATUS_CLR_OFFSET);
-	writel(esr_status3, audio_io + ESR3_STATUS_CLR_OFFSET);
+	iproc_reg_write(audio_io, ESR0_STATUS_CLR_OFFSET, esr_status0);
+	iproc_reg_write(audio_io, ESR1_STATUS_CLR_OFFSET, esr_status1);
+	iproc_reg_write(audio_io, ESR3_STATUS_CLR_OFFSET, esr_status3);
 	/* Rearm freemark logic by writing 1 to the correct bit */
-	writel(esr_status3, audio_io + BF_REARM_FREE_MARK_OFFSET);
+	iproc_reg_write(audio_io, BF_REARM_FREE_MARK_OFFSET, esr_status3);
 }
 
 /*
@@ -474,6 +492,7 @@ static void handle_capture_irq(struct iproc_rb_info *rb_info)
 	void __iomem *audio_io;
 	u32 port;
 	u32 esr_status2, esr_status4;
+	u32 esr_mask2, esr_mask4;
 
 	audio_io = rb_info->audio;
 
@@ -483,10 +502,13 @@ static void handle_capture_irq(struct iproc_rb_info *rb_info)
 	 * disable status and use it to determine which ESR status
 	 * should be serviced.
 	 */
-	esr_status2 = readl(audio_io + ESR2_STATUS_OFFSET);
-	esr_status2 &= ~readl(audio_io + ESR2_MASK_STATUS_OFFSET);
-	esr_status4 = readl(audio_io + ESR4_STATUS_OFFSET);
-	esr_status4 &= ~readl(audio_io + ESR4_MASK_STATUS_OFFSET);
+	iproc_reg_read(audio_io, ESR2_STATUS_OFFSET, &esr_status2);
+	iproc_reg_read(audio_io, ESR2_MASK_STATUS_OFFSET, &esr_mask2);
+	esr_status2 &= ~esr_mask2;
+
+	iproc_reg_read(audio_io, ESR4_STATUS_OFFSET, &esr_status4);
+	iproc_reg_read(audio_io, ESR4_MASK_STATUS_OFFSET, &esr_mask4);
+	esr_status4 &= ~esr_mask4;
 
 	for (port = 0; port < rb_info->num_capture; port++) {
 		u32 esrmask = BIT(port);
@@ -510,10 +532,10 @@ static void handle_capture_irq(struct iproc_rb_info *rb_info)
 		}
 	}
 
-	writel(esr_status2, audio_io + ESR2_STATUS_CLR_OFFSET);
-	writel(esr_status4, audio_io + ESR4_STATUS_CLR_OFFSET);
+	iproc_reg_write(audio_io, ESR2_STATUS_CLR_OFFSET, esr_status2);
+	iproc_reg_write(audio_io, ESR4_STATUS_CLR_OFFSET, esr_status4);
 	/* Rearm fullmark logic by writing 1 to the correct bit */
-	writel(esr_status4, audio_io + BF_REARM_FULL_MARK_OFFSET);
+	iproc_reg_write(audio_io, BF_REARM_FULL_MARK_OFFSET, esr_status4);
 }
 
 static irqreturn_t cygnus_dma_irq(int irq, void *data)
@@ -529,7 +551,7 @@ static irqreturn_t cygnus_dma_irq(int irq, void *data)
 	 *  3		ESR3 (Freemark play. interrupt)
 	 *  4		ESR4 (Fullmark capt. interrupt)
 	 */
-	r5_status = readl(rb_info->audio + INTH_R5F_STATUS_OFFSET);
+	iproc_reg_read(rb_info->audio, INTH_R5F_STATUS_OFFSET, &r5_status);
 
 	if (!(r5_status & (ANY_PLAYBACK_IRQ | ANY_CAPTURE_IRQ)))
 		return IRQ_NONE;
@@ -537,15 +559,15 @@ static irqreturn_t cygnus_dma_irq(int irq, void *data)
 	/* If playback interrupt happened */
 	if (ANY_PLAYBACK_IRQ & r5_status) {
 		handle_playback_irq(rb_info);
-		writel(ANY_PLAYBACK_IRQ & r5_status,
-			rb_info->audio + INTH_R5F_CLEAR_OFFSET);
+		iproc_reg_write(rb_info->audio, INTH_R5F_CLEAR_OFFSET,
+				ANY_PLAYBACK_IRQ & r5_status);
 	}
 
 	/* If  capture interrupt happened */
 	if (ANY_CAPTURE_IRQ & r5_status) {
 		handle_capture_irq(rb_info);
-		writel(ANY_CAPTURE_IRQ & r5_status,
-			rb_info->audio + INTH_R5F_CLEAR_OFFSET);
+		iproc_reg_write(rb_info->audio, INTH_R5F_CLEAR_OFFSET,
+				ANY_CAPTURE_IRQ & r5_status);
 	}
 
 	return IRQ_HANDLED;
@@ -673,11 +695,11 @@ static snd_pcm_uframes_t cygnus_pcm_pointer(struct snd_pcm_substream *substream)
 	 */
 	get_ringbuf(substream, &rbuf);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		cur = readl(aio->audio + rbuf.rdaddr);
+		iproc_reg_read(aio->audio, rbuf.rdaddr, &cur);
 	else
-		cur = readl(aio->audio + rbuf.wraddr);
+		iproc_reg_read(aio->audio, rbuf.wraddr, &cur);
 
-	base = readl(aio->audio + rbuf.baseaddr);
+	iproc_reg_read(aio->audio, rbuf.baseaddr, &base);
 
 	/*
 	 * Mask off the MSB of the rdaddr,wraddr and baseaddr
