@@ -81,9 +81,11 @@ per_socket_stats_example-objs := $(LIBBPF) cookie_uid_helper_example.o
 
 # Tell kbuild to always build the programs
 always := $(hostprogs-y)
+ifneq ($(ARCH), arm64)
 always += sockex1_kern.o
 always += sockex2_kern.o
 always += sockex3_kern.o
+endif
 always += tracex1_kern.o
 always += tracex2_kern.o
 always += tracex3_kern.o
@@ -93,7 +95,9 @@ always += tracex6_kern.o
 always += sock_flags_kern.o
 always += test_probe_write_user_kern.o
 always += trace_output_kern.o
+ifneq ($(ARCH), arm64)
 always += tcbpf1_kern.o
+endif
 always += tcbpf2_kern.o
 always += tc_l2_redirect_kern.o
 always += lathist_kern.o
@@ -102,7 +106,9 @@ always += spintest_kern.o
 always += map_perf_test_kern.o
 always += test_overhead_tp_kern.o
 always += test_overhead_kprobe_kern.o
+ifneq ($(ARCH), arm64)
 always += parse_varlen.o parse_simple.o parse_ldabs.o
+endif
 always += test_cgrp2_tc_kern.o
 always += xdp1_kern.o
 always += xdp2_kern.o
@@ -112,7 +118,9 @@ always += sampleip_kern.o
 always += lwt_len_hist_kern.o
 always += xdp_tx_iptunnel_kern.o
 always += test_map_in_map_kern.o
+ifneq ($(ARCH), arm64)
 always += cookie_uid_helper_example.o
+endif
 always += tcp_synrto_kern.o
 always += tcp_rwnd_kern.o
 always += tcp_bufs_kern.o
@@ -160,6 +168,8 @@ HOSTLOADLIBES_test_map_in_map += -lelf
 #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
 LLC ?= llc
 CLANG ?= clang
+PERL ?= perl
+RM ?= rm
 
 # Detect that we're cross compiling and use the right compilers and flags
 ifdef CROSS_COMPILE
@@ -209,18 +219,41 @@ $(src)/*.c: verify_target_bpf
 
 $(obj)/tracex5_kern.o: $(obj)/syscall_nrs.h
 
-# asm/sysreg.h - inline assembly used by it is incompatible with llvm.
-# But, there is no easy way to fix it, so just exclude it since it is
-# useless for BPF samples.
+curdir := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+ifeq ($(wildcard  $(curdir)/$(ARCH)_asmstubs.h),)
+    ARCH_ASM_STUBS :=
+else
+    ARCH_ASM_STUBS := -include $(src)/$(ARCH)_asmstubs.h
+endif
+
+ASM_STUBS := $(ARCH_ASM_STUBS) -include $(src)/generic_asmstubs.h
+
+CLANG_ARGS = $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+    -D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
+    -D__TARGET_ARCH_$(ARCH) $(ASM_STUBS) \
+    -Wno-compare-distinct-pointer-types \
+    -Wno-gnu-variable-sized-type-not-at-end \
+    -Wno-address-of-packed-member -Wno-tautological-compare \
+    -Wno-unknown-warning-option \
+    -O2 -emit-llvm \
+    -I$(srctree)/tools/testing/selftests/bpf/
+
+# Steps to compile BPF sample while getting rid of inline asm.
+# This has the advantage of not having to skip important asm headers.
+# Step 1. Use clang preprocessor to stub out asm() calls
+# Step 2. Replace all "asm volatile" with single keyword "asmvolatile"
+# Step 3. Use clang preprocessor to noop all asm volatile() calls
+#         and restore asm_bpf to asm for BPF's asm directives
+# Step 4. Compile and link
 $(obj)/%.o: $(src)/%.c
-	$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) -I$(obj) \
-		-I$(srctree)/tools/testing/selftests/bpf/ \
-		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-		-Wno-compare-distinct-pointer-types \
-		-Wno-gnu-variable-sized-type-not-at-end \
-		-Wno-address-of-packed-member -Wno-tautological-compare \
-		-Wno-unknown-warning-option \
-		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+	$(CLANG) -E $(CLANG_ARGS) -c $< -o - | \
+	$(PERL) -pe "s/[_\s]*asm[_\s]*volatile[_\s]*/asmvolatile/g" | \
+	$(CLANG) -E $(ASM_STUBS) - -o - | \
+	$(CLANG) -E -Dasm_bpf=asm - -o $@.tmp.c
+
+	$(CLANG) $(CLANG_ARGS) -c $@.tmp.c \
+	-o - | $(LLC) -march=bpf -filetype=obj -o $@
+	$(RM) $@.tmp.c
 
 install:
 	cp -f $(hostprogs-y) $(DESTDIR)
