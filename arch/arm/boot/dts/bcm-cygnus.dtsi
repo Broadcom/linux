@@ -53,7 +53,7 @@
 		};
 	};
 
-	/include/ "bcm-cygnus-clock.dtsi"
+	#include "bcm-cygnus-clock.dtsi"
 
 	pmu {
 		compatible = "arm,cortex-a9-pmu";

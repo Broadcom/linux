@@ -206,7 +206,7 @@
 };
 
 &clcd {
-	clocks =  <&mipipll 2>, <&apb_clk>;
+	clocks =  <&mipipll BCM_CYGNUS_MIPIPLL_CH1_LCD>, <&apb_clk>;
 	clcd-clock-select = <1>;
 
 	port {

@@ -83,13 +83,14 @@
 };
 
 &mipipll {
-	assigned-clocks = <&mipipll 2>, <&mipipll 0>;
-	assigned-clock-parents = <&mipipll 0>;
+	assigned-clocks = <&mipipll BCM_CYGNUS_MIPIPLL_CH1_LCD>,
+			  <&mipipll BCM_CYGNUS_MIPIPLL>;
+	assigned-clock-parents = <&mipipll BCM_CYGNUS_MIPIPLL>;
 	assigned-clock-rates = <0>, <2100000000>;
 };
 
 &clcd {
-	clocks =  <&mipipll 2>, <&apb_clk>;
+	clocks =  <&mipipll BCM_CYGNUS_MIPIPLL_CH1_LCD>, <&apb_clk>;
 	clcd-clock-select = <1>;
 
 	port {
