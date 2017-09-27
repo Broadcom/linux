@@ -94,6 +94,7 @@ struct nvme_dev {
 	bool subsystem;
 	void __iomem *cmb;
 	dma_addr_t cmb_dma_addr;
+	pci_bus_addr_t cmb_bus_addr;
 	u64 cmb_size;
 	u32 cmbsz;
 	u32 cmbloc;
@@ -1218,7 +1219,7 @@ static int nvme_alloc_sq_cmds(struct nvme_dev *dev, struct nvme_queue *nvmeq,
 	if (qid && dev->cmb && use_cmb_sqes && NVME_CMB_SQS(dev->cmbsz)) {
 		unsigned offset = (qid - 1) * roundup(SQ_SIZE(depth),
 						      dev->ctrl.page_size);
-		nvmeq->sq_dma_addr = dev->cmb_dma_addr + offset;
+		nvmeq->sq_dma_addr = dev->cmb_bus_addr + offset;
 		nvmeq->sq_cmds_io = dev->cmb + offset;
 	} else {
 		nvmeq->sq_cmds = dma_alloc_coherent(dev->dev, SQ_SIZE(depth),
@@ -1511,8 +1512,28 @@ static ssize_t nvme_cmb_show(struct device *dev,
 }
 static DEVICE_ATTR(cmb, S_IRUGO, nvme_cmb_show, NULL);
 
+static int nvme_find_cmb_bus_addr(struct pci_dev *pdev,
+				  dma_addr_t dma_addr,
+				  u64 size,
+				  pci_bus_addr_t *bus_addr)
+{
+	struct resource *res;
+	struct pci_bus_region region;
+	struct resource tres = DEFINE_RES_MEM(dma_addr, size);
+
+	res = pci_find_resource(pdev, &tres);
+	if (!res)
+		return -EIO;
+
+	pcibios_resource_to_bus(pdev->bus, &region, res);
+	*bus_addr = region.start + (dma_addr - res->start);
+
+	return 0;
+}
+
 static void __iomem *nvme_map_cmb(struct nvme_dev *dev)
 {
+	int rc;
 	u64 szu, size, offset;
 	resource_size_t bar_size;
 	struct pci_dev *pdev = to_pci_dev(dev->dev);
@@ -1550,6 +1571,13 @@ static void __iomem *nvme_map_cmb(struct nvme_dev *dev)
 
 	dev->cmb_dma_addr = dma_addr;
 	dev->cmb_size = size;
+
+	rc = nvme_find_cmb_bus_addr(pdev, dma_addr, size, &dev->cmb_bus_addr);
+	if (rc) {
+		iounmap(cmb);
+		return NULL;
+	}
+
 	return cmb;
 }
 
