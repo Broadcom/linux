@@ -14,6 +14,7 @@ config DRM_VC4
 
 config DRM_VC4_DISPLAY
 	tristate "Broadcom VC4 Display Graphics"
+	depends on ARCH_BCM2835 || COMPILE_TEST
 	depends on DRM_VC4
 	depends on SND && SND_SOC
 	select DRM_PANEL_BRIDGE
