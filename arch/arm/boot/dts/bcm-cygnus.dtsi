@@ -138,8 +138,7 @@
 			usbphy2: usb-phy@2 {
 				#phy-cells = <1>;
 				reg = <2>;
-				vbus-gpio = <&gpio_asiu 121 0>;
-				id-gpio = <&gpio_asiu 122 0>;
+				extcon = <&extcon_usb>;
 			};
 		};
 
@@ -561,12 +560,19 @@
 			status = "disabled";
 		};
 
+		extcon_usb: extcon_usb {
+			compatible = "linux,extcon-usb-gpio";
+			vbus-gpio = <&gpio_asiu 121 0>;
+			id-gpio = <&gpio_asiu 122 0>;
+			status = "okay";
+		};
+
 		usb2: usb@1804c000 {
 			compatible = "snps,dw-ahb-udc";
 			reg = <0x1804c000 0x2000>;
 			interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usbphy2 2>;
-			extcon = <&usbphy2>;
+			extcon = <&extcon_usb>;
 			phy-names = "usb2drd";
 			status = "disabled";
 		};
