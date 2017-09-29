@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Broadcom
+ * Copyright 2017 Broadcom
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2, as
@@ -33,31 +33,30 @@
 #define CDRU_USBPHY_P0_STATUS_OFFSET			0x1C
 #define CDRU_USBPHY_P1_STATUS_OFFSET			0x34
 #define CDRU_USBPHY_P2_STATUS_OFFSET			0x4C
-
 #define CRMU_USB_PHY_AON_CTRL_OFFSET			0x0
 
-#define CDRU_USBPHY_USBPHY_ILDO_ON_FLAG			1
-#define CDRU_USBPHY_USBPHY_PLL_LOCK			0
-#define CDRU_USB_DEV_SUSPEND_RESUME_CTRL_DISABLE	0
+#define CDRU_USBPHY_USBPHY_ILDO_ON_FLAG			BIT(1)
+#define CDRU_USBPHY_USBPHY_PLL_LOCK			BIT(0)
+#define CDRU_USB_DEV_SUSPEND_RESUME_CTRL_DISABLE	BIT(0)
 
 #define PHY2_DEV_HOST_CTRL_SEL_DEVICE			0
 #define PHY2_DEV_HOST_CTRL_SEL_HOST			1
 #define PHY2_DEV_HOST_CTRL_SEL_IDLE			2
-#define CRMU_USBPHY_P0_AFE_CORERDY_VDDC			1
-#define CRMU_USBPHY_P0_RESETB				2
-#define CRMU_USBPHY_P1_AFE_CORERDY_VDDC			9
-#define CRMU_USBPHY_P1_RESETB				10
-#define CRMU_USBPHY_P2_AFE_CORERDY_VDDC			17
-#define CRMU_USBPHY_P2_RESETB				18
+#define CRMU_USBPHY_P0_AFE_CORERDY_VDDC			BIT(1)
+#define CRMU_USBPHY_P0_RESETB				BIT(2)
+#define CRMU_USBPHY_P1_AFE_CORERDY_VDDC			BIT(9)
+#define CRMU_USBPHY_P1_RESETB				BIT(10)
+#define CRMU_USBPHY_P2_AFE_CORERDY_VDDC			BIT(17)
+#define CRMU_USBPHY_P2_RESETB				BIT(18)
 
 #define USB2_IDM_IDM_IO_CONTROL_DIRECT_OFFSET		0x0408
-#define USB2_IDM_IDM_IO_CONTROL_DIRECT__clk_enable	0
+#define USB2_IDM_IDM_IO_CONTROL_DIRECT_CLK_ENABLE	BIT(0)
 #define SUSPEND_OVERRIDE_0				13
 #define SUSPEND_OVERRIDE_1				14
 #define SUSPEND_OVERRIDE_2				15
 #define USB2_IDM_IDM_RESET_CONTROL_OFFSET		0x0800
 #define USB2_IDM_IDM_RESET_CONTROL__RESET		0
-#define USB2D_IDM_IDM_IO_SS_CLEAR_NAK_NEMPTY_EN_I (1 << 24)
+#define USB2D_IDM_IDM_IO_SS_CLEAR_NAK_NEMPTY_EN_I	BIT(24)
 
 #define PLL_LOCK_RETRY_COUNT				1000
 #define MAX_REGULATOR_NAME_LEN				25
@@ -75,45 +74,31 @@ static const int status_reg[] = {CDRU_USBPHY_P0_STATUS_OFFSET,
 				CDRU_USBPHY_P1_STATUS_OFFSET,
 				CDRU_USBPHY_P2_STATUS_OFFSET};
 
-struct bcm_usb_extcon_info {
-	struct extcon_dev *edev;
-	struct gpio_desc *id_gpiod;
-	int id_irq;
-	struct gpio_desc *vbus_gpiod;
-	int vbus_irq;
-	spinlock_t lock;
-	unsigned int connect_mode;
-};
+struct cygnus_phy_instance;
 
-struct bcm_phy_instance;
-
-struct bcm_phy_driver {
+struct cygnus_phy_driver {
 	void __iomem *cdru_usbphy_regs;
 	void __iomem *crmu_usbphy_aon_ctrl_regs;
 	void __iomem *usb2h_idm_regs;
 	void __iomem *usb2d_idm_regs;
 	int num_phys;
 	bool idm_host_enabled;
-	struct bcm_phy_instance *instances;
+	struct cygnus_phy_instance *instances;
 	int phyto_src_clk;
 	struct platform_device *pdev;
 };
 
-struct bcm_phy_instance {
-	struct bcm_phy_driver *driver;
+struct cygnus_phy_instance {
+	struct cygnus_phy_driver *driver;
 	struct phy *generic_phy;
 	int port;
-	int new_state;		/* 1 - Host , 0 - device, 2 - idle*/
-	int current_state;	/* 1 - Host , 0 - device, 2 - idle*/
-	bool power;		/* 1 -powered_on 0 -powered off */
+	int new_state;		/* 1 - Host, 0 - device, 2 - idle*/
+	bool power;		/* 1 - powered_on 0 - powered off */
 	struct regulator *vbus_supply;
 	spinlock_t lock;
-	struct bcm_usb_extcon_info extcon;
-	struct extcon_specific_cable_nb extcon_dev;
-	struct extcon_specific_cable_nb extcon_host;
-	struct notifier_block host_nb;
-	struct notifier_block dev_nb;
-	struct delayed_work conn_work;
+	struct extcon_dev *edev;
+	struct notifier_block	device_nb;
+	struct notifier_block	host_nb;
 };
 
 static const unsigned int usb_extcon_cable[] = {
@@ -122,8 +107,8 @@ static const unsigned int usb_extcon_cable[] = {
 	EXTCON_NONE,
 };
 
-static inline int bcm_phy_cdru_usbphy_status_wait(u32 usb_reg, int reg_bit,
-					  struct bcm_phy_driver *phy_driver)
+static inline int phy_pll_lock_stat(u32 usb_reg, int bit_mask,
+				    struct cygnus_phy_driver *phy_driver)
 {
 	/* Wait for the PLL lock status */
 	int retry = PLL_LOCK_RETRY_COUNT;
@@ -133,19 +118,18 @@ static inline int bcm_phy_cdru_usbphy_status_wait(u32 usb_reg, int reg_bit,
 		udelay(1);
 		reg_val = readl(phy_driver->cdru_usbphy_regs +
 				usb_reg);
-		if (reg_val & (1 << reg_bit))
+		if (reg_val & bit_mask)
 			return 0;
 	} while (--retry > 0);
 
 	return -EBUSY;
-
 }
 
-static struct phy *bcm_usb_phy_xlate(struct device *dev,
-				     struct of_phandle_args *args)
+static struct phy *cygnus_phy_xlate(struct device *dev,
+				    struct of_phandle_args *args)
 {
-	struct bcm_phy_driver *phy_driver = dev_get_drvdata(dev);
-	struct bcm_phy_instance *instance_ptr;
+	struct cygnus_phy_driver *phy_driver = dev_get_drvdata(dev);
+	struct cygnus_phy_instance *instance_ptr;
 
 	if (!phy_driver)
 		return ERR_PTR(-EINVAL);
@@ -169,51 +153,41 @@ ret_p2:
 	return phy_driver->instances[instance_ptr->port].generic_phy;
 }
 
-static void bcm_usbp2_dev_clock_init(struct phy *generic_phy)
+static void cygnus_usbp2_dev_clock_init(struct phy *generic_phy, bool enable)
 {
 	u32 reg_val;
-	struct bcm_phy_instance *instance_ptr = phy_get_drvdata(generic_phy);
-	struct bcm_phy_driver *phy_driver = instance_ptr->driver;
+	struct cygnus_phy_instance *instance_ptr = phy_get_drvdata(generic_phy);
+	struct cygnus_phy_driver *phy_driver = instance_ptr->driver;
 
-	/* Enable clock to USB device and take the USB device out of reset */
 	reg_val = readl(phy_driver->usb2d_idm_regs +
 			USB2_IDM_IDM_IO_CONTROL_DIRECT_OFFSET);
-	reg_val |= BIT(USB2_IDM_IDM_IO_CONTROL_DIRECT__clk_enable);
+
+	if (enable)
+		reg_val |= USB2_IDM_IDM_IO_CONTROL_DIRECT_CLK_ENABLE;
+	else
+		reg_val &= ~USB2_IDM_IDM_IO_CONTROL_DIRECT_CLK_ENABLE;
+
 	writel(reg_val, phy_driver->usb2d_idm_regs +
-			USB2_IDM_IDM_IO_CONTROL_DIRECT_OFFSET);
+		USB2_IDM_IDM_IO_CONTROL_DIRECT_OFFSET);
 
 	reg_val = readl(phy_driver->usb2d_idm_regs +
 			USB2_IDM_IDM_RESET_CONTROL_OFFSET);
-	reg_val &= ~BIT(USB2_IDM_IDM_RESET_CONTROL__RESET);
+
+	if (enable)
+		reg_val &= ~BIT(USB2_IDM_IDM_RESET_CONTROL__RESET);
+	else
+		reg_val |= BIT(USB2_IDM_IDM_RESET_CONTROL__RESET);
+
 	writel(reg_val, phy_driver->usb2d_idm_regs +
-			USB2_IDM_IDM_RESET_CONTROL_OFFSET);
+		USB2_IDM_IDM_RESET_CONTROL_OFFSET);
 }
 
-static void bcm_usbp2_dev_clock_deinit(struct phy *generic_phy)
+static void cygnus_phy_clk_reset_src_switch(struct phy *generic_phy,
+					    u32 src_phy)
 {
 	u32 reg_val;
-	struct bcm_phy_instance *instance_ptr = phy_get_drvdata(generic_phy);
-	struct bcm_phy_driver *phy_driver = instance_ptr->driver;
-
-	/* Disable clock to USB device and reset the USB device */
-	reg_val = readl(phy_driver->usb2d_idm_regs +
-			USB2_IDM_IDM_IO_CONTROL_DIRECT_OFFSET);
-	reg_val &= ~BIT(USB2_IDM_IDM_IO_CONTROL_DIRECT__clk_enable);
-	writel(reg_val, phy_driver->usb2d_idm_regs +
-			USB2_IDM_IDM_IO_CONTROL_DIRECT_OFFSET);
-
-	reg_val = readl(phy_driver->usb2d_idm_regs +
-			USB2_IDM_IDM_RESET_CONTROL_OFFSET);
-	reg_val |= BIT(USB2_IDM_IDM_RESET_CONTROL__RESET);
-	writel(reg_val, phy_driver->usb2d_idm_regs +
-			USB2_IDM_IDM_RESET_CONTROL_OFFSET);
-}
-
-static void bcm_phy_clk_reset_src_switch(struct phy *generic_phy, u32 src_phy)
-{
-	u32 reg_val;
-	struct bcm_phy_instance *instance_ptr = phy_get_drvdata(generic_phy);
-	struct bcm_phy_driver *phy_driver = instance_ptr->driver;
+	struct cygnus_phy_instance *instance_ptr = phy_get_drvdata(generic_phy);
+	struct cygnus_phy_driver *phy_driver = instance_ptr->driver;
 
 	writel(src_phy, phy_driver->cdru_usbphy_regs +
 		CDRU_USBPHY_CLK_RST_SEL_OFFSET);
@@ -230,54 +204,58 @@ static void bcm_phy_clk_reset_src_switch(struct phy *generic_phy, u32 src_phy)
 		USB2_IDM_IDM_IO_CONTROL_DIRECT_OFFSET);
 }
 
-static int bcm_phy_init(struct phy *generic_phy)
+static void cygnus_phy_dual_role_init(struct cygnus_phy_instance *instance_ptr)
 {
 	u32 reg_val;
-	unsigned long flags;
-	struct bcm_phy_instance *instance_ptr = phy_get_drvdata(generic_phy);
-	struct bcm_phy_driver *phy_driver = instance_ptr->driver;
+	struct cygnus_phy_driver *phy_driver = instance_ptr->driver;
 
-	spin_lock_irqsave(&instance_ptr->lock, flags);
-
-	/*
-	 * Only PORT 2 is capabale of being device and host
-	 * Default setting is device, check if it is set to host
-	 */
-	if (instance_ptr->port == DUAL_ROLE_PHY) {
-		if (instance_ptr->new_state == PHY2_DEV_HOST_CTRL_SEL_HOST) {
-			writel(PHY2_DEV_HOST_CTRL_SEL_HOST,
-				phy_driver->cdru_usbphy_regs +
-				CDRU_USBPHY2_HOST_DEV_SEL_OFFSET);
-		} else {
-			/*
-			 * Disable suspend/resume signals to device controller
-			 * when a port is in device mode
-			 */
-			writel(PHY2_DEV_HOST_CTRL_SEL_DEVICE,
-				phy_driver->cdru_usbphy_regs +
-				CDRU_USBPHY2_HOST_DEV_SEL_OFFSET);
-			reg_val = readl(phy_driver->cdru_usbphy_regs +
-				      CDRU_USB_DEV_SUSPEND_RESUME_CTRL_OFFSET);
-			reg_val |=
-				BIT(CDRU_USB_DEV_SUSPEND_RESUME_CTRL_DISABLE);
-			writel(reg_val, phy_driver->cdru_usbphy_regs +
+	if (instance_ptr->new_state == PHY2_DEV_HOST_CTRL_SEL_HOST) {
+		writel(PHY2_DEV_HOST_CTRL_SEL_HOST,
+			phy_driver->cdru_usbphy_regs +
+			CDRU_USBPHY2_HOST_DEV_SEL_OFFSET);
+	} else {
+		/*
+		 * Disable suspend/resume signals to device controller
+		 * when a port is in device mode
+		 */
+		writel(PHY2_DEV_HOST_CTRL_SEL_DEVICE,
+			phy_driver->cdru_usbphy_regs +
+			CDRU_USBPHY2_HOST_DEV_SEL_OFFSET);
+		reg_val = readl(phy_driver->cdru_usbphy_regs +
 				CDRU_USB_DEV_SUSPEND_RESUME_CTRL_OFFSET);
-		}
+		reg_val |= CDRU_USB_DEV_SUSPEND_RESUME_CTRL_DISABLE;
+		writel(reg_val, phy_driver->cdru_usbphy_regs +
+				CDRU_USB_DEV_SUSPEND_RESUME_CTRL_OFFSET);
 	}
-	spin_unlock_irqrestore(&instance_ptr->lock, flags);
+}
+
+static int cygnus_phy_init(struct phy *generic_phy)
+{
+	struct cygnus_phy_instance *instance_ptr = phy_get_drvdata(generic_phy);
+
+	if (instance_ptr->port == DUAL_ROLE_PHY)
+		cygnus_phy_dual_role_init(instance_ptr);
 
 	return 0;
 }
 
-static int bcm_phy_shutdown(struct phy *generic_phy)
+static int cygnus_phy_shutdown(struct phy *generic_phy)
 {
 	u32 reg_val;
-	int i;
+	int i, ret;
 	unsigned long flags;
 	bool power_off_flag = true;
-	struct bcm_phy_instance *instance_ptr = phy_get_drvdata(generic_phy);
-	struct bcm_phy_driver *phy_driver = instance_ptr->driver;
-	u32 extcon_event = instance_ptr->new_state;
+	struct cygnus_phy_instance *instance_ptr = phy_get_drvdata(generic_phy);
+	struct cygnus_phy_driver *phy_driver = instance_ptr->driver;
+
+	if (instance_ptr->vbus_supply) {
+		ret = regulator_disable(instance_ptr->vbus_supply);
+		if (ret) {
+			dev_err(&generic_phy->dev,
+					"Failed to disable regulator\n");
+			return ret;
+		}
+	}
 
 	spin_lock_irqsave(&instance_ptr->lock, flags);
 
@@ -285,14 +263,14 @@ static int bcm_phy_shutdown(struct phy *generic_phy)
 	reg_val = readl(phy_driver->crmu_usbphy_aon_ctrl_regs +
 			CRMU_USB_PHY_AON_CTRL_OFFSET);
 	if (instance_ptr->port == 0) {
-		reg_val &= ~BIT(CRMU_USBPHY_P0_AFE_CORERDY_VDDC);
-		reg_val &= ~BIT(CRMU_USBPHY_P0_RESETB);
+		reg_val &= ~CRMU_USBPHY_P0_AFE_CORERDY_VDDC;
+		reg_val &= ~CRMU_USBPHY_P0_RESETB;
 	} else if (instance_ptr->port == 1) {
-		reg_val &= ~BIT(CRMU_USBPHY_P1_AFE_CORERDY_VDDC);
-		reg_val &= ~BIT(CRMU_USBPHY_P1_RESETB);
+		reg_val &= ~CRMU_USBPHY_P1_AFE_CORERDY_VDDC;
+		reg_val &= ~CRMU_USBPHY_P1_RESETB;
 	} else if (instance_ptr->port == 2) {
-		reg_val &= ~BIT(CRMU_USBPHY_P2_AFE_CORERDY_VDDC);
-		reg_val &= ~BIT(CRMU_USBPHY_P2_RESETB);
+		reg_val &= ~CRMU_USBPHY_P2_AFE_CORERDY_VDDC;
+		reg_val &= ~CRMU_USBPHY_P2_RESETB;
 	}
 	writel(reg_val, phy_driver->crmu_usbphy_aon_ctrl_regs +
 		CRMU_USB_PHY_AON_CTRL_OFFSET);
@@ -307,6 +285,11 @@ static int bcm_phy_shutdown(struct phy *generic_phy)
 		}
 	}
 
+	/* Disable clock to USB device and keep the USB device in reset */
+	if (instance_ptr->port == DUAL_ROLE_PHY)
+		cygnus_usbp2_dev_clock_init(instance_ptr->generic_phy,
+					    false);
+
 	/*
 	 * Put the host controller into reset state and
 	 * disable clock if all the phy's are powered off
@@ -314,8 +297,7 @@ static int bcm_phy_shutdown(struct phy *generic_phy)
 	if (power_off_flag) {
 		reg_val = readl(phy_driver->usb2h_idm_regs +
 			USB2_IDM_IDM_IO_CONTROL_DIRECT_OFFSET);
-		reg_val &=
-		  ~BIT(USB2_IDM_IDM_IO_CONTROL_DIRECT__clk_enable);
+		reg_val &= ~USB2_IDM_IDM_IO_CONTROL_DIRECT_CLK_ENABLE;
 		writel(reg_val, phy_driver->usb2h_idm_regs +
 				USB2_IDM_IDM_IO_CONTROL_DIRECT_OFFSET);
 
@@ -326,82 +308,73 @@ static int bcm_phy_shutdown(struct phy *generic_phy)
 				USB2_IDM_IDM_RESET_CONTROL_OFFSET);
 		phy_driver->idm_host_enabled = false;
 	}
-	instance_ptr->current_state = extcon_event;
 	spin_unlock_irqrestore(&instance_ptr->lock, flags);
-
 	return 0;
 }
 
-static int bcm_phy_poweron(struct phy *generic_phy)
+static int cygnus_phy_poweron(struct phy *generic_phy)
 {
 	int ret;
 	unsigned long flags;
 	u32 reg_val;
-	struct bcm_phy_instance *instance_ptr = phy_get_drvdata(generic_phy);
-	struct bcm_phy_driver *phy_driver = instance_ptr->driver;
+	struct cygnus_phy_instance *instance_ptr = phy_get_drvdata(generic_phy);
+	struct cygnus_phy_driver *phy_driver = instance_ptr->driver;
 	u32 extcon_event = instance_ptr->new_state;
 
 	/*
 	 * Switch on the regulator only if in HOST mode
 	 */
-	if (instance_ptr->vbus_supply &&
-			extcon_event == PHY2_DEV_HOST_CTRL_SEL_HOST) {
+	if (instance_ptr->vbus_supply) {
 		ret = regulator_enable(instance_ptr->vbus_supply);
 		if (ret) {
 			dev_err(&generic_phy->dev,
 				"Failed to enable regulator\n");
-			return ret;
+			goto err_shutdown;
 		}
 	}
 
 	spin_lock_irqsave(&instance_ptr->lock, flags);
-
 	/* Bring the AFE block out of reset to start powering up the PHY */
 	reg_val = readl(phy_driver->crmu_usbphy_aon_ctrl_regs +
 			CRMU_USB_PHY_AON_CTRL_OFFSET);
 	if (instance_ptr->port == 0)
-		reg_val |= BIT(CRMU_USBPHY_P0_AFE_CORERDY_VDDC);
+		reg_val |= CRMU_USBPHY_P0_AFE_CORERDY_VDDC;
 	else if (instance_ptr->port == 1)
-		reg_val |= BIT(CRMU_USBPHY_P1_AFE_CORERDY_VDDC);
+		reg_val |= CRMU_USBPHY_P1_AFE_CORERDY_VDDC;
 	else if (instance_ptr->port == 2)
-		reg_val |= BIT(CRMU_USBPHY_P2_AFE_CORERDY_VDDC);
+		reg_val |= CRMU_USBPHY_P2_AFE_CORERDY_VDDC;
 	writel(reg_val, phy_driver->crmu_usbphy_aon_ctrl_regs +
 		CRMU_USB_PHY_AON_CTRL_OFFSET);
 
 	/* Check for power on and PLL lock */
-	ret = bcm_phy_cdru_usbphy_status_wait(status_reg[instance_ptr->port],
-		   CDRU_USBPHY_USBPHY_ILDO_ON_FLAG, phy_driver);
+	ret = phy_pll_lock_stat(status_reg[instance_ptr->port],
+				CDRU_USBPHY_USBPHY_ILDO_ON_FLAG, phy_driver);
 	if (ret < 0) {
 		dev_err(&generic_phy->dev,
 			"Timed out waiting for USBPHY_ILDO_ON_FLAG on port %d",
 			instance_ptr->port);
+		spin_unlock_irqrestore(&instance_ptr->lock, flags);
 		goto err_shutdown;
 	}
-	ret = bcm_phy_cdru_usbphy_status_wait(status_reg[instance_ptr->port],
-		CDRU_USBPHY_USBPHY_PLL_LOCK, phy_driver);
+	ret = phy_pll_lock_stat(status_reg[instance_ptr->port],
+				CDRU_USBPHY_USBPHY_PLL_LOCK, phy_driver);
 	if (ret < 0) {
 		dev_err(&generic_phy->dev,
 			"Timed out waiting for USBPHY_PLL_LOCK on port %d",
 			instance_ptr->port);
+		spin_unlock_irqrestore(&instance_ptr->lock, flags);
 		goto err_shutdown;
 	}
 
 	instance_ptr->power = true;
 
-	/* Check if the port 2 is configured for device */
-	if (instance_ptr->port == 2 &&
-		extcon_event == PHY2_DEV_HOST_CTRL_SEL_DEVICE) {
-
-		/*
-		 * Enable clock to USB device and take
-		 * the USB device out of reset
-		 */
-		bcm_usbp2_dev_clock_init(instance_ptr->generic_phy);
-	}
+	/* Enable clock to USB device and take the USB device out of reset */
+	if (instance_ptr->port == DUAL_ROLE_PHY)
+		cygnus_usbp2_dev_clock_init(instance_ptr->generic_phy, true);
 
 	/* Set clock source provider to be the last powered on phy */
 	if (instance_ptr->port == phy_driver->phyto_src_clk)
-		bcm_phy_clk_reset_src_switch(generic_phy,
+		cygnus_phy_clk_reset_src_switch(generic_phy,
 				instance_ptr->port);
 
 	if (phy_driver->idm_host_enabled != true &&
@@ -409,7 +382,7 @@ static int bcm_phy_poweron(struct phy *generic_phy)
 		/* Enable clock to USB host and take the host out of reset */
 		reg_val = readl(phy_driver->usb2h_idm_regs +
 				USB2_IDM_IDM_IO_CONTROL_DIRECT_OFFSET);
-		reg_val |= BIT(USB2_IDM_IDM_IO_CONTROL_DIRECT__clk_enable);
+		reg_val |= USB2_IDM_IDM_IO_CONTROL_DIRECT_CLK_ENABLE;
 		writel(reg_val, phy_driver->usb2h_idm_regs +
 				USB2_IDM_IDM_IO_CONTROL_DIRECT_OFFSET);
 
@@ -420,359 +393,107 @@ static int bcm_phy_poweron(struct phy *generic_phy)
 				 USB2_IDM_IDM_RESET_CONTROL_OFFSET);
 		phy_driver->idm_host_enabled = true;
 	}
-	instance_ptr->current_state = extcon_event;
 	spin_unlock_irqrestore(&instance_ptr->lock, flags);
 
 	return 0;
-
 err_shutdown:
-	spin_unlock_irqrestore(&instance_ptr->lock, flags);
-	bcm_phy_shutdown(generic_phy);
+	cygnus_phy_shutdown(generic_phy);
 	return ret;
 }
 
-static void connect_work(struct work_struct *work)
+static int usbd_connect_notify(struct notifier_block *self,
+			       unsigned long event, void *ptr)
 {
-	struct bcm_phy_instance *instance_ptr =
-				container_of(to_delayed_work(work),
-				struct bcm_phy_instance, conn_work);
-	u32 extcon_event = instance_ptr->new_state;
-	struct phy *generic_phy = instance_ptr->generic_phy;
-	unsigned long flags;
-	int ret;
+	struct cygnus_phy_instance *instance_ptr = container_of(self,
+					struct cygnus_phy_instance, device_nb);
 
-	if (extcon_event == PHY2_DEV_HOST_CTRL_SEL_DEVICE ||
-		extcon_event == PHY2_DEV_HOST_CTRL_SEL_HOST) {
-		bcm_phy_init(generic_phy);
-
-		spin_lock_irqsave(&instance_ptr->lock, flags);
-		if (instance_ptr->port == 2 &&
-			instance_ptr->new_state ==
-			PHY2_DEV_HOST_CTRL_SEL_DEVICE) {
-			/*
-			 * Enable clock to USB device and take
-			 * the USB device out of reset
-			 */
-			bcm_usbp2_dev_clock_init(generic_phy);
-		}
-		spin_unlock_irqrestore(&instance_ptr->lock, flags);
-
-		/* Power on regulator only if transition from IDLE->HOST */
-		if (instance_ptr->vbus_supply &&
-		    instance_ptr->new_state == PHY2_DEV_HOST_CTRL_SEL_HOST) {
-			ret = regulator_enable(instance_ptr->vbus_supply);
-			if (ret) {
-				dev_err(&generic_phy->dev,
-					"Failed to enable regulator\n");
-				return;
-			}
-		}
-	} else if (extcon_event == PHY2_DEV_HOST_CTRL_SEL_IDLE) {
-
-		/* Shutdown regulator only if transition from HOST->IDLE */
-		if (instance_ptr->vbus_supply &&
-		    instance_ptr->current_state ==
-		    PHY2_DEV_HOST_CTRL_SEL_HOST) {
-			ret = regulator_disable(instance_ptr->vbus_supply);
-			if (ret) {
-				dev_err(&generic_phy->dev,
-					"Failed to disable regulator\n");
-				return;
-			}
-		}
-		spin_lock_irqsave(&instance_ptr->lock, flags);
-		if (instance_ptr->port == 2 &&
-			instance_ptr->current_state ==
-					PHY2_DEV_HOST_CTRL_SEL_DEVICE) {
-			/*
-			 * Disable clock to USB device and take
-			 * the USB device out of reset
-			 */
-			bcm_usbp2_dev_clock_deinit(generic_phy);
-		}
-		spin_unlock_irqrestore(&instance_ptr->lock, flags);
-	}
-
-	spin_lock_irqsave(&instance_ptr->lock, flags);
-	instance_ptr->current_state = extcon_event;
-	spin_unlock_irqrestore(&instance_ptr->lock, flags);
-}
-
-static int bcm_drd_device_notify(struct notifier_block *self,
-			unsigned long event, void *ptr)
-{
-	unsigned int conn_type = event;
-	struct bcm_phy_instance *instance_ptr =
-			container_of(self, struct bcm_phy_instance, dev_nb);
-
-	if (conn_type) {
+	if (event) {
 		instance_ptr->new_state = PHY2_DEV_HOST_CTRL_SEL_DEVICE;
-		schedule_delayed_work(&instance_ptr->conn_work, 0);
-	} else {
-		instance_ptr->new_state = PHY2_DEV_HOST_CTRL_SEL_IDLE;
-		schedule_delayed_work(&instance_ptr->conn_work,
-					USBPHY_WQ_DELAY_MS);
+		cygnus_phy_dual_role_init(instance_ptr);
 	}
 
-	return NOTIFY_DONE;
+	return NOTIFY_OK;
 }
 
-static int bcm_drd_host_notify(struct notifier_block *self,
-			unsigned long event, void *ptr)
+static int usbh_connect_notify(struct notifier_block *self,
+			       unsigned long event, void *ptr)
 {
-	unsigned int conn_type;
-	struct bcm_phy_instance *instance_ptr =
-			container_of(self, struct bcm_phy_instance, host_nb);
-	conn_type = event;
-
-	if (conn_type) {
+	struct cygnus_phy_instance *instance_ptr = container_of(self,
+					struct cygnus_phy_instance, host_nb);
+	if (event) {
 		instance_ptr->new_state = PHY2_DEV_HOST_CTRL_SEL_HOST;
-		schedule_delayed_work(&instance_ptr->conn_work, 0);
-	} else {
-		instance_ptr->new_state = PHY2_DEV_HOST_CTRL_SEL_IDLE;
-		schedule_delayed_work(&instance_ptr->conn_work,
-					USBPHY_WQ_DELAY_MS);
+		cygnus_phy_dual_role_init(instance_ptr);
 	}
 
-	return NOTIFY_DONE;
+	return NOTIFY_OK;
 }
 
-static void bcm_phy_drd_cable_init_state(struct bcm_phy_instance *instance_ptr)
+static int cygnus_register_extcon_notifiers(
+				struct cygnus_phy_instance *instance_ptr)
 {
-	unsigned int vbus_presence, usb_id;
-	struct bcm_usb_extcon_info *extcon = &instance_ptr->extcon;
-
-	/*
-	 * Check the initial state of vbus and id
-	 * This is required if cable is kept connected
-	 * when booting
-	 */
-	vbus_presence = gpiod_get_value(extcon->vbus_gpiod);
-	usb_id = gpiod_get_value(extcon->id_gpiod);
-
-	if (usb_id == 0) {
-		extcon->connect_mode = USB2_SEL_HOST;
-		extcon_set_cable_state_(extcon->edev, EXTCON_USB_HOST,
-					USB_CONNECTED);
-	} else if (vbus_presence == 1) {
-		extcon->connect_mode = USB2_SEL_DEVICE;
-		extcon_set_cable_state_(extcon->edev, EXTCON_USB,
-					USB_CONNECTED);
-	} else
-		extcon->connect_mode = USB2_SEL_IDLE;
-}
-
-static void bcm_phy_drd_cable_state(struct bcm_phy_instance *instance_ptr,
-					bool resume)
-{
-	unsigned int vbus_presence, usb_id, conn_mode;
-	struct bcm_usb_extcon_info *extcon = &instance_ptr->extcon;
-	unsigned long flags;
-	unsigned int prev_mode;
-
-	/*
-	 * Get the vbus and id gpio values
-	 * ID = 0 ==> Host
-	 * ID = 1 and VBUS = 1 ==> Device
-	 * ID = 1 and VBUS = 0 ==> No connection(idle)
-	 */
-	vbus_presence = gpiod_get_value(extcon->vbus_gpiod);
-	usb_id = gpiod_get_value(extcon->id_gpiod);
-
-	spin_lock_irqsave(&extcon->lock, flags);
-	conn_mode = extcon->connect_mode;
-	prev_mode = extcon->connect_mode;
-	spin_unlock_irqrestore(&extcon->lock, flags);
-
-	switch (prev_mode) {
-	case USB2_SEL_IDLE:
-	if (usb_id == 1) {
-		if (vbus_presence == 1) {
-			conn_mode = USB2_SEL_DEVICE;
-			extcon_set_cable_state_(extcon->edev, EXTCON_USB,
-						USB_CONNECTED);
-		} else
-			conn_mode = USB2_SEL_IDLE;
-	} else {
-		conn_mode = USB2_SEL_HOST;
-		extcon_set_cable_state_(extcon->edev, EXTCON_USB_HOST,
-					USB_CONNECTED);
-	}
-	break;
-
-	case USB2_SEL_DEVICE:
-	if (usb_id == 1) {
-		if (vbus_presence == 0) {
-			conn_mode = USB2_SEL_IDLE;
-			extcon_set_cable_state_(extcon->edev, EXTCON_USB,
-						USB_DISCONNECTED);
-		} else
-			conn_mode = USB2_SEL_DEVICE;
-	} else {
-		extcon_set_cable_state_(extcon->edev, EXTCON_USB,
-					USB_DISCONNECTED);
-		conn_mode = USB2_SEL_HOST;
-		extcon_set_cable_state_(extcon->edev, EXTCON_USB_HOST,
-					USB_CONNECTED);
-	}
-	break;
-
-	case USB2_SEL_HOST:
-	if (usb_id == 1) {
-		conn_mode = USB2_SEL_IDLE;
-		extcon_set_cable_state_(extcon->edev, EXTCON_USB_HOST,
-					USB_DISCONNECTED);
-		if (vbus_presence == 1 && resume) {
-			conn_mode = USB2_SEL_DEVICE;
-			extcon_set_cable_state_(extcon->edev, EXTCON_USB,
-						USB_CONNECTED);
-		}
-	} else
-		conn_mode = USB2_SEL_HOST;
-	break;
-
-	default:
-		dev_err(&instance_ptr->generic_phy->dev, "Invalid case\n");
-	}
-
-	spin_lock_irqsave(&extcon->lock, flags);
-	extcon->connect_mode = conn_mode;
-	spin_unlock_irqrestore(&extcon->lock, flags);
-}
-
-static irqreturn_t bcm_phy_drd_vbus_id_isr(int irq, void *data)
-{
-	struct bcm_phy_instance *instance_ptr = (struct bcm_phy_instance *)data;
-
-	bcm_phy_drd_cable_state(instance_ptr, false);
-
-	return IRQ_HANDLED;
-}
-
-static int bcm_phy_drd_extcon_init(struct bcm_phy_instance *instance_ptr)
-{
+	int ret = 0;
 	struct device *dev = &instance_ptr->generic_phy->dev;
-	struct bcm_usb_extcon_info *extcon = &instance_ptr->extcon;
-	int ret;
 
-	extcon->edev = devm_extcon_dev_allocate(dev, usb_extcon_cable);
-	if (IS_ERR(extcon->edev)) {
-		dev_err(dev, "Failed to allocate extcon device\n");
-		return -ENOMEM;
-	}
+	if (of_property_read_bool(dev->of_node, "extcon")) {
+		instance_ptr->edev = extcon_get_edev_by_phandle(dev, 0);
+		if (IS_ERR(instance_ptr->edev)) {
+			if (PTR_ERR(instance_ptr->edev) == -EPROBE_DEFER)
+				return -EPROBE_DEFER;
+			ret = PTR_ERR(instance_ptr->edev);
+			goto err;
+		}
 
-	extcon->edev->name = dev->of_node->name;
-	extcon->edev->supported_cable = usb_extcon_cable;
-	ret = devm_extcon_dev_register(dev, extcon->edev);
-	if (ret < 0) {
-		dev_err(dev, "Failed to register extcon device\n");
-		return ret;
-	}
+		instance_ptr->device_nb.notifier_call = usbd_connect_notify;
+		ret = extcon_register_notifier(instance_ptr->edev, EXTCON_USB,
+						&instance_ptr->device_nb);
+		if (ret < 0) {
+			dev_err(dev, "Can't register extcon device\n");
+			goto err;
+		}
 
-	spin_lock_init(&extcon->lock);
+		if (extcon_get_state(instance_ptr->edev, EXTCON_USB) == true) {
+			instance_ptr->new_state = PHY2_DEV_HOST_CTRL_SEL_DEVICE;
+			cygnus_phy_dual_role_init(instance_ptr);
+		}
 
-	extcon->id_gpiod = devm_gpiod_get(dev, "id", GPIOD_IN);
-	if (IS_ERR(extcon->id_gpiod)) {
-		dev_err(dev, "Failed to get ID GPIO\n");
-		return PTR_ERR(extcon->id_gpiod);
-	}
+		instance_ptr->host_nb.notifier_call = usbh_connect_notify;
+		ret = extcon_register_notifier(instance_ptr->edev,
+						EXTCON_USB_HOST,
+						&instance_ptr->host_nb);
+		if (ret < 0) {
+			dev_err(dev, "Can't register extcon device\n");
+			goto err;
+		}
 
-	extcon->vbus_gpiod = devm_gpiod_get(dev, "vbus", GPIOD_IN);
-	if (IS_ERR(extcon->vbus_gpiod)) {
-		dev_err(dev, "Failed to get VBUS GPIO\n");
-		return PTR_ERR(extcon->vbus_gpiod);
-	}
-
-	extcon->id_irq = gpiod_to_irq(extcon->id_gpiod);
-	if (extcon->id_irq < 0) {
-		dev_err(dev, "Failed to get ID IRQ\n");
-		return extcon->id_irq;
-	}
-
-	ret = devm_request_threaded_irq(dev, extcon->id_irq, NULL,
-						bcm_phy_drd_vbus_id_isr,
-						IRQF_TRIGGER_RISING |
-						IRQF_TRIGGER_FALLING |
-						IRQF_ONESHOT,
-						"id", instance_ptr);
-	if (ret < 0) {
-		dev_err(dev, "Failed to request handler for ID IRQ\n");
-		return ret;
-	}
-
-	extcon->vbus_irq = gpiod_to_irq(extcon->vbus_gpiod);
-	if (extcon->vbus_irq < 0) {
-		dev_err(dev, "Failed to get VBUS IRQ\n");
-		return extcon->vbus_irq;
-	}
-
-	ret = devm_request_threaded_irq(dev, extcon->vbus_irq, NULL,
-							bcm_phy_drd_vbus_id_isr,
-							IRQF_TRIGGER_RISING |
-							IRQF_TRIGGER_FALLING |
-							IRQF_ONESHOT,
-							"vbus", instance_ptr);
-	if (ret < 0) {
-		dev_err(dev, "Failed to request handler for VBUS IRQ\n");
-		return ret;
-	}
-
-	instance_ptr->host_nb.notifier_call = bcm_drd_host_notify;
-	instance_ptr->dev_nb.notifier_call = bcm_drd_device_notify;
-
-	/*
-	 * Register for the USB device mode connection
-	 * state change notification
-	 */
-	ret = extcon_register_notifier(extcon->edev,
-			EXTCON_USB,
-			&instance_ptr->dev_nb);
-	if (ret < 0) {
-		pr_info("Cannot register extcon_dev for %s.\n",
-				extcon->edev->name);
+		if (extcon_get_state(instance_ptr->edev, EXTCON_USB_HOST)
+					== true) {
+			instance_ptr->new_state = PHY2_DEV_HOST_CTRL_SEL_HOST;
+			cygnus_phy_dual_role_init(instance_ptr);
+		}
+	} else {
+		dev_err(dev, "Extcon device handle not found\n");
 		return -EINVAL;
 	}
 
-	/*
-	 * Register for the USB host mode connection
-	 * state change notification
-	 */
-	ret = extcon_register_notifier(extcon->edev,
-				EXTCON_USB_HOST,
-				&instance_ptr->host_nb);
-	if (ret < 0) {
-		pr_info("Cannot register extcon_dev for %s.\n",
-				extcon->edev->name);
-		ret = -EINVAL;
-		goto err_host;
-	}
-
-	/* set the initial vbus and id values */
-	bcm_phy_drd_cable_init_state(instance_ptr);
-
 	return 0;
-
-err_host:
-	extcon_unregister_notifier(extcon->edev,
-				EXTCON_USB,
-				&instance_ptr->dev_nb);
+err:
 	return ret;
 }
 
 static const struct phy_ops ops = {
-	.init		= bcm_phy_init,
-	.power_on	= bcm_phy_poweron,
-	.power_off	= bcm_phy_shutdown,
+	.init		= cygnus_phy_init,
+	.power_on	= cygnus_phy_poweron,
+	.power_off	= cygnus_phy_shutdown,
 };
 
-static int bcm_phy_instance_create(struct bcm_phy_driver *phy_driver)
+static int cygnus_phy_instance_create(struct cygnus_phy_driver *phy_driver)
 {
 	struct device_node *child;
 	char *vbus_name;
 	struct platform_device *pdev = phy_driver->pdev;
 	struct device *dev = &pdev->dev;
 	struct device_node *node = dev->of_node;
-	struct bcm_phy_instance *instance_ptr;
+	struct cygnus_phy_instance *instance_ptr;
 	unsigned int id, ret;
 
 	for_each_available_child_of_node(node, child) {
@@ -834,18 +555,18 @@ put_child:
 	return ret;
 }
 
-static int bcm_phy_probe(struct platform_device *pdev)
+static int cygnus_phy_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	struct bcm_phy_driver *phy_driver;
+	struct cygnus_phy_driver *phy_driver;
 	struct phy_provider *phy_provider;
-	int ret;
+	int i, ret;
 	u32 reg_val;
 	struct device *dev = &pdev->dev;
 	struct device_node *node = dev->of_node;
 
 	/* allocate memory for each phy instance */
-	phy_driver = devm_kzalloc(dev, sizeof(struct bcm_phy_driver),
+	phy_driver = devm_kzalloc(dev, sizeof(struct cygnus_phy_driver),
 				  GFP_KERNEL);
 	if (!phy_driver)
 		return -ENOMEM;
@@ -858,24 +579,23 @@ static int bcm_phy_probe(struct platform_device *pdev)
 	}
 
 	phy_driver->instances = devm_kcalloc(dev, phy_driver->num_phys,
-						sizeof(struct bcm_phy_instance),
-						GFP_KERNEL);
-
+					     sizeof(struct cygnus_phy_instance),
+					     GFP_KERNEL);
 	phy_driver->pdev = pdev;
 	platform_set_drvdata(pdev, phy_driver);
 
-	ret = bcm_phy_instance_create(phy_driver);
+	ret = cygnus_phy_instance_create(phy_driver);
 	if (ret)
 		return ret;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						"crmu-usbphy-aon-ctrl");
+					   "crmu-usbphy-aon-ctrl");
 	phy_driver->crmu_usbphy_aon_ctrl_regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(phy_driver->crmu_usbphy_aon_ctrl_regs))
 		return PTR_ERR(phy_driver->crmu_usbphy_aon_ctrl_regs);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						"cdru-usbphy");
+					   "cdru-usbphy");
 	phy_driver->cdru_usbphy_regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(phy_driver->cdru_usbphy_regs))
 		return PTR_ERR(phy_driver->cdru_usbphy_regs);
@@ -901,48 +621,50 @@ static int bcm_phy_probe(struct platform_device *pdev)
 	 */
 	reg_val = readl(phy_driver->crmu_usbphy_aon_ctrl_regs +
 			CRMU_USB_PHY_AON_CTRL_OFFSET);
-	reg_val &= ~BIT(CRMU_USBPHY_P0_AFE_CORERDY_VDDC);
-	reg_val &= ~BIT(CRMU_USBPHY_P0_RESETB);
-	reg_val &= ~BIT(CRMU_USBPHY_P1_AFE_CORERDY_VDDC);
-	reg_val &= ~BIT(CRMU_USBPHY_P1_RESETB);
-	reg_val &= ~BIT(CRMU_USBPHY_P2_AFE_CORERDY_VDDC);
-	reg_val &= ~BIT(CRMU_USBPHY_P2_RESETB);
+	reg_val &= ~CRMU_USBPHY_P0_AFE_CORERDY_VDDC;
+	reg_val &= ~CRMU_USBPHY_P0_RESETB;
+	reg_val &= ~CRMU_USBPHY_P1_AFE_CORERDY_VDDC;
+	reg_val &= ~CRMU_USBPHY_P1_RESETB;
+	reg_val &= ~CRMU_USBPHY_P2_AFE_CORERDY_VDDC;
+	reg_val &= ~CRMU_USBPHY_P2_RESETB;
 	writel(reg_val, phy_driver->crmu_usbphy_aon_ctrl_regs +
 		CRMU_USB_PHY_AON_CTRL_OFFSET);
 
-	phy_provider = devm_of_phy_provider_register(dev,
-					bcm_usb_phy_xlate);
-
+	phy_provider = devm_of_phy_provider_register(dev, cygnus_phy_xlate);
 	if (IS_ERR(phy_provider)) {
 		dev_err(dev, "Failed to register as phy provider\n");
 		ret = PTR_ERR(phy_provider);
 		return ret;
 	}
 
-	INIT_DELAYED_WORK(&phy_driver->instances[DUAL_ROLE_PHY].conn_work,
-			connect_work);
-
-	ret = bcm_phy_drd_extcon_init(&phy_driver->instances[DUAL_ROLE_PHY]);
-	if (ret)
-		return ret;
+	for (i = 0; i < phy_driver->num_phys; i++) {
+		if (i == DUAL_ROLE_PHY) {
+			ret = cygnus_register_extcon_notifiers(
+				&phy_driver->instances[DUAL_ROLE_PHY]);
+			if (ret) {
+				dev_err(dev, "Failed to register notifier\n");
+				return ret;
+			}
+		}
+	}
 
 	return 0;
 }
 
-static const struct of_device_id bcm_phy_dt_ids[] = {
+static const struct of_device_id cygnus_phy_dt_ids[] = {
 	{ .compatible = "brcm,cygnus-usb-phy", },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, bcm_phy_dt_ids);
 
-static struct platform_driver bcm_phy_driver = {
-	.probe = bcm_phy_probe,
+static struct platform_driver cygnus_phy_driver = {
+	.probe = cygnus_phy_probe,
 	.driver = {
 		.name = "bcm-cygnus-usbphy",
-		.of_match_table = of_match_ptr(bcm_phy_dt_ids),
+		.of_match_table = of_match_ptr(cygnus_phy_dt_ids),
 	},
 };
-module_platform_driver(bcm_phy_driver);
+module_platform_driver(cygnus_phy_driver);
 
 MODULE_ALIAS("platform:bcm-cygnus-usbphy");
 MODULE_AUTHOR("Raveendra Padasalagi <Raveendra.padasalagi@broadcom.com");
