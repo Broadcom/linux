@@ -41,6 +41,7 @@ struct usb_extcon_info {
 
 	unsigned long debounce_jiffies;
 	struct delayed_work wq_detcable;
+	unsigned int gpio_debounce_timeout_ms;
 };
 
 static const unsigned int usb_extcon_cable[] = {
@@ -133,6 +134,11 @@ static int usb_extcon_probe(struct platform_device *pdev)
 	if (IS_ERR(info->vbus_gpiod))
 		return PTR_ERR(info->vbus_gpiod);
 
+	ret = of_property_read_u32(np, "debounce-timeout-ms",
+			     &info->gpio_debounce_timeout_ms);
+	if (ret)
+		info->gpio_debounce_timeout_ms = USB_GPIO_DEBOUNCE_MS;
+
 	info->edev = devm_extcon_dev_allocate(dev, usb_extcon_cable);
 	if (IS_ERR(info->edev)) {
 		dev_err(dev, "failed to allocate extcon device\n");
@@ -147,13 +153,14 @@ static int usb_extcon_probe(struct platform_device *pdev)
 
 	if (info->id_gpiod)
 		ret = gpiod_set_debounce(info->id_gpiod,
-					 USB_GPIO_DEBOUNCE_MS * 1000);
+					 info->gpio_debounce_timeout_ms * 1000);
 	if (!ret && info->vbus_gpiod)
 		ret = gpiod_set_debounce(info->vbus_gpiod,
-					 USB_GPIO_DEBOUNCE_MS * 1000);
+					 info->gpio_debounce_timeout_ms * 1000);
 
 	if (ret < 0)
-		info->debounce_jiffies = msecs_to_jiffies(USB_GPIO_DEBOUNCE_MS);
+		info->debounce_jiffies = msecs_to_jiffies(
+						info->gpio_debounce_timeout_ms);
 
 	INIT_DELAYED_WORK(&info->wq_detcable, usb_extcon_detect_cable);
 
