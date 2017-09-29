@@ -28,9 +28,10 @@ Optional Properties:
   Based on the vbus and id values device or host role is determined
   for phy 2.
 
-- id-gpios: id gpio binding
+- extcon: extcon phandle
   This is mandatory for port 2,  as port 2 is used as dual role phy.
-  Based on the vbus and id values device or host role is determined for phy 2.
+  extcon should be phandle to external usb gpio module which provide
+  device or host role notifications based on the ID and VBUS gpio's state.
 
 
 Refer to phy/phy-bindings.txt for the generic PHY binding properties
@@ -62,10 +63,17 @@ Example of phy :
 		usbphy2: usb-phy@2 {
 			reg = <2>;
 			#phy-cells = <1>;
-			vbus-gpio = <&gpio_asiu 121 0>;
-			id-gpio = <&gpio_asiu 122 0>;
+			extcon = <&extcon_usb>;
 		};
 	};
+
+	extcon_usb: extcon_usb {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&gpio_asiu 121 0>;
+		id-gpio = <&gpio_asiu 122 0>;
+		status = "okay";
+	};
+
 
 Example of node using the phy:
 
