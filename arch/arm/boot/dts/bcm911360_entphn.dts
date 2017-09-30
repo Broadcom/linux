@@ -200,10 +200,6 @@
 };
 
 &v3d {
-	assigned-clocks =
-		<&mipipll BCM_CYGNUS_MIPIPLL>,
-		<&mipipll BCM_CYGNUS_MIPIPLL_CH2_V3D>;
-	assigned-clock-rates = <525000000>, <300000000>;
 	status = "okay";
 };
 
@@ -275,10 +271,13 @@
 };
 
 &mipipll {
-	assigned-clocks = <&mipipll BCM_CYGNUS_MIPIPLL_CH1_LCD>,
-			  <&mipipll BCM_CYGNUS_MIPIPLL>;
-	assigned-clock-parents = <&mipipll BCM_CYGNUS_MIPIPLL>;
-	assigned-clock-rates = <0>, <2100000000>;
+	assigned-clocks =
+		<&mipipll BCM_CYGNUS_MIPIPLL_CH2_V3D>,
+		<&mipipll BCM_CYGNUS_MIPIPLL_CH1_LCD>,
+		<&mipipll BCM_CYGNUS_MIPIPLL>;
+	assigned-clock-parents =
+		<&mipipll BCM_CYGNUS_MIPIPLL>;
+	assigned-clock-rates = <300000000>, <27000000>, <1200000000>;
 };
 
 &drm_clcd {
