@@ -179,6 +179,7 @@ static const struct iproc_pll_vco_param mipipll_vco_params[] = {
 	/* rate (Hz) ndiv_int ndiv_frac pdiv */
 	{ 750000000UL,   30,     0,        1 },
 	{ 1000000000UL,  40,     0,        1 },
+	{ 1200000000UL,  48,     0,        1 },
 	{ 1350000000ul,  54,     0,        1 },
 	{ 2000000000UL,  80,     0,        1 },
 	{ 2100000000UL,  84,     0,        1 },
