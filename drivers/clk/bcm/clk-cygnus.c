@@ -313,3 +313,12 @@ static void __init cygnus_audiopll_clk_init(struct device_node *node)
 }
 CLK_OF_DECLARE(cygnus_audiopll, "brcm,cygnus-audiopll",
 			cygnus_audiopll_clk_init);
+
+static void __init audiomux_init(struct device_node *node)
+{
+	iproc_audiomux_setup(node);
+}
+CLK_OF_DECLARE(cygnus_audiomux_clk0, "brcm,cygnus-ssp0-clk", audiomux_init);
+CLK_OF_DECLARE(cygnus_audiomux_clk1, "brcm,cygnus-ssp1-clk", audiomux_init);
+CLK_OF_DECLARE(cygnus_audiomux_clk2, "brcm,cygnus-ssp2-clk", audiomux_init);
+CLK_OF_DECLARE(cygnus_audiomux_clk3, "brcm,cygnus-spdiftx-clk", audiomux_init);
