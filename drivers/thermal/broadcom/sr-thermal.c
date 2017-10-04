@@ -73,10 +73,13 @@ static int sr_set_trip_temp(struct thermal_zone_device *tz, int trip, int temp)
 
 	switch (trip) {
 	case 0:
-		if (temp <= TMON_CRIT_TEMP)
-			sr_thermal->crit_temp = temp;
-		else
-			return -EINVAL;
+		/*
+		 * Allow the user to change critical temperature
+		 * as per their requirement, could be for debug
+		 * purpose, even if it's more than the recommended
+		 * critical temperature.
+		 */
+		sr_thermal->crit_temp = temp;
 		break;
 	default:
 		return -EINVAL;
