@@ -17,6 +17,8 @@
 #include <linux/types.h>
 #include <linux/io.h>
 
+#define BRCMNAND_SOC_QUIRK_GET_SET_FEATURE_BROKEN	0x1
+
 struct platform_device;
 struct dev_pm_ops;
 
@@ -25,6 +27,7 @@ struct brcmnand_soc {
 	void (*ctlrdy_set_enabled)(struct brcmnand_soc *soc, bool en);
 	void (*prepare_data_bus)(struct brcmnand_soc *soc, bool prepare,
 				 bool is_param);
+	u32 quirks;
 };
 
 static inline void brcmnand_soc_data_bus_prepare(struct brcmnand_soc *soc,

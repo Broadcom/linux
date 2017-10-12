@@ -2253,6 +2253,11 @@ static int brcmnand_init_cs(struct brcmnand_host *host, struct device_node *dn)
 	chip->ecc.read_oob = brcmnand_read_oob;
 	chip->ecc.write_oob = brcmnand_write_oob;
 
+	if (ctrl->soc->quirks & BRCMNAND_SOC_QUIRK_GET_SET_FEATURE_BROKEN) {
+		chip->onfi_set_features = nand_onfi_get_set_features_notsupp;
+		chip->onfi_get_features = nand_onfi_get_set_features_notsupp;
+	}
+
 	chip->controller = &ctrl->controller;
 
 	/*

@@ -134,6 +134,19 @@ static int iproc_nand_probe(struct platform_device *pdev)
 	soc->ctlrdy_set_enabled = iproc_nand_intc_set;
 	soc->prepare_data_bus = iproc_nand_apb_access;
 
+	/*
+	 * Disable the onfi set/get feature commands for now due to a problem
+	 * with some Micron nand devices that have on-die ECC.
+	 * The Micron specific initialization is determining if the on-die ECC
+	 * is supported (even if on-die ECC is not configured in device tree) by
+	 * enabling it using onfi_set_feature and checking using
+	 * onfi_get_feature then disabling it if the check found it enabled.
+	 * On cygnus this check finds that on-die ECC is not enabled when
+	 * apparently it is, resulting in leaving it enabled and cause nand
+	 * corruption.
+	 */
+	soc->quirks = BRCMNAND_SOC_QUIRK_GET_SET_FEATURE_BROKEN;
+
 	return brcmnand_probe(pdev, soc);
 }
 
