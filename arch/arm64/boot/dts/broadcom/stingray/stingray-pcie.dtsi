@@ -47,7 +47,8 @@
 
 	pcie0: pcie@48000000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
-		reg = <0 0x48000000 0 0x4000>;
+		reg = <0 0x48000000 0 0x4000>,
+		      <0 0x58000000 0 0x1000>;
 
 		interrupt-controller;
 		#interrupt-cells = <1>;
@@ -92,7 +93,8 @@
 
 	pcie1: pcie@48004000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
-		reg = <0 0x48004000 0 0x4000>;
+		reg = <0 0x48004000 0 0x4000>,
+		      <0 0x58001000 0 0x1000>;
 
 		interrupt-controller;
 		#interrupt-cells = <1>;
@@ -137,7 +139,8 @@
 
 	pcie2: pcie@48008000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
-		reg = <0 0x48008000 0 0x4000>;
+		reg = <0 0x48008000 0 0x4000>,
+		      <0 0x58002000 0 0x1000>;
 
 		interrupt-controller;
 		#interrupt-cells = <1>;
@@ -182,7 +185,8 @@
 
 	pcie3: pcie@4800c000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
-		reg = <0 0x4800c000 0 0x4000>;
+		reg = <0 0x4800c000 0 0x4000>,
+		      <0 0x58003000 0 0x1000>;
 
 		interrupt-controller;
 		#interrupt-cells = <1>;
@@ -227,7 +231,8 @@
 
 	pcie4: pcie@48010000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
-		reg = <0 0x48010000 0 0x4000>;
+		reg = <0 0x48010000 0 0x4000>,
+		      <0 0x58006000 0 0x1000>;
 
 		interrupt-controller;
 		#interrupt-cells = <1>;
@@ -272,7 +277,8 @@
 
 	pcie5: pcie@48014000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
-		reg = <0 0x48014000 0 0x4000>;
+		reg = <0 0x48014000 0 0x4000>,
+		      <0 0x58007000 0 0x1000>;
 
 		interrupt-controller;
 		#interrupt-cells = <1>;
@@ -317,7 +323,8 @@
 
 	pcie6: pcie@48018000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
-		reg = <0 0x48018000 0 0x4000>;
+		reg = <0 0x48018000 0 0x4000>,
+		      <0 0x58008000 0 0x1000>;
 
 		interrupt-controller;
 		#interrupt-cells = <1>;
@@ -362,7 +369,8 @@
 
 	pcie7: pcie@4801c000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
-		reg = <0 0x4801c000 0 0x4000>;
+		reg = <0 0x4801c000 0 0x4000>,
+		      <0 0x58009000 0 0x1000>;
 
 		interrupt-controller;
 		#interrupt-cells = <1>;
