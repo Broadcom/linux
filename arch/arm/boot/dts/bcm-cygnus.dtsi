@@ -114,7 +114,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		usbphy: phy@0301c028 {
+		usbphy: phy@301c028 {
 			compatible = "brcm,cygnus-usb-phy";
 			reg = <0x0301c028 0x4>,
 			      <0x0301d1b4 0x5c>,
@@ -142,14 +142,14 @@
 			};
 		};
 
-		otp: otp@0301c800 {
+		otp: otp@301c800 {
 			compatible = "brcm,ocotp";
 			reg = <0x0301c800 0x2c>;
 			brcm,ocotp-size = <2048>;
 			status = "disabled";
 		};
 
-		pcie_phy: phy@0301d0a0 {
+		pcie_phy: phy@301d0a0 {
 			compatible = "brcm,cygnus-pcie-phy";
 			reg = <0x0301d0a0 0x14>;
 			#address-cells = <1>;
@@ -166,7 +166,7 @@
 			};
 		};
 
-		pinctrl: pinctrl@0301d0c8 {
+		pinctrl: pinctrl@301d0c8 {
 			compatible = "brcm,cygnus-pinmux";
 			reg = <0x0301d0c8 0x30>,
 			      <0x0301d24c 0x2c>;
@@ -244,7 +244,7 @@
 
 		};
 
-		mailbox: mailbox@03024024 {
+		mailbox: mailbox@3024024 {
 			compatible = "brcm,iproc-mailbox";
 			reg = <0x03024024 0x8>;
 			#mbox-cells = <1>;
@@ -260,7 +260,7 @@
 			mboxes = <&mailbox 3>;
 		};
 
-		gpio_crmu: gpio@03024800 {
+		gpio_crmu: gpio@3024800 {
 			compatible = "brcm,cygnus-crmu-gpio";
 			reg = <0x03024800 0x50>,
 			      <0x03024008 0x18>;
