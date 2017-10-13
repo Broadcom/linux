@@ -29,8 +29,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/phy/phy.h>
-#include <linux/gpio.h>
-
+#include <linux/timer.h>
 #include "pcie-iproc.h"
 
 #define EP_PERST_SOURCE_SELECT_SHIFT 2
@@ -83,6 +82,34 @@
 
 #define CFG_RETRY_STATUS             0xffff0001
 #define CFG_RETRY_STATUS_TIMEOUT_US  500000 /* 500 milli-seconds. */
+
+#define IDM_STABLE_TIME_MIN_US 100
+#define IDM_STABLE_TIME_MAX_US 150
+#define IDM_RESET_CONTROL_OFFSET 0x800
+#define IDM_RESET_SHIFT 0
+#define IDM_RESET BIT(IDM_RESET_SHIFT)
+
+#define IDM_ERROR_LOG_CONTROL_OFFSET 0x900
+#define TIMEOUT_ENABLE_SHIFT 9
+#define TIMEOUT_ENABLE BIT(TIMEOUT_ENABLE_SHIFT)
+#define TIMEOUT_EXPONENT_SHIFT 4
+#define TIMEOUT_EXPONENT_MASK 0x1F0
+#define TIMEOUT_EXPONENT(exp_value) (((exp_value) << TIMEOUT_EXPONENT_SHIFT) & \
+				       TIMEOUT_EXPONENT_MASK)
+#define TIMEOUT_INTERRUPT_SHIFT 3
+#define TIMEOUT_INTERRUPT BIT(TIMEOUT_INTERRUPT_SHIFT)
+#define TIMEOUT_RESET_SHIFT 2
+#define TIMEOUT_RESET BIT(TIMEOUT_RESET_SHIFT)
+#define BUS_ERROR_INTERRUPT_SHIFT 1
+#define BUS_ERROR_INTERRUPT BIT(BUS_ERROR_INTERRUPT_SHIFT)
+#define BUS_ERROR_RESET_SHIFT 0
+#define BUS_ERROR_RESET BIT(BUS_ERROR_RESET_SHIFT)
+
+#define IDM_ERROR_LOG_COMPLETE_OFFSET 0x904
+#define OVERFLOW_COMPLETE_SHIFT 1
+#define OVERFLOW_COMPLETE BIT(OVERFLOW_COMPLETE_SHIFT)
+#define ERROR_COMPLETE_SHIFT 0
+#define ERROR_COMPLETE BIT(ERROR_COMPLETE_SHIFT)
 
 /* derive the enum index of the outbound/inbound mapping registers */
 #define MAP_REG(base_reg, index)      ((base_reg) + (index) * 2)
@@ -406,6 +433,22 @@ static const u16 iproc_pcie_reg_paxc_v2[] = {
 	[IPROC_PCIE_CFG_DATA]         = 0x1fc,
 };
 
+static inline void iproc_pcie_idm_reset(struct iproc_pcie *pcie)
+{
+	u32 val;
+
+	if (pcie->idm) {
+		val = readl(pcie->idm + IDM_RESET_CONTROL_OFFSET);
+		val |= IDM_RESET;
+		writel(val, pcie->idm + IDM_RESET_CONTROL_OFFSET);
+		usleep_range(IDM_STABLE_TIME_MIN_US, IDM_STABLE_TIME_MAX_US);
+		val &= ~IDM_RESET;
+		writel(val, pcie->idm + IDM_RESET_CONTROL_OFFSET);
+		usleep_range(IDM_STABLE_TIME_MIN_US, IDM_STABLE_TIME_MAX_US);
+	}
+}
+
+
 static inline struct iproc_pcie *iproc_data(struct pci_bus *bus)
 {
 	struct iproc_pcie *pcie;
@@ -666,6 +709,14 @@ static int iproc_pcie_config_read32(struct pci_bus *bus, unsigned int devfn,
 	int ret;
 	struct iproc_pcie *pcie = iproc_data(bus);
 
+	if (!pcie->ep_is_internal) {
+		if (bus->number && !pcie->linkup) {
+			dev_dbg(pcie->dev,
+				"Link down so skipping downstream read req\n");
+			*val = 0xffffffff;
+			return PCIBIOS_DEVICE_NOT_FOUND;
+		}
+	}
 	iproc_pcie_apb_err_disable(bus, true);
 	if (pcie->iproc_cfg_read)
 		ret = iproc_pcie_config_read(bus, devfn, where, size, val);
@@ -680,6 +731,15 @@ static int iproc_pcie_config_write32(struct pci_bus *bus, unsigned int devfn,
 				     int where, int size, u32 val)
 {
 	int ret;
+	struct iproc_pcie *pcie = iproc_data(bus);
+
+	if (!pcie->ep_is_internal) {
+		if (bus->number && !pcie->linkup) {
+			dev_dbg(pcie->dev,
+				"Link down so skipping downstream write req\n");
+			return PCIBIOS_DEVICE_NOT_FOUND;
+		}
+	}
 
 	iproc_pcie_apb_err_disable(bus, true);
 	ret = pci_generic_config_write32(bus, devfn, where, size, val);
@@ -856,13 +916,16 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie)
 		}
 	}
 
-	if (link_is_active)
+	if (link_is_active) {
+		pcie->linkup = true;
 		dev_info(dev, "link UP @ Speed Gen-%d and width-x%d\n",
 				link_status & PCI_TARGET_LINK_SPEED_MASK,
 				(link_status >> PCI_TARGET_LINK_WIDTH_OFFSET) &
 				PCI_TARGET_LINK_WIDTH_MASK);
-	else
+	} else {
+		pcie->linkup = false;
 		dev_info(dev, "link DOWN\n");
+	}
 
 	return link_is_active ? 0 : -ENODEV;
 }
@@ -1560,24 +1623,18 @@ void iproc_pcie_detect_disable(struct iproc_pcie *pcie)
 {
 	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
 
-	if (pcie->root_bus) {
-		pci_stop_root_bus(pcie->root_bus);
-		pci_remove_root_bus(pcie->root_bus);
-		pcie->ep_is_present = false;
-		pcie->root_bus = NULL;
-		memset(&host->dev, 0, sizeof(struct device));
-	}
+	pci_stop_root_bus(pcie->root_bus);
+	pci_remove_root_bus(pcie->root_bus);
+	pcie->ep_is_present = false;
+	pcie->root_bus = NULL;
+	memset(&host->dev, 0, sizeof(struct device));
+
+	if (pcie->idm)
+		writel(OVERFLOW_COMPLETE | ERROR_COMPLETE,
+		       pcie->idm + IDM_ERROR_LOG_COMPLETE_OFFSET);
+	iproc_pcie_reset(pcie);
 }
 
-static irqreturn_t iproc_pci_hotplug_thread(int irq, void *data)
-{
-	struct iproc_pcie *pcie = data;
-
-	queue_delayed_work(system_power_efficient_wq,
-			   &pcie->work, HOTPLUG_DEBOUNCE);
-
-	return IRQ_HANDLED;
-}
 static void iproc_pci_hotplug_work(struct work_struct *work)
 {
 	struct iproc_pcie *pcie =
@@ -1593,6 +1650,12 @@ static void iproc_pci_hotplug_work(struct work_struct *work)
 	if (link_status &&
 	    !iproc_pcie_check_link(pcie) &&
 	    !pcie->ep_is_present) {
+		dev_info(pcie->dev, "LinkUp Detected\n");
+
+		writel(OVERFLOW_COMPLETE | ERROR_COMPLETE,
+		       pcie->idm + IDM_ERROR_LOG_COMPLETE_OFFSET);
+		iproc_pcie_idm_reset(pcie);
+
 		ret = iproc_pcie_detect_enable(pcie);
 		if (ret < 0) {
 			dev_err(pcie->dev, "failed to enable: %d\n", ret);
@@ -1610,39 +1673,37 @@ static void iproc_pci_hotplug_work(struct work_struct *work)
 		dev_info(pcie->dev,
 			 "PCI Hotplug: <device already present>\n");
 	else {
-		iproc_pcie_perst_ctrl(pcie, true);
+		dev_info(pcie->dev, "LinkDown detected\n");
 		iproc_pcie_detect_disable(pcie);
 		dev_info(pcie->dev,
 			 "PCI Hotplug: <device removed>\n");
 	}
 }
 
-static int iproc_pci_hp_gpio_irq_get(struct iproc_pcie *pcie)
+void iproc_timer_hdlr(unsigned long data)
 {
-	struct gpio_descs *hp_gpiod;
-	struct device *dev = pcie->dev;
-	int i;
+	struct iproc_pcie *pcie = (struct iproc_pcie *)data;
+	u32 val;
 
-	hp_gpiod = devm_gpiod_get_array(dev, "brcm,prsnt", GPIOD_IN);
-	if (PTR_ERR(hp_gpiod) == -EPROBE_DEFER)
-		return -EPROBE_DEFER;
+	mod_timer(&pcie->timer_hdlr,
+		  jiffies + msecs_to_jiffies(pcie->link_poll_interval));
 
-	if (!IS_ERR(hp_gpiod) && (hp_gpiod->ndescs > 0)) {
-		for (i = 0; i < hp_gpiod->ndescs; ++i) {
-			gpiod_direction_input(hp_gpiod->desc[i]);
-			if (request_threaded_irq(gpiod_to_irq
-						 (hp_gpiod->desc[i]),
-						 NULL, iproc_pci_hotplug_thread,
-						 IRQF_TRIGGER_FALLING,
-						 "PCI-hotplug", pcie))
-				dev_err(dev,
-					"PCI hotplug prsnt: request irq failed\n");
-			}
-		INIT_DELAYED_WORK(&pcie->work, iproc_pci_hotplug_work);
+	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_LINK_STATUS);
+	if (!(val & PCIE_PHYLINKUP) || !(val & PCIE_DL_ACTIVE)) {
+		if (pcie->linkup) {
+			pcie->linkup = false;
+			dev_info(pcie->dev, "**Link Down** detected\n");
+			queue_delayed_work(system_power_efficient_wq,
+					   &pcie->work, HOTPLUG_DEBOUNCE);
+		}
+	} else {
+		if (!pcie->linkup) {
+			pcie->linkup = true;
+			dev_info(pcie->dev, "**Link Up** detected\n");
+			queue_delayed_work(system_power_efficient_wq,
+					   &pcie->work, HOTPLUG_DEBOUNCE);
+		}
 	}
-	pcie->ep_is_present = false;
-
-	return 0;
 }
 
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
@@ -1652,6 +1713,7 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	void *sysdata;
 	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
 	bool is_link_active;
+	u32 val;
 
 	dev = pcie->dev;
 
@@ -1677,13 +1739,20 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 		goto err_exit_phy;
 	}
 
-	if (pcie->enable_hotplug) {
-		ret = iproc_pci_hp_gpio_irq_get(pcie);
-		if (ret < 0)
-			return ret;
-	}
-
 	iproc_pcie_reset(pcie);
+
+	if (pcie->idm) {
+		val = readl(pcie->idm + IDM_ERROR_LOG_CONTROL_OFFSET);
+		val &= ~TIMEOUT_INTERRUPT & ~TIMEOUT_RESET &
+		       ~BUS_ERROR_INTERRUPT & ~BUS_ERROR_RESET;
+		val |= TIMEOUT_ENABLE | TIMEOUT_EXPONENT(0x1f);
+		writel(val, pcie->idm + IDM_ERROR_LOG_CONTROL_OFFSET);
+		INIT_DELAYED_WORK(&pcie->work, iproc_pci_hotplug_work);
+		setup_timer(&pcie->timer_hdlr, iproc_timer_hdlr,
+			    (unsigned long)pcie);
+		mod_timer(&pcie->timer_hdlr, jiffies +
+			  msecs_to_jiffies(pcie->link_poll_interval));
+	}
 
 	if (pcie->need_ob_cfg) {
 		ret = iproc_pcie_map_ranges(pcie, res);
@@ -1705,13 +1774,8 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 #endif
 
 	is_link_active = iproc_pcie_check_link(pcie);
-	if (is_link_active) {
-		dev_err(dev, "no PCIe EP device detected\n");
-		if (pcie->enable_hotplug)
-			iproc_pcie_perst_ctrl(pcie, true);
-		else
-			goto err_power_off_phy;
-	}
+	if (is_link_active)
+		dev_info(dev, "no PCIe EP device detected\n");
 
 	ret = iproc_pcie_intx_enable(pcie);
 	if (ret) {
@@ -1737,6 +1801,7 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 			goto err_power_off_phy;
 		}
 	}
+
 	return 0;
 
 err_power_off_phy:

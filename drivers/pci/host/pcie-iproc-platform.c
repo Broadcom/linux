@@ -77,6 +77,23 @@ static int iproc_pcie_pltfm_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	pcie->base_addr = reg.start;
+
+	ret = of_address_to_resource(np, 1, &reg);
+	if (ret < 0) {
+		dev_info(pcie->dev, "no IDM resource available\n");
+	} else {
+		pcie->idm = devm_ioremap_resource(pcie->dev, &reg);
+		if (!pcie->idm) {
+			dev_err(pcie->dev, "unable to map idm registers\n");
+			return -ENOMEM;
+		}
+		if (of_property_read_u32(np, "brcm,pcie-link-poll-interval",
+					 &(pcie->link_poll_interval)))
+			pcie->link_poll_interval = 1000;
+		dev_info(pcie->dev, "link-poll-interval set to %dms\n",
+			 pcie->link_poll_interval);
+	}
+
 	pcie->irq = platform_get_irq(pdev, 0);
 
 	if (of_property_read_bool(np, "brcm,pcie-ob")) {
@@ -92,9 +109,6 @@ static int iproc_pcie_pltfm_probe(struct platform_device *pdev)
 		pcie->ob.axi_offset = val;
 		pcie->need_ob_cfg = true;
 	}
-
-	if (of_property_read_bool(np, "brcm,pci-hotplug"))
-		pcie->enable_hotplug = true;
 
 	/* PHY use is optional */
 	pcie->phy = devm_phy_get(dev, "pcie-phy");
