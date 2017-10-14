@@ -51,6 +51,11 @@ struct cygnus_ssp_regs {
 	u32 bf_sourcech_cfg;
 };
 
+struct audio_io {
+	void __iomem *audio;
+	void __iomem *i2s_in;
+};
+
 struct cygnus_audio_clkinfo {
 	struct clk *audio_clk;
 	int clk_mux;
@@ -78,8 +83,7 @@ struct cygnus_aio_port {
 	unsigned int slots_per_frame;
 	unsigned int active_slots;
 
-	void __iomem *audio;
-	void __iomem *i2s_in;
+	struct audio_io *io;
 
 	struct cygnus_ssp_regs regs;
 
@@ -93,8 +97,7 @@ struct cygnus_audio {
 	struct iproc_pcm_dma_info   dma_info_play[CYGNUS_MAX_PLAYBACK_PORTS];
 	struct iproc_pcm_dma_info   dma_info_cap[CYGNUS_MAX_CAPTURE_PORTS];
 
-	void __iomem *audio;
-	void __iomem *i2s_in;
+	struct audio_io io;
 	struct device *dev;
 };
 
