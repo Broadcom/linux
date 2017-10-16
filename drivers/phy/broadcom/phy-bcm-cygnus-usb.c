@@ -638,7 +638,7 @@ static int cygnus_phy_probe(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < phy_driver->num_phys; i++) {
-		if (i == DUAL_ROLE_PHY) {
+		if (phy_driver->instances[i].port == DUAL_ROLE_PHY) {
 			ret = cygnus_register_extcon_notifiers(
 				&phy_driver->instances[DUAL_ROLE_PHY]);
 			if (ret) {
