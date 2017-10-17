@@ -218,6 +218,10 @@
 	status = "okay";
 };
 
+&vc4 {
+	status = "okay";
+};
+
 &uart3 {
 	status = "okay";
 };

@@ -708,6 +708,7 @@
 
 		vc4: gpu {
 			compatible = "brcm,cygnus-vc4";
+			status = "disabled";
 		};
 
 		adc: adc@180a6000 {
