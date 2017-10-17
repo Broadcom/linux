@@ -65,7 +65,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
-		ranges = <0x83000000 0 0x00000000 0x4 0x0 0 0x80000000>;
+		ranges = <0x83000000 0 0x80000000 0x4 0x0 0 0x80000000>;
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
@@ -110,7 +110,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
-		ranges = <0x83000000 0 0x00000000 0x4 0x80000000 0 0x80000000>;
+		ranges = <0x83000000 0 0x80000000 0x4 0x80000000 0 0x80000000>;
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
@@ -155,7 +155,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
-		ranges = <0x83000000 0 0x00000000 0x5 0x0 0 0x80000000>;
+		ranges = <0x83000000 0 0x80000000 0x5 0x0 0 0x80000000>;
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
@@ -200,7 +200,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
-		ranges = <0x83000000 0 0x00000000 0x5 0x80000000 0 0x80000000>;
+		ranges = <0x83000000 0 0x80000000 0x5 0x80000000 0 0x80000000>;
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
@@ -245,7 +245,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
-		ranges = <0x83000000 0 0x00000000 0x6 0x0 0 0x80000000>;
+		ranges = <0x83000000 0 0x80000000 0x6 0x0 0 0x80000000>;
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
@@ -290,7 +290,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
-		ranges = <0x83000000 0 0x00000000 0x6 0x80000000 0 0x80000000>;
+		ranges = <0x83000000 0 0x80000000 0x6 0x80000000 0 0x80000000>;
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
@@ -335,7 +335,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
-		ranges = <0x83000000 0 0x00000000 0x7 0x0 0 0x80000000>;
+		ranges = <0x83000000 0 0x80000000 0x7 0x0 0 0x80000000>;
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
@@ -380,7 +380,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
-		ranges = <0x83000000 0 0x00000000 0x7 0x80000000 0 0x80000000>;
+		ranges = <0x83000000 0 0x80000000 0x7 0x80000000 0 0x80000000>;
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
