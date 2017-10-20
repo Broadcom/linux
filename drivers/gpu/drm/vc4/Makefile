@@ -6,7 +6,6 @@ vc4-y := \
 	vc4_crtc.o \
 	vc4_drv.o \
 	vc4_fence.o \
-	vc4_kms.o \
 	vc4_gem.o \
 	vc4_irq.o \
 	vc4_plane.o \
@@ -21,6 +20,7 @@ vc4-$(CONFIG_DRM_VC4_DISPLAY)  += \
 	vc4_dsi.o \
 	vc4_hdmi.o \
 	vc4_hvs.o \
+	vc4_kms.o \
 	vc4_vec.o
 
 vc4-$(CONFIG_DEBUG_FS) += \
