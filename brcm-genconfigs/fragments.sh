@@ -3,8 +3,7 @@
 # All supported defconfigs. Add new defconfigs to list for the proper
 # architecture.
 arm_defconfigs="bcm_cygnus_defconfig"
-arm64_defconfigs="iproc_defconfig"
-arm64_defconfigs+="bcm_omega_defconfig"
+arm64_defconfigs="iproc_defconfig bcm_omega_defconfig"
 
 # Defines the fragments that apply to each defconfig. Variable name must be the
 # same as the defconfig file.
