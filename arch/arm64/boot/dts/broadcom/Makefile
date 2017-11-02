@@ -6,4 +6,3 @@ dts-dirs	+= omega
 dts-dirs	+= stingray
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
-clean-files	:= *.dtb

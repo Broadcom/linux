@@ -29,4 +29,3 @@ dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040-pcie-iommu.dtb
 dts-dirs	:= custom emulator
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
-clean-files	:= *.dtb
