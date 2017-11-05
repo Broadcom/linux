@@ -1,4 +1,1 @@
-dts-dirs	:= bcm958808ce bcm958804wt
-always		:= $(dtb-y)
-subdir-y	:= $(dts-dirs)
-clean-files	:= *.dtb
+subdir-y	:= bcm958808ce bcm958804wt
