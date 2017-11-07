@@ -905,11 +905,12 @@
 		};
 
 		udc_dwc: usb@664e0000 {
-			compatible = "brcm,ns2-udc", "brcm,iproc-udc";
+			compatible = "snps,dw-ahb-udc";
 			reg = <0x664e0000 0x2000>;
 			interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usbdrd_phy>;
 			extcon = <&usbdrd_phy>;
+			phy-names = "usb2drd";
 			dma-coherent;
 			status = "disabled";
 		};
