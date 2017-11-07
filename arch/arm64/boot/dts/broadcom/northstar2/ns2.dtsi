@@ -337,6 +337,13 @@
 			#iommu-cells = <1>;
 		};
 
+		otp: otp@6501c800{
+			compatible = "brcm,ocotp";
+			reg = <0x6501c800 0x30>;
+			brcm,ocotp-size = <2048>;
+			status = "okay";
+		};
+
 		pinctrl: pinctrl@6501d130 {
 			compatible = "brcm,ns2-pinmux";
 			reg = <0x6501d130 0x08>,
