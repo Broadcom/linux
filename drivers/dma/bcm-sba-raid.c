@@ -1,9 +1,14 @@
 /*
  * Copyright (C) 2017 Broadcom
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation version 2.
+ *
+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
+ * kind, whether express or implied; without even the implied warranty
+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 /*
@@ -25,11 +30,8 @@
  *
  * The Broadcom SBA RAID driver does not require any register programming
  * except submitting request to SBA hardware device via mailbox channels.
- * This driver implements a DMA device with one DMA channel using a set
- * of mailbox channels provided by Broadcom SoC specific ring manager
- * driver. To exploit parallelism (as described above), all DMA request
- * coming to SBA RAID DMA channel are broken down to smaller requests
- * and submitted to multiple mailbox channels in round-robin fashion.
+ * This driver implements a DMA device with one DMA channel using a single
+ * mailbox channel provided by Broadcom SoC specific ring manager driver.
  * For having more SBA DMA channels, we can create more SBA device nodes
  * in Broadcom SoC specific DTS based on number of hardware rings supported
  * by Broadcom SoC ring manager.
@@ -845,7 +847,7 @@ static void sba_fillup_xor_msg(struct sba_request *req,
 	msg->error = 0;
 }
 
-struct sba_request *
+static struct sba_request *
 sba_prep_dma_xor_req(struct sba_device *sba,
 		     dma_addr_t off, dma_addr_t dst, dma_addr_t *src,
 		     u32 src_cnt, size_t len, unsigned long flags)
@@ -1056,7 +1058,7 @@ static void sba_fillup_pq_msg(struct sba_request *req,
 	msg->error = 0;
 }
 
-struct sba_request *
+static struct sba_request *
 sba_prep_dma_pq_req(struct sba_device *sba, dma_addr_t off,
 		    dma_addr_t *dst_p, dma_addr_t *dst_q, dma_addr_t *src,
 		    u32 src_cnt, const u8 *scf, size_t len, unsigned long flags)
@@ -1310,7 +1312,7 @@ skip_q:
 	msg->error = 0;
 }
 
-struct sba_request *
+static struct sba_request *
 sba_prep_dma_pq_single_req(struct sba_device *sba, dma_addr_t off,
 			   dma_addr_t *dst_p, dma_addr_t *dst_q,
 			   dma_addr_t src, u8 scf, size_t len,
