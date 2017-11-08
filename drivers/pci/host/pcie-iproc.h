@@ -145,15 +145,25 @@ struct iproc_pcie {
 	bool need_msi_steer;
 	struct delayed_work work;
 	struct iproc_msi *msi;
+#ifdef CONFIG_PM_SLEEP
+	unsigned int *paxb_map_regs;
+#endif
 };
 
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res);
 int iproc_pcie_remove(struct iproc_pcie *pcie);
 int iproc_pcie_shutdown(struct iproc_pcie *pcie);
 
+#ifdef CONFIG_PM_SLEEP
+int iproc_pcie_suspend(struct iproc_pcie *pcie);
+int iproc_pcie_resume(struct iproc_pcie *pcie);
+#endif
+
 #ifdef CONFIG_PCIE_IPROC_MSI
 int iproc_msi_init(struct iproc_pcie *pcie, struct device_node *node);
 void iproc_msi_exit(struct iproc_pcie *pcie);
+void iproc_msi_enable(struct iproc_msi *msi);
+void iproc_msi_disable(struct iproc_msi *msi);
 #else
 static inline int iproc_msi_init(struct iproc_pcie *pcie,
 				 struct device_node *node)
@@ -161,6 +171,12 @@ static inline int iproc_msi_init(struct iproc_pcie *pcie,
 	return -ENODEV;
 }
 static inline void iproc_msi_exit(struct iproc_pcie *pcie)
+{
+}
+static inline void iproc_msi_enable(struct iproc_msi *msi)
+{
+}
+static inline void iproc_msi_disable(struct iproc_msi *msi)
 {
 }
 #endif

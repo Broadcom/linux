@@ -1797,6 +1797,14 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	sysdata = pcie;
 #endif
 
+#if CONFIG_PM_SLEEP
+	pcie->paxb_map_regs = devm_kcalloc(dev, IPROC_PCIE_MAX_NUM_REG * 2,
+					   sizeof(*pcie->paxb_map_regs),
+					   GFP_KERNEL);
+	if (!pcie->paxb_map_regs)
+		return -ENOMEM;
+#endif
+
 	is_link_active = iproc_pcie_check_link(pcie);
 	if (is_link_active)
 		dev_info(dev, "no PCIe EP device detected\n");
@@ -1851,6 +1859,163 @@ int iproc_pcie_remove(struct iproc_pcie *pcie)
 	return 0;
 }
 EXPORT_SYMBOL(iproc_pcie_remove);
+
+int iproc_pcie_save_paxb_map_regs(struct iproc_pcie *pcie)
+{
+	struct iproc_pcie_ib *ib = &pcie->ib;
+	int window_idx, region_idx;
+	u16 offset, iarr_offset, imap_offset;
+	unsigned int i, j = 0;
+
+	/* save outbound mapping registers */
+	for (i = IPROC_PCIE_OARR0; i <= IPROC_PCIE_OMAP3; i++) {
+		offset = iproc_pcie_reg_offset(pcie, i);
+
+		if (iproc_pcie_reg_is_invalid(offset))
+			continue;
+
+		pcie->paxb_map_regs[j++] = readl(pcie->base + offset);
+		pcie->paxb_map_regs[j++] = readl(pcie->base + offset + 4);
+	}
+
+	/* save inbound mapping registers */
+	for (region_idx = 0; region_idx < ib->nr_regions; region_idx++) {
+		const struct iproc_pcie_ib_map *ib_map =
+			&pcie->ib_map[region_idx];
+
+		iarr_offset = iproc_pcie_reg_offset(pcie,
+					MAP_REG(IPROC_PCIE_IARR0, region_idx));
+		imap_offset = iproc_pcie_reg_offset(pcie,
+					MAP_REG(IPROC_PCIE_IMAP0, region_idx));
+
+		if (iproc_pcie_reg_is_invalid(iarr_offset) ||
+		    iproc_pcie_reg_is_invalid(imap_offset))
+			continue;
+
+		pcie->paxb_map_regs[j++] = readl(pcie->base + iarr_offset);
+		pcie->paxb_map_regs[j++] = readl(pcie->base + iarr_offset + 4);
+
+		for (window_idx = 0; window_idx < ib_map->nr_windows;
+		     window_idx++) {
+			pcie->paxb_map_regs[j++] =
+					readl(pcie->base + imap_offset);
+			pcie->paxb_map_regs[j++] =
+					readl(pcie->base + imap_offset +
+					      ib_map->imap_addr_offset);
+
+			imap_offset += ib_map->imap_window_offset;
+		}
+	}
+	return 0;
+}
+
+int iproc_pcie_restore_paxb_map_regs(struct iproc_pcie *pcie)
+{
+	struct iproc_pcie_ib *ib = &pcie->ib;
+	int window_idx, region_idx;
+	u16 offset, iarr_offset, imap_offset;
+	unsigned int i, j = 0;
+
+	/* restore outbound mapping registers */
+	for (i = IPROC_PCIE_OARR0; i <= IPROC_PCIE_OMAP3; i++) {
+		offset = iproc_pcie_reg_offset(pcie, i);
+
+		if (iproc_pcie_reg_is_invalid(offset))
+			continue;
+
+		writel(pcie->paxb_map_regs[j++], pcie->base + offset);
+		writel(pcie->paxb_map_regs[j++], pcie->base + offset + 4);
+	}
+
+	/* restore inbound mapping registers */
+	for (region_idx = 0; region_idx < ib->nr_regions; region_idx++) {
+		const struct iproc_pcie_ib_map *ib_map =
+			&pcie->ib_map[region_idx];
+
+		iarr_offset = iproc_pcie_reg_offset(pcie,
+					MAP_REG(IPROC_PCIE_IARR0, region_idx));
+		imap_offset = iproc_pcie_reg_offset(pcie,
+					MAP_REG(IPROC_PCIE_IMAP0, region_idx));
+
+		if (iproc_pcie_reg_is_invalid(iarr_offset) ||
+		    iproc_pcie_reg_is_invalid(imap_offset))
+			continue;
+
+		writel(pcie->paxb_map_regs[j++], pcie->base + iarr_offset);
+		writel(pcie->paxb_map_regs[j++], pcie->base + iarr_offset + 4);
+
+		for (window_idx = 0; window_idx < ib_map->nr_windows;
+		     window_idx++) {
+			writel(pcie->paxb_map_regs[j++],
+			       pcie->base + imap_offset);
+			writel(pcie->paxb_map_regs[j++],
+			       pcie->base + imap_offset +
+			       ib_map->imap_addr_offset);
+
+			imap_offset += ib_map->imap_window_offset;
+		}
+	}
+	return 0;
+}
+
+int iproc_pcie_resume(struct iproc_pcie *pcie)
+{
+	int ret;
+
+	if (pcie->phy) {
+		ret = phy_init(pcie->phy);
+		if (ret) {
+			dev_err(pcie->dev, "unable to initialize PCIe PHY\n");
+			return ret;
+		}
+
+		ret = phy_power_on(pcie->phy);
+		if (ret) {
+			dev_err(pcie->dev, "unable to power on PCIe PHY\n");
+			goto err_exit_phy;
+		}
+	}
+
+	iproc_pcie_reset(pcie);
+
+	iproc_pcie_restore_paxb_map_regs(pcie);
+
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_INTX_EN, SYS_RC_INTX_MASK);
+	if (pcie->msi)
+		iproc_msi_enable(pcie->msi);
+
+	if (pcie->idm)
+		mod_timer(&pcie->timer_hdlr, jiffies +
+			  msecs_to_jiffies(pcie->link_poll_interval));
+
+	return 0;
+
+err_exit_phy:
+	phy_exit(pcie->phy);
+	return ret;
+}
+EXPORT_SYMBOL(iproc_pcie_resume);
+
+int iproc_pcie_suspend(struct iproc_pcie *pcie)
+{
+	flush_delayed_work(&pcie->work);
+	if (pcie->idm)
+		del_timer_sync(&pcie->timer_hdlr);
+
+	if (pcie->msi)
+		iproc_msi_disable(pcie->msi);
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_INTX_EN, 0x0);
+
+	iproc_pcie_save_paxb_map_regs(pcie);
+
+	if (pcie->phy) {
+		phy_power_off(pcie->phy);
+		phy_exit(pcie->phy);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(iproc_pcie_suspend);
 
 /**
  * FIXME
