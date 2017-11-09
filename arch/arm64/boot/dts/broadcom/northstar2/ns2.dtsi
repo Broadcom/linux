@@ -114,7 +114,9 @@
 
 	pcie0: pcie@20020000 {
 		compatible = "brcm,iproc-pcie";
-		reg = <0 0x20020000 0 0x1000>;
+		reg = <0 0x20020000 0 0x1000>,
+		      <0 0x21004000 0 0x1000>;
+		brcm,pcie-link-poll-interval = <1000>;
 		dma-coherent;
 
 		interrupt-controller;
@@ -149,7 +151,9 @@
 
 	pcie4: pcie@50020000 {
 		compatible = "brcm,iproc-pcie";
-		reg = <0 0x50020000 0 0x1000>;
+		reg = <0 0x50020000 0 0x1000>,
+		      <0 0x51004000 0 0x1000>;
+		brcm,pcie-link-poll-interval = <1000>;
 		dma-coherent;
 
 		interrupt-controller;
