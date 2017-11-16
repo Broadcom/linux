@@ -84,6 +84,38 @@ Example:
 		clock-output-names = "keypad", "adc/touch", "pwm";
 	};
 
+
+Required properties for audio-mux clocks:
+-----------------------------------------
+- compatible:  Should have a value of the form "brcm,<soc>-sspX-clk".
+    e.g., For Cygnus ssp port 0, use a string of "brcm,cygnus-ssp0-clk"
+- clocks: Ordered list of phandles which are the possible parents to the mux.
+	The index of the clock within this list will be value written into
+	control registers bit field.
+- clk-mux-syscon: syscon node used to derive regmap handle
+- reg-offset: offset or the muxes reg from the start of regmap
+- bit-shift: bit shift needed to access mux field within reg
+- bit-width: number of bits in control field
+
+Example:
+  The ssp0 clock mux is controlled by the first 4 bits of the register found at
+  offset 0xc in the regmap defined in ssp_clkmux_syscon.
+  The inputs to this mux are the channel 0, 1, and 2 outputs from the audio pll.
+
+	ssp0_clock: ssp0_clock {
+		#clock-cells = <0>;
+		compatible = "brcm,cygnus-ssp0-clk";
+		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
+			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
+			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+
+		clk-mux-syscon = <&ssp_clkmux_syscon>;
+		reg-offset = <0x0c>;
+		bit-shift = <0>;
+		bit-width = <4>;
+	};
+
+
 Cygnus
 ------
 PLL and leaf clock compatible strings for Cygnus are:
