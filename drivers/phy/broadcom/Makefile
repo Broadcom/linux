@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0
 obj-$(CONFIG_PHY_CYGNUS_PCIE)		+= phy-bcm-cygnus-pcie.o
 obj-$(CONFIG_PHY_NS2_USB2)		+= phy-bcm-ns2-usb2.o
 obj-$(CONFIG_PHY_NS2_USB3)		+= phy-bcm-ns2-usb3.o

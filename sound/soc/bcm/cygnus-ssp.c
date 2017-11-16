@@ -229,6 +229,9 @@
 #define CYGNUS_RATE_MIN     8000
 #define CYGNUS_RATE_MAX   384000
 
+#define CYGNUS_RATE_MIN     8000
+#define CYGNUS_RATE_MAX   384000
+
 /* List of valid frame sizes for tdm mode */
 static const int ssp_valid_tdm_framesize[] = {32, 64, 128, 256, 512};
 
@@ -1343,7 +1346,7 @@ static const struct snd_soc_dai_driver cygnus_ssp_dai_info[] = {
 	INIT_CPU_DAI(2),
 };
 
-static struct snd_soc_dai_driver cygnus_spdif_dai_info = {
+static const struct snd_soc_dai_driver cygnus_spdif_dai_info = {
 	.name = "cygnus-spdif",
 	.playback = {
 		.channels_min = 2,

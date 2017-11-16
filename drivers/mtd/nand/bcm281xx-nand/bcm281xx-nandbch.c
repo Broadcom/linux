@@ -15,7 +15,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
-#include <linux/mtd/nand.h>
+#include <linux/mtd/rawnand.h>
 
 #include "bcm281xx-nandbch.h"
 #include "bcm281xx-nandregs.h"

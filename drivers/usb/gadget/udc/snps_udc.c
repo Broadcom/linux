@@ -1578,7 +1578,7 @@ static int snps_udc_probe(struct platform_device *pdev)
 		goto exit_phy;
 	}
 
-	ret = extcon_get_cable_state_(udc->edev, EXTCON_USB);
+	ret = extcon_get_state(udc->edev, EXTCON_USB);
 	if (ret < 0) {
 		dev_err(dev, "Can't get cable state\n");
 		goto exit_extcon;
@@ -1678,7 +1678,7 @@ static int snps_udc_suspend(struct device *dev)
 
 	udc = dev_get_drvdata(dev);
 
-	if (extcon_get_cable_state_(udc->edev, EXTCON_USB) > 0) {
+	if (extcon_get_state(udc->edev, EXTCON_USB) > 0) {
 		dev_dbg(udc->dev, "device -> idle\n");
 		snps_gadget_pullup(&udc->gadget, 0);
 	}
@@ -1708,7 +1708,7 @@ static int snps_udc_resume(struct device *dev)
 		return ret;
 	}
 
-	if (extcon_get_cable_state_(udc->edev, EXTCON_USB) > 0) {
+	if (extcon_get_state(udc->edev, EXTCON_USB) > 0) {
 		dev_dbg(udc->dev, "idle -> device\n");
 		snps_gadget_pullup(&udc->gadget, 1);
 	}

@@ -474,6 +474,7 @@ struct device_private {
 	atomic_t bad_icv;
 
 	struct mbox_client mcl;
+
 	/* Array of mailbox channel pointers, one for each channel */
 	struct mbox_chan **mbox;
 };

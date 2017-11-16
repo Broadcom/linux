@@ -28,6 +28,7 @@
 #include <linux/moduleparam.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <linux/clk.h>
 
 #include "bdc.h"
 #include "bdc_dbg.h"
@@ -422,9 +423,33 @@ static void bdc_hw_exit(struct bdc *bdc)
 	bdc_mem_free(bdc);
 }
 
+/* Initialize the bdc HW and memory */
+static int bdc_hw_init(struct bdc *bdc)
+{
+	int ret;
+
+	dev_dbg(bdc->dev, "%s ()\n", __func__);
+	ret = bdc_reset(bdc);
+	if (ret) {
+		dev_err(bdc->dev, "err resetting bdc abort bdc init%d\n", ret);
+		return ret;
+	}
+	ret = bdc_mem_alloc(bdc);
+	if (ret) {
+		dev_err(bdc->dev, "Mem alloc failed, aborting\n");
+		return -ENOMEM;
+	}
+	bdc_mem_init(bdc, 0);
+	bdc_dbg_regs(bdc);
+	dev_dbg(bdc->dev, "HW Init done\n");
+
+	return 0;
+}
+
 static int bdc_phy_init(struct bdc *bdc)
 {
-	int ret, phy_num;
+	int phy_num;
+	int ret;
 
 	for (phy_num = 0; phy_num < bdc->num_phys; phy_num++) {
 		ret = phy_init(bdc->phys[phy_num]);
@@ -457,42 +482,37 @@ static void bdc_phy_exit(struct bdc *bdc)
 		phy_exit(bdc->phys[phy_num]);
 	}
 }
-/* Initialize the bdc HW and memory */
-static int bdc_hw_init(struct bdc *bdc)
-{
-	int ret;
-
-	dev_dbg(bdc->dev, "%s ()\n", __func__);
-	ret = bdc_reset(bdc);
-	if (ret) {
-		dev_err(bdc->dev, "err resetting bdc abort bdc init%d\n", ret);
-		return ret;
-	}
-	ret = bdc_mem_alloc(bdc);
-	if (ret) {
-		dev_err(bdc->dev, "Mem alloc failed, aborting\n");
-		return -ENOMEM;
-	}
-	bdc_mem_init(bdc, 0);
-	bdc_dbg_regs(bdc);
-	dev_dbg(bdc->dev, "HW Init done\n");
-
-	return 0;
-}
 
 static int bdc_probe(struct platform_device *pdev)
 {
 	struct bdc *bdc;
 	struct resource *res;
 	int ret = -ENOMEM;
-	int irq, phy_num;
+	int irq;
 	u32 temp;
 	struct device *dev = &pdev->dev;
+	struct clk *clk;
+	int phy_num;
 
 	dev_dbg(dev, "%s()\n", __func__);
+
+	clk = devm_clk_get(dev, "sw_usbd");
+	if (IS_ERR(clk)) {
+		dev_info(dev, "Clock not found in Device Tree\n");
+		clk = NULL;
+	}
+
+	ret = clk_prepare_enable(clk);
+	if (ret) {
+		dev_err(dev, "could not enable clock\n");
+		return ret;
+	}
+
 	bdc = devm_kzalloc(dev, sizeof(*bdc), GFP_KERNEL);
 	if (!bdc)
 		return -ENOMEM;
+
+	bdc->clk = clk;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	bdc->regs = devm_ioremap_resource(dev, res);
@@ -505,32 +525,34 @@ static int bdc_probe(struct platform_device *pdev)
 		dev_err(dev, "platform_get_irq failed:%d\n", irq);
 		return irq;
 	}
-
-	bdc->num_phys = of_count_phandle_with_args(dev->of_node,
-			"phys", "#phy-cells");
-
-	if (bdc->num_phys > 0) {
-		bdc->phys = devm_kcalloc(dev, bdc->num_phys,
-				sizeof(struct phy *), GFP_KERNEL);
-		if (!bdc->phys)
-			return -ENOMEM;
-	} else
-		bdc->num_phys = 0;
-
-	for (phy_num = 0; phy_num < bdc->num_phys; phy_num++) {
-		bdc->phys[phy_num] = devm_of_phy_get_by_index(
-				dev, dev->of_node, phy_num);
-		if (IS_ERR(bdc->phys[phy_num])) {
-			ret = PTR_ERR(bdc->phys[phy_num]);
-			return ret;
-		}
-	}
-
 	spin_lock_init(&bdc->lock);
 	platform_set_drvdata(pdev, bdc);
 	bdc->irq = irq;
 	bdc->dev = dev;
-	dev_dbg(bdc->dev, "bdc->regs: %p irq=%d\n", bdc->regs, bdc->irq);
+	dev_dbg(dev, "bdc->regs: %p irq=%d\n", bdc->regs, bdc->irq);
+
+	bdc->num_phys = of_count_phandle_with_args(dev->of_node,
+						"phys", "#phy-cells");
+	if (bdc->num_phys > 0) {
+		bdc->phys = devm_kcalloc(dev, bdc->num_phys,
+					sizeof(struct phy *), GFP_KERNEL);
+		if (!bdc->phys)
+			return -ENOMEM;
+	} else {
+		bdc->num_phys = 0;
+	}
+	dev_info(dev, "Using %d phy(s)\n", bdc->num_phys);
+
+	for (phy_num = 0; phy_num < bdc->num_phys; phy_num++) {
+		bdc->phys[phy_num] = devm_of_phy_get_by_index(
+			dev, dev->of_node, phy_num);
+		if (IS_ERR(bdc->phys[phy_num])) {
+			ret = PTR_ERR(bdc->phys[phy_num]);
+			dev_err(bdc->dev,
+				"BDC phy specified but not found:%d\n", ret);
+			return ret;
+		}
+	}
 
 	ret = bdc_phy_init(bdc);
 	if (ret) {
@@ -541,24 +563,24 @@ static int bdc_probe(struct platform_device *pdev)
 	temp = bdc_readl(bdc->regs, BDC_BDCCAP1);
 	if ((temp & BDC_P64) &&
 			!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
-		dev_dbg(bdc->dev, "Using 64-bit address\n");
+		dev_dbg(dev, "Using 64-bit address\n");
 	} else {
-		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
 		if (ret) {
-			dev_err(bdc->dev, "No suitable DMA config available, abort\n");
+			dev_err(dev,
+				"No suitable DMA config available, abort\n");
 			return -ENOTSUPP;
 		}
-		dev_dbg(bdc->dev, "Using 32-bit address\n");
+		dev_dbg(dev, "Using 32-bit address\n");
 	}
-
 	ret = bdc_hw_init(bdc);
 	if (ret) {
-		dev_err(bdc->dev, "BDC init failure:%d\n", ret);
+		dev_err(dev, "BDC init failure:%d\n", ret);
 		goto phycleanup;
 	}
 	ret = bdc_udc_init(bdc);
 	if (ret) {
-		dev_err(bdc->dev, "BDC Gadget init failure:%d\n", ret);
+		dev_err(dev, "BDC Gadget init failure:%d\n", ret);
 		goto cleanup;
 	}
 	return 0;
@@ -579,21 +601,56 @@ static int bdc_remove(struct platform_device *pdev)
 	bdc_udc_exit(bdc);
 	bdc_hw_exit(bdc);
 	bdc_phy_exit(bdc);
+	clk_disable_unprepare(bdc->clk);
+	return 0;
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int bdc_suspend(struct device *dev)
+{
+	struct bdc *bdc = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(bdc->clk);
+	return 0;
+}
+
+static int bdc_resume(struct device *dev)
+{
+	struct bdc *bdc = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(bdc->clk);
+	if (ret) {
+		dev_err(bdc->dev, "err enabling the clock\n");
+		return ret;
+	}
+	ret = bdc_reinit(bdc);
+	if (ret) {
+		dev_err(bdc->dev, "err in bdc reinit\n");
+		return ret;
+	}
 
 	return 0;
 }
+
+#endif /* CONFIG_PM_SLEEP */
+
+static SIMPLE_DEV_PM_OPS(bdc_pm_ops, bdc_suspend,
+		bdc_resume);
+
 static const struct of_device_id bdc_of_match[] = {
-	{
-		.compatible = "brcm,bdc-usb3",
-	},
-	{ /* sentinel */ },
+	{ .compatible = "brcm,bdc-v0.16" },
+	{ .compatible = "brcm,bdc-usb3" },
+	{ .compatible = "brcm,bdc" },
+	{ /* sentinel */ }
 };
-MODULE_DEVICE_TABLE(of, bdc_of_match);
 
 static struct platform_driver bdc_driver = {
 	.driver		= {
 		.name	= BRCM_BDC_NAME,
-		.of_match_table = bdc_of_match,
+		.owner	= THIS_MODULE,
+		.pm = &bdc_pm_ops,
+		.of_match_table	= bdc_of_match,
 	},
 	.probe		= bdc_probe,
 	.remove		= bdc_remove,

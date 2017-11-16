@@ -90,8 +90,6 @@ static int aead_pri = 150;
 module_param(aead_pri, int, 0644);
 MODULE_PARM_DESC(aead_pri, "Priority for AEAD algos");
 
-#define MAX_SPUS 16
-
 /* A type 3 BCM header, expected to precede the SPU header for SPU-M.
  * Bits 3 and 4 in the first byte encode the channel number (the dma ringset).
  * 0x60 - ring 0
@@ -4523,7 +4521,7 @@ static int spu_mb_init(struct device *dev)
 
 	iproc_priv.mbox = devm_kcalloc(dev, iproc_priv.spu.num_chan,
 				  sizeof(struct mbox_chan *), GFP_KERNEL);
-	if (iproc_priv.mbox == NULL)
+	if (!iproc_priv.mbox)
 		return -ENOMEM;
 
 	mcl->dev = dev;
@@ -4541,11 +4539,18 @@ static int spu_mb_init(struct device *dev)
 				"Mbox channel %d request failed with err %d",
 				i, err);
 			iproc_priv.mbox[i] = NULL;
-			return err;
+			goto free_channels;
 		}
 	}
 
 	return 0;
+free_channels:
+	for (i = 0; i < iproc_priv.spu.num_chan; i++) {
+		if (iproc_priv.mbox[i])
+			mbox_free_channel(iproc_priv.mbox[i]);
+	}
+
+	return err;
 }
 
 static void spu_mb_release(struct platform_device *pdev)
@@ -4805,49 +4810,38 @@ static int spu_dt_read(struct platform_device *pdev)
 	struct resource *spu_ctrl_regs;
 	const struct of_device_id *match;
 	const struct spu_type_subtype *matched_spu_type;
-	void __iomem *spu_reg_vbase[MAX_SPUS];
 	struct device_node *dn = pdev->dev.of_node;
 	int err, i;
 
 	/* Count number of mailbox channels */
 	spu->num_chan = of_count_phandle_with_args(dn, "mboxes", "#mbox-cells");
-	dev_dbg(dev, "Device has %d SPU channels", spu->num_chan);
 
 	match = of_match_device(of_match_ptr(bcm_spu_dt_ids), dev);
+	if (!match) {
+		dev_err(&pdev->dev, "Failed to match device\n");
+		return -ENODEV;
+	}
+
 	matched_spu_type = match->data;
 
 	spu->spu_type = matched_spu_type->type;
 	spu->spu_subtype = matched_spu_type->subtype;
 
 	i = 0;
-	while ((i < MAX_SPUS) && ((spu_ctrl_regs =
-		platform_get_resource(pdev, IORESOURCE_MEM, i)) != NULL)) {
+	for (i = 0; (i < MAX_SPUS) && ((spu_ctrl_regs =
+		platform_get_resource(pdev, IORESOURCE_MEM, i)) != NULL); i++) {
 
-		dev_dbg(dev,
-		"SPU %d control register region res.start = %#x, res.end = %#x",
-		i,
-		(unsigned int)spu_ctrl_regs->start,
-		(unsigned int)spu_ctrl_regs->end);
-
-		spu_reg_vbase[i] = devm_ioremap_resource(dev, spu_ctrl_regs);
-		if (IS_ERR(spu_reg_vbase[i])) {
-			err = PTR_ERR(spu_reg_vbase[i]);
+		spu->reg_vbase[i] = devm_ioremap_resource(dev, spu_ctrl_regs);
+		if (IS_ERR(spu->reg_vbase[i])) {
+			err = PTR_ERR(spu->reg_vbase[i]);
 			dev_err(&pdev->dev, "Failed to map registers: %d\n",
 				err);
-			spu_reg_vbase[i] = NULL;
+			spu->reg_vbase[i] = NULL;
 			return err;
 		}
-		i++;
 	}
 	spu->num_spu = i;
 	dev_dbg(dev, "Device has %d SPUs", spu->num_spu);
-
-	spu->reg_vbase = devm_kcalloc(dev, spu->num_spu,
-				      sizeof(*(spu->reg_vbase)), GFP_KERNEL);
-	if (spu->reg_vbase == NULL)
-		return -ENOMEM;
-	memcpy(spu->reg_vbase, spu_reg_vbase,
-	       spu->num_spu * sizeof(*(spu->reg_vbase)));
 
 	return 0;
 }

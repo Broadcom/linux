@@ -14,6 +14,7 @@
 #ifndef __BCM_AMAC_ENET_H__
 #define __BCM_AMAC_ENET_H__
 
+#include <linux/interrupt.h>
 #include <linux/kfifo.h>
 #include <linux/netdevice.h>
 #include <linux/platform_device.h>
