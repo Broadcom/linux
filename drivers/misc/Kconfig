@@ -519,6 +519,7 @@ source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/bcm-iproc-ftm/Kconfig"
+source "drivers/misc/smartcard/Kconfig"
 
 config BCM_IPROC_DTE
         tristate "DTE support"
