@@ -46,6 +46,7 @@ iproc_defconfig="base-arm64 ns2 stingray \
     i2c infiniband iomux                 \
     mailbox md misc mmc mmu mtd mtd-spi  \
     net nvme                             \
+    optee                                \
     pci perf profiling pwm               \
     regulator rng rtc                    \
     spi                                  \
