@@ -135,13 +135,13 @@ irqreturn_t bcm_amac_isr(int irq, void *userdata)
 static int amac_enet_start(struct bcm_amac_priv *privp)
 {
 	int rc;
-	const void *mac_addr;
+	const void *mac_addr = NULL;
 	char parsed_cmd_mac[14];
 
 	/* Look for mac addr passed via cmdline or dt */
-	if (is_valid_ether_addr(cmdline_params.mac_addr)) {
-		mac_pton(cmdline_params.mac_addr, parsed_cmd_mac);
-		mac_addr = (const void *)parsed_cmd_mac;
+	if (mac_pton(cmdline_params.mac_addr, parsed_cmd_mac)) {
+		if (is_valid_ether_addr(parsed_cmd_mac))
+			mac_addr = (const void *)parsed_cmd_mac;
 	} else {
 		/* get mac_addr from DT */
 		mac_addr = of_get_mac_address(privp->pdev->dev.of_node);
@@ -1015,13 +1015,19 @@ static const struct dev_pm_ops amac_enet_pm_ops = {
 static int __init bcm_amac_setup_ethaddr(char *s)
 {
 	bool rc;
+	u8   eth_addr[ETH_ALEN];
 
 	if ((!s) || (!strlen(s))) {
 		pr_err("bcm-amac: No ethaddr specified\n");
 		return 0;
 	}
 
-	rc = is_valid_ether_addr(s);
+	if (!mac_pton(s, eth_addr)) {
+		pr_info("bcm-amac: bad mac address: %s\n", s);
+		return 0;
+	}
+
+	rc = is_valid_ether_addr(eth_addr);
 	if (rc) {
 		pr_info("bcm-amac: setting ethaddr: %s\n", s);
 		strcpy(cmdline_params.mac_addr, s);
