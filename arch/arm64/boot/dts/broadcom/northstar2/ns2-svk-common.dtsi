@@ -37,7 +37,7 @@
 		regulator-type = "voltage";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <3300000>;
-		gpios = <&pcf8574 6 0>;
+		gpios = <&pcf8574_2 6 0>;
 		states = <3300000 0x1
 			  1800000 0x0>;
 	};
@@ -48,7 +48,7 @@
 		regulator-type = "voltage";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <3300000>;
-		gpios = <&pcf8574 7 0>;
+		gpios = <&pcf8574_2 7 0>;
 		states = <3300000 0x1
 			  1800000 0x0>;
 	};
@@ -56,12 +56,27 @@
 };
 
 &i2c0 {
-	pcf8574: pcf8574@21 {
+	pcf8574_1: pcf8574@20 {
+		compatible = "nxp,pcf8574";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x20>;
+	};
+
+	pcf8574_2: pcf8574@21 {
 		compatible = "nxp,pcf8574";
 		gpio-controller;
 		#gpio-cells = <2>;
 		reg = <0x21>;
 	};
+
+	pcf8574_3: pcf8574@22 {
+		compatible = "nxp,pcf8574";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x22>;
+	};
+
 };
 
 &sdio0 {
