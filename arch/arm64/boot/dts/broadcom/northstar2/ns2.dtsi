@@ -585,6 +585,7 @@
 				 <&iprocslow>,
 				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
+			status = "disabled";
 		};
 
 		timer2: timer@66050000 {
