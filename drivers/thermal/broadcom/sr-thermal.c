@@ -16,7 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/thermal.h>
 
-#define TMON_CRIT_TEMP 110000 /* temp in millidegree C */
+#define TMON_CRIT_TEMP 105000 /* temp in millidegree C */
 
 struct sr_thermal {
 	struct thermal_zone_device *tz;
