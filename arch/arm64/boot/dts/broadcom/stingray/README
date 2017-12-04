@@ -14,3 +14,5 @@ bcm958742t-fs4-uio.dtb                 - SST100 w/FS4 PMD
 bcm958802a.dtb                         - PS150xx 50G smartIO NIC board
 bcm958802a8020.dtb                     - PS150xx 1x50G smartIO NIC board
 bcm958802a8021.dtb                     - PS225xx 2x25G smartIO NIC board
+
+bcm958804a8040.dtb                     - PS1100R 1x100G smartIO NIC board
