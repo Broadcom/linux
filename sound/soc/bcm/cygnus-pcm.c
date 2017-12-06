@@ -234,15 +234,15 @@ static const struct snd_pcm_hardware cygnus_pcm_hw = {
 
 static u64 cygnus_dma_dmamask = DMA_BIT_MASK(32);
 
-static int iproc_reg_read(void __iomem *io_base, unsigned int offset, u32 *val)
+static int iproc_reg_read(struct regmap *io_base, unsigned int offset, u32 *val)
 {
-	*val = readl(io_base + offset);
+	regmap_read(io_base, offset, val);
 	return 0;
 }
 
-static int iproc_reg_write(void __iomem *io_base, unsigned int offset, u32 val)
+static int iproc_reg_write(struct regmap *io_base, unsigned int offset, u32 val)
 {
-	writel(val, io_base + offset);
+	regmap_write(io_base, offset, val);
 	return 0;
 }
 
@@ -254,7 +254,7 @@ static struct iproc_pcm_dma_info *cygnus_dai_get_dma_data(
 	return snd_soc_dai_get_dma_data(soc_runtime->cpu_dai, substream);
 }
 
-static void ringbuf_set_initial(void __iomem *audio_io,
+static void ringbuf_set_initial(struct regmap *audio_io,
 		struct ringbuf_regs *p_rbuf,
 		bool is_playback,
 		u32 start,
@@ -420,7 +420,7 @@ static void cygnus_pcm_period_elapsed(struct snd_pcm_substream *substream)
  */
 static void handle_playback_irq(struct iproc_rb_info *rb_info)
 {
-	void __iomem *audio_io;
+	struct regmap *audio_io;
 	u32 port;
 	u32 esr_status0, esr_status1, esr_status3;
 	u32 esr_mask0, esr_mask1, esr_mask3;
@@ -489,7 +489,7 @@ static void handle_playback_irq(struct iproc_rb_info *rb_info)
  */
 static void handle_capture_irq(struct iproc_rb_info *rb_info)
 {
-	void __iomem *audio_io;
+	struct regmap *audio_io;
 	u32 port;
 	u32 esr_status2, esr_status4;
 	u32 esr_mask2, esr_mask4;

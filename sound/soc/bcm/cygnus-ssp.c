@@ -16,6 +16,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
+#include <linux/regmap.h>
 #include <linux/slab.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -98,6 +99,8 @@
 #define SPDIF_FORMAT_CFG_OFFSET         (0xad8 | MAP1_FLAG)
 #define SPDIF_MCLK_CFG_OFFSET           (0xadc | MAP1_FLAG)
 
+#define MAP1_MAX_REG  (SPDIF_MCLK_CFG_OFFSET & 0x0000FFFF)
+
 /*--------------------------------------------
  * Register offsets for i2s_in io space
  */
@@ -114,6 +117,7 @@
 /* AUD_FMM_IOP_MISC_xxx regs */
 #define IOP_SW_INIT_LOGIC               (0xdc0 | MAP3_FLAG)
 
+#define MAP3_MAX_REG  (IOP_SW_INIT_LOGIC & 0x0000FFFF)
 /* End register offset defines */
 
 
@@ -282,17 +286,13 @@ static int sspreg_update(struct audio_io *io, unsigned int offset,
 			 u32 mask, u32 new_val)
 {
 	struct reg_desc desc;
-	u32 val;
 	int ret;
 
 	ret = audio_get_iomap(io, offset, &desc);
 	if (ret)
 		return ret;
 
-	val = readl(desc.iomap + desc.io_offset);
-	val &= ~mask;
-	val |= new_val;
-	writel(val, desc.iomap + desc.io_offset);
+	regmap_update_bits(desc.iomap, desc.io_offset, mask, new_val);
 
 	return 0;
 }
@@ -1266,7 +1266,6 @@ int cygnus_ssp_get_clk(struct snd_soc_dai *dai, unsigned int freq)
 	int error;
 	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(dai);
 
-
 	if (!aio->clk_info.audio_clk) {
 		dev_err(aio->dev, "%s Clock was not provided\n", __func__);
 		return -ENODEV;
@@ -1471,6 +1470,24 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 	return audio_ssp_init_portregs(aio);
 }
 
+static const struct regmap_config cygnusaudio_audio_regmap_cfg = {
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+	.max_register = MAP1_MAX_REG,
+
+	.cache_type = REGCACHE_NONE,
+};
+
+static const struct regmap_config cygnusaudio_i2s_in_regmap_cfg = {
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+	.max_register = MAP3_MAX_REG,
+
+	.cache_type = REGCACHE_NONE,
+};
+
 static int cygnus_ssp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1495,14 +1512,24 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	if (IS_ERR(ioregs))
 		return PTR_ERR(ioregs);
 
-	cygaud->io.audio = ioregs;
+	cygaud->io.audio = devm_regmap_init_mmio(&pdev->dev, ioregs,
+					    &cygnusaudio_audio_regmap_cfg);
+	if (IS_ERR(cygaud->io.audio)) {
+		dev_err(&pdev->dev, "regmap failed\n");
+		return PTR_ERR(cygaud->io.audio);
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "i2s_in");
 	ioregs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(ioregs))
 		return PTR_ERR(ioregs);
 
-	cygaud->io.i2s_in = ioregs;
+	cygaud->io.i2s_in = devm_regmap_init_mmio(&pdev->dev, ioregs,
+					    &cygnusaudio_i2s_in_regmap_cfg);
+	if (IS_ERR(cygaud->io.i2s_in)) {
+		dev_err(&pdev->dev, "regmap failed\n");
+		return PTR_ERR(cygaud->io.i2s_in);
+	}
 
 	/* Tri-state all controlable pins until we know that we need them */
 	mask = CYGNUS_SSP_TRISTATE_MASK;

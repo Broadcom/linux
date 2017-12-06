@@ -13,6 +13,7 @@
 #ifndef __CYGNUS_SSP_H__
 #define __CYGNUS_SSP_H__
 
+#include <linux/regmap.h>
 #include "iproc-pcm.h"
 
 #define CYGNUS_TDM_DAI_MAX_SLOTS 16
@@ -52,8 +53,8 @@ struct cygnus_ssp_regs {
 };
 
 struct audio_io {
-	void __iomem *audio;
-	void __iomem *i2s_in;
+	struct regmap *audio;
+	struct regmap *i2s_in;
 };
 
 struct cygnus_audio_clkinfo {
