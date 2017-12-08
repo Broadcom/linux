@@ -430,6 +430,9 @@ __bad_stack:
 	mov	x1, #\reason
 	mrs	x2, esr_el1
 	bl	bad_mode
+	cbnz	x0, 2f
+	kernel_exit \el
+2:
 	ASM_BUG()
 	.endm
 

@@ -58,6 +58,29 @@ static const char *handler[]= {
 
 int show_unhandled_signals = 1;
 
+static struct list_head bad_mode_head = LIST_HEAD_INIT(bad_mode_head);
+static DEFINE_RAW_SPINLOCK(bad_mode_lock);
+
+void register_bad_mode_hook(struct bad_mode_hook *hook)
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&bad_mode_lock, flags);
+	list_add(&hook->head, &bad_mode_head);
+	raw_spin_unlock_irqrestore(&bad_mode_lock, flags);
+}
+EXPORT_SYMBOL(register_bad_mode_hook);
+
+void unregister_bad_mode_hook(struct bad_mode_hook *hook)
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&bad_mode_lock, flags);
+	list_del(&hook->head);
+	raw_spin_unlock_irqrestore(&bad_mode_lock, flags);
+}
+EXPORT_SYMBOL(unregister_bad_mode_hook);
+
 /*
  * Dump out the contents of some kernel memory nicely...
  */
@@ -633,8 +656,24 @@ const char *esr_get_class_string(u32 esr)
  * bad_mode handles the impossible case in the exception vector. This is always
  * fatal.
  */
-asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
+asmlinkage int bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
 {
+	struct bad_mode_hook *hook;
+	struct list_head *ptr;
+	int ret;
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&bad_mode_lock, flags);
+	list_for_each(ptr, &bad_mode_head) {
+		hook = list_entry(ptr, struct bad_mode_hook, head);
+		ret = hook->cb(hook->data);
+		if (ret == NOTIFY_STOP) {
+			raw_spin_unlock_irqrestore(&bad_mode_lock, flags);
+			return 0;
+		}
+	}
+	raw_spin_unlock_irqrestore(&bad_mode_lock, flags);
+
 	console_verbose();
 
 	pr_crit("Bad mode in %s handler detected on CPU%d, code 0x%08x -- %s\n",
@@ -644,6 +683,7 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
 	die("Oops - bad mode", regs, 0);
 	local_irq_disable();
 	panic("bad mode");
+	return -EFAULT; /* Must not reach */
 }
 
 /*
