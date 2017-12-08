@@ -13,6 +13,7 @@
 
 #ifndef _PCIE_IPROC_H
 #define _PCIE_IPROC_H
+#include <asm/traps.h>
 
 /**
  * iProc PCIe interface type
@@ -70,6 +71,7 @@ struct iproc_msi;
  * @link_poll_interval: poll interval (in ms) for detecting link status
  * @timer_hdlr: timer routine for taking corrective action on link status
  * @sysdata: Per PCI controller data (ARM-specific)
+ * @hook: System error exception(bad mode) handler's hook
  * @root_bus: pointer to root bus
  * @phy: optional PHY device that controls the Serdes
  * @map_irq: function callback to map interrupts
@@ -119,6 +121,9 @@ struct iproc_pcie {
 
 #ifdef CONFIG_ARM
 	struct pci_sys_data sysdata;
+#endif
+#ifdef CONFIG_ARM64
+	struct bad_mode_hook hook;
 #endif
 	struct resource mem;
 	struct pci_bus *root_bus;

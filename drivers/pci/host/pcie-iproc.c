@@ -87,8 +87,7 @@
 #define CFG_RETRY_STATUS             0xffff0001
 #define CFG_RETRY_STATUS_TIMEOUT_US  500000 /* 500 milli-seconds. */
 
-#define IDM_STABLE_TIME_MIN_US 100
-#define IDM_STABLE_TIME_MAX_US 150
+#define IDM_STABLE_TIME_US 150
 #define IDM_RESET_CONTROL_OFFSET 0x800
 #define IDM_RESET_SHIFT 0
 #define IDM_RESET BIT(IDM_RESET_SHIFT)
@@ -114,6 +113,8 @@
 #define OVERFLOW_COMPLETE BIT(OVERFLOW_COMPLETE_SHIFT)
 #define ERROR_COMPLETE_SHIFT 0
 #define ERROR_COMPLETE BIT(ERROR_COMPLETE_SHIFT)
+
+#define IDM_ERROR_LOG_STATUS_OFFSET 0x908
 
 /* derive the enum index of the outbound/inbound mapping registers */
 #define MAP_REG(base_reg, index)	((base_reg) + (index) * 2)
@@ -449,10 +450,10 @@ static inline void iproc_pcie_idm_reset(struct iproc_pcie *pcie)
 		val = readl(pcie->idm + IDM_RESET_CONTROL_OFFSET);
 		val |= IDM_RESET;
 		writel(val, pcie->idm + IDM_RESET_CONTROL_OFFSET);
-		usleep_range(IDM_STABLE_TIME_MIN_US, IDM_STABLE_TIME_MAX_US);
+		udelay(IDM_STABLE_TIME_US);
 		val &= ~IDM_RESET;
 		writel(val, pcie->idm + IDM_RESET_CONTROL_OFFSET);
-		usleep_range(IDM_STABLE_TIME_MIN_US, IDM_STABLE_TIME_MAX_US);
+		udelay(IDM_STABLE_TIME_US);
 	}
 }
 
@@ -1668,17 +1669,20 @@ int iproc_pcie_detect_enable(struct iproc_pcie *pcie)
 void iproc_pcie_detect_disable(struct iproc_pcie *pcie)
 {
 	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
+	void (*release_fn)(struct device *) = host->dev.release;
 
 	pci_stop_root_bus(pcie->root_bus);
 	pci_remove_root_bus(pcie->root_bus);
-	pcie->ep_is_present = false;
 	pcie->root_bus = NULL;
 	memset(&host->dev, 0, sizeof(struct device));
+	host->dev.release = release_fn;
 
+	iproc_pcie_reset(pcie);
+	iproc_pcie_idm_reset(pcie);
 	if (pcie->idm)
 		writel(OVERFLOW_COMPLETE | ERROR_COMPLETE,
 		       pcie->idm + IDM_ERROR_LOG_COMPLETE_OFFSET);
-	iproc_pcie_reset(pcie);
+	pcie->ep_is_present = false;
 }
 
 static void iproc_pci_hotplug_work(struct work_struct *work)
@@ -1689,8 +1693,6 @@ static void iproc_pci_hotplug_work(struct work_struct *work)
 	bool link_status;
 	int ret;
 
-	iproc_pcie_reset(pcie);
-
 	link_status = iproc_pci_hp_check_ltssm(pcie);
 
 	if (link_status &&
@@ -1700,7 +1702,6 @@ static void iproc_pci_hotplug_work(struct work_struct *work)
 
 		writel(OVERFLOW_COMPLETE | ERROR_COMPLETE,
 		       pcie->idm + IDM_ERROR_LOG_COMPLETE_OFFSET);
-		iproc_pcie_idm_reset(pcie);
 
 		ret = iproc_pcie_detect_enable(pcie);
 		if (ret < 0) {
@@ -1742,6 +1743,8 @@ void iproc_timer_hdlr(unsigned long data)
 			queue_delayed_work(system_power_efficient_wq,
 					   &pcie->work, HOTPLUG_DEBOUNCE);
 		}
+		if (!pcie->ep_is_present)
+			iproc_pcie_idm_reset(pcie);
 	} else {
 		if (!pcie->linkup) {
 			pcie->linkup = true;
@@ -1751,6 +1754,23 @@ void iproc_timer_hdlr(unsigned long data)
 		}
 	}
 }
+
+#ifdef CONFIG_ARM64
+int bad_mode_hdlr(u64 data)
+{
+	struct iproc_pcie *pcie = (struct iproc_pcie *)data;
+	u32 error_val;
+
+	if (pcie->idm) {
+		error_val = readl(pcie->idm + IDM_ERROR_LOG_STATUS_OFFSET);
+		if (error_val) {
+			dev_dbg(pcie->dev, "Exception ignored\n");
+			return NOTIFY_STOP;
+		}
+	}
+	return NOTIFY_DONE;
+}
+#endif
 
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 {
@@ -1798,6 +1818,11 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 			    (unsigned long)pcie);
 		mod_timer(&pcie->timer_hdlr, jiffies +
 			  msecs_to_jiffies(pcie->link_poll_interval));
+#ifdef CONFIG_ARM64
+		pcie->hook.cb = bad_mode_hdlr;
+		pcie->hook.data = (u64)pcie;
+		register_bad_mode_hook(&pcie->hook);
+#endif
 	}
 
 	if (pcie->need_ob_cfg) {
@@ -1868,6 +1893,10 @@ EXPORT_SYMBOL(iproc_pcie_setup);
 
 int iproc_pcie_remove(struct iproc_pcie *pcie)
 {
+#ifdef CONFIG_ARM64
+	if (pcie->idm)
+		unregister_bad_mode_hook(&pcie->hook);
+#endif
 	cancel_delayed_work_sync(&pcie->work);
 	pci_stop_root_bus(pcie->root_bus);
 	pci_remove_root_bus(pcie->root_bus);

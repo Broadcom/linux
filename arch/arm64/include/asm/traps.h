@@ -32,8 +32,17 @@ struct undef_hook {
 	int (*fn)(struct pt_regs *regs, u32 instr);
 };
 
+struct bad_mode_hook {
+	struct list_head head;
+	u64 data;
+	int (*cb)(u64 data);
+};
+
 void register_undef_hook(struct undef_hook *hook);
 void unregister_undef_hook(struct undef_hook *hook);
+
+void register_bad_mode_hook(struct bad_mode_hook *hook);
+void unregister_bad_mode_hook(struct bad_mode_hook *hook);
 
 void arm64_notify_segfault(struct pt_regs *regs, unsigned long addr);
 
