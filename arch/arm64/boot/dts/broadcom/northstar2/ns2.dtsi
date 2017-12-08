@@ -87,6 +87,13 @@
 		method = "smc";
 	};
 
+	firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		arm,no-tick-in-suspend;
