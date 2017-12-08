@@ -102,6 +102,65 @@ static int sr_genpll0_clk_init(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct iproc_pll_ctrl sr_genpll2 = {
+	.flags = IPROC_CLK_AON | IPROC_CLK_PLL_HAS_NDIV_FRAC |
+		IPROC_CLK_PLL_NEEDS_SW_CFG,
+	.aon = AON_VAL(0x0, 1, 13, 12),
+	.reset = RESET_VAL(0x0, 12, 11),
+	.dig_filter = DF_VAL(0x0, 4, 3, 0, 4, 7, 3),
+	.sw_ctrl = SW_CTRL_VAL(0x10, 31),
+	.ndiv_int = REG_VAL(0x10, 20, 10),
+	.ndiv_frac = REG_VAL(0x10, 0, 20),
+	.pdiv = REG_VAL(0x14, 0, 4),
+	.status = REG_VAL(0x30, 12, 1),
+};
+
+static const struct iproc_clk_ctrl sr_genpll2_clk[] = {
+	[BCM_SR_GENPLL2_NIC_CLK] = {
+		.channel = BCM_SR_GENPLL2_NIC_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x4, 6, 0, 12),
+		.mdiv = REG_VAL(0x18, 0, 9),
+	},
+	[BCM_SR_GENPLL2_TS_500_CLK] = {
+		.channel = BCM_SR_GENPLL2_TS_500_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x4, 7, 1, 13),
+		.mdiv = REG_VAL(0x18, 10, 9),
+	},
+	[BCM_SR_GENPLL2_125_NITRO_CLK] = {
+		.channel = BCM_SR_GENPLL2_125_NITRO_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x4, 8, 2, 14),
+		.mdiv = REG_VAL(0x18, 20, 9),
+	},
+	[BCM_SR_GENPLL2_CHIMP_CLK] = {
+		.channel = BCM_SR_GENPLL2_CHIMP_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x4, 9, 3, 15),
+		.mdiv = REG_VAL(0x1c, 0, 9),
+	},
+	[BCM_SR_GENPLL2_NIC_FLASH_CLK] = {
+		.channel = BCM_SR_GENPLL2_NIC_FLASH_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x4, 10, 4, 16),
+		.mdiv = REG_VAL(0x1c, 10, 9),
+	},
+	[BCM_SR_GENPLL2_FS4_CLK] = {
+		.channel = BCM_SR_GENPLL2_FS4_CLK,
+		.enable = ENABLE_VAL(0x4, 11, 5, 17),
+		.mdiv = REG_VAL(0x1c, 20, 9),
+	},
+};
+
+static int sr_genpll2_clk_init(struct platform_device *pdev)
+{
+	iproc_pll_clk_setup(pdev->dev.of_node,
+			    &sr_genpll2, NULL, 0, sr_genpll2_clk,
+			    ARRAY_SIZE(sr_genpll2_clk));
+	return 0;
+}
+
 static const struct iproc_pll_ctrl sr_genpll3 = {
 	.flags = IPROC_CLK_AON | IPROC_CLK_PLL_HAS_NDIV_FRAC |
 		IPROC_CLK_PLL_NEEDS_SW_CFG,
@@ -181,17 +240,20 @@ static const struct iproc_pll_ctrl sr_genpll5 = {
 };
 
 static const struct iproc_clk_ctrl sr_genpll5_clk[] = {
-	[BCM_SR_GENPLL5_FS_CLK] = {
-		.channel = BCM_SR_GENPLL5_FS_CLK,
-		.flags = IPROC_CLK_AON,
+	[BCM_SR_GENPLL5_FS4_HF_CLK] = {
+		.channel = BCM_SR_GENPLL5_FS4_HF_CLK,
 		.enable = ENABLE_VAL(0x4, 6, 0, 12),
 		.mdiv = REG_VAL(0x18, 0, 9),
 	},
-	[BCM_SR_GENPLL5_SPU_CLK] = {
-		.channel = BCM_SR_GENPLL5_SPU_CLK,
-		.flags = IPROC_CLK_AON,
-		.enable = ENABLE_VAL(0x4, 6, 0, 12),
+	[BCM_SR_GENPLL5_CRYPTO_AE_CLK] = {
+		.channel = BCM_SR_GENPLL5_CRYPTO_AE_CLK,
+		.enable = ENABLE_VAL(0x4, 7, 1, 12),
 		.mdiv = REG_VAL(0x18, 10, 9),
+	},
+	[BCM_SR_GENPLL5_RAID_AE_CLK] = {
+		.channel = BCM_SR_GENPLL5_RAID_AE_CLK,
+		.enable = ENABLE_VAL(0x4, 8, 2, 14),
+		.mdiv = REG_VAL(0x18, 20, 9),
 	},
 };
 
@@ -298,6 +360,7 @@ static int sr_lcpll_pcie_clk_init(struct platform_device *pdev)
 
 static const struct of_device_id sr_clk_dt_ids[] = {
 	{ .compatible = "brcm,sr-genpll0", .data = sr_genpll0_clk_init },
+	{ .compatible = "brcm,sr-genpll2", .data = sr_genpll2_clk_init },
 	{ .compatible = "brcm,sr-genpll4", .data = sr_genpll4_clk_init },
 	{ .compatible = "brcm,sr-genpll5", .data = sr_genpll5_clk_init },
 	{ .compatible = "brcm,sr-lcpll0", .data = sr_lcpll0_clk_init },

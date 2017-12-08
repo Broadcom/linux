@@ -50,9 +50,11 @@
 /* GENPLL 2 clock channel ID NITRO MHB*/
 #define BCM_SR_GENPLL2			0
 #define BCM_SR_GENPLL2_NIC_CLK		1
-#define BCM_SR_GENPLL2_250_NITRO_CLK	2
+#define BCM_SR_GENPLL2_TS_500_CLK	2
 #define BCM_SR_GENPLL2_125_NITRO_CLK	3
 #define BCM_SR_GENPLL2_CHIMP_CLK	4
+#define BCM_SR_GENPLL2_NIC_FLASH_CLK	5
+#define BCM_SR_GENPLL2_FS4_CLK		6
 
 /* GENPLL 3 HSLS clock channel ID */
 #define BCM_SR_GENPLL3			0
@@ -65,8 +67,9 @@
 
 /* GENPLL 5 FS4 clock channel ID */
 #define BCM_SR_GENPLL5			0
-#define BCM_SR_GENPLL5_FS_CLK		1
-#define BCM_SR_GENPLL5_SPU_CLK		2
+#define BCM_SR_GENPLL5_FS4_HF_CLK	1
+#define BCM_SR_GENPLL5_CRYPTO_AE_CLK	2
+#define BCM_SR_GENPLL5_RAID_AE_CLK	3
 
 /* GENPLL 6 NITRO clock channel ID */
 #define BCM_SR_GENPLL6			0

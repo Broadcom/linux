@@ -58,6 +58,18 @@
 					     "clk_paxc_axi";
 		};
 
+		genpll2: genpll2@0001d1ac {
+			#clock-cells = <1>;
+			compatible = "brcm,sr-genpll2";
+			reg = <0x0001d1ac 0x32>,
+			      <0x0001c854 0x4>;
+			clocks = <&osc>;
+			clock-output-names = "genpll2", "clk_nic",
+					     "clk_ts_500_ref", "clk_125_nitro",
+					     "clk_chimp", "clk_nic_flash",
+					     "clk_fs";
+		};
+
 		genpll3: genpll3@0001d1e0 {
 			#clock-cells = <1>;
 			compatible = "brcm,sr-genpll3";
