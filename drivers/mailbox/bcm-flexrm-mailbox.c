@@ -27,6 +27,7 @@
 #include <asm/byteorder.h>
 #include <linux/atomic.h>
 #include <linux/bitmap.h>
+#include <linux/clk.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -291,6 +292,9 @@ struct flexrm_ring {
 struct flexrm_mbox {
 	struct device *dev;
 	void __iomem *regs;
+	struct clk *dme_rm_clk;
+	struct clk *ae_clk;
+	struct clk *fs4_clk;
 	u32 num_rings;
 	struct flexrm_ring *rings;
 	struct dma_pool *bd_pool;
@@ -1533,6 +1537,43 @@ static int flexrm_mbox_probe(struct platform_device *pdev)
 	}
 	regs_end = mbox->regs + resource_size(iomem);
 
+	mbox->dme_rm_clk = devm_clk_get(&pdev->dev, "dme_rm_clk");
+	if (IS_ERR(mbox->dme_rm_clk)) {
+		ret = PTR_ERR(mbox->dme_rm_clk);
+		dev_err(&pdev->dev, "Failed to get dme_rm_clk ret:%d\n", ret);
+		goto fail;
+	}
+	ret = clk_prepare_enable(mbox->dme_rm_clk);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to ena dme_rm_clk ret:%d\n", ret);
+		goto fail;
+	}
+
+	mbox->ae_clk = devm_clk_get(&pdev->dev, "ae_clk");
+	if (IS_ERR(mbox->ae_clk)) {
+		ret = PTR_ERR(mbox->ae_clk);
+		dev_err(&pdev->dev, "Failed to get ae_clk retcode:%d\n", ret);
+		goto fail;
+	}
+
+	ret = clk_prepare_enable(mbox->ae_clk);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable ae_clk ret:%d\n", ret);
+		goto fail;
+	}
+
+	mbox->fs4_clk = devm_clk_get(&pdev->dev, "fs4_clk");
+	if (IS_ERR(mbox->fs4_clk)) {
+		ret = PTR_ERR(mbox->fs4_clk);
+		dev_err(&pdev->dev, "Failed to get fs4_clk ret:%d\n", ret);
+		goto fail;
+	}
+	ret = clk_prepare_enable(mbox->fs4_clk);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable fs4_clk ret:%d\n", ret);
+		goto fail;
+	}
+
 	/* Scan and count available rings */
 	mbox->num_rings = 0;
 	for (regs = mbox->regs; regs < regs_end; regs += RING_REGS_SIZE) {
@@ -1697,6 +1738,9 @@ static int flexrm_mbox_remove(struct platform_device *pdev)
 	debugfs_remove_recursive(mbox->root);
 
 	platform_msi_domain_free_irqs(dev);
+	clk_disable_unprepare(mbox->fs4_clk);
+	clk_disable_unprepare(mbox->ae_clk);
+	clk_disable_unprepare(mbox->dme_rm_clk);
 
 	dma_pool_destroy(mbox->cmpl_pool);
 	dma_pool_destroy(mbox->bd_pool);
