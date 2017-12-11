@@ -295,6 +295,7 @@ These clock IDs are defined in:
     clk_125_nitro	genpll2		3	BCM_SR_GENPLL2_125_NITRO_CLK
     clk_chimp		genpll2		4	BCM_SR_GENPLL2_CHIMP_CLK
     clk_nic_flash	genpll2		5	BCM_SR_GENPLL2_NIC_FLASH
+    clk_fs		genpll2		6	BCM_SR_GENPLL2_FS_CLK
 
     genpll3		crystal		0	BCM_SR_GENPLL3
     clk_hsls		genpll3		1	BCM_SR_GENPLL3_HSLS_CLK
