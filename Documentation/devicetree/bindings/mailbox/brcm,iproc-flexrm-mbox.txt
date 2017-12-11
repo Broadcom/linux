@@ -31,6 +31,13 @@ Required properties:
 		specified by this cell then it will inject one MSI interrupt
 		to CPU provided atleast one completion message is available.
 
+-clocks:	pll handle + channel specifier
+		three clocks needed for this defined as-
+		1. dme/rm clock
+		2. accelerated engine clock
+		3. fs4 block AXI clock
+-clock-names:	list should be defined as - "dme_rm_clk", "ae_clk", "fs4_clk".
+
 Optional properties:
 --------------------
 - dma-coherent:	Present if DMA operations made by the FlexRM engine (such
@@ -43,6 +50,10 @@ Example:
 crypto_mbox: mbox@67000000 {
 	compatible = "brcm,iproc-flexrm-mbox";
 	reg = <0x67000000 0x200000>;
+	clocks = <&genpll5 BCM_SR_GENPLL5_FS4_HF_CLK>,
+		 <&genpll5 BCM_SR_GENPLL5_CRYPTO_AE_CLK>,
+		 <&genpll2 BCM_SR_GENPLL2_FS4_CLK>;
+	clock-names = "dme_rm_clk", "ae_clk", "fs4_clk";
 	msi-parent = <&gic_its 0x7f00>;
 	#mbox-cells = <3>;
 };
