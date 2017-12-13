@@ -118,4 +118,6 @@
 			IRQ_TYPE_LEVEL_HIGH)>;
 		};
 	};
+
+	#include "omega-optee.dtsi"
 };
