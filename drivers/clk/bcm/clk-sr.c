@@ -56,8 +56,8 @@ static const struct iproc_pll_ctrl sr_genpll0 = {
 };
 
 static const struct iproc_clk_ctrl sr_genpll0_clk[] = {
-	[BCM_SR_GENPLL0_SATA_CLK] = {
-		.channel = BCM_SR_GENPLL0_SATA_CLK,
+	[BCM_SR_GENPLL0_125M_CLK] = {
+		.channel = BCM_SR_GENPLL0_125M_CLK,
 		.flags = IPROC_CLK_AON,
 		.enable = ENABLE_VAL(0x4, 6, 0, 12),
 		.mdiv = REG_VAL(0x18, 0, 9),
@@ -216,6 +216,30 @@ static const struct iproc_clk_ctrl sr_genpll4_clk[] = {
 		.enable = ENABLE_VAL(0x4, 6, 0, 12),
 		.mdiv = REG_VAL(0x18, 0, 9),
 	},
+	[BCM_SR_GENPLL4_TPIU_PLL_CLK] = {
+		.channel = BCM_SR_GENPLL4_TPIU_PLL_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x4, 7, 1, 13),
+		.mdiv = REG_VAL(0x18, 10, 9),
+	},
+	[BCM_SR_GENPLL4_NOC_CLK] = {
+		.channel = BCM_SR_GENPLL4_NOC_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x4, 8, 2, 14),
+		.mdiv = REG_VAL(0x18, 20, 9),
+	},
+	[BCM_SR_GENPLL4_CHCLK_FS4_CLK] = {
+		.channel = BCM_SR_GENPLL4_CHCLK_FS4_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x4, 9, 3, 15),
+		.mdiv = REG_VAL(0x1c, 0, 9),
+	},
+	[BCM_SR_GENPLL4_BRIDGE_FSCPU_CLK] = {
+		.channel = BCM_SR_GENPLL4_BRIDGE_FSCPU_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x4, 10, 4, 16),
+		.mdiv = REG_VAL(0x1c, 10, 9),
+	},
 };
 
 static int sr_genpll4_clk_init(struct platform_device *pdev)
@@ -276,23 +300,29 @@ static const struct iproc_pll_ctrl sr_lcpll0 = {
 };
 
 static const struct iproc_clk_ctrl sr_lcpll0_clk[] = {
-	[BCM_SR_LCPLL0_SATA_REF_CLK] = {
-		.channel = BCM_SR_LCPLL0_SATA_REF_CLK,
+	[BCM_SR_LCPLL0_SATA_REFP_CLK] = {
+		.channel = BCM_SR_LCPLL0_SATA_REFP_CLK,
 		.flags = IPROC_CLK_AON,
 		.enable = ENABLE_VAL(0x0, 7, 1, 13),
 		.mdiv = REG_VAL(0x14, 0, 9),
 	},
-	[BCM_SR_LCPLL0_USB_REF_CLK] = {
-		.channel = BCM_SR_LCPLL0_USB_REF_CLK,
+	[BCM_SR_LCPLL0_SATA_REFN_CLK] = {
+		.channel = BCM_SR_LCPLL0_SATA_REFN_CLK,
 		.flags = IPROC_CLK_AON,
 		.enable = ENABLE_VAL(0x0, 8, 2, 14),
 		.mdiv = REG_VAL(0x14, 10, 9),
 	},
-	[BCM_SR_LCPLL0_SATA_REFPN_CLK] = {
-		.channel = BCM_SR_LCPLL0_SATA_REFPN_CLK,
+	[BCM_SR_LCPLL0_SATA_350_CLK] = {
+		.channel = BCM_SR_LCPLL0_SATA_350_CLK,
 		.flags = IPROC_CLK_AON,
 		.enable = ENABLE_VAL(0x0, 9, 3, 15),
 		.mdiv = REG_VAL(0x14, 20, 9),
+	},
+	[BCM_SR_LCPLL0_SATA_500_CLK] = {
+		.channel = BCM_SR_LCPLL0_SATA_500_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x0, 10, 4, 16),
+		.mdiv = REG_VAL(0x18, 0, 9),
 	},
 };
 
@@ -320,6 +350,18 @@ static const struct iproc_clk_ctrl sr_lcpll1_clk[] = {
 		.flags = IPROC_CLK_AON,
 		.enable = ENABLE_VAL(0x0, 7, 1, 13),
 		.mdiv = REG_VAL(0x14, 0, 9),
+	},
+	[BCM_SR_LCPLL1_USB_REF_CLK] = {
+		.channel = BCM_SR_LCPLL1_USB_REF_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x0, 8, 2, 14),
+		.mdiv = REG_VAL(0x14, 10, 9),
+	},
+	[BCM_SR_LCPLL1_CRMU_TS_CLK] = {
+		.channel = BCM_SR_LCPLL1_CRMU_TS_CLK,
+		.flags = IPROC_CLK_AON,
+		.enable = ENABLE_VAL(0x0, 9, 3, 15),
+		.mdiv = REG_VAL(0x14, 20, 9),
 	},
 };
 
