@@ -32,6 +32,7 @@
 
 	fs4: fs4 {
 		compatible = "simple-bus";
+		dma-ranges;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x67000000 0x00800000>;
