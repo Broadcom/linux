@@ -117,6 +117,18 @@
 		#size-cells = <1>;
 		ranges = <0 0 0 0xffffffff>;
 
+		#include "omega-clock.dtsi"
+
+		timer1: timer@00370000 {
+			compatible = "arm,sp804", "arm,primecell";
+			reg = <0x00370000 0x1000>;
+			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_ref25m_div2>,
+				 <&clk_ref25m_div2>,
+				 <&clk_periph_apb>;
+			clock-names = "timer1clk", "timer2clk", "apb_pclk";
+		};
+
 		uart0: uart@28510000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
