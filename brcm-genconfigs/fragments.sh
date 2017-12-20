@@ -25,6 +25,7 @@ bcm_cygnus_defconfig="base-arm32 cygnus  \
 
 bcm_omega_defconfig="base-arm64          \
     blk bt                               \
+    clocksource                          \
     dbg dma dte                          \
     fs i2c                               \
     iio                                  \
