@@ -139,7 +139,6 @@
 };
 
 &enet {
-	max-speed = <1000>;
 	phy-mode = "rgmii-id";
 	phy-handle = <&gphy0>;
 #if (ENABLE_ENET == 1)
