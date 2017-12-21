@@ -34,6 +34,7 @@ static int bcm54210s_config_init(struct phy_device *phydev)
 {
 	int val;
 
+	/* Only RGMII to 1000Base-X/SGMII(slave) mode is supported as of now */
 	if (!phy_interface_is_rgmii(phydev))
 		return -EINVAL;
 
@@ -41,7 +42,7 @@ static int bcm54210s_config_init(struct phy_device *phydev)
 	val = bcm_phy_read_rdb(phydev,
 			       BCM_542XX_RDB_COPPER_MISC_CTRL);
 	val |= BCM_542XX_RGMII_EN;
-	val |= BCM_542XX_RXC_INT_DELAY;
+	val |= BCM_542XX_RXC_INT_DELAY;		/* Enable Rx Clock delay */
 	if (phydev->interface != PHY_INTERFACE_MODE_RGMII_ID &&
 	    phydev->interface != PHY_INTERFACE_MODE_RGMII_RXID)
 		val &= ~BCM_542XX_RXC_INT_DELAY;
@@ -49,7 +50,7 @@ static int bcm54210s_config_init(struct phy_device *phydev)
 
 	/* Configure internal Tx Clock delay */
 	val = bcm_phy_read_rdb(phydev, BCM_542XX_RDB_CLK_ALIGN_CTRL);
-	val |= BCM_542XX_GTXCLK_INT_DELAY; /* Enable Tx Clock delay */
+	val |= BCM_542XX_GTXCLK_INT_DELAY;	/* Enable Tx Clock delay */
 	if (phydev->interface != PHY_INTERFACE_MODE_RGMII_ID &&
 	    phydev->interface != PHY_INTERFACE_MODE_RGMII_TXID)
 		val &= ~BCM_542XX_GTXCLK_INT_DELAY;
@@ -61,14 +62,15 @@ static int bcm54210s_config_init(struct phy_device *phydev)
 
 	/* Enable RGMII-to-Fiber(1000BASE-X mode) and select Copper overlay */
 	val = bcm_phy_read_rdb(phydev, BCM_542XX_RDB_MODE_CTRL);
-	val &= (BCM_542XX_1000BASEX & ~BCM_542XX_REG_1000X_EN);
+	val &= ~BCM_542XX_MODE_SEL;
+	val |= BCM_542XX_1000BASEX & BCM_542XX_MODE_SEL;
+	val &= ~BCM_542XX_REG_1000X_EN;
 	bcm_phy_write_rdb(phydev, BCM_542XX_RDB_MODE_CTRL, val);
 
 	/* Power down Copper interface */
 	bcm_phy_power_down(phydev, true);
 
-	/* Now select Fiber overlay */
-	val = bcm_phy_read_rdb(phydev, BCM_542XX_RDB_MODE_CTRL);
+	/* Now select Fiber (1000Base-X or SGMII) overlay */
 	val |= BCM_542XX_REG_1000X_EN;
 	bcm_phy_write_rdb(phydev, BCM_542XX_RDB_MODE_CTRL, val);
 
@@ -78,11 +80,48 @@ static int bcm54210s_config_init(struct phy_device *phydev)
 	val |= BCM_542XX_FIBER_LED;
 	bcm_phy_write_rdb(phydev, BCM_542XX_RDB_AUTODET_MEDIUM, val);
 
+	/* Enable SGMII (Slave) mode */
+	val = bcm_phy_read_rdb(phydev, BCM_542XX_RDB_SGMII_SLAVE);
+	val |= BCM_542XX_SGMII_SLAVE_MODE_EN;
+	bcm_phy_write_rdb(phydev, BCM_542XX_RDB_SGMII_SLAVE, val);
+
 	/* Power up the primary serdes interface */
 	bcm_phy_power_down(phydev, false);
 
+	phydev->autoneg = AUTONEG_DISABLE;
+	phydev->speed = SPEED_1000;
+	phydev->duplex = DUPLEX_FULL;
+
 	return 0;
 }
+
+static int bcm_rdb_phy_config_init(struct phy_device *phydev)
+{
+	int val, ret;
+
+	/* Mask the interrupts globally */
+	val = bcm_phy_read_rdb(phydev, BCM_542XX_RDB_PHY_ECR);
+	val |= MII_BCM54XX_ECR_IM;
+	ret = bcm_phy_write_rdb(phydev, BCM_542XX_RDB_PHY_ECR, val);
+	if (ret < 0)
+		return ret;
+
+	/* Unmask events we are interested in.  */
+	val = ~(MII_BCM54XX_INT_DUPLEX |
+		MII_BCM54XX_INT_SPEED |
+		MII_BCM54XX_INT_LINK);
+	ret = bcm_phy_write_rdb(phydev, BCM_542XX_RDB_PHY_IMR, val);
+	if (ret < 0)
+		return ret;
+
+	if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54210S) {
+		ret = bcm54210s_config_init(phydev);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+};
 
 static int bcm54210e_config_init(struct phy_device *phydev)
 {
@@ -359,11 +398,6 @@ static int bcm54xx_config_init(struct phy_device *phydev)
 					val);
 		if (err < 0)
 			return err;
-	} else if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54210S) {
-		err = bcm54210s_config_init(phydev);
-		if (err)
-			return err;
-		return 0;
 	}
 
 	bcm54xx_phydsp_config(phydev);
@@ -633,11 +667,11 @@ static struct phy_driver broadcom_drivers[] = {
 	.name		= "Broadcom BCM54210S",
 	.features	= PHY_GBIT_FEATURES,
 	.flags		= PHY_HAS_INTERRUPT,
-	.config_init	= bcm54xx_config_init,
+	.config_init	= bcm_rdb_phy_config_init,
 	.config_aneg	= genphy_config_aneg,
 	.read_status	= genphy_read_status,
-	.ack_interrupt	= bcm_phy_ack_intr,
-	.config_intr	= bcm_phy_config_intr,
+	.ack_interrupt	= bcm_rdb_phy_ack_intr,
+	.config_intr	= bcm_rdb_phy_config_intr,
 }, {
 	.phy_id		= PHY_ID_BCM5461,
 	.phy_id_mask	= 0xfffffff0,
