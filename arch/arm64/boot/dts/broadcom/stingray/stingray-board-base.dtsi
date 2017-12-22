@@ -69,10 +69,20 @@
 #include "stingray.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
+#if (ENABLE_PAXB_IOMMU == 1)
+#define PCIE_DMA_RANGES dma-ranges = < \
+	0x43000000 0x00 0x00000000 0x00 0x00000000 0x04 0x00000000 \
+	0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000 \
+	0x43000000 0x80 0x00000000 0x80 0x00000000 0x80 0x00000000>
+#define PCIE_RESERVED_DMA_WINDOWS reserved-dma-windows = < \
+	0x0 0x0 0x04 0x0 0x04 0x0 \
+	0x0 0x0 0x10 0x0 0x70 0x0>
+#else
 #define PCIE_DMA_RANGES dma-ranges = < \
 	0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000 \
 	0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000 \
-	0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>;
+	0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>
+#endif
 
 / {
 	aliases {
@@ -107,35 +117,75 @@
 };
 
 &pcie0 {
-	PCIE_DMA_RANGES
+	PCIE_DMA_RANGES;
+#if (ENABLE_PAXB_IOMMU == 1)
+	#dma-address-cells = <2>;
+	#dma-size-cells = <2>;
+	PCIE_RESERVED_DMA_WINDOWS;
+#endif
 };
 
 &pcie1 {
-	PCIE_DMA_RANGES
+	PCIE_DMA_RANGES;
+#if (ENABLE_PAXB_IOMMU == 1)
+	#dma-address-cells = <2>;
+	#dma-size-cells = <2>;
+	PCIE_RESERVED_DMA_WINDOWS;
+#endif
 };
 
 &pcie2 {
-	PCIE_DMA_RANGES
+	PCIE_DMA_RANGES;
+#if (ENABLE_PAXB_IOMMU == 1)
+	#dma-address-cells = <2>;
+	#dma-size-cells = <2>;
+	PCIE_RESERVED_DMA_WINDOWS;
+#endif
 };
 
 &pcie3 {
-	PCIE_DMA_RANGES
+	PCIE_DMA_RANGES;
+#if (ENABLE_PAXB_IOMMU == 1)
+	#dma-address-cells = <2>;
+	#dma-size-cells = <2>;
+	PCIE_RESERVED_DMA_WINDOWS;
+#endif
 };
 
 &pcie4 {
-	PCIE_DMA_RANGES
+	PCIE_DMA_RANGES;
+#if (ENABLE_PAXB_IOMMU == 1)
+	#dma-address-cells = <2>;
+	#dma-size-cells = <2>;
+	PCIE_RESERVED_DMA_WINDOWS;
+#endif
 };
 
 &pcie5 {
-	PCIE_DMA_RANGES
+	PCIE_DMA_RANGES;
+#if (ENABLE_PAXB_IOMMU == 1)
+	#dma-address-cells = <2>;
+	#dma-size-cells = <2>;
+	PCIE_RESERVED_DMA_WINDOWS;
+#endif
 };
 
 &pcie6 {
-	PCIE_DMA_RANGES
+	PCIE_DMA_RANGES;
+#if (ENABLE_PAXB_IOMMU == 1)
+	#dma-address-cells = <2>;
+	#dma-size-cells = <2>;
+	PCIE_RESERVED_DMA_WINDOWS;
+#endif
 };
 
 &pcie7 {
-	PCIE_DMA_RANGES
+	PCIE_DMA_RANGES;
+#if (ENABLE_PAXB_IOMMU == 1)
+	#dma-address-cells = <2>;
+	#dma-size-cells = <2>;
+	PCIE_RESERVED_DMA_WINDOWS;
+#endif
 };
 
 &enet {
