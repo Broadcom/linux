@@ -1793,6 +1793,14 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	if (ret)
 		return ret;
 
+#if CONFIG_PM_SLEEP
+	pcie->paxb_map_regs = devm_kcalloc(dev, IPROC_PCIE_MAX_NUM_REG * 2,
+					   sizeof(*pcie->paxb_map_regs),
+					   GFP_KERNEL);
+	if (!pcie->paxb_map_regs)
+		return -ENOMEM;
+#endif
+
 	ret = phy_init(pcie->phy);
 	if (ret) {
 		dev_err(dev, "unable to initialize PCIe PHY\n");
@@ -1806,6 +1814,18 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	}
 
 	iproc_pcie_reset(pcie);
+
+	if (pcie->need_ob_cfg) {
+		ret = iproc_pcie_map_ranges(pcie, res);
+		if (ret) {
+			dev_err(dev, "map failed\n");
+			goto err_power_off_phy;
+		}
+	}
+
+	ret = iproc_pcie_map_dma_ranges(pcie);
+	if (ret && ret != -ENOENT)
+		goto err_power_off_phy;
 
 	if (pcie->idm) {
 		val = readl(pcie->idm + IDM_ERROR_LOG_CONTROL_OFFSET);
@@ -1825,18 +1845,6 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 #endif
 	}
 
-	if (pcie->need_ob_cfg) {
-		ret = iproc_pcie_map_ranges(pcie, res);
-		if (ret) {
-			dev_err(dev, "map failed\n");
-			goto err_power_off_phy;
-		}
-	}
-
-	ret = iproc_pcie_map_dma_ranges(pcie);
-	if (ret && ret != -ENOENT)
-		goto err_power_off_phy;
-
 #ifdef CONFIG_ARM
 	pcie->sysdata.private_data = pcie;
 	sysdata = &pcie->sysdata;
@@ -1844,13 +1852,6 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	sysdata = pcie;
 #endif
 
-#if CONFIG_PM_SLEEP
-	pcie->paxb_map_regs = devm_kcalloc(dev, IPROC_PCIE_MAX_NUM_REG * 2,
-					   sizeof(*pcie->paxb_map_regs),
-					   GFP_KERNEL);
-	if (!pcie->paxb_map_regs)
-		return -ENOMEM;
-#endif
 
 	is_link_active = iproc_pcie_check_link(pcie);
 	if (is_link_active)
@@ -1859,7 +1860,7 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	ret = iproc_pcie_intx_enable(pcie);
 	if (ret) {
 		dev_err(dev, "failed to enable INTx\n");
-		goto err_power_off_phy;
+		goto err_unregister_bad_mode;
 	}
 
 	if (IS_ENABLED(CONFIG_PCI_MSI))
@@ -1877,12 +1878,20 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 		ret = iproc_pcie_detect_enable(pcie);
 		if (ret < 0) {
 			dev_err(dev, "failed to enable: %d\n", ret);
-			goto err_power_off_phy;
+			goto err_unregister_bad_mode;
 		}
 	}
 
 	return 0;
 
+err_unregister_bad_mode:
+	if (pcie->idm) {
+#ifdef CONFIG_ARM64
+		unregister_bad_mode_hook(&pcie->hook);
+#endif
+		del_timer_sync(&pcie->timer_hdlr);
+		cancel_delayed_work_sync(&pcie->work);
+	}
 err_power_off_phy:
 	phy_power_off(pcie->phy);
 err_exit_phy:
@@ -1893,11 +1902,14 @@ EXPORT_SYMBOL(iproc_pcie_setup);
 
 int iproc_pcie_remove(struct iproc_pcie *pcie)
 {
+	if (pcie->idm) {
 #ifdef CONFIG_ARM64
-	if (pcie->idm)
 		unregister_bad_mode_hook(&pcie->hook);
 #endif
-	cancel_delayed_work_sync(&pcie->work);
+		del_timer_sync(&pcie->timer_hdlr);
+		cancel_delayed_work_sync(&pcie->work);
+	}
+
 	pci_stop_root_bus(pcie->root_bus);
 	pci_remove_root_bus(pcie->root_bus);
 
@@ -2049,9 +2061,10 @@ EXPORT_SYMBOL(iproc_pcie_resume);
 
 int iproc_pcie_suspend(struct iproc_pcie *pcie)
 {
-	flush_delayed_work(&pcie->work);
-	if (pcie->idm)
+	if (pcie->idm) {
+		flush_delayed_work(&pcie->work);
 		del_timer_sync(&pcie->timer_hdlr);
+	}
 
 	if (pcie->msi)
 		iproc_msi_disable(pcie->msi);
