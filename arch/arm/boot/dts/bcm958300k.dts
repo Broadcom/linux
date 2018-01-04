@@ -229,3 +229,13 @@
 &pwm {
 	status = "okay";
 };
+
+&spi1 {
+	status = "okay";
+
+	spidev@0 {
+		compatible = "spidev-test";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+	};
+};
