@@ -152,7 +152,7 @@
 	flash: m25p80@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "m25p80";
+		compatible = "m25p80","jedec,spi-nor";
 		spi-max-frequency = <62500000>;
 		m25p,default-addr-width = <3>;
 		reg = <0x0 0x0>;
