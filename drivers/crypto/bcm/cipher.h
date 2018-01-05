@@ -417,7 +417,7 @@ struct spu_hw {
 	u32 (*spu_wordalign_padlen)(u32 data_size);
 
 	/* The base virtual address of the SPU hw registers */
-	void __iomem **reg_vbase;
+	void __iomem *reg_vbase[MAX_SPUS];
 
 	/* Version of the SPU hardware */
 	enum spu_spu_type spu_type;
