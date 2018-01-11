@@ -641,6 +641,7 @@
 			sci-id = <0>;
 			/*nxp-coupler 0 for NXP8024, 1 for NXP8026(with i2c1) */
 			nxp-coupler = <0>;
+			status = "disabled";
 		};
 
 		smartcard1: smartcard@180a3100 {
@@ -657,6 +658,7 @@
 			sci-id = <1>;
 			/*nxp-coupler 0 for NXP8024, 1 for NXP8026(with i2c1) */
 			nxp-coupler = <0>;
+			status = "disabled";
 		};
 
 		gpio_asiu: gpio@180a5000 {
