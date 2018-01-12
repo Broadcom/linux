@@ -245,14 +245,24 @@ static int sci_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to register interrupt\n");
 		return ret;
 	}
-	pctx->clk = devm_clk_get(dev, NULL);
+	pctx->clk = devm_clk_get(dev, "smartcard_clk");
 	if (IS_ERR(pctx->clk)) {
 		dev_err(dev, "Failed to get sci clock\n");
-		return -ENODEV;
+		return PTR_ERR(pctx->clk);
 	}
 	ret = clk_prepare_enable(pctx->clk);
 	if (ret) {
 		dev_err(dev, "Failed to enable clock\n");
+		return ret;
+	}
+	pctx->asiu_clk = devm_clk_get(dev, "smartcard_gate_clk");
+	if (IS_ERR(pctx->clk)) {
+		dev_err(dev, "Failed to get sci gate clock\n");
+		return PTR_ERR(pctx->asiu_clk);
+	}
+	ret = clk_prepare_enable(pctx->asiu_clk);
+	if (ret) {
+		dev_err(dev, "Failed to enable asiu clock\n");
 		return ret;
 	}
 

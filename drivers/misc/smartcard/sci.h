@@ -38,6 +38,7 @@ struct sci_ctx {
 	void __iomem  *sci_regs;
 	void __iomem  *scirq_regmap;
 	struct clk *clk;
+	struct clk *asiu_clk;
 	unsigned int sci_id;
 	unsigned int gpio;
 	unsigned int coupler;
