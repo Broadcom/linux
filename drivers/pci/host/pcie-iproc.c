@@ -1613,6 +1613,7 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 		break;
 	case IPROC_PCIE_PAXC_V2:
 		regs = iproc_pcie_reg_paxc_v2;
+		pcie->disable_msi_parse = true;
 		pcie->ep_is_internal = true;
 		pcie->iproc_cfg_read = true;
 		pcie->rej_unconfig_pf = true;
@@ -2132,24 +2133,6 @@ static void quirk_paxc_bridge(struct pci_dev *pdev)
 	writel(0, pcie->base + PAXC_CFG_ECM_ADDR_OFFSET);
 }
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0x16cd, quirk_paxc_bridge);
-
-/*
- * The MSI parsing logic within the PAXCv2 root complex block in Stingray A1/A2
- * does not work and needs to be disabled
- */
-static void quirk_paxc_disable_msi_parsing(struct pci_dev *pdev)
-{
-	struct iproc_pcie *pcie = iproc_data(pdev->bus);
-
-	if (pdev->hdr_type == PCI_HEADER_TYPE_BRIDGE)
-		pcie->disable_msi_parse = true;
-}
-DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0x16f0,
-			quirk_paxc_disable_msi_parsing);
-DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0xd802,
-			quirk_paxc_disable_msi_parsing);
-DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0xd804,
-			quirk_paxc_disable_msi_parsing);
 
 static void quirk_paxb_crs_check(struct pci_dev *pdev)
 {
