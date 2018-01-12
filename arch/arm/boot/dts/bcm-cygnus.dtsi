@@ -634,7 +634,9 @@
 			sc_syscon = <&smartcard_syscon>;
 			interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "sci-irq";
-			clocks = <&lcpll0 BCM_CYGNUS_LCPLL0_SMART_CARD_CLK>;
+			clocks = <&lcpll0 BCM_CYGNUS_LCPLL0_SMART_CARD_CLK>,
+				<&asiu_clks BCM_CYGNUS_ASIU_SMARTCARD_CLK>;
+			clock-names = "smartcard_clk", "smartcard_gate_clk";
 			pinctrl-0 = <&smartcard_0>;
 			sci-id = <0>;
 			/*nxp-coupler 0 for NXP8024, 1 for NXP8026(with i2c1) */
@@ -648,7 +650,9 @@
 			sc_syscon = <&smartcard_syscon>;
 			interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "sci-irq";
-			clocks = <&lcpll0 BCM_CYGNUS_LCPLL0_SMART_CARD_CLK>;
+			clocks = <&lcpll0 BCM_CYGNUS_LCPLL0_SMART_CARD_CLK>,
+				<&asiu_clks BCM_CYGNUS_ASIU_SMARTCARD_CLK>;
+			clock-names = "smartcard_clk", "smartcard_gate_clk";
 			pinctrl-0 = <&smartcard_1>;
 			sci-id = <1>;
 			/*nxp-coupler 0 for NXP8024, 1 for NXP8026(with i2c1) */
