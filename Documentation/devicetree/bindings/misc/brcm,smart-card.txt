@@ -26,7 +26,8 @@ Required properties:
 		- "sci-irq" for smartcard interface,
 
 -clocks:
-	Smart Card Clock.
+	Smart Card Clock from lcpll0 Ch4.
+	Clock ungate from ASIU.
 
 -pinctrl-0:
 	mux setting used to configure pins for smart card.
@@ -52,7 +53,8 @@ For example:
 		sc_syscon = <&smartcard_syscon>;
 		interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "sci-irq";
-		clocks = <&lcpll0_clks BCM_CYGNUS_LCPLL0_SMART_CARD_CLK>;
+		clocks = <&lcpll0 BCM_CYGNUS_LCPLL0_SMART_CARD_CLK>,
+			<&asiu_clks BCM_CYGNUS_ASIU_SMARTCARD_CLK>;
 		pinctrl-0 = <&smartcard_0>;
 		sci-id = <0>;
 		nxp-coupler = <0> ;
