@@ -256,12 +256,15 @@ static const struct iproc_asiu_div asiu_div[] = {
 	[BCM_CYGNUS_ASIU_KEYPAD_CLK] = ASIU_DIV_VAL(0x0, 31, 16, 10, 0, 10),
 	[BCM_CYGNUS_ASIU_ADC_CLK] = ASIU_DIV_VAL(0x4, 31, 16, 10, 0, 10),
 	[BCM_CYGNUS_ASIU_PWM_CLK] = ASIU_DIV_VAL(0x8, 31, 16, 10, 0, 10),
+	[BCM_CYGNUS_ASIU_SMARTCARD_CLK] =
+		ASIU_DIV_VAL(IPROC_CLK_INVALID_OFFSET, 0, 0, 0, 0, 0),
 };
 
 static const struct iproc_asiu_gate asiu_gate[] = {
 	[BCM_CYGNUS_ASIU_KEYPAD_CLK] = ASIU_GATE_VAL(0x0, 7),
 	[BCM_CYGNUS_ASIU_ADC_CLK] = ASIU_GATE_VAL(0x0, 9),
 	[BCM_CYGNUS_ASIU_PWM_CLK] = ASIU_GATE_VAL(IPROC_CLK_INVALID_OFFSET, 0),
+	[BCM_CYGNUS_ASIU_SMARTCARD_CLK] = ASIU_GATE_VAL(0x0, 8),
 };
 
 static void __init cygnus_asiu_init(struct device_node *node)

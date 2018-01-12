@@ -64,6 +64,7 @@
 #define BCM_CYGNUS_ASIU_KEYPAD_CLK    0
 #define BCM_CYGNUS_ASIU_ADC_CLK       1
 #define BCM_CYGNUS_ASIU_PWM_CLK       2
+#define BCM_CYGNUS_ASIU_SMARTCARD_CLK 3
 
 /* AUDIO clock ID */
 #define BCM_CYGNUS_AUDIOPLL           0
