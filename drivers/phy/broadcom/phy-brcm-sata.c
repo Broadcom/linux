@@ -107,10 +107,6 @@ enum sata_phy_regs {
 	PLL1_ACTRL3				= 0x83,
 	PLL1_ACTRL4				= 0x84,
 
-	TX_REG_BANK				= 0x070,
-	TX_ACTRL0				= 0x80,
-	TX_ACTRL0_TXPOL_FLIP			= BIT(6),
-
 	AEQRX_REG_BANK_0			= 0xd0,
 	AEQ_CONTROL1				= 0x81,
 	AEQ_CONTROL1_ENABLE			= BIT(2),
@@ -460,10 +456,6 @@ static int brcm_sr_sata_init(struct brcm_sata_port *port)
 		dev_err(dev, "port%d PLL did not lock\n", port->portnum);
 		return -ETIMEDOUT;
 	}
-
-	/* Invert Tx polarity */
-	brcm_sata_phy_wr(base, TX_REG_BANK, TX_ACTRL0,
-			 ~TX_ACTRL0_TXPOL_FLIP, TX_ACTRL0_TXPOL_FLIP);
 
 	/* Configure OOB control to handle 100MHz reference clock */
 	val = ((0xc << OOB_CTRL1_BURST_MAX_SHIFT) |
