@@ -23,6 +23,8 @@ dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958802a8028.dtb
 
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040-diag.dtb
+dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040-paxb-iommu.dtb
+dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040-pcie-iommu.dtb
 
 dts-dirs	:= custom emulator
 always		:= $(dtb-y)
