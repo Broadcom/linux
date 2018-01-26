@@ -119,6 +119,16 @@
 
 		#include "omega-clock.dtsi"
 
+		i2c1: i2c@00350000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x00350000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 42 IRQ_TYPE_NONE>;
+			clock-frequency = <100000>;
+			status = "okay";
+		};
+
 		timer1: timer@00370000 {
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x00370000 0x1000>;
@@ -138,6 +148,16 @@
 			clock-frequency = <25000000>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		i2c0: i2c@28570000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x28570000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 41 IRQ_TYPE_NONE>;
+			clock-frequency = <100000>;
+			status = "okay";
 		};
 
 		gic: interrupt-controller@2a001000 {
