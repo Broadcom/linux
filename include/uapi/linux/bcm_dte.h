@@ -23,6 +23,7 @@ struct dte_client_data {
 	unsigned int client;
 	unsigned int enable;
 	unsigned int divider;
+	unsigned int both_edge;
 };
 
 struct dte_timestamp {

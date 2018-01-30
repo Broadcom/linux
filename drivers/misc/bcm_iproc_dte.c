@@ -307,6 +307,27 @@ static int dte_enable_timestamp(struct bcm_dte *iproc_dte,
 	return 0;
 }
 
+static void dte_set_ts_trigg_edge(struct bcm_dte *iproc_dte,
+				  uint32_t client, bool both_edge)
+{
+	uint32_t val;
+
+	if (!iproc_dte)
+		return;
+
+	if ((!iproc_dte->trigg_reg) ||
+		(client >= iproc_dte->num_of_clients))
+		return;
+
+	val = readl(iproc_dte->trigg_reg);
+	if (both_edge)
+		val |= BIT(client);
+	else
+		val &= ~BIT(client);
+
+	writel(val, iproc_dte->trigg_reg);
+}
+
 static int dte_set_client_divider(struct bcm_dte *iproc_dte,
 				  unsigned int client,
 				  uint32_t divider)
@@ -668,6 +689,7 @@ static int dte_enable_ts(struct bcm_dte *iproc_dte,
 			 unsigned int client,
 			 bool enable,
 			 uint32_t divider,
+			 bool both_edge,
 			 struct file *fp)
 {
 	int rc = 0;
@@ -720,6 +742,8 @@ static int dte_enable_ts(struct bcm_dte *iproc_dte,
 		rc = dte_set_client_divider(iproc_dte, client, divider);
 		if (rc)
 			goto dte_ts_disable_irq;
+
+		dte_set_ts_trigg_edge(iproc_dte, client, both_edge);
 
 		rc = dte_enable_timestamp(iproc_dte, client, enable);
 		if (rc) {
@@ -920,10 +944,16 @@ static long dte_ioctl(struct file *filep,
 			goto err_out;
 		}
 
+		if (dte_client_info.both_edge && !iproc_dte->trigg_reg) {
+			ret = -EPERM;
+			goto err_out;
+		}
+
 		ret = dte_enable_ts(iproc_dte,
 				    dte_client_info.client,
 				    dte_client_info.enable,
 				    dte_client_info.divider,
+				    (dte_client_info.both_edge ? true : false),
 				    filep);
 		break;
 
@@ -963,7 +993,7 @@ int dte_release(struct inode *node, struct file *fp)
 
 	for (i = 0; i < iproc_dte->num_of_clients; i++)
 		if (iproc_dte->user[i].fp == fp)
-			dte_enable_ts(iproc_dte, i, false, 0, fp);
+			dte_enable_ts(iproc_dte, i, false, 0, false, fp);
 
 	return 0;
 }
@@ -1186,6 +1216,12 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 		return PTR_ERR(iproc_dte->audioeav);
 	}
 
+	/* optional register to set DTE edge trigger */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	iproc_dte->trigg_reg = devm_ioremap_resource(dev, res);
+	if (IS_ERR(iproc_dte->trigg_reg))
+		iproc_dte->trigg_reg = NULL;
+
 	spin_lock_init(&iproc_dte->lock);
 	dte_disable_nco(iproc_dte);
 
@@ -1380,6 +1416,9 @@ static int bcm_iproc_dte_suspend(struct device *dev)
 	/* disable intr or timer */
 	dte_set_irq_interval(iproc_dte, 0);
 
+	if (iproc_dte->trigg_reg)
+		iproc_dte->trigg_reg_susp_val = readl(iproc_dte->trigg_reg);
+
 	iproc_dte->nco_susp_val =
 		readl(iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
 	dte_disable_nco(iproc_dte);
@@ -1407,6 +1446,10 @@ static int bcm_iproc_dte_resume(struct device *dev)
 	if (iproc_dte->usr_cnt) {
 		/* re-enable intr or timer */
 		dte_set_irq_interval(iproc_dte, iproc_dte->irq_interval_ns);
+
+		if (iproc_dte->trigg_reg)
+			writel(iproc_dte->trigg_reg_susp_val,
+			       iproc_dte->trigg_reg);
 
 		/* Re-enable sources */
 		writel(iproc_dte->src_ena,

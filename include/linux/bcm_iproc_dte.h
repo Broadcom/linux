@@ -54,6 +54,8 @@ struct bcm_dte {
 	struct timespec ts_ref;
 	uint32_t timestamp_overflow_last;
 	void __iomem *audioeav;
+	void __iomem *trigg_reg;
+
 	uint32_t irq_interval_ns;
 	uint32_t usr_cnt; /* tracks num of users */
 	struct dte_user_info *user;
@@ -62,10 +64,11 @@ struct bcm_dte {
 	unsigned int num_of_clients;
 	struct dte_client_mapping *dte_cli;
 	uint32_t nco_susp_val;
+	uint32_t trigg_reg_susp_val;
 
 	int (*enable_ts)(struct bcm_dte *dte,
 		unsigned int client, bool enable,
-		uint32_t divider, struct file *fp);
+		uint32_t divider, bool both_edge, struct file *fp);
 	int (*get_ts)(struct bcm_dte *dte,
 		unsigned int client, struct timespec *ts);
 
