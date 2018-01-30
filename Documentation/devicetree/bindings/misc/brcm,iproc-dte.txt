@@ -11,8 +11,8 @@ Required properties:
 		      SoC compatibility Strings:
 			"brcm,cygnus-dte"
 			"brcm,stingray-dte"
-	- reg       : Physical base address and size of the
-                      DTE registers
+	- reg       : Address and size of the DTE registers.
+		      Address and size of ASIU_TOP_MISC2 register (optional)
 
 Optional properties:
 	- interrupts: DTE IIG Interrupt number
@@ -25,12 +25,14 @@ Optional properties:
 	               If unspecified the default from the driver
 	               is used. default value 0.5 sec
 
+
 Examples:
 1.
 	/* Cygnus (ISR mode) */
 	dte: dte@180af000 {
 		compatible = "brcm,cygnus-dte", "brcm,iproc-dte";
-		reg = <0x180af000 0x1000>;
+		reg = <0x180af000 0x1000>,
+		      <0x180aa054 0x4>;
 		interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>;
 		brcm,dte-interval-ns = <500000000>;
 		status = "okay";
