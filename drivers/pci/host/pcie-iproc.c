@@ -1610,7 +1610,12 @@ static int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 		}
 		pcie->ib.nr_regions = ARRAY_SIZE(paxb_v2_ib_map);
 		pcie->ib_map = paxb_v2_ib_map;
-		pcie->need_msi_steer = true;
+		/**
+		 * SMMUv2 translates MSI address mapped in IOVA space so
+		 * GICv3 ITS address does not need steering in the bridge.
+		 */
+		if (!of_get_property(pcie->dev->of_node, "iommu-map", NULL))
+			pcie->need_msi_steer = true;
 		dev_warn(dev, "reads of config registers that contain %#x return incorrect data\n",
 			 CFG_RETRY_STATUS);
 		break;
