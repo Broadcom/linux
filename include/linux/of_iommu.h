@@ -6,20 +6,27 @@
 #include <linux/iommu.h>
 #include <linux/of.h>
 
+struct of_iommu_dma_window {
+	u32 busno;
+	u32 prot;
+	u64 bus_addr;
+	u64 size;
+};
+
 #ifdef CONFIG_OF_IOMMU
 
-extern int of_get_dma_window(struct device_node *dn, const char *prefix,
-			     int index, unsigned long *busno, dma_addr_t *addr,
-			     size_t *size);
+int of_get_dma_window(struct device_node *dn, const char *prefix, int *index,
+		      struct of_iommu_dma_window *dma_window);
 
 extern const struct iommu_ops *of_iommu_configure(struct device *dev,
 					struct device_node *master_np);
 
+void of_iommu_resv_dma_regions(struct device_node *np, struct list_head *list);
+
 #else
 
 static inline int of_get_dma_window(struct device_node *dn, const char *prefix,
-			    int index, unsigned long *busno, dma_addr_t *addr,
-			    size_t *size)
+			int *index, struct of_iommu_dma_window *dma_window)
 {
 	return -EINVAL;
 }
@@ -28,6 +35,12 @@ static inline const struct iommu_ops *of_iommu_configure(struct device *dev,
 					 struct device_node *master_np)
 {
 	return NULL;
+}
+
+static inline int of_iommu_resv_dma_regions(struct device_node *np,
+					    struct list_head *list)
+{
+	return -EINVAL;
 }
 
 #endif	/* CONFIG_OF_IOMMU */
