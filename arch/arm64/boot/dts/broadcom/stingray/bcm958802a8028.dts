@@ -32,6 +32,8 @@
 
 /dts-v1/;
 
+#define NUM_CRYPTO	32
+#define NUM_RAID	8
 #define ENABLE_ENET	0
 #define ENABLE_USB1	0
 #define NUM_PAXB	0
