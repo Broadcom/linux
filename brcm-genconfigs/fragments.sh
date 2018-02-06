@@ -8,7 +8,7 @@ arm64_defconfigs="iproc_defconfig bcm_omega_defconfig"
 # Defines the fragments that apply to each defconfig. Variable name must be the
 # same as the defconfig file.
 bcm_cygnus_defconfig="base-arm32 cygnus  \
-    blk bt                               \
+    blk bt camera                        \
     dbg dma drm dte                      \
     fs i2c                               \
     iio                                  \
