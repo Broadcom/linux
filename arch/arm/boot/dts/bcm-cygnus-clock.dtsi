@@ -126,6 +126,8 @@ clocks {
 		#clock-cells = <1>;
 		compatible = "brcm,cygnus-audiopll";
 		reg = <0x180aeb00 0x68>;
+		assigned-clocks = <&audiopll BCM_CYGNUS_AUDIOPLL>;
+		assigned-clock-rates = <1376255989>;
 		clocks = <&osc>;
 		clock-output-names = "audiopll", "ch0_audio",
 					"ch1_audio", "ch2_audio";
