@@ -330,6 +330,12 @@
 	assigned-clock-rates = <0>, <0>, <2100000000>;
 };
 
+&bl {
+	brightness-levels = <0 16 24 32 50 64 128 255>;
+	default-brightness-level = <6>;
+	status = "okay";
+};
+
 &clcd {
 	clocks =  <&mipipll BCM_CYGNUS_MIPIPLL_CH1_LCD>, <&apb_clk>;
 	clcd-clock-select = <1>;
@@ -343,6 +349,7 @@
 
 	panel {
 		compatible = "panel-dpi";
+		backlight = <&bl>;
 		port {
 			clcd_panel: endpoint {
 				remote-endpoint = <&clcd_pads>;
