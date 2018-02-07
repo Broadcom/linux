@@ -160,6 +160,12 @@
 			status = "okay";
 		};
 
+		mailbox: mailbox@29488024 {
+			compatible = "brcm,iproc-mailbox";
+			reg = <0x29488024 0x8>;
+			#mbox-cells = <1>;
+		};
+
 		gic: interrupt-controller@2a001000 {
 			compatible = "arm,gic-400";
 			#interrupt-cells = <3>;
