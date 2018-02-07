@@ -1,0 +1,15 @@
+Broadcom iProc Public Key accelarator
+-------------------------------------
+PKA (Public Key accelarator) supports several public key
+algorithms like RSA crypto system, Digital Signature
+Algorithm, etc.
+
+Required properties:
+- compatible 	: "brcm,iproc-pka"
+- reg 		: Base address of PKA_CONTROL_STATUS register.
+
+Example:
+	pka: iproc_pka@18031000 {
+		compatible = "brcm,iproc-pka";
+		reg = <0x18031000 0x10>;
+	};
