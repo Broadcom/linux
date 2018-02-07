@@ -508,6 +508,12 @@
 			reg = <0x18032000 0x28>;
 		};
 
+		pka: iproc_pka@18031000 {
+			compatible = "brcm,iproc-pka";
+			reg = <0x18031000 0x10>;
+			status = "disabled";
+		};
+
 		sdhci0: sdhci@18041000 {
 			compatible = "brcm,sdhci-iproc-cygnus";
 			reg = <0x18041000 0x100>;

@@ -394,3 +394,7 @@
 &adc {
 	status = "okay";
 };
+
+&pka {
+	status = "okay";
+};
