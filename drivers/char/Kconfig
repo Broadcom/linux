@@ -195,6 +195,15 @@ config POWERNV_OP_PANEL
 
 	  If unsure, say M here to build it as a module called powernv-op-panel.
 
+config MMAP_CMEM
+	tristate "MMAP CMEM support"
+	default y
+	help
+	  Enable to provide user mode virtual address mapped to reserved
+	  physical address for VFIO.
+
+	  If unsure, say N.
+
 source "drivers/char/ipmi/Kconfig"
 
 config DS1620
