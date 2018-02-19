@@ -43,11 +43,13 @@
  * @offset: register offset for mux configuration of a group
  * @shift: bit shift for mux configuration of a group
  * @alt: alternate function to set to
+ * @ctrl_path_override: gpio control path override enable
  */
 struct cygnus_mux {
 	unsigned int offset;
 	unsigned int shift;
 	unsigned int alt;
+	bool ctrl_path_override;
 };
 
 /*
@@ -188,16 +190,16 @@ static struct cygnus_pin cygnus_pins[] = {
 	CYGNUS_PIN_DESC(23, "gpio11", 0, 0, 0),
 	CYGNUS_PIN_DESC(24, "gpio12", 0, 0, 0),
 	CYGNUS_PIN_DESC(25, "gpio13", 0, 0, 0),
-	CYGNUS_PIN_DESC(26, "gpio14", 0, 0, 0),
-	CYGNUS_PIN_DESC(27, "gpio15", 0, 0, 0),
+	CYGNUS_PIN_DESC(26, "gpio14", 1, 0x24, 2),
+	CYGNUS_PIN_DESC(27, "gpio15", 1, 0x24, 0),
 	CYGNUS_PIN_DESC(28, "gpio16", 0, 0, 0),
 	CYGNUS_PIN_DESC(29, "gpio17", 0, 0, 0),
 	CYGNUS_PIN_DESC(30, "gpio18", 0, 0, 0),
 	CYGNUS_PIN_DESC(31, "gpio19", 0, 0, 0),
 	CYGNUS_PIN_DESC(32, "gpio20", 0, 0, 0),
 	CYGNUS_PIN_DESC(33, "gpio21", 0, 0, 0),
-	CYGNUS_PIN_DESC(34, "gpio22", 0, 0, 0),
-	CYGNUS_PIN_DESC(35, "gpio23", 0, 0, 0),
+	CYGNUS_PIN_DESC(34, "gpio22", 1, 0x20, 18),
+	CYGNUS_PIN_DESC(35, "gpio23", 1, 0x20, 16),
 	CYGNUS_PIN_DESC(36, "mdc", 0, 0, 0),
 	CYGNUS_PIN_DESC(37, "mdio", 0, 0, 0),
 	CYGNUS_PIN_DESC(38, "pwm0", 1, 0x10, 30),
@@ -481,7 +483,7 @@ static const unsigned usb1_oc_pins[] = { 177 };
 static const unsigned gpio2_3p3_pins[] = { 178 };
 static const unsigned usb2_oc_pins[] = { 178 };
 
-#define CYGNUS_PIN_GROUP(group_name, off, sh, al)	\
+#define CYGNUS_PIN_GROUP(group_name, off, sh, al, ovrd)	\
 {							\
 	.name = __stringify(group_name) "_grp",		\
 	.pins = group_name ## _pins,			\
@@ -490,6 +492,7 @@ static const unsigned usb2_oc_pins[] = { 178 };
 		.offset = off,				\
 		.shift = sh,				\
 		.alt = al,				\
+		.ctrl_path_override = ovrd,			\
 	}						\
 }
 
@@ -497,92 +500,92 @@ static const unsigned usb2_oc_pins[] = { 178 };
  * List of Cygnus pin groups
  */
 static const struct cygnus_pin_group cygnus_pin_groups[] = {
-	CYGNUS_PIN_GROUP(i2s2_0, 0x0, 0, 2),
-	CYGNUS_PIN_GROUP(i2s2_1, 0x0, 4, 2),
-	CYGNUS_PIN_GROUP(i2s2_2, 0x0, 8, 2),
-	CYGNUS_PIN_GROUP(i2s2_3, 0x0, 12, 2),
-	CYGNUS_PIN_GROUP(i2s2_4, 0x0, 16, 2),
-	CYGNUS_PIN_GROUP(pwm4, 0x0, 20, 0),
-	CYGNUS_PIN_GROUP(pwm5, 0x0, 24, 2),
-	CYGNUS_PIN_GROUP(key0, 0x4, 0, 1),
-	CYGNUS_PIN_GROUP(key1, 0x4, 4, 1),
-	CYGNUS_PIN_GROUP(key2, 0x4, 8, 1),
-	CYGNUS_PIN_GROUP(key3, 0x4, 12, 1),
-	CYGNUS_PIN_GROUP(key4, 0x4, 16, 1),
-	CYGNUS_PIN_GROUP(key5, 0x4, 20, 1),
-	CYGNUS_PIN_GROUP(key6, 0x4, 24, 1),
-	CYGNUS_PIN_GROUP(audio_dte0, 0x4, 24, 2),
-	CYGNUS_PIN_GROUP(key7, 0x4, 28, 1),
-	CYGNUS_PIN_GROUP(audio_dte1, 0x4, 28, 2),
-	CYGNUS_PIN_GROUP(key8, 0x8, 0, 1),
-	CYGNUS_PIN_GROUP(key9, 0x8, 4, 1),
-	CYGNUS_PIN_GROUP(key10, 0x8, 8, 1),
-	CYGNUS_PIN_GROUP(key11, 0x8, 12, 1),
-	CYGNUS_PIN_GROUP(key12, 0x8, 16, 1),
-	CYGNUS_PIN_GROUP(key13, 0x8, 20, 1),
-	CYGNUS_PIN_GROUP(key14, 0x8, 24, 1),
-	CYGNUS_PIN_GROUP(audio_dte2, 0x8, 24, 2),
-	CYGNUS_PIN_GROUP(key15, 0x8, 28, 1),
-	CYGNUS_PIN_GROUP(audio_dte3, 0x8, 28, 2),
-	CYGNUS_PIN_GROUP(pwm0, 0xc, 0, 0),
-	CYGNUS_PIN_GROUP(pwm1, 0xc, 4, 0),
-	CYGNUS_PIN_GROUP(pwm2, 0xc, 8, 0),
-	CYGNUS_PIN_GROUP(pwm3, 0xc, 12, 0),
-	CYGNUS_PIN_GROUP(sdio0, 0xc, 16, 0),
-	CYGNUS_PIN_GROUP(smart_card0, 0xc, 20, 0),
-	CYGNUS_PIN_GROUP(i2s0_0, 0xc, 20, 1),
-	CYGNUS_PIN_GROUP(spdif, 0xc, 20, 1),
-	CYGNUS_PIN_GROUP(smart_card1, 0xc, 24, 0),
-	CYGNUS_PIN_GROUP(i2s1_0, 0xc, 24, 1),
-	CYGNUS_PIN_GROUP(spi0, 0x10, 0, 0),
-	CYGNUS_PIN_GROUP(spi1, 0x10, 4, 0),
-	CYGNUS_PIN_GROUP(spi2, 0x10, 8, 0),
-	CYGNUS_PIN_GROUP(spi3, 0x10, 12, 0),
-	CYGNUS_PIN_GROUP(sw_led0_0, 0x10, 12, 2),
-	CYGNUS_PIN_GROUP(d1w, 0x10, 16, 0),
-	CYGNUS_PIN_GROUP(uart4, 0x10, 16, 1),
-	CYGNUS_PIN_GROUP(sw_led2_0, 0x10, 16, 2),
-	CYGNUS_PIN_GROUP(lcd, 0x10, 20, 0),
-	CYGNUS_PIN_GROUP(sram_0, 0x10, 20, 1),
-	CYGNUS_PIN_GROUP(spi5, 0x10, 20, 2),
-	CYGNUS_PIN_GROUP(uart0, 0x14, 0, 0),
-	CYGNUS_PIN_GROUP(sw_led0_1, 0x14, 0, 2),
-	CYGNUS_PIN_GROUP(uart1_dte, 0x14, 4, 0),
-	CYGNUS_PIN_GROUP(uart2, 0x14, 4, 1),
-	CYGNUS_PIN_GROUP(uart1, 0x14, 8, 0),
-	CYGNUS_PIN_GROUP(uart3, 0x14, 12, 0),
-	CYGNUS_PIN_GROUP(qspi_0, 0x14, 16, 0),
-	CYGNUS_PIN_GROUP(nand, 0x14, 20, 0),
-	CYGNUS_PIN_GROUP(sdio0_cd, 0x18, 0, 0),
-	CYGNUS_PIN_GROUP(sdio0_mmc, 0x18, 4, 0),
-	CYGNUS_PIN_GROUP(sdio1_data_0, 0x18, 8, 0),
-	CYGNUS_PIN_GROUP(can0, 0x18, 8, 1),
-	CYGNUS_PIN_GROUP(spi4_0, 0x18, 8, 2),
-	CYGNUS_PIN_GROUP(sdio1_data_1, 0x18, 12, 0),
-	CYGNUS_PIN_GROUP(can1, 0x18, 12, 1),
-	CYGNUS_PIN_GROUP(spi4_1, 0x18, 12, 2),
-	CYGNUS_PIN_GROUP(sdio1_cd, 0x18, 16, 0),
-	CYGNUS_PIN_GROUP(sdio1_led, 0x18, 20, 0),
-	CYGNUS_PIN_GROUP(sw_led2_1, 0x18, 20, 2),
-	CYGNUS_PIN_GROUP(sdio1_mmc, 0x18, 24, 0),
-	CYGNUS_PIN_GROUP(cam_led, 0x1c, 0, 0),
-	CYGNUS_PIN_GROUP(sw_led1, 0x1c, 0, 1),
-	CYGNUS_PIN_GROUP(cam_0, 0x1c, 4, 0),
-	CYGNUS_PIN_GROUP(cam_1, 0x1c, 8, 0),
-	CYGNUS_PIN_GROUP(sram_1, 0x1c, 8, 1),
-	CYGNUS_PIN_GROUP(qspi_1, 0x1c, 12, 0),
-	CYGNUS_PIN_GROUP(bsc1, 0x1c, 16, 0),
-	CYGNUS_PIN_GROUP(pcie_clkreq, 0x1c, 16, 1),
-	CYGNUS_PIN_GROUP(smart_card0_fcb, 0x20, 0, 0),
-	CYGNUS_PIN_GROUP(i2s0_1, 0x20, 0, 1),
-	CYGNUS_PIN_GROUP(smart_card1_fcb, 0x20, 4, 0),
-	CYGNUS_PIN_GROUP(i2s1_1, 0x20, 4, 1),
-	CYGNUS_PIN_GROUP(gpio0_3p3, 0x28, 0, 0),
-	CYGNUS_PIN_GROUP(usb0_oc, 0x28, 0, 1),
-	CYGNUS_PIN_GROUP(gpio1_3p3, 0x28, 4, 0),
-	CYGNUS_PIN_GROUP(usb1_oc, 0x28, 4, 1),
-	CYGNUS_PIN_GROUP(gpio2_3p3, 0x28, 8, 0),
-	CYGNUS_PIN_GROUP(usb2_oc, 0x28, 8, 1),
+	CYGNUS_PIN_GROUP(i2s2_0, 0x0, 0, 2, 0),
+	CYGNUS_PIN_GROUP(i2s2_1, 0x0, 4, 2, 0),
+	CYGNUS_PIN_GROUP(i2s2_2, 0x0, 8, 2, 0),
+	CYGNUS_PIN_GROUP(i2s2_3, 0x0, 12, 2, 0),
+	CYGNUS_PIN_GROUP(i2s2_4, 0x0, 16, 2, 0),
+	CYGNUS_PIN_GROUP(pwm4, 0x0, 20, 0, 0),
+	CYGNUS_PIN_GROUP(pwm5, 0x0, 24, 2, 0),
+	CYGNUS_PIN_GROUP(key0, 0x4, 0, 1, 0),
+	CYGNUS_PIN_GROUP(key1, 0x4, 4, 1, 0),
+	CYGNUS_PIN_GROUP(key2, 0x4, 8, 1, 0),
+	CYGNUS_PIN_GROUP(key3, 0x4, 12, 1, 0),
+	CYGNUS_PIN_GROUP(key4, 0x4, 16, 1, 0),
+	CYGNUS_PIN_GROUP(key5, 0x4, 20, 1, 0),
+	CYGNUS_PIN_GROUP(key6, 0x4, 24, 1, 0),
+	CYGNUS_PIN_GROUP(audio_dte0, 0x4, 24, 2, 1),
+	CYGNUS_PIN_GROUP(key7, 0x4, 28, 1, 0),
+	CYGNUS_PIN_GROUP(audio_dte1, 0x4, 28, 2, 1),
+	CYGNUS_PIN_GROUP(key8, 0x8, 0, 1, 0),
+	CYGNUS_PIN_GROUP(key9, 0x8, 4, 1, 0),
+	CYGNUS_PIN_GROUP(key10, 0x8, 8, 1, 0),
+	CYGNUS_PIN_GROUP(key11, 0x8, 12, 1, 0),
+	CYGNUS_PIN_GROUP(key12, 0x8, 16, 1, 0),
+	CYGNUS_PIN_GROUP(key13, 0x8, 20, 1, 0),
+	CYGNUS_PIN_GROUP(key14, 0x8, 24, 1, 0),
+	CYGNUS_PIN_GROUP(audio_dte2, 0x8, 24, 2, 1),
+	CYGNUS_PIN_GROUP(key15, 0x8, 28, 1, 0),
+	CYGNUS_PIN_GROUP(audio_dte3, 0x8, 28, 2, 1),
+	CYGNUS_PIN_GROUP(pwm0, 0xc, 0, 0, 0),
+	CYGNUS_PIN_GROUP(pwm1, 0xc, 4, 0, 0),
+	CYGNUS_PIN_GROUP(pwm2, 0xc, 8, 0, 0),
+	CYGNUS_PIN_GROUP(pwm3, 0xc, 12, 0, 0),
+	CYGNUS_PIN_GROUP(sdio0, 0xc, 16, 0, 0),
+	CYGNUS_PIN_GROUP(smart_card0, 0xc, 20, 0, 0),
+	CYGNUS_PIN_GROUP(i2s0_0, 0xc, 20, 1, 0),
+	CYGNUS_PIN_GROUP(spdif, 0xc, 20, 1, 0),
+	CYGNUS_PIN_GROUP(smart_card1, 0xc, 24, 0, 0),
+	CYGNUS_PIN_GROUP(i2s1_0, 0xc, 24, 1, 0),
+	CYGNUS_PIN_GROUP(spi0, 0x10, 0, 0, 0),
+	CYGNUS_PIN_GROUP(spi1, 0x10, 4, 0, 0),
+	CYGNUS_PIN_GROUP(spi2, 0x10, 8, 0, 0),
+	CYGNUS_PIN_GROUP(spi3, 0x10, 12, 0, 0),
+	CYGNUS_PIN_GROUP(sw_led0_0, 0x10, 12, 2, 0),
+	CYGNUS_PIN_GROUP(d1w, 0x10, 16, 0, 0),
+	CYGNUS_PIN_GROUP(uart4, 0x10, 16, 1, 0),
+	CYGNUS_PIN_GROUP(sw_led2_0, 0x10, 16, 2, 0),
+	CYGNUS_PIN_GROUP(lcd, 0x10, 20, 0, 0),
+	CYGNUS_PIN_GROUP(sram_0, 0x10, 20, 1, 0),
+	CYGNUS_PIN_GROUP(spi5, 0x10, 20, 2, 0),
+	CYGNUS_PIN_GROUP(uart0, 0x14, 0, 0, 0),
+	CYGNUS_PIN_GROUP(sw_led0_1, 0x14, 0, 2, 0),
+	CYGNUS_PIN_GROUP(uart1_dte, 0x14, 4, 0, 0),
+	CYGNUS_PIN_GROUP(uart2, 0x14, 4, 1, 0),
+	CYGNUS_PIN_GROUP(uart1, 0x14, 8, 0, 0),
+	CYGNUS_PIN_GROUP(uart3, 0x14, 12, 0, 0),
+	CYGNUS_PIN_GROUP(qspi_0, 0x14, 16, 0, 0),
+	CYGNUS_PIN_GROUP(nand, 0x14, 20, 0, 0),
+	CYGNUS_PIN_GROUP(sdio0_cd, 0x18, 0, 0, 0),
+	CYGNUS_PIN_GROUP(sdio0_mmc, 0x18, 4, 0, 0),
+	CYGNUS_PIN_GROUP(sdio1_data_0, 0x18, 8, 0, 0),
+	CYGNUS_PIN_GROUP(can0, 0x18, 8, 1, 0),
+	CYGNUS_PIN_GROUP(spi4_0, 0x18, 8, 2, 0),
+	CYGNUS_PIN_GROUP(sdio1_data_1, 0x18, 12, 0, 0),
+	CYGNUS_PIN_GROUP(can1, 0x18, 12, 1, 0),
+	CYGNUS_PIN_GROUP(spi4_1, 0x18, 12, 2, 0),
+	CYGNUS_PIN_GROUP(sdio1_cd, 0x18, 16, 0, 0),
+	CYGNUS_PIN_GROUP(sdio1_led, 0x18, 20, 0, 0),
+	CYGNUS_PIN_GROUP(sw_led2_1, 0x18, 20, 2, 0),
+	CYGNUS_PIN_GROUP(sdio1_mmc, 0x18, 24, 0, 0),
+	CYGNUS_PIN_GROUP(cam_led, 0x1c, 0, 0, 0),
+	CYGNUS_PIN_GROUP(sw_led1, 0x1c, 0, 1, 0),
+	CYGNUS_PIN_GROUP(cam_0, 0x1c, 4, 0, 0),
+	CYGNUS_PIN_GROUP(cam_1, 0x1c, 8, 0, 0),
+	CYGNUS_PIN_GROUP(sram_1, 0x1c, 8, 1, 0),
+	CYGNUS_PIN_GROUP(qspi_1, 0x1c, 12, 0, 0),
+	CYGNUS_PIN_GROUP(bsc1, 0x1c, 16, 0, 0),
+	CYGNUS_PIN_GROUP(pcie_clkreq, 0x1c, 16, 1, 0),
+	CYGNUS_PIN_GROUP(smart_card0_fcb, 0x20, 0, 0, 0),
+	CYGNUS_PIN_GROUP(i2s0_1, 0x20, 0, 1, 0),
+	CYGNUS_PIN_GROUP(smart_card1_fcb, 0x20, 4, 0, 0),
+	CYGNUS_PIN_GROUP(i2s1_1, 0x20, 4, 1, 0),
+	CYGNUS_PIN_GROUP(gpio0_3p3, 0x28, 0, 0, 0),
+	CYGNUS_PIN_GROUP(usb0_oc, 0x28, 0, 1, 0),
+	CYGNUS_PIN_GROUP(gpio1_3p3, 0x28, 4, 0, 0),
+	CYGNUS_PIN_GROUP(usb1_oc, 0x28, 4, 1, 0),
+	CYGNUS_PIN_GROUP(gpio2_3p3, 0x28, 8, 0, 0),
+	CYGNUS_PIN_GROUP(usb2_oc, 0x28, 8, 1, 0),
 };
 
 /*
@@ -778,9 +781,11 @@ static int cygnus_pinmux_set(struct cygnus_pinctrl *pinctrl,
 			     struct cygnus_mux_log *mux_log)
 {
 	const struct cygnus_mux *mux = &grp->mux;
-	int i;
+	struct cygnus_gpio_mux gpio_mux;
+	int i, j;
 	u32 val, mask = 0x7;
 	unsigned long flags;
+	unsigned int pin;
 
 	for (i = 0; i < CYGNUS_NUM_IOMUX; i++) {
 		if (mux->offset != mux_log[i].mux.offset ||
@@ -822,6 +827,21 @@ static int cygnus_pinmux_set(struct cygnus_pinctrl *pinctrl,
 	val |= grp->mux.alt << grp->mux.shift;
 	writel(val, pinctrl->base0 + grp->mux.offset);
 
+	for (j = 0; j < grp->num_pins; j++) {
+		pin = grp->pins[j];
+		gpio_mux = cygnus_pins[pin].gpio_mux;
+		val = readl(pinctrl->base1 + gpio_mux.offset);
+
+		if (grp->mux.ctrl_path_override == true) {
+			val |= 0x2 << gpio_mux.shift;
+			writel(val, pinctrl->base1 + gpio_mux.offset);
+		} else {
+			/* mux.ctrl_path_override = false */
+			dev_dbg(pinctrl->dev, "clear ctrl path override bits");
+			val &= ~(0x2 << gpio_mux.shift);
+			writel(val, pinctrl->base1 + gpio_mux.offset);
+		}
+	}
 	spin_unlock_irqrestore(&pinctrl->lock, flags);
 
 	return 0;
