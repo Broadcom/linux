@@ -29,7 +29,7 @@ bcm_omega_defconfig="base-arm64          \
     dbg dma dte                          \
     fs i2c                               \
     iio                                  \
-    input                                \
+    input iomux                          \
     lcd mailbox media misc mmc mtd       \
     net                                  \
     optee                                \
