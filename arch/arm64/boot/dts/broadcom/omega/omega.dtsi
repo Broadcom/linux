@@ -166,6 +166,18 @@
 			#mbox-cells = <1>;
 		};
 
+		gpio_crmu: gpio@29488800 {
+			compatible = "brcm,cygnus-crmu-gpio";
+			reg = <0x29488800 0x50>,
+			      <0x29488008 0x18>;
+			ngpios = <8>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			interrupt-controller;
+			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
+			mboxes = <&mailbox 0>;
+		};
+
 		gic: interrupt-controller@2a001000 {
 			compatible = "arm,gic-400";
 			#interrupt-cells = <3>;
