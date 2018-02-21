@@ -160,6 +160,18 @@
 			status = "okay";
 		};
 
+		nand: nand@288c0000 {
+			compatible = "brcm,nand-iproc", "brcm,brcmnand-v6.1";
+			reg = <0x288c0000 0x600>,
+			      <0x28880408 0x600>,
+			      <0x288c0f00 0x20>;
+			reg-names = "nand", "iproc-idm", "iproc-ext";
+			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			brcm,nand-has-wp;
+		};
+
 		mailbox: mailbox@29488024 {
 			compatible = "brcm,iproc-mailbox";
 			reg = <0x29488024 0x8>;
