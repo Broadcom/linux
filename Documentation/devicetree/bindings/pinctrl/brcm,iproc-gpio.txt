@@ -21,8 +21,10 @@ Required properties:
     different IP block is used to handle pinctrl related functions
 
 - reg:
-    Define the base and range of the I/O address space that contains SoC
-GPIO/PINCONF controller registers
+  - Register set that define the base and range of the I/O address space that
+contains SoC GPIO/PINCONF controller registers. Always present
+  - Additional PINCONF registers. Present only for "brcm,cygnus-ccm-gpio",
+"brcm,cygnus-crmu-gpio"
 
 - ngpios:
     Total number of in-use slots in GPIO controller
@@ -83,6 +85,12 @@ in the node apply to. Pin names are "gpio-<pin>"
 
 - drive-strength:
     Valid drive strength values include 2, 4, 6, 8, 10, 12, 14, 16 (mA)
+
+- input-schmitt-enable:
+    Enable schmitt-trigger mode
+
+- input-schmitt-disable:
+    Disable schmitt-trigger mode
 
 Example:
 	/*
