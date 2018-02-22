@@ -99,8 +99,6 @@
 #define SPDIF_FORMAT_CFG_OFFSET         (0xad8 | MAP1_FLAG)
 #define SPDIF_MCLK_CFG_OFFSET           (0xadc | MAP1_FLAG)
 
-#define MAP1_MAX_REG  (SPDIF_MCLK_CFG_OFFSET & 0x0000FFFF)
-
 /*--------------------------------------------
  * Register offsets for i2s_in io space
  */
@@ -117,7 +115,6 @@
 /* AUD_FMM_IOP_MISC_xxx regs */
 #define IOP_SW_INIT_LOGIC               (0xdc0 | MAP3_FLAG)
 
-#define MAP3_MAX_REG  (IOP_SW_INIT_LOGIC & 0x0000FFFF)
 /* End register offset defines */
 
 
@@ -233,9 +230,6 @@
 #define CYGNUS_RATE_MIN     8000
 #define CYGNUS_RATE_MAX   384000
 
-#define CYGNUS_RATE_MIN     8000
-#define CYGNUS_RATE_MAX   384000
-
 /* List of valid frame sizes for tdm mode */
 static const int ssp_valid_tdm_framesize[] = {32, 64, 128, 256, 512};
 
@@ -253,7 +247,7 @@ static void update_ssp_cfg(struct cygnus_aio_port *aio);
 
 
 struct reg_desc {
-	void __iomem *iomap;
+	struct regmap *iomap;
 	unsigned int io_offset;
 };
 
@@ -1470,20 +1464,18 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 	return audio_ssp_init_portregs(aio);
 }
 
-static const struct regmap_config cygnusaudio_audio_regmap_cfg = {
+static struct regmap_config cygnusaudio_audio_regmap_cfg = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
-	.max_register = MAP1_MAX_REG,
 
 	.cache_type = REGCACHE_NONE,
 };
 
-static const struct regmap_config cygnusaudio_i2s_in_regmap_cfg = {
+static struct regmap_config cygnusaudio_i2s_in_regmap_cfg = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
-	.max_register = MAP3_MAX_REG,
 
 	.cache_type = REGCACHE_NONE,
 };
@@ -1512,6 +1504,7 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	if (IS_ERR(ioregs))
 		return PTR_ERR(ioregs);
 
+	cygnusaudio_audio_regmap_cfg.max_register = resource_size(res);
 	cygaud->io.audio = devm_regmap_init_mmio(&pdev->dev, ioregs,
 					    &cygnusaudio_audio_regmap_cfg);
 	if (IS_ERR(cygaud->io.audio)) {
@@ -1524,6 +1517,7 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	if (IS_ERR(ioregs))
 		return PTR_ERR(ioregs);
 
+	cygnusaudio_i2s_in_regmap_cfg.max_register = resource_size(res);
 	cygaud->io.i2s_in = devm_regmap_init_mmio(&pdev->dev, ioregs,
 					    &cygnusaudio_i2s_in_regmap_cfg);
 	if (IS_ERR(cygaud->io.i2s_in)) {
