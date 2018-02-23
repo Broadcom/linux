@@ -74,9 +74,11 @@
 	0x43000000 0x00 0x00000000 0x00 0x00000000 0x04 0x00000000 \
 	0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000 \
 	0x43000000 0x80 0x00000000 0x80 0x00000000 0x80 0x00000000>
-#define PCIE_RESERVED_DMA_WINDOWS reserved-dma-windows = < \
-	0x0 0x0 0x04 0x0 0x04 0x0 \
-	0x0 0x0 0x10 0x0 0x70 0x0>
+#define PCIE_RESERVED_DMA_REGIONS \
+	#region-address-cells = <2>; \
+	#region-size-cells = <2>; \
+	reserved-dma-region = <0x0 0x0 0x04 0x0 0x04 0x0 \
+			       0x0 0x0 0x10 0x0 0x70 0x0>
 #else
 #define PCIE_DMA_RANGES dma-ranges = < \
 	0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000 \
@@ -135,72 +137,56 @@
 &pcie0 {
 	PCIE_DMA_RANGES;
 #if (ENABLE_PAXB_IOMMU == 1)
-	#dma-address-cells = <2>;
-	#dma-size-cells = <2>;
-	PCIE_RESERVED_DMA_WINDOWS;
+	PCIE_RESERVED_DMA_REGIONS;
 #endif
 };
 
 &pcie1 {
 	PCIE_DMA_RANGES;
 #if (ENABLE_PAXB_IOMMU == 1)
-	#dma-address-cells = <2>;
-	#dma-size-cells = <2>;
-	PCIE_RESERVED_DMA_WINDOWS;
+	PCIE_RESERVED_DMA_REGIONS;
 #endif
 };
 
 &pcie2 {
 	PCIE_DMA_RANGES;
 #if (ENABLE_PAXB_IOMMU == 1)
-	#dma-address-cells = <2>;
-	#dma-size-cells = <2>;
-	PCIE_RESERVED_DMA_WINDOWS;
+	PCIE_RESERVED_DMA_REGIONS;
 #endif
 };
 
 &pcie3 {
 	PCIE_DMA_RANGES;
 #if (ENABLE_PAXB_IOMMU == 1)
-	#dma-address-cells = <2>;
-	#dma-size-cells = <2>;
-	PCIE_RESERVED_DMA_WINDOWS;
+	PCIE_RESERVED_DMA_REGIONS;
 #endif
 };
 
 &pcie4 {
 	PCIE_DMA_RANGES;
 #if (ENABLE_PAXB_IOMMU == 1)
-	#dma-address-cells = <2>;
-	#dma-size-cells = <2>;
-	PCIE_RESERVED_DMA_WINDOWS;
+	PCIE_RESERVED_DMA_REGIONS;
 #endif
 };
 
 &pcie5 {
 	PCIE_DMA_RANGES;
 #if (ENABLE_PAXB_IOMMU == 1)
-	#dma-address-cells = <2>;
-	#dma-size-cells = <2>;
-	PCIE_RESERVED_DMA_WINDOWS;
+	PCIE_RESERVED_DMA_REGIONS;
 #endif
 };
 
 &pcie6 {
 	PCIE_DMA_RANGES;
 #if (ENABLE_PAXB_IOMMU == 1)
-	#dma-address-cells = <2>;
-	#dma-size-cells = <2>;
-	PCIE_RESERVED_DMA_WINDOWS;
+	PCIE_RESERVED_DMA_REGIONS;
 #endif
 };
 
 &pcie7 {
 	PCIE_DMA_RANGES;
 #if (ENABLE_PAXB_IOMMU == 1)
-	#dma-address-cells = <2>;
-	#dma-size-cells = <2>;
-	PCIE_RESERVED_DMA_WINDOWS;
+	PCIE_RESERVED_DMA_REGIONS;
 #endif
 };
 
