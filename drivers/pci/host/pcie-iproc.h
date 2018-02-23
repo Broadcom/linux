@@ -35,6 +35,18 @@ enum iproc_pcie_type {
 };
 
 /**
+ * PAXB Dynamic ordering modes
+ * PAXB_ORDER_EVERYTHING: Everything in strict order
+ * PAXB_ORDER_IMAP2_ONLY: Only IMAP2 memory window strict order
+ * PAXB_ORDER_DEV_MEM_ONLY: Only device memory (MSI/MSIX) is strict order
+ */
+enum paxb_order_cfg {
+	PAXB_ORDER_EVERYTHING,
+	PAXB_ORDER_IMAP2_ONLY,
+	PAXB_ORDER_DEV_MEM_ONLY,
+};
+
+/**
  * iProc PCIe outbound mapping
  * @axi_offset: offset from the AXI address to the internal address used by
  * the iProc PCIe core
@@ -89,6 +101,9 @@ struct iproc_msi;
  * @ib: inbound mapping related parameters
  * @ib_map: outbound mapping region related parameters
  *
+ * @attr_order_mode: Device attributes to "order_mode" file in sysfs
+ * @order_cfg: indicates current value of the order mode.
+ *
  * @enable_hotplug: indicates PCI hotplug feature is enabled
  * @ep_is_present: when PCIe hotplug is enabled, this flag is used to
  * indicate whether or not the endpoint device is present
@@ -99,7 +114,10 @@ struct iproc_msi;
  * @need_msi_steer: indicates additional configuration of the iProc PCIe
  * controller is required to steer MSI writes to external interrupt controller
  * @msi: MSI data
- * @crs_check: Stingray B0 has CFG_RD_STATUS register gives CRS state,
+ * @srp_check: Stingray B0 check.
+ * In Stingray B0 has new features
+ * CFG_RD_STATUS register gives CRS state,
+ * RO configuration
  * this flag will be set in Stingray B0 PAXB core.
  */
 struct iproc_pcie {
@@ -135,6 +153,9 @@ struct iproc_pcie {
 	struct iproc_pcie_ib ib;
 	const struct iproc_pcie_ib_map *ib_map;
 
+	struct device_attribute attr_order_mode;
+	enum paxb_order_cfg order_cfg;
+
 	bool enable_hotplug;
 	bool ep_is_present;
 
@@ -147,7 +168,7 @@ struct iproc_pcie {
 #ifdef CONFIG_PM_SLEEP
 	unsigned int *paxb_map_regs;
 #endif
-	bool crs_check;
+	bool srp_check;
 };
 
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res);
