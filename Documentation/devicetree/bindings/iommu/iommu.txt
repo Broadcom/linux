@@ -100,12 +100,12 @@ this binding.
 
 Optional properties:
 --------------------
-- reserved-dma-windows: This specifies DMA windows to be reserved with specific
+- reserved-dma-region: This specifies DMA region to be reserved with specific
   prot in IOVA space. It is in tuples of (busno,prot,bus_addr,size).
 
-- #dma-address-cells: specifies number of cells needed to encode bus_addr
+- #region-address-cells: specifies number of cells needed to encode bus_addr
 
-- #dma-size-cells: specifies number of cells needed to encode size
+- #region-size-cells: specifies number of cells needed to encode size
 
 Notes:
 ======
@@ -187,9 +187,9 @@ Multiple-master IOMMU with configurable DMA window:
 			 * master (i.e. the I/O virtual address space).
 			 */
 			#iommu-cells = <4>;
-			#dma-address-cells = <2>;
-			#dma-size-cells = <2>;
-			reserved-dma-windows = <0x0 0x0 0x04 0x0 0x04 0x0>;
+			#region-address-cells = <2>;
+			#region-size-cells = <2>;
+			reserved-dma-region = <0x0 0x0 0x04 0x0 0x04 0x0>;
 		};
 
 		master {
