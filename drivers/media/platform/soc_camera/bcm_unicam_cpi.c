@@ -41,14 +41,15 @@
 char const unicam_camera_name[] = "iproc-camera";
 
 struct unicam_camera_buffer {
-	struct vb2_buffer vb;
+	struct vb2_v4l2_buffer vb; /* v4l buffer must be first */
 	struct list_head queue;
 	unsigned int magic;
 };
 
-static struct unicam_camera_buffer *to_unicam_camera_vb(struct vb2_buffer *vb)
+static struct unicam_camera_buffer *to_unicam_camera_vb(
+	struct vb2_v4l2_buffer *vbuf)
 {
-	return container_of(vb, struct unicam_camera_buffer, vb);
+	return container_of(vbuf, struct unicam_camera_buffer, vb);
 }
 
 static int unicam_videobuf_setup(struct vb2_queue *vq,
@@ -106,7 +107,8 @@ static void unicam_camera_update_buf(struct unicam_camera_dev *unicam_dev)
 	dma_addr_t dma_addr;
 	unsigned int line_stride;
 
-	dma_addr = vb2_dma_contig_plane_dma_addr(unicam_dev->active, 0);
+	dma_addr = vb2_dma_contig_plane_dma_addr(
+		&unicam_dev->active->vb2_buf, 0);
 	if (!dma_addr) {
 		dev_err(unicam_dev->icd->parent, "[%s] NOMEM\n", __func__);
 		unicam_dev->active = NULL;
@@ -156,10 +158,11 @@ static void unicam_camera_capture(struct unicam_camera_dev *unicam_dev)
 
 static void unicam_videobuf_queue(struct vb2_buffer *vb)
 {
+	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct soc_camera_device *icd = soc_camera_from_vb2q(vb->vb2_queue);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct unicam_camera_dev *unicam_dev = ici->priv;
-	struct unicam_camera_buffer *buf = to_unicam_camera_vb(vb);
+	struct unicam_camera_buffer *buf = to_unicam_camera_vb(vbuf);
 	unsigned long flags;
 
 	dev_dbg(icd->parent, "vb=0x%p pbuf=0x%p size=%lu\n", vb,
@@ -170,7 +173,7 @@ static void unicam_videobuf_queue(struct vb2_buffer *vb)
 	list_add_tail(&buf->queue, &unicam_dev->video_buffer_list);
 
 	if ((!unicam_dev->active)) {
-		unicam_dev->active = vb;
+		unicam_dev->active = vbuf;
 		unicam_camera_update_buf(unicam_dev);
 		unicam_camera_capture(unicam_dev);
 	}
@@ -179,10 +182,11 @@ static void unicam_videobuf_queue(struct vb2_buffer *vb)
 
 static void unicam_videobuf_release(struct vb2_buffer *vb)
 {
+	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct soc_camera_device *icd = soc_camera_from_vb2q(vb->vb2_queue);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct unicam_camera_dev *unicam_dev = ici->priv;
-	struct unicam_camera_buffer *buf = to_unicam_camera_vb(vb);
+	struct unicam_camera_buffer *buf = to_unicam_camera_vb(vbuf);
 	unsigned long flags;
 
 	 dev_dbg(icd->parent, "vb=0x%p pbuf=0x%p size=%lu\n", vb,
@@ -199,7 +203,8 @@ static void unicam_videobuf_release(struct vb2_buffer *vb)
 
 static int unicam_videobuf_init(struct vb2_buffer *vb)
 {
-	struct unicam_camera_buffer *buf = to_unicam_camera_vb(vb);
+	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+	struct unicam_camera_buffer *buf = to_unicam_camera_vb(vbuf);
 
 	INIT_LIST_HEAD(&buf->queue);
 	buf->magic = UNICAM_BUF_MAGIC;
@@ -270,7 +275,8 @@ static void unicam_videobuf_stop_streaming_int(
 		spin_lock_irqsave(&unicam_dev->lock, flags);
 		if (unicam_dev->camera_mode_continuous) {
 			/* Release the last buffer */
-			vb2_buffer_done(unicam_dev->active, VB2_BUF_STATE_DONE);
+			vb2_buffer_done(&unicam_dev->active->vb2_buf,
+				VB2_BUF_STATE_DONE);
 		}
 		spin_unlock_irqrestore(&unicam_dev->lock, flags);
 		atomic_set(&unicam_dev->stopping, 1);
@@ -345,6 +351,7 @@ static int unicam_camera_init_videobuf(struct vb2_queue *q,
 	q->buf_struct_size = sizeof(struct unicam_camera_buffer);
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	q->dev = ici->v4l2_dev.dev;
+	q->lock = &ici->host_lock;
 
 	return vb2_queue_init(q);
 }
@@ -599,9 +606,9 @@ static irqreturn_t unicam_camera_isr(int irq, void *arg)
 		(struct unicam_camera_dev *) arg;
 	unsigned int isr_status, raw_stat;
 	unsigned long flags;
-	struct vb2_buffer *vb = unicam_dev->active;
+	struct vb2_v4l2_buffer *vbuf = unicam_dev->active;
 
-	if (atomic_read(&unicam_dev->streaming) == 0 || !vb)
+	if (atomic_read(&unicam_dev->streaming) == 0 || !vbuf)
 		return IRQ_NONE;
 
 	isr_status = unicam_cpi_get_int_stat(unicam_dev, 0, 0);
@@ -625,7 +632,7 @@ static irqreturn_t unicam_camera_isr(int irq, void *arg)
 		if (likely(unicam_dev->skip_frames <= 0)) {
 
 			spin_lock_irqsave(&unicam_dev->lock, flags);
-			list_del_init(&to_unicam_camera_vb(vb)->queue);
+			list_del_init(&to_unicam_camera_vb(vbuf)->queue);
 
 			if (atomic_read(&unicam_dev->stopping) == 1) {
 				complete(&unicam_dev->stop);
@@ -649,7 +656,8 @@ static irqreturn_t unicam_camera_isr(int irq, void *arg)
 			spin_unlock_irqrestore(&unicam_dev->lock, flags);
 
 			if (!unicam_dev->last_buffer_in_queue)
-				vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+				vb2_buffer_done(&vbuf->vb2_buf,
+					VB2_BUF_STATE_DONE);
 
 		} else {
 			unicam_dev->skip_frames--;

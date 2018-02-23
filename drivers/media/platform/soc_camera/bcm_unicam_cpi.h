@@ -78,7 +78,7 @@ struct unicam_camera_dev {
 	unsigned int clk_freq;
 	/* data structure needed to support streaming */
 	spinlock_t lock;
-	struct vb2_buffer *active;
+	struct vb2_v4l2_buffer *active;
 	struct list_head video_buffer_list;
 	int curr;
 	atomic_t streaming;
