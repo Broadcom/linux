@@ -178,13 +178,6 @@ HOSTLOADLIBES_syscall_tp += -lelf
 LLC ?= llc
 CLANG ?= clang
 
-# Detect that we're cross compiling and use the right compilers and flags
-ifdef CROSS_COMPILE
-HOSTCC = $(CROSS_COMPILE)gcc
-HOSTCFLAGS += $(EXTRA_HOSTCFLAGS)
-HOSTLDFLAGS += $(EXTRA_HOSTLDFLAGS)
-endif
-
 # Trick to allow make to be run from this directory
 all:
 	$(MAKE) -C ../../ $(CURDIR)/
@@ -238,7 +231,3 @@ $(obj)/%.o: $(src)/%.c
 		-Wno-address-of-packed-member -Wno-tautological-compare \
 		-Wno-unknown-warning-option \
 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
-
-install:
-	cp -f $(hostprogs-y) $(DESTDIR)
-	cp -f *_kern.o $(DESTDIR)
