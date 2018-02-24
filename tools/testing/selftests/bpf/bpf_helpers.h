@@ -77,12 +77,12 @@ static int (*bpf_sock_map_update)(void *map, void *key, void *value,
  * emit BPF_LD_ABS and BPF_LD_IND instructions
  */
 struct sk_buff;
-unsigned long long load_byte(void *skb, unsigned long long off)
-			asm_bpf("llvm.bpf.load.byte");
-unsigned long long load_half(void *skb, unsigned long long off)
-			asm_bpf("llvm.bpf.load.half");
-unsigned long long load_word(void *skb, unsigned long long off)
-			asm_bpf("llvm.bpf.load.word");
+unsigned long long load_byte(void *skb,
+			     unsigned long long off) asm("llvm.bpf.load.byte");
+unsigned long long load_half(void *skb,
+			     unsigned long long off) asm("llvm.bpf.load.half");
+unsigned long long load_word(void *skb,
+			     unsigned long long off) asm("llvm.bpf.load.word");
 
 /* a helper structure used by eBPF C program
  * to describe map attributes to elf_bpf loader
@@ -110,42 +110,7 @@ static int (*bpf_skb_under_cgroup)(void *ctx, void *map, int index) =
 static int (*bpf_skb_change_head)(void *, int len, int flags) =
 	(void *) BPF_FUNC_skb_change_head;
 
-/* Scan the ARCH passed in from ARCH env variable (see Makefile) */
-#if defined(__TARGET_ARCH_x86)
-	#define bpf_target_x86
-	#define bpf_target_defined
-#elif defined(__TARGET_ARCH_s930x)
-	#define bpf_target_s930x
-	#define bpf_target_defined
-#elif defined(__TARGET_ARCH_arm64)
-	#define bpf_target_arm64
-	#define bpf_target_defined
-#elif defined(__TARGET_ARCH_powerpc)
-	#define bpf_target_powerpc
-	#define bpf_target_defined
-#elif defined(__TARGET_ARCH_sparc)
-	#define bpf_target_sparc
-	#define bpf_target_defined
-#else
-	#undef bpf_target_defined
-#endif
-
-/* Fall back to what the compiler says */
-#ifndef bpf_target_defined
 #if defined(__x86_64__)
-       #define bpf_target_x86
-#elif defined(__s390x__)
-       #define bpf_target_s930x
-#elif defined(__aarch64__)
-       #define bpf_target_arm64
-#elif defined(__powerpc__)
-       #define bpf_target_powerpc
-#elif defined(__sparc__)
-       #define bpf_target_sparc
-#endif
-#endif
-
-#if defined(bpf_target_x86)
 
 #define PT_REGS_PARM1(x) ((x)->di)
 #define PT_REGS_PARM2(x) ((x)->si)
@@ -158,7 +123,7 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
 #define PT_REGS_SP(x) ((x)->sp)
 #define PT_REGS_IP(x) ((x)->ip)
 
-#elif defined(bpf_target_s930x)
+#elif defined(__s390x__)
 
 #define PT_REGS_PARM1(x) ((x)->gprs[2])
 #define PT_REGS_PARM2(x) ((x)->gprs[3])
@@ -171,7 +136,7 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
 #define PT_REGS_SP(x) ((x)->gprs[15])
 #define PT_REGS_IP(x) ((x)->psw.addr)
 
-#elif defined(bpf_target_arm64)
+#elif defined(__aarch64__)
 
 #define PT_REGS_PARM1(x) ((x)->regs[0])
 #define PT_REGS_PARM2(x) ((x)->regs[1])
@@ -197,7 +162,7 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
 #define PT_REGS_SP(x) ((x)->regs[29])
 #define PT_REGS_IP(x) ((x)->cp0_epc)
 
-#elif defined(bpf_target_powerpc)
+#elif defined(__powerpc__)
 
 #define PT_REGS_PARM1(x) ((x)->gpr[3])
 #define PT_REGS_PARM2(x) ((x)->gpr[4])
@@ -208,7 +173,7 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
 #define PT_REGS_SP(x) ((x)->sp)
 #define PT_REGS_IP(x) ((x)->nip)
 
-#elif defined(bpf_target_sparc)
+#elif defined(__sparc__)
 
 #define PT_REGS_PARM1(x) ((x)->u_regs[UREG_I0])
 #define PT_REGS_PARM2(x) ((x)->u_regs[UREG_I1])
@@ -218,8 +183,6 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
 #define PT_REGS_RET(x) ((x)->u_regs[UREG_I7])
 #define PT_REGS_RC(x) ((x)->u_regs[UREG_I0])
 #define PT_REGS_SP(x) ((x)->u_regs[UREG_FP])
-
-/* Should this also be a bpf_target check for the sparc case? */
 #if defined(__arch64__)
 #define PT_REGS_IP(x) ((x)->tpc)
 #else
@@ -228,10 +191,10 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
 
 #endif
 
-#ifdef bpf_target_powerpc
+#ifdef __powerpc__
 #define BPF_KPROBE_READ_RET_IP(ip, ctx)		({ (ip) = (ctx)->link; })
 #define BPF_KRETPROBE_READ_RET_IP		BPF_KPROBE_READ_RET_IP
-#elif bpf_target_sparc
+#elif defined(__sparc__)
 #define BPF_KPROBE_READ_RET_IP(ip, ctx)		({ (ip) = PT_REGS_RET(ctx); })
 #define BPF_KRETPROBE_READ_RET_IP		BPF_KPROBE_READ_RET_IP
 #else
