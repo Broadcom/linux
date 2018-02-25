@@ -181,6 +181,8 @@ CLANG ?= clang
 # Detect that we're cross compiling and use the cross compiler
 ifdef CROSS_COMPILE
 HOSTCC = $(CROSS_COMPILE)gcc
+HOSTCFLAGS += $(EXTRA_HOSTCFLAGS)
+HOSTLDFLAGS += $(EXTRA_HOSTLDFLAGS)
 CLANG_ARCH_ARGS = -target $(ARCH)
 endif
 
