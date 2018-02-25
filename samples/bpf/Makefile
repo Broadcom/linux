@@ -239,3 +239,7 @@ $(obj)/%.o: $(src)/%.c
 		-Wno-address-of-packed-member -Wno-tautological-compare \
 		-Wno-unknown-warning-option $(CLANG_ARCH_ARGS) \
 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+
+install:
+	cp -f $(hostprogs-y) $(DESTDIR)
+	cp -f *_kern.o $(DESTDIR)
