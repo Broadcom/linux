@@ -73,6 +73,8 @@
 #define M_CMD_STATUS_NACK_ADDR            0x2
 #define M_CMD_STATUS_NACK_DATA            0x3
 #define M_CMD_STATUS_TIMEOUT              0x4
+#define M_CMD_STATUS_FIFO_UNDERRUN        0x5
+#define M_CMD_STATUS_RX_FIFO_FULL         0x6
 #define M_CMD_PROTOCOL_SHIFT              9
 #define M_CMD_PROTOCOL_MASK               0xf
 #define M_CMD_PROTOCOL_BLK_WR             0x7
@@ -149,7 +151,7 @@
 #define SLAVE_READ_WRITE_BIT_MASK         0x1
 #define SLAVE_READ_WRITE_BIT_SHIFT        0x1
 #define SLAVE_MAX_SIZE_TRANSACTION        64
-#define SLAVE_CLOCK_STRETCH_TIME          20
+#define SLAVE_CLOCK_STRETCH_TIME          25
 
 #define IE_S_ALL_INTERRUPT_SHIFT          21
 #define IE_S_ALL_INTERRUPT_MASK           0x3f
@@ -549,13 +551,20 @@ static int bcm_iproc_i2c_check_status(struct bcm_iproc_i2c_dev *iproc_i2c,
 		dev_dbg(iproc_i2c->device, "bus timeout\n");
 		return -ETIMEDOUT;
 
+	case M_CMD_STATUS_FIFO_UNDERRUN:
+		dev_dbg(iproc_i2c->device, "FIFO under-run\n");
+		return -ENXIO;
+
+	case M_CMD_STATUS_RX_FIFO_FULL:
+		dev_dbg(iproc_i2c->device, "Master Rx FIFO full > 10ms\n");
+		return -ETIMEDOUT;
+
 	default:
 		dev_dbg(iproc_i2c->device, "unknown error code=%d\n", val);
 
 		/* re-initialize i2c for recovery */
 		bcm_iproc_i2c_enable_disable(iproc_i2c, false);
 		bcm_iproc_i2c_init(iproc_i2c);
-		bcm_iproc_i2c_slave_init(iproc_i2c, INIT_SLAVE);
 		bcm_iproc_i2c_enable_disable(iproc_i2c, true);
 
 		return -EIO;
