@@ -88,7 +88,21 @@ Example:
 Required properties for audio-mux clocks:
 -----------------------------------------
 - compatible:  Should have a value of the form "brcm,<soc>-sspX-clk".
-    e.g., For Cygnus ssp port 0, use a string of "brcm,cygnus-ssp0-clk"
+    An example node is shown below.  For Cygnus here are the properties
+    that need to vary between nodes.
+	ssp port 0
+		compatible = "brcm,cygnus-ssp0-clk"
+		reg-offset = <0x0c>
+	ssp port 1
+		compatible = "brcm,cygnus-ssp1-clk"
+		reg-offset = <0x4c>
+	ssp port 2
+		compatible = "brcm,cygnus-ssp2-clk"
+		reg-offset = <0x8c>
+	spdiftx port
+		compatible = "brcm,cygnus-spdif-clk"
+		reg-offset = <0xdc>
+
 - clocks: Ordered list of phandles which are the possible parents to the mux.
 	The index of the clock within this list will be value written into
 	control registers bit field.
