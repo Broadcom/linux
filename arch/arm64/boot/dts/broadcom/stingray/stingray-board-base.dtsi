@@ -96,19 +96,30 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-#if (ENABLE_PAXC_IOMMU == 1)
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
 
+#if (ENABLE_PAXC_IOMMU == 1)
 		smmu_pg_region {
 			reg = <0x8 0x80000000 0x0 0x200000>;
 			no-map;
 		};
+#endif
+#if (ENABLE_PAXB_IOMMU == 1)
+		cmem_region: cmem_region@90000000 {
+			reg = <0x0 0x90000000 0x0 0x1000000>;
+			no-map;
+		};
+#endif
+	};
+#if (ENABLE_PAXB_IOMMU == 1)
+	cmem: cmem@0 {
+		compatible = "mmap-cmem";
+		memory-region = <&cmem_region>;
 	};
 #endif
-
 };
 
 &memory {
