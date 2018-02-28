@@ -154,6 +154,7 @@ These clock IDs are defined in:
     adc/tsc    crystal (ASIU)   1       BCM_CYGNUS_ASIU_ADC_CLK
     pwm        crystal (ASIU)   2       BCM_CYGNUS_ASIU_PWM_CLK
     smartcard  lcpll0  (ASIU)   3       BCM_CYGNUS_ASIU_SMARTCARD_CLK
+    camera     audiopll(ASIU)   4       BCM_CYGNUS_ASIU_CAM_CLK
 
     genpll     crystal          0       BCM_CYGNUS_GENPLL
     axi21      genpll           1       BCM_CYGNUS_GENPLL_AXI21_CLK
