@@ -622,8 +622,9 @@
 			reg = <0x180a1000 0x5ff>;
 			interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
 			brcm,unicam-data-width = <8>;
-			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
-			clock-names = "cam-clock";
+			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>,
+				<&asiu_clks BCM_CYGNUS_ASIU_CAM_CLK>;
+			clock-names = "cam-clock","cam-gate-clk";
 			clock-frequency = <24576000>;
 			status = "disabled";
 		};
