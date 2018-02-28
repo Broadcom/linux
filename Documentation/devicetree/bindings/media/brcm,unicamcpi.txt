@@ -21,7 +21,9 @@ Required properties:
 - interrupts			: IRQ line for the CPI
 - brcm,unicam-data-width	: Data width in bits
 - clocks			: Source for reference clock generation
+				  Clock ungate from ASIU
 - clock-names			: Reference clock name. Must be "cam-clock"
+				  ASIU clock ungate. Must be "cam-gate-clk".
 - clock-frequency  		: Reference clock frequency
 
 Unicam CPI supports a single port node with parallel bus. It can contain one
@@ -36,8 +38,9 @@ Example:
 		reg = <0x180a1000 0x5ff>;
 		interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
 		brcm,unicam-data-width = <8>;
-		clocks = <&audiopll_clks BCM_CYGNUS_AUDIOPLL_CH2>;
-		clock-names = "cam-clock";
+		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>,
+			<&asiu_clks BCM_CYGNUS_ASIU_CAM_CLK>;
+		clock-names = "cam-clock","cam-gate-clk";
 		clock-frequency = <24576000>;
 		port {
                         #address-cells = <1>;
