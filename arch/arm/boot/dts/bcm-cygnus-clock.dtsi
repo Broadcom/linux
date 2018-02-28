@@ -119,7 +119,8 @@ clocks {
 		reg = <0x0301d048 0xc>, <0x180aa024 0x4>;
 
 		clocks = <&osc>;
-		clock-output-names = "keypad", "adc/touch", "pwm", "smartcard";
+		clock-output-names = "keypad", "adc/touch", "pwm", "smartcard",
+				     "camera";
 	};
 
 	audiopll: audiopll {
