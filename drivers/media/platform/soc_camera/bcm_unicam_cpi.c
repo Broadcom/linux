@@ -704,7 +704,7 @@ static void * __init get_of_camera_data(struct platform_device *pdev,
 			GFP_KERNEL);
 
 	if (of_property_read_u32(np, "brcm,unicam-data-width", &val))
-		goto of_fail;
+		goto fail_out;
 	pcdev->data_width = val;
 
 	/* Defines Capture Mode of Camera
@@ -722,14 +722,14 @@ static void * __init get_of_camera_data(struct platform_device *pdev,
 	if (IS_ERR(pcdev->clk)) {
 		dev_err(&pdev->dev, "Failed to get AUDIO_CH2 pll clock\n");
 		ret = -ENODEV;
-		goto of_fail;
+		goto fail_out;
 	}
 
 	ret = of_property_read_u32(np, "clock-frequency", &clk_rate);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to parse ref_clock\n");
 		ret = -EINVAL;
-		goto of_fail;
+		goto fail_out;
 	}
 	pcdev->clk_freq = clk_rate;
 
@@ -737,27 +737,44 @@ static void * __init get_of_camera_data(struct platform_device *pdev,
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to set to %u\n", pcdev->clk_freq);
 		ret = -EINVAL;
-		goto of_fail;
+		goto fail_out;
 	}
 
 	ret = clk_prepare_enable(pcdev->clk);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to enable clock\n");
 		ret = -EINVAL;
-		goto of_fail;
+		goto fail_out;
 	}
 
 	ret = clk_notifier_register(pcdev->clk, &unicam_clk_nb);
 	if (ret) {
-		clk_disable_unprepare(pcdev->clk);
 		dev_err(&pdev->dev, "Failed clk_notifier_register [%u]\n", ret);
 		ret = -EINVAL;
-		goto of_fail;
+		goto fail_cam_notifier;
+	}
+
+	pcdev->asiu_clk = devm_clk_get(&pdev->dev, "cam-gate-clk");
+	if (IS_ERR(pcdev->asiu_clk)) {
+		dev_err(&pdev->dev, "Failed to get cam gate clock\n");
+		ret = PTR_ERR(pcdev->asiu_clk);
+		goto fail_cam_gate_clk;
+	}
+
+	ret = clk_prepare_enable(pcdev->asiu_clk);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to enable cam gate clock\n");
+		ret = -EINVAL;
+		goto fail_cam_gate_clk;
 	}
 
 	return sdesc_camera;
 
-of_fail:
+fail_cam_gate_clk:
+	clk_notifier_unregister(pcdev->clk, &unicam_clk_nb);
+fail_cam_notifier:
+	clk_disable_unprepare(pcdev->clk);
+fail_out:
 	dev_err(&pdev->dev, "get_of_camera_data failed, err [0x%x]\n", ret);
 	return NULL;
 }
@@ -844,6 +861,8 @@ static int unicam_camera_remove(struct platform_device *pdev)
 	struct unicam_camera_dev *pcdev =  soc_host->priv;
 
 	soc_camera_host_unregister(soc_host);
+	clk_disable_unprepare(pcdev->asiu_clk);
+	clk_notifier_unregister(pcdev->clk, &unicam_clk_nb);
 	clk_disable_unprepare(pcdev->clk);
 	return 0;
 }

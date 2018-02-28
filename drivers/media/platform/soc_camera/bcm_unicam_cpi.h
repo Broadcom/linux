@@ -76,6 +76,7 @@ struct unicam_camera_dev {
 	void __iomem *base;
 	struct clk *clk;
 	unsigned int clk_freq;
+	struct clk *asiu_clk;
 	/* data structure needed to support streaming */
 	spinlock_t lock;
 	struct vb2_v4l2_buffer *active;
