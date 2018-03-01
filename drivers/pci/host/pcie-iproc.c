@@ -1374,24 +1374,6 @@ err_ib:
 	return ret;
 }
 
-static int pci_dma_range_parser_init(struct of_pci_range_parser *parser,
-				     struct device_node *node)
-{
-	const int na = 3, ns = 2;
-	int rlen;
-
-	parser->node = node;
-	parser->pna = of_n_addr_cells(node);
-	parser->np = parser->pna + na + ns;
-
-	parser->range = of_get_property(node, "dma-ranges", &rlen);
-	if (!parser->range)
-		return -ENOENT;
-
-	parser->end = parser->range + rlen / sizeof(__be32);
-	return 0;
-}
-
 static int iproc_pcie_map_dma_ranges(struct iproc_pcie *pcie)
 {
 	struct of_pci_range range;
@@ -1399,7 +1381,7 @@ static int iproc_pcie_map_dma_ranges(struct iproc_pcie *pcie)
 	int ret;
 
 	/* Get the dma-ranges from DT */
-	ret = pci_dma_range_parser_init(&parser, pcie->dev->of_node);
+	ret = of_pci_dma_range_parser_init(&parser, pcie->dev->of_node);
 	if (ret)
 		return ret;
 
@@ -1739,9 +1721,9 @@ static void iproc_pci_hotplug_work(struct work_struct *work)
 	}
 }
 
-void iproc_timer_hdlr(unsigned long data)
+void iproc_timer_hdlr(struct timer_list *t)
 {
-	struct iproc_pcie *pcie = (struct iproc_pcie *)data;
+	struct iproc_pcie *pcie = from_timer(pcie, t, timer_hdlr);
 	u32 val;
 
 	mod_timer(&pcie->timer_hdlr,
@@ -1827,8 +1809,7 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 		val |= TIMEOUT_ENABLE | TIMEOUT_EXPONENT(0x1f);
 		writel(val, pcie->idm + IDM_ERROR_LOG_CONTROL_OFFSET);
 		INIT_DELAYED_WORK(&pcie->work, iproc_pci_hotplug_work);
-		setup_timer(&pcie->timer_hdlr, iproc_timer_hdlr,
-			    (unsigned long)pcie);
+		timer_setup(&pcie->timer_hdlr, iproc_timer_hdlr, 0);
 		mod_timer(&pcie->timer_hdlr, jiffies +
 			  msecs_to_jiffies(pcie->link_poll_interval));
 	}

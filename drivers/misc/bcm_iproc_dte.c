@@ -57,24 +57,25 @@
  * correspond to these kernel functions.
  */
 
+#include <linux/bcm_iproc_dte.h>
+#include <linux/cdev.h>
+#include <linux/delay.h>
+#include <linux/fs.h>
 #include <linux/hw_random.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
+#include <linux/kfifo.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/poll.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
 #include <linux/printk.h>
-#include <linux/delay.h>
-#include <linux/kfifo.h>
-#include <linux/interrupt.h>
+#include <linux/timer.h>
 #include <linux/uaccess.h>
-#include <linux/bcm_iproc_dte.h>
 #include <uapi/linux/bcm_dte.h>
 
 #define DTE_SW_FIFO_SIZE                         64
@@ -209,7 +210,7 @@ static const struct bcm_iproc_dte_params dte_soc_params[BCM_SOC_MAX] = {
 };
 
 static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx);
-static void dte_nco_ovf_tmr(unsigned long data);
+static void dte_nco_ovf_tmr(struct timer_list *t);
 
 static int dte_read_nco_time(struct bcm_dte *iproc_dte,
 	uint64_t *nco_time, uint32_t *ts_ovf)
@@ -362,13 +363,11 @@ static int dte_set_client_divider(struct bcm_dte *iproc_dte,
 	return 0;
 }
 
-static void dte_hw_fifo_tmr(unsigned long data)
+static void dte_hw_fifo_tmr(struct timer_list *t)
 {
-	struct platform_device *pdev = (struct platform_device *)data;
-	struct bcm_dte *iproc_dte;
+	struct bcm_dte *iproc_dte = from_timer(iproc_dte, t, fifo_timer);
 
-	iproc_dte = (struct bcm_dte *)platform_get_drvdata(pdev);
-	bcm_iproc_dte_isr_threaded(0, (void *)data);
+	bcm_iproc_dte_isr_threaded(0, iproc_dte);
 
 	/* reset timer */
 	mod_timer(&iproc_dte->fifo_timer, (jiffies +
@@ -377,9 +376,7 @@ static void dte_hw_fifo_tmr(unsigned long data)
 
 static void dte_init_nco_ovf_tmr(struct bcm_dte *iproc_dte)
 {
-	init_timer(&iproc_dte->ovf_timer);
-	iproc_dte->ovf_timer.function = dte_nco_ovf_tmr;
-	iproc_dte->ovf_timer.data = (unsigned long)iproc_dte->pdev;
+	timer_setup(&iproc_dte->ovf_timer, dte_nco_ovf_tmr, 0);
 }
 
 static void dte_start_nco_ovf_tmr(struct bcm_dte *iproc_dte)
@@ -445,10 +442,7 @@ static int dte_set_irq_interval(struct bcm_dte *iproc_dte,
 		if (!nanosec)
 			del_timer_sync(&iproc_dte->fifo_timer);
 		else {
-			init_timer(&iproc_dte->fifo_timer);
-			iproc_dte->fifo_timer.function = dte_hw_fifo_tmr;
-			iproc_dte->fifo_timer.data =
-				(unsigned long)iproc_dte->pdev;
+			timer_setup(&iproc_dte->fifo_timer, dte_hw_fifo_tmr, 0);
 			iproc_dte->fifo_timer.expires =
 				jiffies + nsecs_to_jiffies((nanosec));
 			add_timer(&iproc_dte->fifo_timer);
@@ -631,14 +625,11 @@ static int dte_get_freq_adj(struct bcm_dte *iproc_dte, int32_t *ppb)
 	return 0;
 }
 
-static void dte_nco_ovf_tmr(unsigned long data)
+static void dte_nco_ovf_tmr(struct timer_list *t)
 {
-	struct platform_device *pdev = (struct platform_device *)data;
-	struct bcm_dte *iproc_dte;
+	struct bcm_dte *iproc_dte = from_timer(iproc_dte, t, ovf_timer);
 	uint64_t nco_time;
 	uint32_t ts_ovf;
-
-	iproc_dte = (struct bcm_dte *)platform_get_drvdata(pdev);
 
 	/* handle nco overflow */
 	spin_lock_bh(&iproc_dte->lock);
@@ -1053,15 +1044,12 @@ static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx)
 	uint32_t active_clients;
 	int client;
 	int inlen;
-	struct platform_device *pdev = (struct platform_device *)drv_ctx;
-	struct bcm_dte *iproc_dte;
+	struct bcm_dte *iproc_dte = (struct bcm_dte *)drv_ctx;
 	uint32_t status;
 	uint32_t client_ts_ns;
 	uint64_t nco_time;
 	uint32_t nco_ovf;
 	struct timespec client_tstamp = {0, 0};
-
-	iproc_dte = (struct bcm_dte *)platform_get_drvdata(pdev);
 
 	/* clear interrupt bit */
 	writel(1<<DTE_CTRL_REG__INTERRUPT,

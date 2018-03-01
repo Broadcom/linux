@@ -27,7 +27,7 @@
 		};
 
 		/* Alternate 3 MiB reserved for ARM Trusted Firmware (BL31) */
-		secmon_reserved: secmon@05000000 {
+		secmon_reserved: secmon@5000000 {
 			reg = <0x0 0x05000000 0x0 0x300000>;
 			no-map;
 		};
