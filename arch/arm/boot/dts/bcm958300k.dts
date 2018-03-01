@@ -35,6 +35,7 @@
 #include <dt-bindings/input/input.h>
 
 #include "bcm-cygnus.dtsi"
+#include "bcm529088-keypad.dtsi"
 #include "bcm9hmidc.dtsi"
 
 /* Have all the supported panel dt files included here and let dsi_panel
@@ -255,7 +256,7 @@
 
 &pinctrl {
 		pinctrl-names = "default";
-		pinctrl-0 = <&i2s0_default_mux &i2s1_default_mux
+		pinctrl-0 = <&keypad_on &i2s0_default_mux &i2s1_default_mux
 			&i2s2_default_mux &dte_lts_0>;
 };
 
