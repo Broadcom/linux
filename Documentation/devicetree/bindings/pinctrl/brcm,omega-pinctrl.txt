@@ -12,9 +12,6 @@ Required properties:
 - ngpios:
     Total number of in-use slots in GPIO/PINCONF controller
 
-- base:
-    first pin handled by GPIO/PINCONF controller
-
 - #gpio-cells:
     Must be two. The first cell is the GPIO pin number (within the controller's
     pin space) and the second cell is used for the following:
@@ -52,7 +49,6 @@ Example:
 		compatible = "brcm, omega-pinctrl";
 		reg = <0x285a0000 0x330>;
 		ngpios = <51>;
-		base = <0>;
 		#gpio-cells = <2>;
 		gpio-controller;
 		interrupt-controller;
@@ -70,7 +66,6 @@ Example:
 		compatible = "brcm, omega-pinctrl";
 		reg = <0x003d0000 0x3e0>;
 		ngpio = <62>;
-		base = <51>;
 		#gpio-cells = <2>;
 		gpio-controller;
 		interrupt-controller;
