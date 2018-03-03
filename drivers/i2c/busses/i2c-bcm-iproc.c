@@ -226,7 +226,6 @@ static void bcm_iproc_i2c_slave_init(
 		/* put controller in reset */
 		val = readl(iproc_i2c->base + CFG_OFFSET);
 		val |= BIT(CFG_RESET_SHIFT);
-		val &= ~(BIT(CFG_RESET_SHIFT));
 		writel(val, iproc_i2c->base + CFG_OFFSET);
 
 		/* wait 100 usec per spec */
@@ -485,7 +484,6 @@ static int bcm_iproc_i2c_init(struct bcm_iproc_i2c_dev *iproc_i2c)
 	/* put controller in reset */
 	val = readl(iproc_i2c->base + CFG_OFFSET);
 	val |= BIT(CFG_RESET_SHIFT);
-	val &= ~(BIT(CFG_RESET_SHIFT));
 	writel(val, iproc_i2c->base + CFG_OFFSET);
 
 	/* wait 100 usec per spec */
