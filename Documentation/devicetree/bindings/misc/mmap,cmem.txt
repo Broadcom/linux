@@ -1,0 +1,30 @@
+Broadcom CMEM Device Tree Bindings
+-------------------------------------------------------------
+This binding defines the reserved physical memory address and its size
+used to map to user mode virtual address for VFIO
+
+Required properties:
+	- compatible    : Should contain the CMEM compatibility string
+		          "mmap-cmem"
+	- reg           : Physical base address and size of the
+		          Reserved memory
+	- memory-region : phandle to a node describing reserved memory
+			  region.
+
+Examples:
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		cmem_region: cmem_region@90000000 {
+			reg = <0x0 0x90000000 0x0 0x1000000>;
+			no-map;
+		};
+	};
+
+	cmem: cmem@0 {
+		compatible = "mmap-cmem";
+		memory-region = <&cmem_region>;
+	};
+
