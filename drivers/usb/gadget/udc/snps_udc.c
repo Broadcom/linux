@@ -1361,11 +1361,16 @@ static void start_udc(struct snps_udc *udc)
 
 static void stop_udc(struct snps_udc *udc)
 {
+	struct snps_udc_ep *ep;
 	finish_udc(udc->regs);
 
 	udc->gadget.speed = USB_SPEED_UNKNOWN;
 	epreq_queue_flush(&udc->ep[0], -ESHUTDOWN);
 	udc->ep[0].desc = NULL;
+
+	list_for_each_entry(ep, &udc->gadget.ep_list, usb_ep.ep_list) {
+		epreq_queue_flush(ep, -ESHUTDOWN);
+	}
 
 	bus_disconnect(udc->regs);
 
@@ -1682,6 +1687,7 @@ static int snps_udc_suspend(struct device *dev)
 
 	if (extcon_get_state(udc->edev, EXTCON_USB) > 0) {
 		dev_dbg(udc->dev, "device -> idle\n");
+		udc->pullup_on = 0;
 		snps_gadget_pullup(&udc->gadget, 0);
 	}
 	phy_power_off(udc->udc_phy);
@@ -1712,6 +1718,7 @@ static int snps_udc_resume(struct device *dev)
 
 	if (extcon_get_state(udc->edev, EXTCON_USB) > 0) {
 		dev_dbg(udc->dev, "idle -> device\n");
+		udc->pullup_on = 1;
 		snps_gadget_pullup(&udc->gadget, 1);
 	}
 
