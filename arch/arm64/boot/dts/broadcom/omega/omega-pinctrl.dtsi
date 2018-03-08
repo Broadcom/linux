@@ -34,9 +34,10 @@
 
 		pinmux0: pinmux@2850000c {
 			compatible = "pinctrl-single";
-			reg = <0x2850000c 0xc0>;
+			reg = <0x2850000c 0xcc>;
 			#address-cells = <1>;
 			#size-cells = <1>;
+			#pinctrl-cells = <1>;
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <0x3>;
 			/* pin base, nr pins & gpio function */
@@ -327,6 +328,7 @@
 			reg = <0x300008 0xf8>;
 			#address-cells = <1>;
 			#size-cells = <1>;
+			#pinctrl-cells = <1>;
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <0x3>;
 
