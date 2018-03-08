@@ -1388,6 +1388,7 @@ static int snps_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	spin_lock_irqsave(&udc->lock, flags);
 
 	if (!udc->gadget_driver) {
+		bus_disconnect(udc->regs);
 		spin_unlock_irqrestore(&udc->lock, flags);
 		return 0;
 	}
@@ -1583,6 +1584,7 @@ static int snps_udc_probe(struct platform_device *pdev)
 		dev_err(dev, "Can't get cable state\n");
 		goto exit_extcon;
 	} else if (ret) {
+		bus_disconnect(udc->regs);
 		udc->conn_type = ret;
 	}
 
