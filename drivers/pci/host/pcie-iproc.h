@@ -77,10 +77,6 @@ struct iproc_msi;
  * @reg_offsets: register offsets
  * @base: PCIe host controller I/O register base
  * @base_addr: PCIe host controller register base physical address
- * @idm: PCIe PAXB's IDM I/O register base
- * @linkup: LinkUp flag for avoiding downstream config requests in LinkDown case
- * @link_poll_interval: poll interval (in ms) for detecting link status
- * @timer_hdlr: timer routine for taking corrective action on link status
  * @sysdata: Per PCI controller data (ARM-specific)
  * @root_bus: pointer to root bus
  * @phy: optional PHY device that controls the Serdes
@@ -104,10 +100,6 @@ struct iproc_msi;
  * @attr_order_mode: Device attributes to "order_mode" file in sysfs
  * @order_cfg: indicates current value of the order mode.
  *
- * @enable_hotplug: indicates PCI hotplug feature is enabled
- * @ep_is_present: when PCIe hotplug is enabled, this flag is used to
- * indicate whether or not the endpoint device is present
-
  * @irq: interrupt line wired to the generic GIC for INTx
  * @irq_domain: IRQ domain for INTx
  *
@@ -126,12 +118,6 @@ struct iproc_pcie {
 	u16 *reg_offsets;
 	void __iomem *base;
 	phys_addr_t base_addr;
-
-	void __iomem *idm;
-	bool linkup;
-
-	u32 link_poll_interval;
-	struct timer_list timer_hdlr;
 
 #ifdef CONFIG_ARM
 	struct pci_sys_data sysdata;
@@ -155,9 +141,6 @@ struct iproc_pcie {
 
 	struct device_attribute attr_order_mode;
 	enum paxb_order_cfg order_cfg;
-
-	bool enable_hotplug;
-	bool ep_is_present;
 
 	int irq;
 	struct irq_domain *irq_domain;
