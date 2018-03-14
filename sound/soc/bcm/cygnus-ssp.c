@@ -182,8 +182,9 @@
 #define BF_SRC_CFGX_NOT_PAUSE_WHEN_EMPTY  10
 #define BF_SRC_CFGX_SAMPLE_REPEAT_ENABLE  11
 #define BF_SRC_CFGX_BIT_RES               20
+#define BF_SRC_CFGX_BITRES_MASK  \
+	GENMASK(BF_SRC_CFGX_BIT_RES + 4, BF_SRC_CFGX_BIT_RES)
 #define BF_SRC_CFGX_PROCESS_SEQ_ID_VALID  31
-#define BF_SRC_CFGX_BITRES_MASK           0x1f
 
 /* AUD_FMM_BF_CTRL_SOURCECH_CTRLx_REG */
 #define BF_SOURCECH_CTRL_PLAY_RUN   0
@@ -199,6 +200,8 @@
 #define BF_DST_CFGX_DFIFO_SZ_DOUBLE      2
 #define BF_DST_CFGX_NOT_PAUSE_WHEN_FULL 11
 #define BF_DST_CFGX_FCI_ID              12
+#define BF_DST_CFGX_FCI_ID_MASK \
+	GENMASK(BF_DST_CFGX_FCI_ID + 9, BF_DST_CFGX_FCI_ID)
 #define BF_DST_CFGX_CAP_MODE            24
 #define BF_DST_CFGX_PROC_SEQ_ID_VALID   31
 #define BF_DST_CFGX_BITRES_MASK         0x1f
@@ -350,7 +353,7 @@ static int audio_ssp_init_portregs(struct cygnus_aio_port *aio)
 		sspreg_update(aio->io, aio->regs.i2s_cap_stream_cfg, mask, val);
 
 		/* Configure the AUD_FMM_BF_CTRL_DESTCH_CFGX_REG_BASE reg */
-		mask = (0xf << BF_DST_CFGX_FCI_ID);
+		mask = BF_DST_CFGX_FCI_ID_MASK;
 		mask |= BIT(BF_DST_CFGX_DFIFO_SZ_DOUBLE);
 		mask |= BIT(BF_DST_CFGX_NOT_PAUSE_WHEN_FULL);
 		mask |= BIT(BF_DST_CFGX_PROC_SEQ_ID_VALID);
@@ -1240,6 +1243,7 @@ static void update_ssp_cfg(struct cygnus_aio_port *aio)
 	 * internal clock or signal from external pin).
 	 */
 	ssp_incfg = ssp_newcfg | BIT(I2S_OUT_CFGX_SLAVE_MODE);
+	ssp_incfg &= I2S_IN_CFG_REG_UPDATE_MASK;
 	sspreg_update(aio->io, aio->regs.i2s_cap_cfg,
 			I2S_IN_CFG_REG_UPDATE_MASK, ssp_incfg);
 
