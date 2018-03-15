@@ -730,7 +730,20 @@ static int iproc_pcie_config_read32(struct pci_bus *bus, unsigned int devfn,
 {
 	int ret;
 	struct iproc_pcie *pcie = iproc_data(bus);
+	u32 link_status;
 
+	if (!pcie->ep_is_internal) {
+		if (bus->number && (where == PCI_VENDOR_ID)) {
+			link_status = iproc_pcie_read_reg(
+						pcie, IPROC_PCIE_LINK_STATUS);
+			if (!(link_status & PCIE_PHYLINKUP) ||
+			    !(link_status & PCIE_DL_ACTIVE)) {
+				dev_dbg(pcie->dev,
+					"LinkDown so skipping downstream read req\n");
+				return PCIBIOS_DEVICE_NOT_FOUND;
+			}
+		}
+	}
 	iproc_pcie_apb_err_disable(bus, true);
 	if (pcie->iproc_cfg_read)
 		ret = iproc_pcie_config_read(bus, devfn, where, size, val);
@@ -861,14 +874,6 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie)
 	if (pcie->ep_is_internal)
 		return 0;
 
-	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_LINK_STATUS);
-	if (!(val & PCIE_PHYLINKUP) || !(val & PCIE_DL_ACTIVE)) {
-		if (!iproc_pci_hp_check_ltssm(pcie)) {
-			dev_err(dev, "PHY or data link is INACTIVE!\n");
-			return -ENODEV;
-		}
-	}
-
 	/* make sure we are not in EP mode */
 	iproc_pci_raw_config_read32(pcie, 0, PCI_HEADER_TYPE, 1, &hdr_type);
 	if ((hdr_type & 0x7f) != PCI_HEADER_TYPE_BRIDGE) {
@@ -886,6 +891,14 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie)
 	class |= (PCI_CLASS_BRIDGE_PCI << PCI_CLASS_BRIDGE_SHIFT);
 	iproc_pci_raw_config_write32(pcie, 0, PCI_BRIDGE_CTRL_REG_OFFSET,
 				     4, class);
+
+	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_LINK_STATUS);
+	if (!(val & PCIE_PHYLINKUP) || !(val & PCIE_DL_ACTIVE)) {
+		if (!iproc_pci_hp_check_ltssm(pcie)) {
+			dev_err(dev, "PHY or data link is INACTIVE!\n");
+			return -ENODEV;
+		}
+	}
 
 	/* check link status to see if link is active */
 	iproc_pci_raw_config_read32(pcie, 0, IPROC_PCI_EXP_CAP + PCI_EXP_LNKSTA,
@@ -1787,12 +1800,10 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 	host->map_irq = pcie->map_irq;
 	host->swizzle_irq = pci_common_swizzle;
 
-	if (!is_link_active) {
-		ret = iproc_pcie_detect_enable(pcie);
-		if (ret < 0) {
-			dev_err(dev, "failed to enable: %d\n", ret);
-			goto err_power_off_phy;
-		}
+	ret = iproc_pcie_detect_enable(pcie);
+	if (ret < 0) {
+		dev_err(dev, "failed to enable: %d\n", ret);
+		goto err_power_off_phy;
 	}
 
 	if (pcie->type == IPROC_PCIE_PAXB_V2) {
