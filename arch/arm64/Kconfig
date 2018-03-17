@@ -152,28 +152,6 @@ config ARCH_PHYS_ADDR_T_64BIT
 config MMU
 	def_bool y
 
-config MAX_PHYSMEM_BITS
-	int "Maximum Physical Addressable Bits"
-	depends on SPARSEMEM
-	default 48
-	help
-	  Maximum number of physical addressable bits.
-	  If not all the physical bits are used this number can be reduced
-	  to save memory when creating page tables.
-
-	  If unsure, leave this at the default.
-
-config SECTION_SIZE_BITS
-	int "Section Size Bits"
-	depends on SPARSEMEM
-	default 30
-	help
-	  Size of each memory section.
-	  If you need to be able to allocate smaller
-	  sections in page table this number can be change to save memory.
-
-	  If unsure, leave this at the default.
-
 config ARM64_PAGE_SHIFT
 	int
 	default 16 if ARM64_64K_PAGES
