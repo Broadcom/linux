@@ -100,7 +100,7 @@ Required properties for audio-mux clocks:
 		compatible = "brcm,cygnus-ssp2-clk"
 		reg-offset = <0x8c>
 	spdiftx port
-		compatible = "brcm,cygnus-spdif-clk"
+		compatible = "brcm,cygnus-spdiftx-clk"
 		reg-offset = <0xdc>
 
 - clocks: Ordered list of phandles which are the possible parents to the mux.
