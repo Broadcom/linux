@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/regmap.h>
@@ -80,24 +81,31 @@
 #define BF_SRC_GRP_FLOWON_OFFSET        (0x324 | MAP1_FLAG)
 #define BF_SRC_GRP_SYNC_DIS_OFFSET      (0x328 | MAP1_FLAG)
 
+/*--------------------------------------------
+ * Register offsets shared io space
+ */
+#define IOMAP2_BASE_OFFSET      0xa00
+
 /* AUD_FMM_IOP_OUT_I2S_xxx regs */
-#define OUT_I2S_0_STREAM_CFG_OFFSET     (0xa00 | MAP1_FLAG)
-#define OUT_I2S_0_CFG_OFFSET            (0xa04 | MAP1_FLAG)
-#define OUT_I2S_0_MCLK_CFG_OFFSET       (0xa0c | MAP1_FLAG)
+#define OUT_I2S_0_STREAM_CFG_OFFSET     (0xa00 | MAP2_FLAG)
+#define OUT_I2S_0_CFG_OFFSET            (0xa04 | MAP2_FLAG)
+#define OUT_I2S_0_MCLK_CFG_OFFSET       (0xa0c | MAP2_FLAG)
 
-#define OUT_I2S_1_STREAM_CFG_OFFSET     (0xa40 | MAP1_FLAG)
-#define OUT_I2S_1_CFG_OFFSET            (0xa44 | MAP1_FLAG)
-#define OUT_I2S_1_MCLK_CFG_OFFSET       (0xa4c | MAP1_FLAG)
+#define OUT_I2S_1_STREAM_CFG_OFFSET     (0xa40 | MAP2_FLAG)
+#define OUT_I2S_1_CFG_OFFSET            (0xa44 | MAP2_FLAG)
+#define OUT_I2S_1_MCLK_CFG_OFFSET       (0xa4c | MAP2_FLAG)
 
-#define OUT_I2S_2_STREAM_CFG_OFFSET     (0xa80 | MAP1_FLAG)
-#define OUT_I2S_2_CFG_OFFSET            (0xa84 | MAP1_FLAG)
-#define OUT_I2S_2_MCLK_CFG_OFFSET       (0xa8c | MAP1_FLAG)
+#define OUT_I2S_2_STREAM_CFG_OFFSET     (0xa80 | MAP2_FLAG)
+#define OUT_I2S_2_CFG_OFFSET            (0xa84 | MAP2_FLAG)
+#define OUT_I2S_2_MCLK_CFG_OFFSET       (0xa8c | MAP2_FLAG)
 
 /* AUD_FMM_IOP_OUT_SPDIF_xxx regs */
-#define SPDIF_STREAM_CFG_OFFSET         (0xac0 | MAP1_FLAG)
-#define SPDIF_CTRL_OFFSET               (0xac4 | MAP1_FLAG)
-#define SPDIF_FORMAT_CFG_OFFSET         (0xad8 | MAP1_FLAG)
-#define SPDIF_MCLK_CFG_OFFSET           (0xadc | MAP1_FLAG)
+#define SPDIF_STREAM_CFG_OFFSET         (0xac0 | MAP2_FLAG)
+#define SPDIF_CTRL_OFFSET               (0xac4 | MAP2_FLAG)
+#define SPDIF_FORMAT_CFG_OFFSET         (0xad8 | MAP2_FLAG)
+#define SPDIF_MCLK_CFG_OFFSET           (0xadc | MAP2_FLAG)
+
+#define MAP2_MAX_REG ((SPDIF_MCLK_CFG_OFFSET & 0x0000FFFF) - IOMAP2_BASE_OFFSET)
 
 /*--------------------------------------------
  * Register offsets for i2s_in io space
@@ -267,6 +275,10 @@ static int audio_get_iomap(struct audio_io *io,
 	case MAP1_FLAG:
 		desc->iomap = io->audio;
 		desc->io_offset = full_offset - IOMAP1_BASE_OFFSET;
+		break;
+	case MAP2_FLAG:
+		desc->iomap = io->cmn_io;
+		desc->io_offset = full_offset - IOMAP2_BASE_OFFSET;
 		break;
 	case MAP3_FLAG:
 		desc->iomap = io->i2s_in;
@@ -833,9 +845,8 @@ static bool mclk_in_range(unsigned int target, unsigned int actual)
 static int cygnus_ssp_set_sysclk(struct snd_soc_dai *dai,
 			int clk_id, unsigned int freq, int dir)
 {
-	int sel;
 	int ret;
-	u32 value, mask;
+	u32 mask;
 	long rate;
 	struct cygnus_aio_port *aio = cygnus_dai_get_portinfo(dai);
 
@@ -870,13 +881,6 @@ static int cygnus_ssp_set_sysclk(struct snd_soc_dai *dai,
 	}
 
 	aio->mclk = freq;
-	sel = aio->clk_info.clk_mux;
-
-	dev_dbg(aio->dev, "%s Setting MCLKSEL to %d\n", __func__, sel);
-
-	mask = (0xf << I2S_OUT_PLLCLKSEL_SHIFT);
-	value = (sel << I2S_OUT_PLLCLKSEL_SHIFT);
-	sspreg_update(aio->io, aio->regs.i2s_mclk_cfg, mask, value);
 
 	/* Clear bit for active */
 	mask = BIT(AUD_MISC_SEROUT_MCLK_OE + (aio->portnum * 4));
@@ -1376,7 +1380,6 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 	u32 rawval;
 	int portnum = -1;
 	enum cygnus_audio_port_type port_type;
-	u32 muxval;
 	struct clk *clk;
 
 	if (of_property_read_u32(dn, "reg", &rawval)) {
@@ -1456,11 +1459,6 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 
 		aio->clk_info.audio_clk = clk;
 
-		if (of_property_read_u32(dn, "brcm,ssp-clk-mux", &muxval)) {
-			dev_err(&pdev->dev, "Missing property clock-mux\n");
-			return -EINVAL;
-		}
-		aio->clk_info.clk_mux = muxval;
 	} else {
 		dev_dbg(&pdev->dev, "No clock provided for port %d\n", portnum);
 	}
@@ -1514,6 +1512,13 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	if (IS_ERR(cygaud->io.audio)) {
 		dev_err(&pdev->dev, "regmap failed\n");
 		return PTR_ERR(cygaud->io.audio);
+	}
+
+	cygaud->io.cmn_io = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+							"brcm,clk-mux-syscon");
+	if (IS_ERR(cygaud->io.cmn_io)) {
+		dev_err(&pdev->dev, "regmap failed\n");
+		return PTR_ERR(cygaud->io.cmn_io);
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "i2s_in");

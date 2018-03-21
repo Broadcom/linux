@@ -54,12 +54,12 @@ struct cygnus_ssp_regs {
 
 struct audio_io {
 	struct regmap *audio;
+	struct regmap *cmn_io;
 	struct regmap *i2s_in;
 };
 
 struct cygnus_audio_clkinfo {
 	struct clk *audio_clk;
-	int clk_mux;
 };
 
 struct cygnus_aio_port {
