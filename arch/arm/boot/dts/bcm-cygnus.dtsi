@@ -840,6 +840,11 @@
 			status = "disabled";
 		};
 
+		ssp_clkmux: syscon@180aea00 {
+			compatible = "brcm,iproc-audio-ssp-syscon", "syscon";
+			reg = <0x180aea00 0x100>;
+		};
+
 		cygnus_audio: audio@180ae000 {
 			compatible = "brcm,cygnus-audio";
 			#address-cells = <1>;
@@ -849,39 +854,57 @@
 
 			interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
 
+			brcm,clk-mux-syscon = <&ssp_clkmux>;
+
 			ssp0: ssp_port@0 {
 				reg = <0>;
 
-				clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>;
+				clocks = <&ssp0_clock>;
 				clock-names = "ssp_clk";
-				brcm,ssp-clk-mux = <0>;
+
+				assigned-clocks = <&ssp0_clock>;
+				assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH0>;
+
 				status = "disabled";
 			};
 
 			ssp1: ssp_port@1 {
 				reg = <1>;
 
-				clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>;
+				clocks = <&ssp1_clock>;
 				clock-names = "ssp_clk";
-				brcm,ssp-clk-mux = <1>;
+
+				assigned-clocks = <&ssp1_clock>;
+				assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>;
+
 				status = "disabled";
 			};
 
 			ssp2: ssp_port@2 {
 				reg = <2>;
 
-				clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+				clocks = <&ssp2_clock>;
 				clock-names = "ssp_clk";
-				brcm,ssp-clk-mux = <2>;
+
+				assigned-clocks = <&ssp2_clock>;
+				assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+
 				status = "disabled";
 			};
 
 			spdif: spdif_port@3 {
 				reg = <3>;
 
-				clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+				clocks = <&spdiftx_clock>;
 				clock-names = "ssp_clk";
-				brcm,ssp-clk-mux = <2>;
+
+				assigned-clocks = <&spdiftx_clock>;
+				assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+
 				status = "disabled";
 			};
 		};

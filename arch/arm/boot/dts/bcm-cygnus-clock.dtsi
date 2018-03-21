@@ -133,4 +133,55 @@ clocks {
 		clock-output-names = "audiopll", "ch0_audio",
 					"ch1_audio", "ch2_audio";
 	};
+
+	ssp0_clock: ssp0_clock {
+		#clock-cells = <0>;
+		compatible = "brcm,cygnus-ssp0-clk";
+		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
+			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
+			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+
+		clk-mux-syscon = <&ssp_clkmux>;
+		reg-offset = <0x0c>;
+		bit-shift = <0>;
+		bit-width = <4>;
+	};
+
+	ssp1_clock: ssp1_clock {
+		#clock-cells = <0>;
+		compatible = "brcm,cygnus-ssp1-clk";
+		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
+			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
+			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+		clk-mux-syscon = <&ssp_clkmux>;
+		reg-offset = <0x4c>;
+		bit-shift = <0>;
+		bit-width = <4>;
+	};
+
+	ssp2_clock: ssp2_clock {
+		#clock-cells = <0>;
+		compatible = "brcm,cygnus-ssp2-clk";
+		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
+			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
+			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+
+		clk-mux-syscon = <&ssp_clkmux>;
+		reg-offset = <0x8c>;
+		bit-shift = <0>;
+		bit-width = <4>;
+	};
+
+	spdiftx_clock: spdiftx_clock {
+		#clock-cells = <0>;
+		compatible = "brcm,cygnus-spdiftx-clk";
+		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
+			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
+			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+
+		clk-mux-syscon = <&ssp_clkmux>;
+		reg-offset = <0xdc>;
+		bit-shift = <0>;
+		bit-width = <4>;
+	};
 };
