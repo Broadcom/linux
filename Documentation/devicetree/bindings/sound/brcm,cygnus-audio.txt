@@ -10,6 +10,8 @@ Required properties:
 		set of DMA, I2S_OUT and SPDIF registers. "i2s_in" contains
 		a set of I2S_IN registers.
 	- interrupts: audio DMA interrupt number
+	- brcm,clk-mux-syscon: The syscon phandle for shared registers which
+		control the port's audio mux clock and some of the i2s controls
 
 Optional properties:
 	- assigned-clocks: only valid choice is audiopll
@@ -26,13 +28,13 @@ Optional:
 	- clocks: clock used by audio port
 		  one of the audiopll outputs (see brcm,iproc-clocks.txt).
 	- clock-names: Must be "ssp_clk"
-	- brcm,ssp-clk-mux = Needed if a clock is named and used.  This value is
-			used to program the mux within the audio driver which selects
-			the incoming clock. Here is the mapping.
-			audio_pll   output 0 = 0, output 1 = 1, and output 2 = 2
-
 
 Example:
+	ssp_clkmux: syscon@180aea00 {
+		compatible = "brcm,iproc-audio-ssp-syscon", "syscon";
+		reg = <0x180aea00 0x100>;
+	};
+
 	cygnus_audio: audio@180ae000 {
 		compatible = "brcm,cygnus-audio";
 		#address-cells = <1>;
@@ -45,12 +47,17 @@ Example:
 
 		interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
 
+		brcm,clk-mux-syscon = <&ssp_clkmux>;
+
 		ssp0: ssp_port@0 {
 			reg = <0>;
 
-			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>;
+			clocks = <&ssp0_clock>;
 			clock-names = "ssp_clk";
-			brcm,ssp-clk-mux = <0>;
+
+			assigned-clocks = <&ssp0_clock>;
+			assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH0>;
 
 			status = "okay";
 		};
@@ -58,9 +65,12 @@ Example:
 		ssp1: ssp_port@1 {
 			reg = <1>;
 
-			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>;
+			clocks = <&ssp1_clock>;
 			clock-names = "ssp_clk";
-			brcm,ssp-clk-mux = <1>;
+
+			assigned-clocks = <&ssp1_clock>;
+			assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>;
 
 			status = "okay";
 		};
@@ -68,9 +78,12 @@ Example:
 		ssp2: ssp_port@2 {
 			reg = <2>;
 
-			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+			clocks = <&ssp2_clock>;
 			clock-names = "ssp_clk";
-			brcm,ssp-clk-mux = <2>;
+
+			assigned-clocks = <&ssp2_clock>;
+			assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>;
 
 			status = "okay";
 		};
@@ -78,9 +91,12 @@ Example:
 		spdif: spdif_port@3 {
 			reg = <3>;
 
-			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+			clocks = <&spdiftx_clock>;
        			clock-names = "ssp_clk";
-			brcm,ssp-clk-mux = <2>;
+
+			assigned-clocks = <&spdiftx_clock>;
+			assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
 
 			status = "disabled";
 		};
