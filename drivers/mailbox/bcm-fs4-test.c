@@ -425,6 +425,8 @@ static int __spu2_exec(struct fs4_test *test)
 				rc = cmsg->bmsg[b].error;
 				break;
 			}
+			/* Signal txdone for mailbox channel */
+			mbox_client_txdone(chan, rc);
 		}
 		if (rc < 0)
 			break;
@@ -982,6 +984,8 @@ static int __sba_memcpy_exec(struct fs4_test *test)
 				rc = cmsg->bmsg[i].error;
 				break;
 			}
+			/* Signal txdone for mailbox channel */
+			mbox_client_txdone(chan, rc);
 		}
 		if (rc < 0)
 			break;
@@ -1549,6 +1553,8 @@ static int __sba_xor_exec(struct fs4_test *test)
 				rc = cmsg->bmsg[i].error;
 				break;
 			}
+			/* Signal txdone for mailbox channel */
+			mbox_client_txdone(chan, rc);
 		}
 		if (rc < 0)
 			break;
@@ -2459,6 +2465,8 @@ static int __sba_pq_exec(struct fs4_test *test)
 				rc = cmsg->bmsg[i].error;
 				break;
 			}
+			/* Signal txdone for mailbox channel */
+			mbox_client_txdone(chan, rc);
 		}
 		if (rc < 0)
 			break;
@@ -2707,7 +2715,7 @@ static int fs4_test_probe(struct platform_device *pdev)
 
 	test->client.dev		= &pdev->dev;
 	test->client.rx_callback	= fs4_test_receive_message;
-	test->client.tx_block		= true;
+	test->client.tx_block		= false;
 	test->client.knows_txdone	= false;
 	test->client.tx_tout		= 0;
 
