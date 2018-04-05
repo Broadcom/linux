@@ -39,7 +39,7 @@
 		.intr_reg = 0x4 + 0x10 * id,	\
 		.clr_reg = 0x8 + 0x10 * id,	\
 		.pad_reg = 0xc + 0x10 * id,	\
-		.oe_bit = 2,			\
+		.oeb_bit = 2,			\
 		.in_bit = 1,			\
 		.out_bit = 0,			\
 		.mstat_bit = 5,			\
@@ -63,7 +63,7 @@
  *			and status bits
  * @clr_reg:		Offset of the register holding interrupt clear bits
  * @pad_reg:		Offset of the register holding pad config bits
- * @oe_bit:		Offset in @io_reg to control output enable
+ * @oeb_bit:		Offset in @io_reg to control output enable(active_low)
  * @in_bit:		Offset in @io_reg for the input bit value
  * @out_bit:		Offset in @io_reg for the output bit value
  * @mstat_bit:		Offset in @intr_reg for interrupt masked status
@@ -88,7 +88,7 @@ struct omega_pin {
 	u32 clr_reg;
 	u32 pad_reg;
 
-	unsigned int oe_bit:5;
+	unsigned int oeb_bit:5;
 	unsigned int in_bit:5;
 	unsigned int out_bit:5;
 
@@ -117,7 +117,7 @@ struct omega_pin {
  * @lock:           spinlock to protect register resources as well
  *                  as omega_pinctrl data structures.
  * @regs:           base address for the pinctrl register map.
- * @ngpios:         number of gpios in the controller
+ * @ngpio:         number of gpios in the controller
  */
 struct omega_pinctrl {
 	struct device *dev;
@@ -297,7 +297,7 @@ static int omega_gpio_direction_input(struct gpio_chip *gc, unsigned int gpio)
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&pctrl->lock, flags);
-	omega_set_bit(pctrl, p.io_reg, p.oe_bit, false);
+	omega_set_bit(pctrl, p.io_reg, p.oeb_bit, true);
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
 
 	dev_dbg(pctrl->dev, "gpio:%u set input\n", gpio);
@@ -314,7 +314,7 @@ static int omega_gpio_direction_output(struct gpio_chip *gc,
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&pctrl->lock, flags);
-	omega_set_bit(pctrl, p.io_reg, p.oe_bit, true);
+	omega_set_bit(pctrl, p.io_reg, p.oeb_bit, false);
 	omega_set_bit(pctrl, p.io_reg, p.out_bit, !!(val));
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
 
@@ -353,7 +353,20 @@ static const struct gpio_chip omega_gpio = {
 	.free             = gpiochip_generic_free,
 };
 
+static int omega_get_groups_count(struct pinctrl_dev *pctldev)
+{
+	return 1;
+}
+
+static const char *omega_get_group_name(struct pinctrl_dev *pctldev,
+					 unsigned int selector)
+{
+	return "gpio_grp";
+}
+
 static const struct pinctrl_ops omega_pinctrl_ops = {
+	.get_groups_count = omega_get_groups_count,
+	.get_group_name = omega_get_group_name,
 	.dt_node_to_map = pinconf_generic_dt_node_to_map_pin,
 	.dt_free_map = pinctrl_utils_free_map,
 };
@@ -372,7 +385,6 @@ static int omega_config_reg(struct omega_pinctrl *pctrl,
 	switch (param) {
 	case PIN_CONFIG_BIAS_DISABLE:
 	case PIN_CONFIG_BIAS_PULL_DOWN:
-	case PIN_CONFIG_BIAS_BUS_HOLD:
 	case PIN_CONFIG_BIAS_PULL_UP:
 		*bit = p.pull_bit;
 		*mask = MSK_BIAS;
@@ -429,16 +441,13 @@ static int omega_pin_config_get(struct pinctrl_dev *pctldev,
 
 	switch (param) {
 	case PIN_CONFIG_BIAS_DISABLE:
-		arg = 1 ? (arg == OMEGA_NO_PULL) : 0;
-		break;
+		return (arg == OMEGA_NO_PULL) ? 0 : -EINVAL;
 
 	case PIN_CONFIG_BIAS_PULL_DOWN:
-		arg = 1 ? (arg == OMEGA_PULL_DOWN) : 0;
-		break;
+		return (arg == OMEGA_PULL_DOWN) ? 0 : -EINVAL;
 
 	case PIN_CONFIG_BIAS_PULL_UP:
-		arg = 1 ? (arg == OMEGA_PULL_UP) : 0;
-		break;
+		return (arg == OMEGA_PULL_UP) ? 0 : -EINVAL;
 
 	case PIN_CONFIG_DRIVE_STRENGTH:
 		arg = omega_regval_to_drive(arg);
