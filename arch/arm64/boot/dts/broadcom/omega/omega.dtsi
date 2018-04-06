@@ -140,6 +140,18 @@
 			clock-names = "timer1clk", "timer2clk", "apb_pclk";
 		};
 
+		gpio_east: gpio@3d0000 {
+			compatible = "brcm,omega-pinctrl";
+			reg = <0x3d0000 0x3e0>;
+			ngpio = <62>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			interrupt-controller;
+			#interrupt-cells = <3>;
+			interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>;
+			gpio-ranges = <&pinmux1 0 0 62>;
+		};
+
 		uart0: uart@28510000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
@@ -161,6 +173,18 @@
 			interrupts = <GIC_SPI 41 IRQ_TYPE_NONE>;
 			clock-frequency = <100000>;
 			status = "okay";
+		};
+
+		gpio_west: gpio@285a0000 {
+			compatible = "brcm,omega-pinctrl";
+			reg = <0x285a0000 0x330>;
+			ngpio = <51>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			interrupt-controller;
+			#interrupt-cells = <3>;
+			interrupts = <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
+			gpio-ranges = <&pinmux0 0 0 51>;
 		};
 
 		nand: nand@288c0000 {
