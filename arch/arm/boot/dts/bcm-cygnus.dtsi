@@ -854,6 +854,17 @@
 
 			interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
 
+			assigned-clocks = <&ssp0_clock>,
+					  <&ssp1_clock>,
+					  <&ssp2_clock>,
+					  <&spdiftx_clock>;
+
+			assigned-clock-parents =
+				<&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
+				<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
+				<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>,
+				<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+
 			brcm,clk-mux-syscon = <&ssp_clkmux>;
 
 			ssp0: ssp_port@0 {
@@ -861,10 +872,6 @@
 
 				clocks = <&ssp0_clock>;
 				clock-names = "ssp_clk";
-
-				assigned-clocks = <&ssp0_clock>;
-				assigned-clock-parents =
-					<&audiopll BCM_CYGNUS_AUDIOPLL_CH0>;
 
 				status = "disabled";
 			};
@@ -875,10 +882,6 @@
 				clocks = <&ssp1_clock>;
 				clock-names = "ssp_clk";
 
-				assigned-clocks = <&ssp1_clock>;
-				assigned-clock-parents =
-					<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>;
-
 				status = "disabled";
 			};
 
@@ -888,10 +891,6 @@
 				clocks = <&ssp2_clock>;
 				clock-names = "ssp_clk";
 
-				assigned-clocks = <&ssp2_clock>;
-				assigned-clock-parents =
-					<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
-
 				status = "disabled";
 			};
 
@@ -900,10 +899,6 @@
 
 				clocks = <&spdiftx_clock>;
 				clock-names = "ssp_clk";
-
-				assigned-clocks = <&spdiftx_clock>;
-				assigned-clock-parents =
-					<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
 
 				status = "disabled";
 			};
