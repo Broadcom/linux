@@ -61,11 +61,3 @@ config SND_SOC_CYGNUS_VOIPPHONE_MACHINE
 	  Attached to the Cygnus SoC are a CS42L73 codec and also an optional
 	  Bluetooth module.
 
-config SND_SOC_CYGNUS_AK4458_MACHINE
-	tristate "SoC Audio support for Broadcom Cygnus BCM958305_AK4458 board"
-	depends on SND_SOC_CYGNUS
-	select SND_SOC_AK4458
-	select SND_SOC_WM8804_I2C
-	help
-	  Say Y if you want to add support for Cygnus SoC wireless audio board
-	  BCM958305_AK4458.
