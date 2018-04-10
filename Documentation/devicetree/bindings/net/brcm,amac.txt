@@ -12,6 +12,7 @@ Required properties:
 		"amac_base":	Address and length of the GMAC registers
 		"idm_base":	Address and length of the GMAC IDM registers
 				(required for NSP and Northstar2)
+		"switch_global_base": Address of the switch config register
 		"nicpm_base":	Address and length of the NIC Port Manager
 				registers (required for Northstar2)
  - interrupts:	Interrupt number
