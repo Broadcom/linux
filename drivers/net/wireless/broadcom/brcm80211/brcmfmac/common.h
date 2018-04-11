@@ -59,6 +59,7 @@ struct brcmf_mp_device {
 	unsigned int	feature_disable;
 	int		fcmode;
 	bool		roamoff;
+	bool		iapp;
 	bool		ignore_probe_fail;
 	struct brcmfmac_pd_cc *country_codes;
 	unsigned int	log_size;
