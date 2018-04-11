@@ -736,6 +736,7 @@ void iproc_pll_clk_setup(struct device_node *node,
 	const char *parent_name;
 	struct iproc_clk *iclk_array;
 	struct clk_hw_onecell_data *clk_data;
+	bool names_present;
 
 	if (WARN_ON(!pll_ctrl) || WARN_ON(!clk_ctrl))
 		return;
@@ -805,6 +806,8 @@ void iproc_pll_clk_setup(struct device_node *node,
 
 	clk_data->hws[0] = &iclk->hw;
 
+	names_present = of_property_read_bool(node, "clock-output-names");
+
 	/* now initialize and register all leaf clocks */
 	for (i = 1; i < num_clks; i++) {
 		const char *clk_name;
@@ -812,16 +815,22 @@ void iproc_pll_clk_setup(struct device_node *node,
 		memset(&init, 0, sizeof(init));
 		parent_name = node->name;
 
-		ret = of_property_read_string_index(node, "clock-output-names",
-						    i, &clk_name);
-		if (WARN_ON(ret))
-			goto err_clk_register;
+		if (names_present) {
+			ret = of_property_read_string_index(node,
+				"clock-output-names", i, &clk_name);
+			if (WARN_ON(ret))
+				goto err_clk_register;
+
+			init.name = clk_name;
+		} else {
+			init.name = kasprintf(GFP_KERNEL,
+						"%s_ch%u", node->name, i-1);
+		}
 
 		iclk = &iclk_array[i];
 		iclk->pll = pll;
 		iclk->ctrl = &clk_ctrl[i];
 
-		init.name = clk_name;
 		init.ops = &iproc_clk_ops;
 		init.flags = 0;
 		init.parent_names = (parent_name ? &parent_name : NULL);
@@ -831,6 +840,10 @@ void iproc_pll_clk_setup(struct device_node *node,
 		ret = clk_hw_register(NULL, &iclk->hw);
 		if (WARN_ON(ret))
 			goto err_clk_register;
+
+		/* string has been duplicated in clk_register so free now */
+		if (!names_present)
+			kfree(init.name);
 
 		clk_data->hws[i] = &iclk->hw;
 	}
