@@ -25,8 +25,12 @@ clock control registers required for the PLL
     The input parent clock phandle for the PLL. For most iProc PLLs, this is an
 onboard crystal with a fixed rate
 
+Optional properties for a PLL and its leaf clocks:
 - clock-output-names:
-    An ordered list of strings defining the names of the clocks
+    An ordered list of strings defining the names of the clocks.
+    If this is not supplied the names of the leaf clocks will be generated
+    automatically.  The generated name will be <pll_name> appended with "_chX".
+    Where X is the index of the output.  e.g, "audiopll_ch0", "audiopll_ch1"
 
 Example:
 
