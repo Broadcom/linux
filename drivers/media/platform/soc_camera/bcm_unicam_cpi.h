@@ -74,6 +74,7 @@ struct unicam_camera_dev {
 	struct device *dev;
 	/* h/w specific */
 	void __iomem *base;
+	void __iomem *asiu_pad_ctrl;
 	struct clk *clk;
 	unsigned int clk_freq;
 	struct clk *asiu_clk;

@@ -784,6 +784,7 @@ static int unicam_camera_probe(struct platform_device *pdev)
 	struct unicam_camera_dev *pcdev;
 	struct resource *res;
 	void __iomem *base;
+	void __iomem *asiu_pad_ctrl;
 	unsigned int irq;
 	int err = 0;
 
@@ -792,6 +793,11 @@ static int unicam_camera_probe(struct platform_device *pdev)
 	base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
+
+	asiu_pad_ctrl = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+							"brcm,asiu-padctrl");
+	if (IS_ERR(asiu_pad_ctrl))
+		return PTR_ERR(asiu_pad_ctrl);
 
 	irq = platform_get_irq(pdev, 0);
 	if ((int)irq <= 0) {
@@ -802,6 +808,7 @@ static int unicam_camera_probe(struct platform_device *pdev)
 	pcdev = devm_kzalloc(&pdev->dev, sizeof(*pcdev), GFP_KERNEL);
 	pcdev->irq = irq;
 	pcdev->base = base;
+	pcdev->asiu_pad_ctrl = asiu_pad_ctrl;
 
 	INIT_LIST_HEAD(&pcdev->video_buffer_list);
 	spin_lock_init(&pcdev->lock);

@@ -20,6 +20,11 @@
 
 #include "bcm_unicam_cpi.h"
 
+/* Camera Pad Values */
+#define CAMPAD_CFG_REG		0x0
+#define CAMPAD_CFG_MASK		BIT(8)
+#define CAMPAD_CFG_VAL		0x00000100
+
 /* Camera Values */
 #define CAMCPIS_DEFAULT		0x00000000
 #define CAMCPIS_SOFTRESET	0x00000020
@@ -466,6 +471,10 @@ void unicam_camera_cpi_config(struct unicam_camera_dev *dev)
 	reg_data = CPI_READ_REG(base + CAM_TOP_REGS_CAMCPIS_OFFSET);
 	reg_data = (reg_data & CAMCPIS_CFG_MASK) | CAMCPIS_CFG_VAL;
 	CPI_WRITE_REG(reg_data, base + CAM_TOP_REGS_CAMCPIS_OFFSET);
+
+	/* Program camera pads -- Reg. config. during CPI Capture */
+	regmap_update_bits(dev->asiu_pad_ctrl, CAMPAD_CFG_REG,
+			   CAMPAD_CFG_MASK, CAMPAD_CFG_VAL);
 }
 
 void unicam_camera_reset_standby(struct unicam_camera_dev *dev)
