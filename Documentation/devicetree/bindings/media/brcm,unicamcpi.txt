@@ -17,7 +17,9 @@ Required properties:
 - compatible			: "brcm,unicamcpi"
 - id				: Camera ID
 - reg				: Physical base address and length of the
-				registers set for the device
+				  registers set for the device
+- brcm,asiu-padctrl		: Handler of syscon node defining physical base
+				  address of the ASIU_TOP_PAD_CTRL
 - interrupts			: IRQ line for the CPI
 - brcm,unicam-data-width	: Data width in bits
 - clocks			: Source for reference clock generation
@@ -31,11 +33,16 @@ Unicam CPI supports a single port node with parallel bus. It can contain one
 defined in Documentation/devicetree/bindings/media/video-interfaces.txt.
 
 Example:
+	asiu_padctrl: syscon@180aa05c {
+		compatible = "brcm,asiu-padctrl", "syscon";
+		reg = <0x180aa05c 0xc>;
+	};
 
 	unicam: camera@180a1000 {
 		compatible = "brcm,unicamcpi";
 		id = <0>;
 		reg = <0x180a1000 0x5ff>;
+		brcm,asiu-padctrl = <&asiu_padctrl>;
 		interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
 		brcm,unicam-data-width = <8>;
 		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>,
