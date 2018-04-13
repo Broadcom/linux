@@ -620,6 +620,7 @@
 			compatible = "brcm,unicamcpi";
 			id = <0>;
 			reg = <0x180a1000 0x5ff>;
+			brcm,asiu-padctrl = <&asiu_padctrl>;
 			interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
 			brcm,unicam-data-width = <8>;
 			clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>,
@@ -779,6 +780,11 @@
 			clock-names = "tsc_clk";
 			interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
+		};
+
+		asiu_padctrl: syscon@180aa05c {
+			compatible = "brcm,asiu-padctrl", "syscon";
+			reg = <0x180aa05c 0xc>;
 		};
 
 		pwm: pwm@180aa500 {
