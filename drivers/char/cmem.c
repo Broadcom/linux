@@ -27,7 +27,7 @@ struct cmem_node {
 	struct miscdevice cmem_dev;
 };
 
-static int mmap_fault(struct vm_fault *vmf)
+static int cmem_fault(struct vm_fault *vmf)
 {
 	struct page *page;
 	struct vm_area_struct *vma = vmf->vma;
@@ -47,19 +47,16 @@ static int mmap_fault(struct vm_fault *vmf)
 }
 
 const struct vm_operations_struct cmem_vm_ops = {
-	.fault = mmap_fault,
+	.fault = cmem_fault,
 };
 
-static int open_cmem(struct inode *inode, struct file *filp)
+static int cmem_open(struct inode *inode, struct file *filp)
 {
 	return capable(CAP_SYS_RAWIO) ? 0 : -EPERM;
 }
 
-static int mmap_cmem(struct file *file, struct vm_area_struct *vma)
+static int cmem_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	size_t size = vma->vm_end - vma->vm_start;
-	struct cmem_node *cmem;
-
 	vma->vm_ops = &cmem_vm_ops;
 	vma->vm_flags |= VM_RESERVED;
 	vma->vm_private_data = file->private_data;
@@ -67,7 +64,7 @@ static int mmap_cmem(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
-static loff_t llseek_cmem(struct file *file, loff_t offset, int origin)
+static loff_t cmem_llseek(struct file *file, loff_t offset, int origin)
 {
 	struct cmem_node *cmem;
 	unsigned int cmem_size;
@@ -81,9 +78,9 @@ static loff_t llseek_cmem(struct file *file, loff_t offset, int origin)
 
 static const struct file_operations cmem_fops = {
 	.owner = THIS_MODULE,
-	.mmap = mmap_cmem,
-	.open = open_cmem,
-	.llseek = llseek_cmem,
+	.mmap = cmem_mmap,
+	.open = cmem_open,
+	.llseek = cmem_llseek,
 };
 
 static int cmem_probe(struct platform_device *pdev)
