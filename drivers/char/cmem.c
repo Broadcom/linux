@@ -20,7 +20,6 @@
 #include <linux/platform_device.h>
 
 #define CMEM_DEVICE_NAME   "cmem"
-#define VM_RESERVED        (VM_DONTEXPAND | VM_DONTDUMP)
 
 struct cmem_node {
 	struct resource res;
@@ -29,21 +28,22 @@ struct cmem_node {
 
 static int cmem_fault(struct vm_fault *vmf)
 {
-	struct page *page;
 	struct vm_area_struct *vma = vmf->vma;
-	unsigned int offset;
 	struct cmem_node *cmem;
+	unsigned int offset;
+	int ret;
 
 	cmem  = container_of(vma->vm_private_data, struct cmem_node, cmem_dev);
 
 	offset = vmf->address - vma->vm_start;
 	if (offset < (cmem->res.end - cmem->res.start)) {
-		page = pfn_to_page(PFN_DOWN(cmem->res.start + offset));
-		get_page(page);
-		vmf->page = page;
+		ret = vm_insert_pfn(vma, vmf->address,
+				    PFN_DOWN(cmem->res.start + offset));
+		if (!ret)
+			return VM_FAULT_NOPAGE;
 	}
 
-	return 0;
+	return VM_FAULT_SIGBUS;
 }
 
 const struct vm_operations_struct cmem_vm_ops = {
@@ -52,14 +52,27 @@ const struct vm_operations_struct cmem_vm_ops = {
 
 static int cmem_open(struct inode *inode, struct file *filp)
 {
+	/**
+	 * cmem opens at resource start address i.e.
+	 * filp->f_pos = cmem->res.start;
+	 */
 	return capable(CAP_SYS_RAWIO) ? 0 : -EPERM;
 }
 
 static int cmem_mmap(struct file *file, struct vm_area_struct *vma)
 {
+	struct cmem_node *cmem;
+
+	if (vma->vm_pgoff)
+		return -EINVAL;
+
 	vma->vm_ops = &cmem_vm_ops;
-	vma->vm_flags |= VM_RESERVED;
+	vma->vm_flags |= (VM_DONTEXPAND | VM_DONTDUMP | VM_PFNMAP | VM_IO);
 	vma->vm_private_data = file->private_data;
+
+	/* set vm_pgoff to first pfn for PFNMAP */
+	cmem  = container_of(file->private_data, struct cmem_node, cmem_dev);
+	vma->vm_pgoff = PFN_DOWN(cmem->res.start);
 
 	return 0;
 }
@@ -67,13 +80,19 @@ static int cmem_mmap(struct file *file, struct vm_area_struct *vma)
 static loff_t cmem_llseek(struct file *file, loff_t offset, int origin)
 {
 	struct cmem_node *cmem;
-	unsigned int cmem_size;
+
+	if (offset)
+		return -ENXIO;
 
 	cmem  = container_of(file->private_data, struct cmem_node, cmem_dev);
-	cmem_size = cmem->res.end - cmem->res.start;
+	switch (origin) {
+	case SEEK_END:
+		return cmem->res.end;
+	case SEEK_CUR:
+		return cmem->res.start;
+	}
 
-	return generic_file_llseek_size(file, offset, origin, cmem_size,
-					cmem_size & PAGE_MASK);
+	return -ENXIO;
 }
 
 static const struct file_operations cmem_fops = {
