@@ -33,7 +33,9 @@
 /dts-v1/;
 
 #include "omega-base-board.dtsi"
+#include "bcm95831x_svk_common.dtsi"
 
 / {
-	model = "Broadcom Omega bcm95831x17k";
+	model = "Broadcom Omega bcm95831x15k";
 };
+
