@@ -73,11 +73,9 @@
 		dma-coherent;
 
 		msi-map = <0x000 &gic_its 0x000 0x400>;
-		msi-map-drop-mask = <0xff09>;
 
 #if (ENABLE_PAXB_IOMMU == 1)
 		iommu-map = <0x000 &smmu 0x000 0x400>;
-		iommu-map-drop-mask = <0xff09>;
 #endif
 
 		phys = <&pcie_phy 0>;
@@ -118,11 +116,9 @@
 		dma-coherent;
 
 		msi-map = <0x000 &gic_its 0x400 0x400>;
-		msi-map-drop-mask = <0xff09>;
 
 #if (ENABLE_PAXB_IOMMU == 1)
 		iommu-map = <0x000 &smmu 0x400 0x400>;
-		iommu-map-drop-mask = <0xff09>;
 #endif
 
 		phys = <&pcie_phy 1>;
@@ -163,11 +159,9 @@
 		dma-coherent;
 
 		msi-map = <0x000 &gic_its 0x800 0x400>;
-		msi-map-drop-mask = <0xff09>;
 
 #if (ENABLE_PAXB_IOMMU == 1)
 		iommu-map = <0x000 &smmu 0x800 0x400>;
-		iommu-map-drop-mask = <0xff09>;
 #endif
 
 		phys = <&pcie_phy 2>;
@@ -208,11 +202,9 @@
 		dma-coherent;
 
 		msi-map = <0x000 &gic_its 0xc00 0x400>;
-		msi-map-drop-mask = <0xff09>;
 
 #if (ENABLE_PAXB_IOMMU == 1)
 		iommu-map = <0x000 &smmu 0xc00 0x400>;
-		iommu-map-drop-mask = <0xff09>;
 #endif
 
 		phys = <&pcie_phy 3>;
@@ -253,11 +245,9 @@
 		dma-coherent;
 
 		msi-map = <0x000 &gic_its 0x1000 0x400>;
-		msi-map-drop-mask = <0xff09>;
 
 #if (ENABLE_PAXB_IOMMU == 1)
 		iommu-map = <0x000 &smmu 0x1000 0x400>;
-		iommu-map-drop-mask = <0xff09>;
 #endif
 
 		phys = <&pcie_phy 4>;
@@ -298,11 +288,9 @@
 		dma-coherent;
 
 		msi-map = <0x000 &gic_its 0x1400 0x400>;
-		msi-map-drop-mask = <0xff09>;
 
 #if (ENABLE_PAXB_IOMMU == 1)
 		iommu-map = <0x000 &smmu 0x1400 0x400>;
-		iommu-map-drop-mask = <0xff09>;
 #endif
 
 		phys = <&pcie_phy 5>;
@@ -343,11 +331,9 @@
 		dma-coherent;
 
 		msi-map = <0x000 &gic_its 0x1800 0x400>;
-		msi-map-drop-mask = <0xff09>;
 
 #if (ENABLE_PAXB_IOMMU == 1)
 		iommu-map = <0x000 &smmu 0x1800 0x400>;
-		iommu-map-drop-mask = <0xff09>;
 #endif
 
 		phys = <&pcie_phy 6>;
@@ -388,11 +374,9 @@
 		dma-coherent;
 
 		msi-map = <0x000 &gic_its 0x1c00 0x400>;
-		msi-map-drop-mask = <0xff09>;
 
 #if (ENABLE_PAXB_IOMMU == 1)
 		iommu-map = <0x000 &smmu 0x1c00 0x400>;
-		iommu-map-drop-mask = <0xff09>;
 #endif
 
 		phys = <&pcie_phy 7>;
