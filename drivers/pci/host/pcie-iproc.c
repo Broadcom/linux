@@ -1688,7 +1688,7 @@ ssize_t pcie_iproc_order_mode_store(struct device *dev,
 		regval &= ~(RO_VALUE(0));
 		/* Set IMAP2 to strict order */
 		iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP2_RO_CONTROL, regval);
-		dev_info(dev, "RO_IMAP2 set to %#x\n", regval);
+		dev_info(dev, "RO_IMAP2 set to %#lx\n", regval);
 	} else if (val == PAXB_ORDER_DEV_MEM_ONLY) {
 		pcie_iproc_set_dynamic_oder(pcie);
 		/* Set IMAP0 to strict order */
