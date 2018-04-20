@@ -4885,12 +4885,12 @@ static void quirk_paxc_pcie_capability(struct pci_dev *pdev)
 	if (!pos)
 		return;
 
-	/* bail out if the next capability pointer is not 0x58 */
+	/* bail out if the next capability pointer is not 0x50/0x58 */
 	pci_read_config_byte(pdev, pos + 1, &next_cap);
-	if (next_cap != 0x58)
+	if (next_cap != 0x50 && next_cap != 0x58)
 		return;
 
-	/* bail out if we do not terminate at 0x58 */
+	/* bail out if we do not terminate at 0x50/0x58 */
 	pos = next_cap;
 	pci_read_config_byte(pdev, pos + 1, &next_cap);
 	if (next_cap != 0x00)
