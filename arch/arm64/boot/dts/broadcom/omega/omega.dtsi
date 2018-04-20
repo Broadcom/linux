@@ -21,6 +21,8 @@
 			reg = <0x0 0x0>;
 			enable-method = "psci";
 			next-level-cache = <&CLUSTER0_L2>;
+			cpu-idle-states = <&CPU_SLEEP_1_0>,
+					  <&CLUSTER_SLEEP_1_1>;
 		};
 
 		cpu@1 {
@@ -29,6 +31,8 @@
 			reg = <0x0 0x1>;
 			enable-method = "psci";
 			next-level-cache = <&CLUSTER0_L2>;
+			cpu-idle-states = <&CPU_SLEEP_1_0>,
+					  <&CLUSTER_SLEEP_1_1>;
 		};
 
 		CLUSTER0_L2: l2-cache@000 {
@@ -48,20 +52,20 @@
 			compatible = "arm,idle-state";
 			local-timer-stop;
 			arm,psci-suspend-param = <0x0010000>;
-			entry-latency-us = <1>;
-			exit-latency-us = <1>;
-			min-residency-us = <900>;
-			wakeup-latency-us = <1>;
+			entry-latency-us = <30>;
+			exit-latency-us = <20>;
+			min-residency-us = <200>;
+			wakeup-latency-us = <30>;
 		};
 
 		CLUSTER_SLEEP_1_1: cluster-sleep-1-1 {
 			compatible = "arm,idle-state";
 			local-timer-stop;
 			arm,psci-suspend-param = <0x1010000>;
-			entry-latency-us = <1>;
-			exit-latency-us = <1>;
+			entry-latency-us = <100>;
+			exit-latency-us = <700>;
 			min-residency-us = <1800>;
-			wakeup-latency-us = <1>;
+			wakeup-latency-us = <740>;
 		};
 	};
 
