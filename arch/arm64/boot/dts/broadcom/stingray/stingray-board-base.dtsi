@@ -110,7 +110,7 @@
  * needs to be reserved for SMMU map table created for identity mapping.
  */
 		smmu_pg_region {
-			reg = <0x8 0x80000000 0x0 0x200000>;
+			reg = <0x8 0x80200000 0x0 0x200000>;
 			no-map;
 		};
 #endif
