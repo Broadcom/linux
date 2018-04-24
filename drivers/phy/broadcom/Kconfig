@@ -95,6 +95,18 @@ config PHY_BCM_CYGNUS_USB
 	  and device mode for port 2. The host or device configuration is
 	  read from the device tree.
 
+config PHY_BCM_OMEGA_USB
+	tristate "Broadcom Omega USB PHY support"
+	depends on OF
+	depends on ARCH_BCM_IPROC || COMPILE_TEST
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Omega USB PHY.
+	  The PHY is capable of supporting host mode.
+	  Only one port is supported.
+	  If unsure, say N.
+
 config PHY_BCM_NS_USB2
 	tristate "Broadcom Northstar USB 2.0 PHY Driver"
 	depends on ARCH_BCM_IPROC || COMPILE_TEST
