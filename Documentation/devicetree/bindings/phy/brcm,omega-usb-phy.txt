@@ -1,0 +1,53 @@
+BROADCOM OMEGA USB PHY
+
+Required Properties:
+- compatible:  brcm,omega-usb-phy
+- reg : cdru usb phy (hs_ss_icfg_usb20phy) control and reset registers,
+  usb host idm registers.
+- reg-names: a list of the names corresponding to the previous register
+  ranges. Should contain "cdru-usbphy", "usb2h-idm".
+- address-cells: should be 1
+- size-cells: should be 0
+- brcm,usbphy-crmu-syscon:  a phandle to the crmu syscon area that contains phy
+                            control regs.
+
+Sub-nodes:
+  A port PHY should be represented as a sub-node.
+
+Sub-nodes required properties:
+- reg: the PHY number, must be 0
+- #phy-cells must be 0
+
+Optional Properties:
+- vbus-supply : The regulator for vbus out control.
+
+Refer to phy/phy-bindings.txt for the generic PHY binding properties
+
+Example of phy :
+	usbphy: phy@28430100 {
+		compatible = "brcm,omega-usb-phy";
+		reg = <0x28430100 0x3c>,
+		      <0x28800000 0xa00>;
+		reg-names = "cdru-usbphy",
+                                   "usb2h-idm";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		brcm,usbphy-crmu-syscon = <&crmu_syscon>;
+
+		usbphy0: phy@0 {
+			#phy-cells = <0>;
+			reg = <0>;
+		};
+	};
+
+Example of node using the phy:
+	ehci: usb@28400000 {
+		compatible = "generic-ehci";
+		reg = <0x28400000 0x100>;
+		interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+		phys = <&usbphy0>;
+		phy-names = "usbp0";
+		status = "okay";
+	};
+
