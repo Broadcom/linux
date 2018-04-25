@@ -39,6 +39,9 @@ Optional properties:
 - clcd-clock-select: to drive the CLCDCLKSEL signal, which selects the
 	the reference clock source, set to <0> for HCLK, <1> for CLCDCLK.
 
+- clcd-enable-clock-divisor: if present, enable the internal clock divisor;
+	if not present, the internal clock divisor is bypassed
+
 Required sub-nodes:
 
 - port: describes LCD panel signals, following the common binding
