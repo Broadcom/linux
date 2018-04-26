@@ -56,6 +56,14 @@ config CLK_BCM_NS2
 	help
 	  Enable common clock framework support for the Broadcom Northstar 2 SoC
 
+config CLK_BCM_OMEGA
+	bool "Broadcom Omega clock support"
+	depends on ARCH_BCM_IPROC || COMPILE_TEST
+	select COMMON_CLK_IPROC
+	default ARCH_BCM_IPROC
+	help
+	  Enable common clock framework support for the Broadcom Omega SoC
+
 config CLK_BCM_SR
 	bool "Broadcom Stingray clock support"
 	depends on ARCH_BCM_IPROC || COMPILE_TEST
