@@ -305,6 +305,8 @@ static int clcdfb_set_par(struct fb_info *info)
 {
 	struct clcd_fb *fb = to_clcd(info);
 	struct clcd_regs regs;
+	unsigned long pixclock;
+	unsigned short div;
 
 	fb->fb.fix.line_length = fb->fb.var.xres_virtual *
 				 fb->fb.var.bits_per_pixel / 8;
@@ -331,7 +333,32 @@ static int clcdfb_set_par(struct fb_info *info)
 
 	clcdfb_set_start(fb);
 
-	clk_set_rate(fb->clk, (1000000000 / regs.pixclock) * 1000);
+	pixclock = PICOS2KHZ(regs.pixclock) * 1000;
+
+	if (!fb->vendor->enable_clock_divisor) {
+		clk_set_rate(fb->clk, pixclock);
+	} else {
+		/*
+		 * Calculate the divisor value.
+		 * PCD_HI:  Timing 2 register [31:27]
+		 * PCD_LO:  Timing 2 register [4:0]
+		 * Formula: CLCP = CLCDCLK/(PCD+2)
+		 */
+		div = clk_get_rate(fb->clk) / pixclock;
+		dev_info(&fb->dev->dev, "Pixel clk: target %luHz, actual %luHz",
+			 pixclock, clk_get_rate(fb->clk)/div);
+		regs.tim2 &= ~(TIM2_PCD_LO_MASK | TIM2_PCD_HI_MASK | TIM2_BCD);
+		if (div < 2) {
+			/* Bypass clock divisor */
+			regs.tim2 |= TIM2_BCD;
+		} else {
+			div -= 2;
+			regs.tim2 |= div & TIM2_PCD_LO_MASK;
+			regs.tim2 |= (div >> TIM2_PCD_LO_BITS)
+				      << TIM2_PCD_HI_SHIFT;
+			writel(regs.tim2, fb->regs + CLCD_TIM2);
+		}
+	}
 
 	fb->clcd_cntl = regs.cntl;
 
@@ -688,8 +715,10 @@ static int clcdfb_of_init_tft_panel(struct clcd_fb *fb, u32 r0, u32 g0, u32 b0)
 	};
 	int i;
 
-	/* Bypass pixel clock divider */
-	fb->panel->tim2 |= TIM2_BCD;
+	if (fb->vendor->enable_clock_divisor)
+		fb->panel->tim2 &= ~TIM2_BCD;
+	else
+		fb->panel->tim2 |= TIM2_BCD;
 
 	/* TFT display, vert. comp. interrupt at the start of the back porch */
 	fb->panel->cntl |= CNTL_LCDTFT | CNTL_LCDVCOMP(1);
@@ -813,6 +842,10 @@ static int clcdfb_of_init_display(struct clcd_fb *fb)
 			&clcd_clock_select);
 	if (!err && clcd_clock_select)
 		fb->panel->tim2 |= TIM2_CLKSEL;
+
+	fb->vendor->enable_clock_divisor =
+				of_property_read_bool(fb->dev->dev.of_node,
+				"clcd-enable-clock-divisor");
 
 #ifdef CONFIG_CPU_BIG_ENDIAN
 	fb->panel->cntl |= CNTL_BEBO;

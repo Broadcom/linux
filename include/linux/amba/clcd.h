@@ -130,6 +130,7 @@ struct clk;
  *
  * @clock_timregs: the CLCD needs to be clocked when accessing the
  * timer registers, or the hardware will hang.
+ * @enable_clock_divisor: indication to use CLCD's clock divisor
  * @packed_24_bit_pixels: this variant supports 24bit packed pixel data,
  * so that RGB accesses 3 bytes at a time, not just on even 32bit
  * boundaries, packing the pixel data in memory. ST Microelectronics
@@ -142,6 +143,7 @@ struct clk;
  */
 struct clcd_vendor_data {
 	bool	clock_timregs;
+	bool	enable_clock_divisor;
 	bool	packed_24_bit_pixels;
 	bool	st_bitmux_control;
 	int	(*init_board)(struct amba_device *adev,
