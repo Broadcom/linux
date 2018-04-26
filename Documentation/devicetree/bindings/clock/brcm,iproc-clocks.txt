@@ -362,3 +362,29 @@ These clock IDs are defined in:
 
     lcpll_pcie		crystal		0	BCM_SR_LCPLL_PCIE
     pcie_phy_ref 	lcpll1		1	BCM_SR_LCPLL_PCIE_PHY_REF_CLK
+
+Omega
+------
+PLL and leaf clock compatible string for Omega are:
+    "brcm,omega-audiopll"
+
+The following table defines the set of PLL/clock index and ID for omega.
+These clock IDs are defined in:
+    "include/dt-bindings/clock/bcm-omega.h"
+
+    Clock             Source (Parent)  Index    ID
+    ---               -----            -----    ---------
+    audiopll_0        crystal           0       BCM_OMEGA_AUDIOPLL
+    audio_pll_0_ch0   audiopll_0        1       BCM_OMEGA_AUDIOPLL_CH0
+    audio_pll_0_ch1   audiopll_0        2       BCM_OMEGA_AUDIOPLL_CH1
+    audio_pll_0_ch2   audiopll_0        3       BCM_OMEGA_AUDIOPLL_CH2
+    audio_pll_0_ch3   audiopll_0        4       BCM_OMEGA_AUDIOPLL_CH3
+    audio_pll_0_ch4   audiopll_0        5       BCM_OMEGA_AUDIOPLL_CH4
+    audio_pll_0_ch5   audiopll_0        6       BCM_OMEGA_AUDIOPLL_CH5
+    audiopll_1        crystal           0       BCM_OMEGA_AUDIOPLL
+    audio_pll_1_ch0   audiopll_1        1       BCM_OMEGA_AUDIOPLL_CH0
+    audio_pll_1_ch1   audiopll_1        2       BCM_OMEGA_AUDIOPLL_CH1
+    audio_pll_1_ch2   audiopll_1        3       BCM_OMEGA_AUDIOPLL_CH2
+    audio_pll_1_ch3   audiopll_1        4       BCM_OMEGA_AUDIOPLL_CH3
+    audio_pll_1_ch4   audiopll_1        5       BCM_OMEGA_AUDIOPLL_CH4
+    audio_pll_1_ch5   audiopll_1        6       BCM_OMEGA_AUDIOPLL_CH5
