@@ -125,7 +125,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 42 IRQ_TYPE_NONE>;
 			clock-frequency = <100000>;
-			status = "okay";
+			status = "disabled";
 		};
 
 		timer1: timer@370000 {
@@ -170,7 +170,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 41 IRQ_TYPE_NONE>;
 			clock-frequency = <100000>;
-			status = "okay";
+			status = "disabled";
 		};
 
 		gpio_west: gpio@285a0000 {
