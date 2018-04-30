@@ -791,41 +791,6 @@ static void iproc_pcie_reset(struct iproc_pcie *pcie)
 	msleep(100);
 }
 
-static void iproc_pcie_perst_ctrl(struct iproc_pcie *pcie, bool assert)
-{
-	u32 val;
-
-	/*
-	 * The internal emulated endpoints (such as PAXC) device downstream
-	 * should not be reset. If firmware has been loaded on the endpoint
-	 * device at an earlier boot stage, reset here causes issues.
-	 */
-	if (pcie->ep_is_internal)
-		return;
-
-	if (assert) {
-		val = iproc_pcie_read_reg(pcie, IPROC_PCIE_CLK_CTRL);
-		val &= ~EP_PERST_SOURCE_SELECT & ~EP_MODE_SURVIVE_PERST &
-			~RC_PCIE_RST_OUTPUT;
-		iproc_pcie_write_reg(pcie, IPROC_PCIE_CLK_CTRL, val);
-		udelay(250);
-	} else {
-		val = iproc_pcie_read_reg(pcie, IPROC_PCIE_CLK_CTRL);
-		val |= RC_PCIE_RST_OUTPUT;
-		iproc_pcie_write_reg(pcie, IPROC_PCIE_CLK_CTRL, val);
-		msleep(100);
-	}
-}
-
-int iproc_pcie_shutdown(struct iproc_pcie *pcie)
-{
-	iproc_pcie_perst_ctrl(pcie, true);
-	msleep(500);
-
-	return 0;
-}
-EXPORT_SYMBOL(iproc_pcie_shutdown);
-
 static bool iproc_pci_hp_check_ltssm(struct iproc_pcie *pcie)
 {
 	u32 val, timeout = CFG_RC_LTSSM_TIMEOUT;
