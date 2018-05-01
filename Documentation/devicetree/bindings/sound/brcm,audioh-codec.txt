@@ -1,0 +1,28 @@
+AudioH - Broadcom integrated codec driver.
+
+Required properties:
+- compatible: "brcm,audioh"
+- #sound-dai-cells: must be equal to 1
+- reg: the register address of the device.
+- reg-names: should be "audioh"
+- clocks: clock for the audioh codec
+- clock-names: should be "codec_clk"
+- interrupts: the codec's interrupt
+- brcm,audioh-crmu-syscon:  a phandle to the crmu syscon area that contain a
+                            few of the codec's regs
+
+Example:
+  	omega_codec: audioh@29490000 {
+		#sound-dai-cells = <1>;
+		compatible = "brcm,audioh";
+		reg = <0x29490000 0xc000>;
+		reg-names = "audioh";
+
+		brcm,audioh-crmu-syscon = <&crmu_syscon>;
+		interrupts = <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>;
+
+		clocks = <&codec_clock>;
+		clock-names = "codec_clk";
+
+		status = "disabled";
+	};
