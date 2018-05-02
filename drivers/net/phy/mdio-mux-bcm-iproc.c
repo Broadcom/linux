@@ -27,6 +27,9 @@
 #define MDIO_RATE_ADJ_INT_OFFSET	0x004
 #define MDIO_RATE_ADJ_DIVIDENT_SHIFT	16
 
+#define MDIO_SCAN_CTRL_OFFSET	0x008
+#define MDIO_SCAN_CTRL_OVERRIDE_EXT_MSTR	28
+
 #define MDIO_PARAM_OFFSET		0x23c
 #define MDIO_PARAM_MIIM_CYCLE		29
 #define MDIO_PARAM_INTERNAL_SEL		25
@@ -52,7 +55,7 @@
 #define MDIO_OPERATING_FREQUENCY	11000000
 #define MDIO_RATE_ADJ_DIVIDENT		1
 
-#define MDIO_NUM_OF_REGS_TO_RESTORE	2
+#define MDIO_NUM_OF_REGS_TO_RESTORE	3
 
 struct iproc_mdiomux_desc {
 	void *mux_handle;
@@ -70,6 +73,7 @@ struct iproc_mdiomux_desc {
 static const u32 restore_reg_offsets[MDIO_NUM_OF_REGS_TO_RESTORE] = {
 	MDIO_RATE_ADJ_EXT_OFFSET,
 	MDIO_RATE_ADJ_INT_OFFSET,
+	MDIO_SCAN_CTRL_OVERRIDE_EXT_MSTR,
 };
 #endif
 
