@@ -1,0 +1,76 @@
+Broadcom Omega Audio I2S/TDM/SPDIF controller
+
+Required properties:
+	- compatible : "brcm,omega-audio"
+	- #address-cells: 32bit valued, 1 cell.
+	- #size-cells:  32bit valued, 0 cell.
+	- reg : Should contain audio registers location and length
+	- reg-names: names of the registers listed in "reg" property
+		Valid names are "aud" and "i2s_in".
+	- interrupts: audio DMA interrupt number
+	- brcm,clk-mux-syscon: The syscon phandle for shared registers which
+		control the port's audio mux clock and some of the i2s controls
+
+SSP Subnode properties:
+Required:
+	- reg: The index of ssp port interface to use
+		Valid value are 0, 1, 2, or 3 (for spdif)
+Optional:
+	- clocks: clock used by audio port
+	- clock-names: Must be "ssp_clk"
+
+Example:
+	omega_audio: audio@600000 {
+		compatible = "brcm,omega-audio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x00600000 0xb40>, <0x00600d70 0x1f8>;
+		reg-names = "aud", "i2s_in";
+
+		assigned-clocks = <&audiopll_0 BCM_OMEGA_AUDIOPLL>,
+				  <&ssp0_clock>,
+				  <&ssp1_clock>,
+				  <&ssp2_clock>,
+				  <&spdiftx_clock>;
+		assigned-clock-rates = <1376255989>;
+		assigned-clock-parents = <0>,
+				<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH0>,
+				<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH1>,
+				<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH2>,
+				<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH3>;
+
+		interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+
+		brcm,clk-mux-syscon = <&ssp_clkmux>;
+
+		ssp0: ssp_port@0 {
+			reg = <0>;
+			clocks = <&ssp0_clock>;
+			clock-names = "ssp_clk";
+			status = "okay";
+		};
+
+		ssp1: ssp_port@1 {
+			reg = <1>;
+			clocks = <&ssp1_clock>;
+			clock-names = "ssp_clk";
+			status = "okay";
+		};
+
+		ssp2: ssp_port@2 {
+			reg = <2>;
+			clocks = <&ssp2_clock>;
+			clock-names = "ssp_clk";
+			assigned-clocks = <&ssp2_clock>;
+			status = "okay";
+		};
+
+		spdif: spdif_port@3 {
+			reg = <3>;
+			clocks = <&spdiftx_clock>;
+			clock-names = "ssp_clk";
+			status = "disabled";
+		};
+	};
+
+
