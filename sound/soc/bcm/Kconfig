@@ -61,3 +61,11 @@ config SND_SOC_CYGNUS_VOIPPHONE_MACHINE
 	  Attached to the Cygnus SoC are a CS42L73 codec and also an optional
 	  Bluetooth module.
 
+config SND_SOC_OMEGA
+	tristate "SoC platform audio for Broadcom Omega chips"
+	depends on HAS_DMA
+	help
+	  Say Y if you want to add support for ASoC audio on Broadcom
+	  Omega chips (bcm9xxxxx, bcm9xxxxx, bcm9xxxxx)
+
+	  If you don't know what to do here, say N.
