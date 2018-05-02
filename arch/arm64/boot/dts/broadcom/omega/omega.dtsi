@@ -138,6 +138,29 @@
 			clock-names = "timer1clk", "timer2clk", "apb_pclk";
 		};
 
+		mdio_mux: mdio-mux@3b0000 {
+			compatible = "brcm,mdio-mux-iproc";
+			reg = <0x3b0000 0x250>;
+			clocks = <&cdru_sdio_clk>;
+			status = "disabled";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mdio@2 {
+				reg = <0x2>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				gphy0: eth-combo-phy@3 {
+					reg = <0x3>;
+				};
+
+				gphy1: eth-combo-phy@4 {
+					reg = <0x4>;
+				};
+			};
+		};
+
 		gpio_east: gpio@3d0000 {
 			compatible = "brcm,omega-pinctrl";
 			reg = <0x3d0000 0x3e0>;
