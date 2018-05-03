@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * version 2 (GPLv2) along with this source code.
  */
-
+#include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/device.h>
 #include <linux/of_mdio.h>
@@ -22,6 +22,10 @@
 #include <linux/mdio-mux.h>
 #include <linux/delay.h>
 #include <linux/debugfs.h>
+
+#define MDIO_RATE_ADJ_EXT_OFFSET	0x000
+#define MDIO_RATE_ADJ_INT_OFFSET	0x004
+#define MDIO_RATE_ADJ_DIVIDENT_SHIFT	16
 
 #define MDIO_PARAM_OFFSET		0x23c
 #define MDIO_PARAM_MIIM_CYCLE		29
@@ -45,13 +49,32 @@
 #define BUS_MAX_ADDR			32
 #define EXT_BUS_START_ADDR		16
 
+#define MDIO_OPERATING_FREQUENCY	11000000
+#define MDIO_RATE_ADJ_DIVIDENT		1
+
 struct iproc_mdiomux_desc {
 	void *mux_handle;
 	void __iomem *base;
 	struct device *dev;
 	struct mii_bus *mii_bus;
 	struct dentry *dentry_mux;
+	struct clk *core_clk;
 };
+
+static void mdio_mux_iproc_config_clk(struct iproc_mdiomux_desc *md)
+{
+	u32 val;
+	u32 divisor;
+
+	if (md->core_clk) {
+		divisor = clk_get_rate(md->core_clk) / MDIO_OPERATING_FREQUENCY;
+		divisor = divisor / (MDIO_RATE_ADJ_DIVIDENT + 1);
+		val = divisor;
+		val |= MDIO_RATE_ADJ_DIVIDENT << MDIO_RATE_ADJ_DIVIDENT_SHIFT;
+		writel(val, md->base + MDIO_RATE_ADJ_EXT_OFFSET);
+		writel(val, md->base + MDIO_RATE_ADJ_INT_OFFSET);
+	}
+}
 
 static int iproc_mdio_wait_for_idle(void __iomem *base, bool result)
 {
@@ -256,6 +279,12 @@ static int mdio_mux_iproc_probe(struct platform_device *pdev)
 		return PTR_ERR(md->base);
 	}
 
+	md->core_clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(md->core_clk)) {
+		dev_info(&pdev->dev, "core_clk not specified\n");
+		md->core_clk = NULL;
+	}
+
 	md->mii_bus = mdiobus_alloc();
 	if (!md->mii_bus) {
 		dev_err(&pdev->dev, "mdiomux bus alloc failed\n");
@@ -286,6 +315,8 @@ static int mdio_mux_iproc_probe(struct platform_device *pdev)
 		dev_info(md->dev, "mdiomux initialization failed\n");
 		goto out_register;
 	}
+
+	mdio_mux_iproc_config_clk(md);
 
 	md->dentry_mux = debugfs_create_file("bcmmux", 0644, NULL,
 							md, &mux_fops);
