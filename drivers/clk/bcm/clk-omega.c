@@ -101,3 +101,9 @@ static void __init audiopll_clk_init(struct device_node *node)
 }
 CLK_OF_DECLARE(omega_audiopll, "brcm,omega-audiopll", audiopll_clk_init);
 
+static void __init audiomux_init(struct device_node *node)
+{
+	iproc_audiomux_setup(node);
+}
+CLK_OF_DECLARE(audiomux_clk, "brcm,iproc-mux-clk", audiomux_init);
+
