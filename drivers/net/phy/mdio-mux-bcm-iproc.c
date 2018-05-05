@@ -52,6 +52,8 @@
 #define MDIO_OPERATING_FREQUENCY	11000000
 #define MDIO_RATE_ADJ_DIVIDENT		1
 
+#define MDIO_NUM_OF_REGS_TO_RESTORE	2
+
 struct iproc_mdiomux_desc {
 	void *mux_handle;
 	void __iomem *base;
@@ -59,7 +61,17 @@ struct iproc_mdiomux_desc {
 	struct mii_bus *mii_bus;
 	struct dentry *dentry_mux;
 	struct clk *core_clk;
+#ifdef CONFIG_PM_SLEEP
+	u32 restore_regs[MDIO_NUM_OF_REGS_TO_RESTORE];
+#endif
 };
+
+#ifdef CONFIG_PM_SLEEP
+static const u32 restore_reg_offsets[MDIO_NUM_OF_REGS_TO_RESTORE] = {
+	MDIO_RATE_ADJ_EXT_OFFSET,
+	MDIO_RATE_ADJ_INT_OFFSET,
+};
+#endif
 
 static void mdio_mux_iproc_config_clk(struct iproc_mdiomux_desc *md)
 {
@@ -345,6 +357,37 @@ static int mdio_mux_iproc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int mdio_mux_iproc_suspend(struct device *dev)
+{
+	u32 i;
+	struct iproc_mdiomux_desc *md = dev_get_drvdata(dev);
+
+	for (i = 0; i < MDIO_NUM_OF_REGS_TO_RESTORE; i++)
+		md->restore_regs[i] = readl(md->base +
+					    restore_reg_offsets[i]);
+
+	return 0;
+}
+
+static int mdio_mux_iproc_resume(struct device *dev)
+{
+	u32 i;
+	struct iproc_mdiomux_desc *md = dev_get_drvdata(dev);
+
+	for (i = 0; i < MDIO_NUM_OF_REGS_TO_RESTORE; i++)
+		writel(md->restore_regs[i],
+		       md->base + restore_reg_offsets[i]);
+
+	return 0;
+}
+
+static const struct dev_pm_ops mdio_mux_iproc_pm_ops = {
+	.suspend = mdio_mux_iproc_suspend,
+	.resume = mdio_mux_iproc_resume
+};
+#endif /* CONFIG_PM_SLEEP */
+
 static const struct of_device_id mdio_mux_iproc_match[] = {
 	{
 		.compatible = "brcm,mdio-mux-iproc",
@@ -357,6 +400,9 @@ static struct platform_driver mdiomux_iproc_driver = {
 	.driver = {
 		.name		= "mdio-mux-iproc",
 		.of_match_table = mdio_mux_iproc_match,
+#ifdef CONFIG_PM_SLEEP
+		.pm		= &mdio_mux_iproc_pm_ops,
+#endif
 	},
 	.probe		= mdio_mux_iproc_probe,
 	.remove		= mdio_mux_iproc_remove,
