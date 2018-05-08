@@ -321,9 +321,9 @@ void ihf_afe_powerup(struct snd_soc_codec *codec)
 	/* Toggle reset */
 	mask = BIT(AUDIOH_IHF_CTL_CLKRESET);
 	audioh_update_bits(codec, AUDIOH_IHF_CTL, mask, 0);
-	usleep(1000);
+	udelay(10);
 	audioh_update_bits(codec, AUDIOH_IHF_CTL, mask, mask);
-	usleep(1000);
+	udelay(10);
 	audioh_update_bits(codec, AUDIOH_IHF_CTL, mask, 0);
 
 	mask = BIT(AUDIOH_IHF_CTL_PUP_L) |
