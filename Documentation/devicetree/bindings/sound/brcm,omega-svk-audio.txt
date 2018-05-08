@@ -1,0 +1,114 @@
+ASoC machine driver Omega SVK.
+
+This audio driver should work for all of the following SVK variants
+	bcm95831x15k
+	bcm95831x17k
+
+Required properties:
+- compatible: "brcm,omega-svk-machine"
+- brcm,audio-routing:  A list of the connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source.
+
+In addition to these properties, the device follows the general construct
+of the multi-dai generic "simple audio card".  Refer to simple-card.txt.
+
+The only valid dai properties for this design are
+ - format
+ - bitclock-master
+ - frame-master
+
+The SVK is used as verification platform, therefore, it includes some ability
+to configure the properties of a dai link via the debugfs.
+The following optional properties will provide the default values for these
+properties.
+
+Each node also has these optional properties:
+ - brcm,transfer_mode: 0 for i2s, 1 for tdm
+ - brcm,slave_mode: if the DAI is alave
+ - brcm,tdm_framesize: size (in bits) of the tdm frame
+ - brcm,slot_size:  size of TDM slot (16 or 32)
+
+Example:
+
+sound {
+	compatible = "brcm,omega-svk-machine";
+	status = "okay";
+
+	brcm,audio-routing =
+		/* Outputs */
+		"SVK Handsfree", "LSPK_OUT",
+		"SVK Handset Earpiece", "EP_OUT",
+		"SVK Headphone jack", "HS_OUT_L",
+		"SVK Headphone jack", "HS_OUT_R",
+
+		/* Inputs */
+		"AMIC1", "SVK Analog Mic1",
+		"AUXMIC1", "SVK Analog Mic2",
+		"AMIC3",  "SVK Analog Mic3",
+		"DMIC1", "SVK Digital Mic1",
+		"DMIC2", "SVK Digital Mic2",
+		"DMIC3", "SVK Digital Mic3",
+		"DMIC4", "SVK Digital Mic4";
+
+	link0 {
+		format = "i2s";
+		bitclock-master = <&dailink0_master>;
+		frame-master = <&dailink0_master>;
+
+		dailink0_master: cpu {
+			sound-dai = <&omega_audio 0>;
+		};
+
+		codec {
+			sound-dai = <&bcm_dummy_codec>;
+		};
+	};
+
+	link1 {
+		format = "i2s";
+		bitclock-master = <&dailink1_master>;
+		frame-master = <&dailink1_master>;
+
+		dailink1_master: cpu {
+			sound-dai = <&omega_audio 1>;
+		};
+
+		codec {
+			sound-dai = <&bcm_dummy_codec>;
+		};
+	};
+
+	link2 {
+		format = "dsp_a";
+		bitclock-master = <&dailink2_master>;
+		frame-master = <&dailink2_master>;
+
+		brcm,transfer_mode = <1>;
+		brcm,slave_mode = <1>;
+		brcm,tdm_framesize = <256>;
+		brcm,slot_size = <32>;
+
+		cpu {
+			sound-dai = <&omega_audio 2>;
+		};
+
+		dailink2_master: codec {
+			sound-dai = <&omega_codec 0>;
+		};
+	};
+
+	link3 {
+		format = "i2s";
+		bitclock-master = <&dailink3_master>;
+		frame-master = <&dailink3_master>;
+
+		dailink3_master: cpu {
+			sound-dai = <&omega_audio 3>;
+		};
+
+		codec {
+			sound-dai = <&spdif_dummy_tx>;
+		};
+	};
+};
