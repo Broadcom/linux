@@ -11,6 +11,7 @@ obj-$(CONFIG_SND_SOC_CYGNUS) += snd-soc-cygnus.o
 obj-$(CONFIG_SND_SOC_CYGNUS_AUD_BASE_MACHINE) += bcm958305_aud_base-machine.o bcm-card-utils.o cygnus-clk-utils.o
 obj-$(CONFIG_SND_SOC_CYGNUS_SVK_MACHINE) += cygnus_svk-machine.o
 obj-$(CONFIG_SND_SOC_CYGNUS_VOIPPHONE_MACHINE) += bcm911360_entphn-machine.o bcm-card-utils.o
+obj-$(CONFIG_SND_SOC_OMEGA_SVK_MACHINE) += omega_svk-machine.o bcm-card-utils.o
 
 # Omega Platform Support
 snd-soc-omega-objs := cygnus-pcm.o omega-ssp.o
