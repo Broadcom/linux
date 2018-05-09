@@ -1637,7 +1637,7 @@ static void cma_leave_mc_groups(struct rdma_id_private *id_priv)
 				struct net_device *ndev = NULL;
 
 				if (dev_addr->bound_dev_if)
-					ndev = dev_get_by_index(&init_net,
+					ndev = dev_get_by_index(dev_addr->net,
 								dev_addr->bound_dev_if);
 				if (ndev) {
 					cma_igmp_send(ndev,

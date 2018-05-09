@@ -787,7 +787,7 @@ int rdma_addr_find_l2_eth_by_grh(const union ib_gid *sgid,
 
 	memset(&dev_addr, 0, sizeof(dev_addr));
 	dev_addr.bound_dev_if = ndev->ifindex;
-	dev_addr.net = &init_net;
+	dev_addr.net = dev_net(ndev);
 
 	init_completion(&ctx.comp);
 	ret = rdma_resolve_ip(&self, &sgid_addr._sockaddr, &dgid_addr._sockaddr,
