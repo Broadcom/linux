@@ -1524,9 +1524,15 @@ static struct rdma_id_private *cma_id_from_event(struct ib_cm_id *cm_id,
 			/* Assuming the protocol is AF_IB */
 			*net_dev = NULL;
 		} else if (cma_protocol_roce_dev_port(req.device, req.port)) {
-			/* TODO find the net dev matching the request parameters
-			 * through the RoCE GID table */
-			*net_dev = NULL;
+			/*
+			 * find the net dev matching the request parameters
+			 * through get_netdev (or RoCE GID table)
+			 */
+			if (req.device->get_netdev)
+				*net_dev = req.device->get_netdev(req.device,
+								  req.port);
+			else
+				*net_dev = NULL;
 		} else {
 			return ERR_CAST(*net_dev);
 		}
