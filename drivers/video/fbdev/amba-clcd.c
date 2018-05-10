@@ -339,14 +339,19 @@ static int clcdfb_set_par(struct fb_info *info)
 		clk_set_rate(fb->clk, pixclock);
 	} else {
 		/*
-		 * Calculate the divisor value.
-		 * PCD_HI:  Timing 2 register [31:27]
-		 * PCD_LO:  Timing 2 register [4:0]
-		 * Formula: CLCP = CLCDCLK/(PCD+2)
+		 * Calculated divisor value. Round down to ensure the pixel
+		 * clock is greater or equal than the desired value, which means
+		 * fps is at least the desired number.
 		 */
 		div = clk_get_rate(fb->clk) / pixclock;
 		dev_info(&fb->dev->dev, "Pixel clk: target %luHz, actual %luHz",
 			 pixclock, clk_get_rate(fb->clk)/div);
+		/*
+		 * Calculate the register setting.
+		 * PCD_HI:  Timing 2 register [31:27]
+		 * PCD_LO:  Timing 2 register [4:0]
+		 * Formula: CLCP = CLCDCLK/(PCD+2)
+		 */
 		regs.tim2 &= ~(TIM2_PCD_LO_MASK | TIM2_PCD_HI_MASK | TIM2_BCD);
 		if (div < 2) {
 			/* Bypass clock divisor */
