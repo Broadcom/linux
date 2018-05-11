@@ -136,7 +136,7 @@ clocks {
 
 	ssp0_clock: ssp0_clock {
 		#clock-cells = <0>;
-		compatible = "brcm,cygnus-ssp0-clk";
+		compatible = "brcm,iproc-mux-clk";
 		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
 			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
 			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
@@ -149,7 +149,7 @@ clocks {
 
 	ssp1_clock: ssp1_clock {
 		#clock-cells = <0>;
-		compatible = "brcm,cygnus-ssp1-clk";
+		compatible = "brcm,iproc-mux-clk";
 		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
 			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
 			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
@@ -161,7 +161,7 @@ clocks {
 
 	ssp2_clock: ssp2_clock {
 		#clock-cells = <0>;
-		compatible = "brcm,cygnus-ssp2-clk";
+		compatible = "brcm,iproc-mux-clk";
 		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
 			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
 			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
@@ -174,7 +174,7 @@ clocks {
 
 	spdiftx_clock: spdiftx_clock {
 		#clock-cells = <0>;
-		compatible = "brcm,cygnus-spdiftx-clk";
+		compatible = "brcm,iproc-mux-clk";
 		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
 			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
 			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
