@@ -173,6 +173,64 @@
 			gpio-ranges = <&pinmux1 0 0 62>;
 		};
 
+		omega_audio: audio@600000 {
+			compatible = "brcm,omega-audio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x00600000 0xb40>, <0x00600d70 0x1f8>;
+			reg-names = "aud", "i2s_in";
+
+			assigned-clocks = <&audiopll_0 BCM_OMEGA_AUDIOPLL>,
+					  <&ssp0_clock>,
+					  <&ssp1_clock>,
+					  <&ssp2_clock>,
+					  <&spdiftx_clock>;
+			assigned-clock-rates = <1376255989>;
+			assigned-clock-parents = <0>,
+					<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH0>,
+					<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH1>,
+					<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH2>,
+					<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH3>;
+
+			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>; /* 143 */
+
+			brcm,clk-mux-syscon = <&ssp_clkmux>;
+
+			ssp0: ssp_port@0 {
+				reg = <0>;
+				clocks = <&ssp0_clock>;
+				clock-names = "ssp_clk";
+				status = "disabled";
+			};
+
+			ssp1: ssp_port@1 {
+				reg = <1>;
+				clocks = <&ssp1_clock>;
+				clock-names = "ssp_clk";
+				status = "disabled";
+			};
+
+			ssp2: ssp_port@2 {
+				reg = <2>;
+				clocks = <&ssp2_clock>;
+				clock-names = "ssp_clk";
+				assigned-clocks = <&ssp2_clock>;
+				status = "disabled";
+			};
+
+			spdif: spdif_port@3 {
+				reg = <3>;
+				clocks = <&spdiftx_clock>;
+				clock-names = "ssp_clk";
+				status = "disabled";
+			};
+		};
+
+		ssp_clkmux: syscon@600a00 {
+			compatible = "syscon";
+			reg = <0x00600a00 0x140>;
+		};
+
 		uart0: uart@28510000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
@@ -233,6 +291,11 @@
 			status = "disabled";
 		};
 
+		crmu_syscon: syscon@29480000 {
+			compatible = "syscon";
+			reg = <0x29480000 0xf000>;
+		};
+
 		mailbox: mailbox@29488024 {
 			compatible = "brcm,iproc-mailbox";
 			reg = <0x29488024 0x8>;
@@ -249,6 +312,24 @@
 			interrupt-controller;
 			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
 			mboxes = <&mailbox 0>;
+		};
+
+		omega_codec: audioh@29490000 {
+			#sound-dai-cells = <1>;
+			compatible = "brcm,audioh";
+			reg = <0x29490000 0xc000>;
+			reg-names = "audioh";
+
+			brcm,audioh-crmu-syscon = <&crmu_syscon>;
+			interrupts = <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&codec_clock>;
+			clock-names = "codec_clk";
+
+			assigned-clocks = <&codec_clock>;
+			assigned-clock-parents = <&genpll0_26m>;
+
+			status = "disabled";
 		};
 
 		gic: interrupt-controller@2a001000 {
