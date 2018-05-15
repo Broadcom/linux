@@ -199,3 +199,13 @@
 	};
 };
 
+&mdio_mux {
+	status = "okay";
+};
+
+&eth0 {
+	brcm,amac-switch-bypass;
+	phy-handle = <&gphy0>;
+	phy-mode = "gmii";
+	status = "okay";
+};

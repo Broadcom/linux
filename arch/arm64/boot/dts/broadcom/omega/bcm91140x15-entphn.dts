@@ -211,6 +211,13 @@
 	status = "okay";
 };
 
+&eth0 {
+	brcm,amac-switch-bypass;
+	phy-handle = <&gphy0>;
+	phy-mode = "gmii";
+	status = "okay";
+};
+
 / {
 	model = "Broadcom Omeag bcm91140x15k";
 };
