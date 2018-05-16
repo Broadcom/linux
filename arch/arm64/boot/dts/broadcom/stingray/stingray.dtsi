@@ -263,11 +263,13 @@
 				     <GIC_SPI 769 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 770 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 771 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 772 IRQ_TYPE_LEVEL_HIGH>
-#if (ENABLE_PAXC_IOMMU == 1)
-				     ,<GIC_SPI 773 IRQ_TYPE_LEVEL_HIGH>
+				     <GIC_SPI 772 IRQ_TYPE_LEVEL_HIGH>,
+#if (ENABLE_PAXC_IOMMU == 0)
+				     <GIC_SPI 773 IRQ_TYPE_LEVEL_HIGH>;
+#else
+				     <GIC_SPI 773 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 774 IRQ_TYPE_LEVEL_HIGH>;
 #endif
-					;
 			#iommu-cells = <2>;
 		};
 	};
