@@ -80,6 +80,8 @@ struct iproc_msi;
  * enumeration against unconfigured physical functions emulated in the ASIC
  * @has_apb_err_disable: indicates the controller can be configured to prevent
  * unsupported request from being forwarded as an APB bus error
+ * @fix_paxc_cap: indicates the controller has corrupted capability list in its
+ * config space registers and requires SW based fixup
  *
  * @need_ob_cfg: indicates SW needs to configure the outbound mapping window
  * @ob: outbound mapping related parameters
@@ -119,6 +121,7 @@ struct iproc_pcie {
 	bool iproc_cfg_read;
 	bool rej_unconfig_pf;
 	bool has_apb_err_disable;
+	bool fix_paxc_cap;
 
 	bool need_ob_cfg;
 	struct iproc_pcie_ob ob;
