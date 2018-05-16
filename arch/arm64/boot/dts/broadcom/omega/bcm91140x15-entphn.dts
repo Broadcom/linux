@@ -33,6 +33,7 @@
 
 #include "omega-base-board.dtsi"
 #include "dt-bindings/input/input.h"
+#include "wintek-lcd-panel.dtsi"
 
 / {
 	chosen {
@@ -216,6 +217,29 @@
 	phy-handle = <&gphy0>;
 	phy-mode = "gmii";
 	status = "okay";
+};
+
+&spi4 {
+	status = "okay";
+	num-cs = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi4_mfio066_pins>;
+
+	lcd_panel_spi@0 {
+		compatible = "brcm,wintek,wdf6448x";
+		reg = <0>;
+		spi-max-frequency = <500000>;
+		lcd-pwr-en-gpio = <&gpio_east 16 0>;
+		lcd-reset-gpio = <&gpio_east 25 0>;
+		lcd-init-sequence = /bits/ 16
+				<0x0203 0x06c2 0x0a11 0x0e8c
+				0x128b 0x1622 0x1a00 0x1e30
+				0x2208 0x2640 0x2a88 0x2e88
+				0x3220 0x3620 0x8203 0x86c2
+				0x8a11 0x8e8c 0x928b 0x9622
+				0x9a00 0x9e30 0xa208 0xa640
+				0xaa88 0xae88 0xb220 0xb620>;
+	};
 };
 
 / {

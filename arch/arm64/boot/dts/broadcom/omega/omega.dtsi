@@ -118,6 +118,17 @@
 		#include "omega-clock.dtsi"
 		#include "omega-pinctrl.dtsi"
 
+		spi4: spi@330000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x330000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_periph_apb>;
+			clock-names = "apb_pclk";
+			status = "disabled";
+		};
+
 		i2c1: i2c@350000 {
 			compatible = "brcm,iproc-i2c";
 			reg = <0x00350000 0x100>;
