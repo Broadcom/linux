@@ -106,8 +106,7 @@ static int sr_thermal_probe(struct platform_device *pdev)
 	sr_thermal->dev = dev;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	sr_thermal->regs = devm_memremap(&pdev->dev, res->start,
-					 resource_size(res), MEMREMAP_WB);
+	sr_thermal->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(sr_thermal->regs)) {
 		dev_err(dev, "failed to get io address\n");
 		return PTR_ERR(sr_thermal->regs);
