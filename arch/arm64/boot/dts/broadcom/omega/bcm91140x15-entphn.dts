@@ -119,19 +119,6 @@
 				sound-dai = <&spdif_dummy_tx>;
 			};
 		};
-
-		link4 {
-			format = "dsp_a";
-			bitclock-master = <&dailink4_master>;
-			frame-master = <&dailink4_master>;
-
-			brcm,transfer_mode = <3>;
-			brcm,slave_mode = <1>;
-
-			dailink4_master: codec {
-				sound-dai = <&omega_codec 1>;
-			};
-		};
 	};
 
 	bcm_dummy_codec: dummy_codec {
@@ -146,20 +133,6 @@
 		status = "okay";
 		compatible = "linux,spdif-dit";
 	};
-};
-
-&i2c0 {
-	status = "okay";
-
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c0_mfio043_pins>;
-};
-
-&i2c1 {
-	status = "okay";
-
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c1_mfio045_pins>;
 };
 
 &omega_codec {
@@ -243,5 +216,5 @@
 };
 
 / {
-	model = "Broadcom Omeag bcm91140x15k";
+	model = "Broadcom Omega bcm91140x15-entphn";
 };
