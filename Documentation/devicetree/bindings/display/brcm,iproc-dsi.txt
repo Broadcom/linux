@@ -37,6 +37,9 @@ Required properties:
 			constant for at least two cycles so that we will not
 			be corrupting any other register.
 
+Optional properties:
+- reset-gpio		:reset gpio
+
 Example:
 
 	dsi {
