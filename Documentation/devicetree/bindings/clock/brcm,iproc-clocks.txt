@@ -366,7 +366,8 @@ These clock IDs are defined in:
 Omega
 ------
 PLL and leaf clock compatible string for Omega are:
-    "brcm,omega-audiopll"
+    "brcm,omega-audiopll0"
+    "brcm,omega-audiopll1"
 
 The following table defines the set of PLL/clock index and ID for omega.
 These clock IDs are defined in:
