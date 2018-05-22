@@ -74,15 +74,15 @@
 
 	audiopll_0: audiopll_0 {
 		#clock-cells = <1>;
-		compatible = "brcm,omega-audiopll";
+		compatible = "brcm,omega-audiopll0";
 		reg = <0x00600b40 0x80>, <0x29480860 0x4>;
 		clocks = <&osc>;
 	};
 
 	audiopll_1: audiopll_1 {
 		#clock-cells = <1>;
-		compatible = "brcm,omega-audiopll";
-		reg = <0x600bd0 0x68>, <0x29480860 0x4>;
+		compatible = "brcm,omega-audiopll1";
+		reg = <0x600bd0 0x80>, <0x29480860 0x4>;
 		clocks = <&osc>;
 	};
 
