@@ -42,11 +42,27 @@
 #define ENABLE_VAL(o, es, hs, bs) { .offset = o, .enable_shift = es, \
 	.hold_shift = hs, .bypass_shift = bs }
 
-static const struct iproc_pll_ctrl audiopll = {
+static const struct iproc_pll_ctrl audiopll0 = {
 	.flags = IPROC_CLK_PLL_NEEDS_SW_CFG | IPROC_CLK_PLL_HAS_NDIV_FRAC |
 		IPROC_CLK_PLL_USER_MODE_ON | IPROC_CLK_PLL_RESET_ACTIVE_LOW |
 		IPROC_CLK_PLL_CALC_PARAM,
 	.aon = AON_VAL(0x0, 4, 17, 16),
+	.reset = RESET_VAL(0x6c, 0, 1),
+	.dig_filter = DF_VAL(0x58, 0, 3, 6, 4, 3, 3),
+	.sw_ctrl = SW_CTRL_VAL(0x4, 0),
+	.ndiv_int = REG_VAL(0x8, 0, 10),
+	.ndiv_frac = REG_VAL(0x8, 10, 20),
+	.pdiv = REG_VAL(0x54, 0, 4),
+	.vco_ctrl = VCO_CTRL_VAL(0x0c, 0x10),
+	.status = REG_VAL(0x64, 0, 1),
+	.macro_mode = REG_VAL(0x0, 0, 3),
+};
+
+static const struct iproc_pll_ctrl audiopll1 = {
+	.flags = IPROC_CLK_PLL_NEEDS_SW_CFG | IPROC_CLK_PLL_HAS_NDIV_FRAC |
+		IPROC_CLK_PLL_USER_MODE_ON | IPROC_CLK_PLL_RESET_ACTIVE_LOW |
+		IPROC_CLK_PLL_CALC_PARAM,
+	.aon = AON_VAL(0x0, 4, 25, 24),
 	.reset = RESET_VAL(0x6c, 0, 1),
 	.dig_filter = DF_VAL(0x58, 0, 3, 6, 4, 3, 3),
 	.sw_ctrl = SW_CTRL_VAL(0x4, 0),
@@ -94,12 +110,19 @@ static const struct iproc_clk_ctrl audiopll_clk[] = {
 	},
 };
 
-static void __init audiopll_clk_init(struct device_node *node)
+static void __init audiopll0_clk_init(struct device_node *node)
 {
-	iproc_pll_clk_setup(node, &audiopll, NULL, 0,
+	iproc_pll_clk_setup(node, &audiopll0, NULL, 0,
 			    audiopll_clk,  ARRAY_SIZE(audiopll_clk));
 }
-CLK_OF_DECLARE(omega_audiopll, "brcm,omega-audiopll", audiopll_clk_init);
+CLK_OF_DECLARE(omega_audiopll0, "brcm,omega-audiopll0", audiopll0_clk_init);
+
+static void __init audiopll1_clk_init(struct device_node *node)
+{
+	iproc_pll_clk_setup(node, &audiopll1, NULL, 0,
+			    audiopll_clk,  ARRAY_SIZE(audiopll_clk));
+}
+CLK_OF_DECLARE(omega_audiopll1, "brcm,omega-audiopll1", audiopll1_clk_init);
 
 static void __init audiomux_init(struct device_node *node)
 {
