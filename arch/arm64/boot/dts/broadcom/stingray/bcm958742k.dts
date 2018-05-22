@@ -41,15 +41,13 @@
 #define ENABLE_SSP1	1
 #define ENABLE_UART2	1
 #define ENABLE_UART3	1
-#ifndef NUM_SATA
 #define NUM_SATA	8
-#endif
+
+#include "bcm958742-base.dtsi"
 
 / {
 	model = "Stingray Combo SVK (BCM958742K)";
 };
-
-#include "bcm958742-base.dtsi"
 
 &gphy0 {
 	enet-phy-lane-swap;
