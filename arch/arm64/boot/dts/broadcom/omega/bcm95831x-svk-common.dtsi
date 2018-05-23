@@ -144,6 +144,18 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2s0_pins &i2s1_mfio070_pins>;
 
+	assigned-clocks = <&audiopll_1 BCM_OMEGA_AUDIOPLL>,
+			  <&ssp0_clock>,
+			  <&ssp1_clock>,
+			  <&ssp2_clock>,
+			  <&spdiftx_clock>;
+	assigned-clock-rates = <1376255989>;
+	assigned-clock-parents = <0>,
+			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH0>,
+			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH1>,
+			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH2>,
+			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH3>;
+
 	ssp0: ssp_port@0 {
 		status = "okay";
 	};
