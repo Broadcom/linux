@@ -142,7 +142,8 @@
 	#sound-dai-cells = <1>;
 
 	pinctrl-names = "default";
-	pinctrl-0 = <&i2s0_pins &i2s1_mfio070_pins>;
+	pinctrl-0 = <&i2s0_pins &i2s1_mfio070_pins
+		     &i2s0_pad_ctrl &i2s1_mfio70_pad_ctrl>;
 
 	assigned-clocks = <&audiopll_1 BCM_OMEGA_AUDIOPLL>,
 			  <&ssp0_clock>,
@@ -220,4 +221,23 @@
 	phy-handle = <&gphy0>;
 	phy-mode = "gmii";
 	status = "okay";
+};
+
+&gpio_east {
+	/*
+	 * East controller starts at 51, so add 51 get real mfio pin.
+	 * Set drive strength to max for SCLK pin on port 0 and 1.
+	 * On the SVK design the switches and the length of the SCLK
+	 * trace are creating clock edge issue (bit errors). We need
+	 * to increase the drive strength to over overcome thes issues.
+	 */
+	i2s0_pad_ctrl: i2s0_pad {
+		pins = "mfio-0";
+		drive-strength = <16>;
+	};
+
+	i2s1_mfio70_pad_ctrl: i2s1_mfio70_pad {
+		pins = "mfio-19";
+		drive-strength = <16>;
+	};
 };
