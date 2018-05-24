@@ -253,6 +253,33 @@
 			status = "disabled";
 		};
 
+		ehci: usb@28400000 {
+			compatible = "generic-ehci";
+			reg = <0x28400000 0x100>;
+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		ohci: usb@28400800 {
+			compatible = "generic-ohci";
+			reg = <0x28400800 0x100>;
+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		usbphy: phy@28430100 {
+			compatible = "brcm,omega-usb-phy";
+			reg = <0x28430100 0x100>,
+			      <0x28800000 0xa00>;
+			reg-names = "cdru-usbphy",
+				    "usb2h-idm";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			brcm,usbphy-crmu-syscon = <&crmu_syscon>;
+			status = "disabled";
+		};
+
 		uart0: uart@28510000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";

@@ -39,6 +39,15 @@
 	chosen {
 	};
 
+	vbus: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb-vbus-p0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio_east 57 0>;
+		status = "okay";
+	};
+
 	sound {
 		compatible = "brcm,omega-svk-machine";
 		status = "okay";
@@ -167,6 +176,15 @@
 	status = "okay";
 };
 
+&usbphy {
+	status = "okay";
+	usbphy0: phy@0 {
+		#phy-cells = <0>;
+		reg = <0>;
+		vbus-supply = <&vbus>;
+	};
+};
+
 &nand {
 	nandcs@0 {
 		compatible = "brcm,nandcs";
@@ -189,6 +207,18 @@
 	brcm,amac-switch-bypass;
 	phy-handle = <&gphy0>;
 	phy-mode = "gmii";
+	status = "okay";
+};
+
+&ehci {
+	phys = <&usbphy0>;
+	phy-names = "usbp0";
+	status = "okay";
+};
+
+&ohci {
+	phys = <&usbphy0>;
+	phy-names = "usbp0";
 	status = "okay";
 };
 
