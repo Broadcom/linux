@@ -12,6 +12,7 @@
  */
 #include <linux/clk.h>
 #include <linux/debugfs.h>
+#include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -40,6 +41,29 @@ struct testport_cfg_info {
 	u32 slot_size;
 };
 
+struct card_state_data {
+	unsigned int    dummy0;
+	struct testport_cfg_info testport_cfg[SVK_MAX_PORTS];
+	struct snd_soc_dai_link  omegasvk_demo_dai_links[SVK_MAX_PORTS];
+	struct gpio_desc *gpio_ext_headset_amp_en;
+};
+
+static int headset_spk_evt(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *k, int event)
+{
+	struct snd_soc_dapm_context *dapm_context = w->dapm;
+	struct snd_soc_card *soc_card = dapm_context->card;
+	struct card_state_data *card_data = snd_soc_card_get_drvdata(soc_card);
+	struct gpio_desc *gpio = card_data->gpio_ext_headset_amp_en;
+
+	/* Enable the op amp that will drive the heasdset speaker */
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		gpiod_set_value(gpio, 1);
+	else
+		gpiod_set_value(gpio, 0);
+
+	return 0;
+}
 
 /* Machine DAPM */
 static const struct snd_soc_dapm_widget audioh_dapm_widgets[] = {
@@ -47,6 +71,7 @@ static const struct snd_soc_dapm_widget audioh_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("SVK Headphone jack", NULL),
 	SND_SOC_DAPM_SPK("SVK Handsfree", NULL),
 	SND_SOC_DAPM_SPK("SVK Handset Earpiece", NULL),
+	SND_SOC_DAPM_SPK("SVK Headset Speaker", headset_spk_evt),
 
 	SND_SOC_DAPM_MIC("SVK Analog Mic1", NULL),  /* Handset or J169 */
 	SND_SOC_DAPM_MIC("SVK Analog Mic2", NULL),  /* 3.5mm jack or J150 */
@@ -58,11 +83,6 @@ static const struct snd_soc_dapm_widget audioh_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("SVK Digital Mic4", NULL),
 };
 
-struct card_state_data {
-	unsigned int    dummy0;
-	struct testport_cfg_info testport_cfg[SVK_MAX_PORTS];
-	struct snd_soc_dai_link  omegasvk_demo_dai_links[SVK_MAX_PORTS];
-};
 
 static int testport_hw_params_common(
 	struct snd_pcm_substream *substream,
@@ -173,7 +193,7 @@ static struct snd_soc_ops omegasvk_demo_ops = {
 
 /* Audio machine driver */
 static struct snd_soc_card omegasvk_audio_card = {
-	.name = "bcm-oemgasvk-demo-card",
+	.name = "bcm-omegasvk-demo-card",
 	.owner = THIS_MODULE,
 
 	.dapm_widgets = audioh_dapm_widgets,
@@ -327,6 +347,14 @@ static int omegasvk_demo_probe(struct platform_device *pdev)
 	ret = snd_soc_of_parse_audio_routing(card, "brcm,audio-routing");
 	if (ret)
 		goto err_exit;
+
+	/* External headset amplifier enable */
+	card_data->gpio_ext_headset_amp_en = devm_gpiod_get_optional(&pdev->dev,
+				"brcm,ext-headset-amp-en", GPIOD_OUT_LOW);
+	if (IS_ERR(card_data->gpio_ext_headset_amp_en)) {
+		dev_err(&pdev->dev, "Invalid gpio for headset amp enable\n");
+		return PTR_ERR(card_data->gpio_ext_headset_amp_en);
+	}
 
 	snd_soc_card_set_drvdata(card, card_data);
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
