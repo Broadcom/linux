@@ -10,6 +10,10 @@ Required properties:
   Each entry is a pair of strings, the first being the connection's sink,
   the second being the connection's source.
 
+Optional properties:
+- brcm,ext-headset-amp-en-gpio: gpio used to control the enabling of
+	the headset speaker amplifier.
+
 In addition to these properties, the device follows the general construct
 of the multi-dai generic "simple audio card".  Refer to simple-card.txt.
 
