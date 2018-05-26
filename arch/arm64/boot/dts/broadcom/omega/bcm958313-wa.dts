@@ -9,6 +9,96 @@
 
 / {
 	model = "Broadcom Omega (bcm958313) Wireless Audio";
+
+	sound {
+		compatible = "simple-audio-card";
+		status = "okay";
+
+		simple-audio-card,name = "bcm958313wa-card";
+
+		simple-audio-card,widgets =
+			"Headphone", "Headphone jack",
+
+			"Microphone", "Analog Mic1",
+			"Microphone", "Analog Mic2",
+			"Microphone", "Analog Mic3",
+			"Microphone", "Digital Mic1",
+			"Microphone", "Digital Mic2",
+			"Microphone", "Digital Mic3",
+			"Microphone", "Digital Mic4";
+
+		simple-audio-card,,audio-routing =
+			/* Outputs */
+			"Headphone jack", "HS_OUT_L",
+			"Headphone jack", "HS_OUT_R",
+
+			/* Inputs */
+			"AMIC1", "Analog Mic1",
+			"AUXMIC1", "Analog Mic2",
+			"AMIC3", "Analog Mic3",
+			"DMIC1", "Digital Mic1",
+			"DMIC2", "Digital Mic2",
+			"DMIC3", "Digital Mic3",
+			"DMIC4", "Digital Mic4";
+
+		simple-audio-card,dai-link@0 {
+			format = "dsp_a";
+			bitclock-master = <&dailink0_master>;
+			frame-master = <&dailink0_master>;
+
+			cpu {
+				sound-dai = <&omega_audio 2>;
+
+				dai-tdm-slot-num = <8>;
+				dai-tdm-slot-width = <32>;
+				dai-tdm-slot-tx-mask = <1 1 1 1 0 0 0 0>;
+				dai-tdm-slot-rx-mask = <1 1 1 1 0 0 0 0>;
+			};
+
+			dailink0_master: codec {
+				sound-dai = <&omega_codec 0>;
+			};
+		};
+	};
+};
+
+&omega_codec {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&digmic0_pins &digmic1_pins>;
+};
+
+&omega_audio {
+	#sound-dai-cells = <1>;
+
+	assigned-clocks = <&audiopll_1 BCM_OMEGA_AUDIOPLL>,
+			  <&ssp0_clock>,
+			  <&ssp1_clock>,
+			  <&ssp2_clock>,
+			  <&spdiftx_clock>;
+	assigned-clock-rates = <1376255989>;
+	assigned-clock-parents = <0>,
+			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH0>,
+			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH1>,
+			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH2>,
+			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH3>;
+
+	ssp0: ssp_port@0 {
+		status = "okay";
+	};
+
+	ssp1: ssp_port@1 {
+		status = "okay";
+	};
+
+	ssp2: ssp_port@2 {
+		status = "okay";
+	};
+
+	spdif: spdif_port@3 {
+		status = "okay";
+	};
 };
 
 &uart0 {
