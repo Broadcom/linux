@@ -1,0 +1,33 @@
+Broadcom NVME/SSR data backup device tree binding
+
+Required_properties:
+	-compatible: must be "brcm,nvme-lpm-data-backup".
+	- reg: memory address used for sharing SSR commands/data.
+	- intrpt-gpio: GPIO that is asserted when PMIC detect 12V supply loss
+		       and de-asserted when suply gets re-stored.
+	- mboxes: list of phandle and mailbox channel specifier,
+		  used for communication with a power management co-processor.
+	- memory-region : phandle to a node describing reserved memory region
+			  for sharing data of NVMe device used for data-backup
+			  with power management co-processor.
+
+Example:
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		pci_lpm_region: pci_lpm_region@801f0000 {
+			reg = <0x0 0x8f101000 0x0 0x1000>;
+			no-map;
+		};
+	};
+
+	nvme_lpm_data_backup: nvme-lpm-data-backup@14 {
+		compatible = "brcm,nvme-lpm-data-backup";
+		reg = <0x0 0x100>;
+		intrpt-gpio = <&gpio_hsls 2 GPIO_ACTIVE_HIGH>;
+		mboxes = <&mailbox 0>;
+		memory-region = <&pci_lpm_region>;
+		status = "disabled";
+	};
