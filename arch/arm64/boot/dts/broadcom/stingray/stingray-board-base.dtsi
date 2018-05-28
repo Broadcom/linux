@@ -87,6 +87,10 @@
 			no-map;
 		};
 #endif
+		pci_lpm_region: pci_lpm_region@801f0000 {
+			reg = <0x0 0x8f101000 0x0 0x1000>;
+			no-map;
+		};
 #if (ENABLE_PAXB_IOMMU == 1)
 		cmem_region: cmem_region@90000000 {
 			reg = <0x0 0x90000000 0x0 0x1000000>;
@@ -100,6 +104,21 @@
 		memory-region = <&cmem_region>;
 	};
 #endif
+
+	nvme_lpm {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x8f100100 0x100>;
+		nvme_lpm_data_backup: nvme-lpm-data-backup@14 {
+			compatible = "brcm,nvme-lpm-data-backup";
+			reg = <0x0 0x100>;
+			intrpt-gpio = <&gpio_hsls 2 GPIO_ACTIVE_HIGH>;
+			mboxes = <&mailbox 0>;
+			memory-region = <&pci_lpm_region>;
+			status = "disabled";
+		};
+	};
 };
 
 &memory { /* Default DRAM banks */
