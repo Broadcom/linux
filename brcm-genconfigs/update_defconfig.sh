@@ -100,15 +100,39 @@ main() {
 	# cygnus
 	do_update ${ARCH32} bcm_cygnus $bcm_cygnus_defconfig
 
-
-
-
 	#Cleanup 32 bit
 	make ARCH=${ARCH32} mrproper > /dev/null
 	if [ -e defconfig ]; then
 		rm defconfig
 	fi
 	echo "Done 32 bit."
+
+	#
+	# Generate QEMU profiles for x86 and x86_64
+	#
+	make ARCH=x86_64 x86_64_defconfig
+	make ARCH=x86_64 kvm_guest.config
+	make ARCH=x86_64 savedefconfig
+	cp -v defconfig arch/x86/configs/qemu_x86_64_defconfig
+
+	#Cleanup x86_64
+	make ARCH=x86_64 mrproper > /dev/null
+	if [ -e defconfig ]; then
+		rm defconfig
+	fi
+	echo "Done x86_64."
+
+	make ARCH=x86 i386_defconfig
+	make ARCH=x86 kvm_guest.config
+	make ARCH=x86 savedefconfig
+	cp -v defconfig arch/x86/configs/qemu_i386_defconfig
+
+	#Cleanup x86
+	make ARCH=x86 mrproper > /dev/null
+	if [ -e defconfig ]; then
+		rm defconfig
+	fi
+	echo "Done x86"
 }
 
 #*****************************************************************************
