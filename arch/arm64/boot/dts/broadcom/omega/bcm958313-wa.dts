@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include "omega-base-board.dtsi"
+#include "dt-bindings/input/input.h"
 
 / {
 	model = "Broadcom Omega (bcm958313) Wireless Audio";
@@ -23,6 +24,19 @@
 		compatible = "gpio-backlight";
 		gpios = <&stmpe_gpio 2 0>;
 		default-on;
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		play {
+			label = "play or pause key";
+			linux,code = <KEY_PLAYPAUSE>;
+			gpios = <&gpio_crmu 1 0>;
+			wakeup-source;
+		};
 	};
 
 	sound {
