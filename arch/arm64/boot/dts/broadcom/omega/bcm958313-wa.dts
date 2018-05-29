@@ -10,6 +10,15 @@
 / {
 	model = "Broadcom Omega (bcm958313) Wireless Audio";
 
+	vbus: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb-vbus-p0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio_east 57 0>;
+		status = "okay";
+	};
+
 	gpio_backlight: backlight {
 		compatible = "gpio-backlight";
 		gpios = <&stmpe_gpio 2 0>;
@@ -119,6 +128,27 @@
 	spdif: spdif_port@3 {
 		status = "okay";
 	};
+};
+
+&usbphy {
+	status = "okay";
+	usbphy0: phy@0 {
+		#phy-cells = <0>;
+		reg = <0>;
+		vbus-supply = <&vbus>;
+	};
+};
+
+&ehci {
+	phys = <&usbphy0>;
+	phy-names = "usbp0";
+	status = "okay";
+};
+
+&ohci {
+	phys = <&usbphy0>;
+	phy-names = "usbp0";
+	status = "okay";
 };
 
 &uart0 {
