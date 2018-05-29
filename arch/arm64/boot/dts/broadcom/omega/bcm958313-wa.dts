@@ -77,12 +77,12 @@
 			  <&ssp1_clock>,
 			  <&ssp2_clock>,
 			  <&spdiftx_clock>;
-	assigned-clock-rates = <1376255989>;
+	assigned-clock-rates = <3612672000>;
 	assigned-clock-parents = <0>,
-			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH0>,
-			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH1>,
-			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH2>,
-			<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH3>;
+				 <&audiopll_1 BCM_OMEGA_AUDIOPLL_CH1>,
+				 <&audiopll_1 BCM_OMEGA_AUDIOPLL_CH2>,
+				 <&audiopll_1 BCM_OMEGA_AUDIOPLL_CH3>,
+				 <&audiopll_1 BCM_OMEGA_AUDIOPLL_CH4>;
 
 	ssp0: ssp_port@0 {
 		status = "okay";
