@@ -312,6 +312,7 @@ void __weak pcibios_bus_add_device(struct pci_dev *pdev) { }
 void pci_bus_add_device(struct pci_dev *dev)
 {
 	int retval;
+	unsigned long flags;
 
 	/*
 	 * Can not put in pci_device_add yet because resources
@@ -332,7 +333,9 @@ void pci_bus_add_device(struct pci_dev *dev)
 		return;
 	}
 
+	spin_lock_irqsave(&dev->lock, flags);
 	dev->is_added = 1;
+	spin_unlock_irqrestore(&dev->lock, flags);
 }
 EXPORT_SYMBOL_GPL(pci_bus_add_device);
 
