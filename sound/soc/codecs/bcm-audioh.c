@@ -46,7 +46,7 @@ struct audioh_private {
 
 #define CRMU_POLL_TIMEOUT   20000  /* timeout after 20ms */
 #define CRMU_POLL_PAUSE       10  /* wait 10 us betwen reads */
-int crmu_wait_for_ready(struct snd_soc_codec *codec,
+static int crmu_wait_for_ready(struct snd_soc_codec *codec,
 		   unsigned int offset, u32 mask, u32 value)
 {
 	struct audioh_private *audioh = snd_soc_codec_get_drvdata(codec);
@@ -62,7 +62,7 @@ int crmu_wait_for_ready(struct snd_soc_codec *codec,
 	return ret;
 }
 
-void crmu_update_bits(struct snd_soc_codec *codec,
+static void crmu_update_bits(struct snd_soc_codec *codec,
 		      unsigned int offset, u32 mask, u32 new_val)
 {
 	struct audioh_private *audioh = snd_soc_codec_get_drvdata(codec);
@@ -70,7 +70,7 @@ void crmu_update_bits(struct snd_soc_codec *codec,
 	regmap_update_bits(audioh->crmu_regmap, offset, mask, new_val);
 }
 
-void audioh_update_bits(struct snd_soc_codec *codec,
+static void audioh_update_bits(struct snd_soc_codec *codec,
 		      unsigned int offset, u32 mask, u32 new_val)
 {
 	struct audioh_private *audioh = snd_soc_codec_get_drvdata(codec);
@@ -78,7 +78,7 @@ void audioh_update_bits(struct snd_soc_codec *codec,
 	regmap_update_bits(audioh->regmap, offset, mask, new_val);
 }
 
-void tdm_mode_enable(struct snd_soc_codec *codec)
+static void tdm_mode_enable(struct snd_soc_codec *codec)
 {
 	u32 mask, val;
 	unsigned int bits_per_frame = 128;
@@ -115,7 +115,7 @@ void tdm_mode_enable(struct snd_soc_codec *codec)
 	audioh_update_bits(codec, CODEC_IOP_OUT_I2S_CFG, mask, val);
 }
 
-void tdm_mode_disable(struct snd_soc_codec *codec)
+static void tdm_mode_disable(struct snd_soc_codec *codec)
 {
 	u32 mask;
 
@@ -123,7 +123,7 @@ void tdm_mode_disable(struct snd_soc_codec *codec)
 	audioh_update_bits(codec, CODEC_TDM_MODE_SELECT, mask, 0);
 }
 
-void codec_fll_init(struct snd_soc_codec *codec)
+static void codec_fll_init(struct snd_soc_codec *codec)
 {
 	u32 mask, val;
 
@@ -197,7 +197,7 @@ void codec_fll_init(struct snd_soc_codec *codec)
 	crmu_update_bits(codec, CRMU_CLK_GATE_CTRL, mask, mask);
 }
 
-void codec_mic_bias_pwrup(struct snd_soc_codec *codec)
+static void codec_mic_bias_pwrup(struct snd_soc_codec *codec)
 {
 	u32 mask;
 
@@ -248,7 +248,7 @@ static void analog_global_init(struct snd_soc_codec *codec)
 	codec_fll_init(codec);
 }
 
-void analog_mic_enable(struct snd_soc_codec *codec)
+static void analog_mic_enable(struct snd_soc_codec *codec)
 {
 	u32 mask;
 
@@ -265,7 +265,7 @@ void analog_mic_enable(struct snd_soc_codec *codec)
 	audioh_update_bits(codec, AUDIOH_ADC2_CFG2, mask, 0);
 }
 
-void ep_afe_powerup(struct snd_soc_codec *codec)
+static void ep_afe_powerup(struct snd_soc_codec *codec)
 {
 	u32 mask, val;
 
@@ -282,18 +282,27 @@ void ep_afe_powerup(struct snd_soc_codec *codec)
 
 	udelay(20);
 
-	mask = BIT(EP_DAC_CTL_1_PU_DRV) | BIT(EP_DAC_CTL_1_PU_EXT_EN);
+	mask = BIT(EP_DAC_CTL_1_PUP_DRV) | BIT(EP_DAC_CTL_1_PUP_EXT_EN);
 	audioh_update_bits(codec, AUDIOH_EP_DAC_CTL_1, mask, mask);
 
 	/* Clear pup_en_ext, set final */
-	mask = BIT(EP_DAC_CTL_1_FINAL_EXT) | BIT(EP_DAC_CTL_1_PU_EXT_EN);
+	mask = BIT(EP_DAC_CTL_1_FINAL_EXT) | BIT(EP_DAC_CTL_1_PUP_EXT_EN);
 	val = BIT(EP_DAC_CTL_1_FINAL_EXT);
 	audioh_update_bits(codec, AUDIOH_EP_DAC_CTL_1, mask, val);
 
 	udelay(50);
 }
 
-void ep_afe_enable(struct snd_soc_codec *codec)
+static void ep_afe_powerdown(struct snd_soc_codec *codec)
+{
+	u32 mask;
+
+	/* set dac power down*/
+	mask = BIT(EP_DAC_CTL_1_POWERDOWN);
+	audioh_update_bits(codec, AUDIOH_EP_DAC_CTL_1, mask, mask);
+}
+
+static void ep_afe_enable(struct snd_soc_codec *codec)
 {
 	u32 mask;
 
@@ -314,7 +323,41 @@ void ep_afe_enable(struct snd_soc_codec *codec)
 	audioh_update_bits(codec, AUDIOH_DAC_CTL, mask, mask);
 }
 
-void ihf_afe_powerup(struct snd_soc_codec *codec)
+static void mono_voip_headset_powerup(struct snd_soc_codec *codec)
+{
+	u32 mask, val;
+
+	/* Enable pop-click enable */
+	mask = BIT(EP_DAC2_CTL_1_POPCLICK_CTRL_EN);
+	audioh_update_bits(codec, AUDIOH_EP_DAC2_CTL_1, mask, mask);
+
+	/* clear power down*/
+	mask = BIT(EP_DAC2_CTL_1_POWERDOWN);
+	audioh_update_bits(codec, AUDIOH_EP_DAC2_CTL_1, mask, 0);
+
+	udelay(20);
+
+	mask = BIT(EP_DAC2_CTL_1_PUP_DRV) | BIT(EP_DAC2_CTL_1_PUP_EXT_EN);
+	audioh_update_bits(codec, AUDIOH_EP_DAC2_CTL_1, mask, mask);
+
+	/* Clear pup_en_ext, set final */
+	mask = BIT(EP_DAC2_CTL_1_FINAL_EXT) | BIT(EP_DAC2_CTL_1_PUP_EXT_EN);
+	val = BIT(EP_DAC2_CTL_1_FINAL_EXT);
+	audioh_update_bits(codec, AUDIOH_EP_DAC2_CTL_1, mask, val);
+
+	udelay(50);
+}
+
+static void mono_voip_headset_powerdown(struct snd_soc_codec *codec)
+{
+	u32 mask;
+
+	/* set dac power down*/
+	mask = BIT(EP_DAC2_CTL_1_POWERDOWN);
+	audioh_update_bits(codec, AUDIOH_EP_DAC2_CTL_1, mask, mask);
+}
+
+static void ihf_afe_powerup(struct snd_soc_codec *codec)
 {
 	u32 mask;
 
@@ -332,7 +375,7 @@ void ihf_afe_powerup(struct snd_soc_codec *codec)
 	audioh_update_bits(codec, AUDIOH_IHF_CTL, mask, mask);
 }
 
-void ihf_afe_enable(struct snd_soc_codec *codec)
+static void ihf_afe_enable(struct snd_soc_codec *codec)
 {
 	u32 mask;
 
@@ -357,7 +400,7 @@ void ihf_afe_enable(struct snd_soc_codec *codec)
 	audioh_update_bits(codec, AUDIOH_DAC_CTL, mask, mask);
 }
 
-void headset_afe_powerup(struct snd_soc_codec *codec)
+static void headset_afe_powerup(struct snd_soc_codec *codec)
 {
 	u32 mask, cp_mask;
 
@@ -387,7 +430,7 @@ void headset_afe_powerup(struct snd_soc_codec *codec)
 	udelay(50);
 }
 
-void headset_afe_enable(struct snd_soc_codec *codec)
+static void headset_afe_enable(struct snd_soc_codec *codec)
 {
 	u32 mask;
 
@@ -408,7 +451,7 @@ void headset_afe_enable(struct snd_soc_codec *codec)
 	audioh_update_bits(codec, AUDIOH_DAC_CTL, mask, mask);
 }
 
-void power_up_all_interfaces(struct snd_soc_codec *codec)
+static void power_up_all_interfaces(struct snd_soc_codec *codec)
 {
 	analog_global_init(codec);
 
@@ -941,6 +984,62 @@ static const struct snd_soc_dapm_route audioh_dapm_routes[] = {
 	{ "DMIC4", NULL, "DMIC_3_4 Clock" },
 };
 
+static int mono_headset_enable_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	u32 val;
+
+	val = snd_soc_read(codec, AUDIOH_EP_DAC2_CTL_1);
+	if (val & BIT(EP_DAC2_CTL_1_POWERDOWN))
+		ucontrol->value.integer.value[0] = 0;
+	else
+		ucontrol->value.integer.value[0] = 1;
+
+	return 0;
+}
+
+static int mono_headset_enable_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+
+	if (ucontrol->value.integer.value[0])
+		mono_voip_headset_powerup(codec);
+	else
+		mono_voip_headset_powerdown(codec);
+
+	return 0;
+}
+
+static int mono_earpiece_enable_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	u32 val;
+
+	val = snd_soc_read(codec, AUDIOH_EP_DAC_CTL_1);
+	if (val & BIT(EP_DAC_CTL_1_POWERDOWN))
+		ucontrol->value.integer.value[0] = 0;
+	else
+		ucontrol->value.integer.value[0] = 1;
+
+	return 0;
+}
+
+static int mono_earpiece_enable_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+
+	if (ucontrol->value.integer.value[0])
+		ep_afe_powerup(codec);
+	else
+		ep_afe_powerdown(codec);
+
+	return 0;
+}
+
 #define TONEGEN_SAMPLE_RATE  48000
 /*
  * (Freq/48000) * 2^26
@@ -1100,6 +1199,11 @@ static const struct snd_kcontrol_new audioh_control[] = {
 			AUDIOH_DAC_CTL, AUDIOH_DAC_CTL_IHF_MUTE, 1, 0),
 	SOC_SINGLE("EP Mute Switch",
 			AUDIOH_DAC_CTL, AUDIOH_DAC_CTL_EP_MUTE, 1, 0),
+
+	SOC_SINGLE_EXT("Mono Headset Enable", 0, 0, 1, 0,
+			mono_headset_enable_get, mono_headset_enable_put),
+	SOC_SINGLE_EXT("Mono Earpiece Enable", 0, 0, 1, 0,
+			mono_earpiece_enable_get, mono_earpiece_enable_put),
 
 	SOC_SINGLE_EXT("Common ToneGen", 0, 0, 1, 0,
 			tonegen_common_enable_get, tonegen_common_enable_put),

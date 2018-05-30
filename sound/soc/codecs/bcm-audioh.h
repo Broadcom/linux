@@ -215,9 +215,9 @@
 
 /* AUDIOH_EP_DAC_CTL_1 (0x0734) */
 #define EP_DAC_CTL_1_FINAL_EXT          4
-#define EP_DAC_CTL_1_PU_DRV             6
+#define EP_DAC_CTL_1_PUP_DRV            6
 #define EP_DAC_CTL_1_RESET              7
-#define EP_DAC_CTL_1_PU_EXT_EN          8
+#define EP_DAC_CTL_1_PUP_EXT_EN         8
 #define EP_DAC_CTL_1_POPCLICK_CTRL_EN   9
 #define EP_DAC_CTL_1_POWERDOWN          15
 
@@ -256,6 +256,13 @@
 #define MIC_FILTER_ORDER   14
 #define MIC_FILTER_ORDER_MASK  0xf
 #define MIC_FILTER_ORDER_BYPASS  8
+
+/* AUDIOH_EP_DAC2_CTL_1 (0x0a48) */
+#define EP_DAC2_CTL_1_POPCLICK_CTRL_EN   1
+#define EP_DAC2_CTL_1_PUP_DRV            2
+#define EP_DAC2_CTL_1_PUP_EXT_EN         3
+#define EP_DAC2_CTL_1_FINAL_EXT         19
+#define EP_DAC2_CTL_1_POWERDOWN         20
 
 /* AUDIOH_DVED_CTL1 (0x0b08) */
 #define USE_DVED_CLK_FOR_DMIC1     26
