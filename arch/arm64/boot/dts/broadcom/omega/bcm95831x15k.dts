@@ -37,5 +37,10 @@
 
 / {
 	model = "Broadcom Omega bcm95831x15k";
+
+	sound {
+		/* Use gpio 110 to control amp */
+		brcm,ext-headset-amp-en-gpio = <&gpio_east 59 0>;
+	};
 };
 
