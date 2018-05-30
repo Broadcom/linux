@@ -17,10 +17,11 @@
 #define __BCM_IPROC_DSI_CTRL_H__
 
 #include <linux/clk.h>
-#include <linux/regmap.h>
-#include <linux/fb.h>
 #include <linux/dma-mapping.h>
+#include <linux/fb.h>
+#include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
+#include <linux/regmap.h>
 
 #include "bcm_iproc_dsi_lowlevel.h"
 #include "bcm_iproc_dsi_panel.h"
@@ -73,6 +74,7 @@ struct dsi_platform_data {
 	void *display_hdl;
 	bool blank_state;
 	void **buff;
+	struct gpio_desc *reset_gpio;
 };
 
 enum disp_pwr_state {

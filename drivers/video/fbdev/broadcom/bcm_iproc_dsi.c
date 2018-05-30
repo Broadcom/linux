@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/gpio/consumer.h>
 #include <linux/module.h>
-
 #include "bcm_iproc_dsi_ctrl.h"
 
 const struct bcm_pixel_format fb_fmt[] = {
@@ -379,10 +379,22 @@ static struct dsi_platform_data * __init dsi_get_of_data
 
 	reset_res = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "crmu_ext_reset");
-	dsip_data->reset_base = devm_ioremap_resource(&pdev->dev, reset_res);
-	if (IS_ERR(dsip_data->reset_base)) {
-		dev_err(&pdev->dev, "iomap of Reset base failed\n");
-		goto of_fail;
+	if (reset_res) {
+		dsip_data->reset_base =
+			devm_ioremap_resource(&pdev->dev, reset_res);
+		if (IS_ERR(dsip_data->reset_base)) {
+			dev_err(&pdev->dev, "iomap of Reset base failed\n");
+			goto of_fail;
+		}
+	}
+
+	dsip_data->reset_gpio = devm_gpiod_get_optional(&pdev->dev, "reset",
+						GPIOD_OUT_LOW);
+	if (IS_ERR(dsip_data->reset_gpio)) {
+		if (dsip_data->reset_gpio != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Failed to get reset line: %d\n",
+				dsip_data->reset_gpio);
+		return PTR_ERR(dsip_data->reset_gpio);
 	}
 
 	if (of_get_property(np, "brcm,iproc-mipi-reg-errata", NULL))
@@ -428,13 +440,16 @@ static struct dsi_platform_data * __init dsi_get_of_data
 	}
 
 	calculate_dsi_clock(panel.disp_info, &clk_rate);
-	dev_dbg(&pdev->dev, "Dsi clock rate : %lu\n", clk_rate);
+	dev_info(&pdev->dev, "Dsi desired clock rate : %lu\n", clk_rate);
 
 	ret = clk_set_rate(dsip_data->clk, clk_rate);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to set to %lu\n", clk_rate);
 		goto of_fail;
 	}
+
+	dev_info(&pdev->dev, "get actual clock rate %lu",
+		 clk_get_rate(dsip_data->clk));
 
 	ret = clk_prepare_enable(dsip_data->clk);
 	if (ret) {
@@ -459,8 +474,8 @@ static int __ref dsic_probe(struct platform_device *pdev)
 
 	dsic_pvt_data = dsi_get_of_data(pdev);
 
-	if (IS_ERR_OR_NULL(dsic_pvt_data))
-		return -EINVAL;
+	if (IS_ERR(dsic_pvt_data))
+		return PTR_ERR(dsic_pvt_data);
 
 	dsi_pdev = pdev;
 	platform_set_drvdata(pdev, dsic_pvt_data);

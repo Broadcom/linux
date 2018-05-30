@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 
 #include "bcm_iproc_axipv.h"
@@ -207,7 +208,24 @@ static void dsic_hw_reset(bool on)
 	struct dsi_platform_data *dsip_data;
 
 	dsip_data = platform_get_drvdata(dsi_pdev);
-	dsi_reset(dsip_data->reset_base, 1, on);
+
+	if (dsip_data->reset_base) {
+		dsi_reset(dsip_data->reset_base, 1, on);
+	} else if (dsip_data->reset_gpio) {
+		dev_info(&dsi_pdev->dev, "Panel status is %d, gpio reset", on);
+		if (!on) {
+			/* Panel's off and we are in panel-on sequence */
+			gpiod_set_value_cansleep(dsip_data->reset_gpio, 0);
+			usleep_range(700, 701);
+			gpiod_set_value_cansleep(dsip_data->reset_gpio, 1);
+			usleep_range(1000, 1001);
+			gpiod_set_value_cansleep(dsip_data->reset_gpio, 0);
+			msleep(100);
+		} else {
+			/* Panel is on and we are in panel-off sequence */
+			gpiod_set_value_cansleep(dsip_data->reset_gpio, 0);
+		}
+	}
 }
 
 int dsic_init(struct dispdrv_info *info, void **handle, int id)
