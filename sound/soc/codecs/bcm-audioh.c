@@ -438,9 +438,13 @@ static void enable_tx_path(struct snd_soc_codec *codec, bool use_tdm)
 	u32 mask, val;
 
 	if (use_tdm) {
-		mask = 0x0F;
+		mask = BIT(CODEC_TDM_PLAYOUT_PATH_EP_ENABLE) |
+			BIT(CODEC_TDM_PLAYOUT_PATH_IHF_ENABLE) |
+			BIT(CODEC_TDM_PLAYOUT_PATH_STEREO_HS_ENABLE) |
+			BIT(CODEC_TDM_PLAYOUT_PATH_GLOBAL_ENABLE);
+		val = mask;
 		audioh_update_bits(codec,
-			CODEC_TDM_PLAYOUT_PATH_ENABLE, mask, 0x0F);
+			CODEC_TDM_PLAYOUT_PATH_ENABLE, mask, val);
 	}
 
 	mask = BIT(AUDIOH_DAC_CTL_HSR_ENABLE) |
@@ -464,6 +468,18 @@ static void disable_tx_path(struct snd_soc_codec *codec, bool use_tdm)
 	if (use_tdm) {
 		mask = BIT(IOP_IN_I2S_STREAM_CFG_ENABLE);
 		audioh_update_bits(codec, CODEC_IOP_IN_I2S_STREAM_CFG, mask, 0);
+
+		mask = BIT(CODEC_TDM_PLAYOUT_PATH_EP_ENABLE) |
+			BIT(CODEC_TDM_PLAYOUT_PATH_IHF_ENABLE) |
+			BIT(CODEC_TDM_PLAYOUT_PATH_STEREO_HS_ENABLE) |
+			BIT(CODEC_TDM_PLAYOUT_PATH_GLOBAL_ENABLE);
+		audioh_update_bits(codec,
+			CODEC_TDM_PLAYOUT_PATH_ENABLE, mask, 0);
+
+		audioh_update_bits(codec,
+			CODEC_TDM_PLAYOUT_PATH_SW_RESET, 1, 1);
+		audioh_update_bits(codec,
+			CODEC_TDM_PLAYOUT_PATH_SW_RESET, 1, 0);
 	}
 }
 
@@ -472,13 +488,22 @@ static void enable_rx_path(struct snd_soc_codec *codec, bool use_tdm)
 	u32 mask, val;
 
 	if (use_tdm) {
-		mask = 0x0F;
+		mask = BIT(CODEC_TDM_CAPTURE_SLOT0_ACTIVE) |
+			BIT(CODEC_TDM_CAPTURE_SLOT1_ACTIVE) |
+			BIT(CODEC_TDM_CAPTURE_SLOT2_ACTIVE) |
+			BIT(CODEC_TDM_CAPTURE_SLOT3_ACTIVE);
+		val = mask;
 		audioh_update_bits(codec,
-			CODEC_TDM_CAPTURE_SLOTS_ACTIVE, mask, 0x0F);
+			CODEC_TDM_CAPTURE_SLOTS_ACTIVE, mask, val);
 
-		mask = 0x1F;
+		mask = BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_GLOBAL) |
+			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO1) |
+			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO2) |
+			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO3) |
+			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO4);
+		val = mask;
 		audioh_update_bits(codec,
-			CODEC_TDM_CAPTURE_PATH_ENABLE,  mask, 0x1F);
+			CODEC_TDM_CAPTURE_PATH_ENABLE, mask, val);
 	}
 
 	mask = BIT(AUDIOH_ADC_CTL_MIC1_ENABLE) |
@@ -503,6 +528,26 @@ static void disable_rx_path(struct snd_soc_codec *codec, bool use_tdm)
 		mask = BIT(IOP_OUT_I2S_STREAM_CFG_ENABLE);
 		audioh_update_bits(codec,
 			CODEC_IOP_OUT_I2S_STREAM_CFG, mask, 0);
+
+		mask =  BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_GLOBAL) |
+			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO1)  |
+			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO2)  |
+			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO3)  |
+			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO4);
+		audioh_update_bits(codec,
+			CODEC_TDM_CAPTURE_PATH_ENABLE, mask, 0);
+
+		mask = BIT(CODEC_TDM_CAPTURE_SLOT0_ACTIVE) |
+			BIT(CODEC_TDM_CAPTURE_SLOT1_ACTIVE) |
+			BIT(CODEC_TDM_CAPTURE_SLOT2_ACTIVE) |
+			BIT(CODEC_TDM_CAPTURE_SLOT3_ACTIVE);
+		audioh_update_bits(codec,
+			CODEC_TDM_CAPTURE_SLOTS_ACTIVE, mask, 0);
+
+		audioh_update_bits(codec,
+			CODEC_TDM_CAPTURE_PATH_SW_RESET, 1, 1);
+		audioh_update_bits(codec,
+			CODEC_TDM_CAPTURE_PATH_SW_RESET, 1, 0);
 	}
 }
 
