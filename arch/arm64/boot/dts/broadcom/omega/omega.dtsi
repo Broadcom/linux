@@ -191,17 +191,17 @@
 			reg = <0x00600000 0xb40>, <0x00600d70 0x1f8>;
 			reg-names = "aud", "i2s_in";
 
-			assigned-clocks = <&audiopll_0 BCM_OMEGA_AUDIOPLL>,
+			assigned-clocks = <&audiopll_1 BCM_OMEGA_AUDIOPLL>,
 					  <&ssp0_clock>,
 					  <&ssp1_clock>,
 					  <&ssp2_clock>,
 					  <&spdiftx_clock>;
 			assigned-clock-rates = <1376255989>;
 			assigned-clock-parents = <0>,
-					<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH0>,
-					<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH1>,
-					<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH2>,
-					<&audiopll_0 BCM_OMEGA_AUDIOPLL_CH3>;
+					<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH0>,
+					<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH1>,
+					<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH2>,
+					<&audiopll_1 BCM_OMEGA_AUDIOPLL_CH3>;
 
 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>; /* 143 */
 
@@ -313,6 +313,25 @@
 			#interrupt-cells = <3>;
 			interrupts = <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
 			gpio-ranges = <&pinmux0 0 0 51>;
+		};
+
+		iproc_dsi: dsi@28610000 {
+			compatible = "brcm,iproc-dsi";
+			id = <0>;
+			reg-names = "dsi-phy", "axipv", "pv", "gen-pll";
+			reg = <0x28610000 0x80>,
+				<0x28600000 0x60>,
+				<0x28600400 0x40>,
+				<0x28600800 0x50>;
+			interrupts = <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>;
+			assigned-clocks = <&audiopll_0 BCM_OMEGA_AUDIOPLL>;
+			assigned-clock-rates = <1171497600>;
+			clocks = <&audiopll_0 BCM_OMEGA_AUDIOPLL_CH3>;
+			clock-names = "mipidsi_clk";
+			brcm,num-fb = <3>;
+			status = "disabled";
 		};
 
 		nand: nand@288c0000 {
