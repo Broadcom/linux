@@ -749,7 +749,7 @@ config KEYBOARD_BCM
 	tristate "Broadcom keypad driver"
 	depends on OF && HAVE_CLK
 	select INPUT_MATRIXKMAP
-	default ARCH_BCM_CYGNUS
+	default ARCH_BCM_IPROC
 	help
 	  Say Y here if you want to use Broadcom keypad.
 
