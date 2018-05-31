@@ -272,6 +272,15 @@
 			};
 		};
 
+		keypad: keypad@28270000 {
+			compatible = "brcm,bcm-keypad";
+			reg = <0x28270000 0x14c>;
+			interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+			pinctrl-names = "default";
+			pinctrl-0 = <&keypad_pins>;
+		};
+
 		ehci: usb@28400000 {
 			compatible = "generic-ehci";
 			reg = <0x28400000 0x100>;
