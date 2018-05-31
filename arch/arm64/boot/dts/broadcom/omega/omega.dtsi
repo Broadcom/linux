@@ -253,6 +253,25 @@
 			status = "disabled";
 		};
 
+		switch: switch@028242000 {
+			compatible = "brcm,omega-srab";
+			reg = <0x28242000 0x1000>;
+			status = "disabled";
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@8 {
+					reg = <8>;
+					label = "cpu";
+					ethernet = <&eth0>;
+					fixed-link {
+						speed = <1000>;
+						full-duplex;
+					};
+				};
+			};
+		};
+
 		ehci: usb@28400000 {
 			compatible = "generic-ehci";
 			reg = <0x28400000 0x100>;

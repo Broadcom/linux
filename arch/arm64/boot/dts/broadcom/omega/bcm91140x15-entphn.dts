@@ -245,6 +245,31 @@
 	};
 };
 
+&eth0 {
+	status = "okay";
+};
+
+&switch {
+	compatible = "brcm,bcm11407-srab", "brcm,omega-srab";
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+		       reg = <0>;
+		       label = "pc";
+		       phy-handle = <&gphy0>;
+		       phy-mode = "gmii";
+		};
+		port@1 {
+		       reg = <1>;
+		       label = "lan";
+		       phy-handle = <&gphy1>;
+		       phy-mode = "gmii";
+		};
+	};
+};
+
 / {
 	model = "Broadcom Omega bcm91140x15-entphn";
 };
