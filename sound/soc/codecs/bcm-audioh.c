@@ -769,6 +769,17 @@ static const struct snd_kcontrol_new micpath4_mux_controls =
 	SOC_DAPM_ENUM("Route", audioh_micpath_enum[3]);
 
 
+/* Sidetone */
+static const char * const audioh_sidetone_src[] = {
+	"None", "Capture1", "Capture2", "Capture3", "Capture4"
+};
+
+static SOC_ENUM_SINGLE_DECL(audioh_sidetone_enum,
+	AUDIOH_MIC_SELECT, AUDIOH_MIC_SELECT_SDT, audioh_sidetone_src);
+
+static const struct snd_kcontrol_new audioh_sidetone_mux_controls =
+	SOC_DAPM_ENUM("Route", audioh_sidetone_enum);
+
 static int dmic_1and2_clk_set(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -839,6 +850,10 @@ static const struct snd_soc_dapm_widget audioh_dapm_widgets[] = {
 			 0, 0, &micpath3_mux_controls),
 	SND_SOC_DAPM_MUX("Capture4 Mux", SND_SOC_NOPM,
 			 0, 0, &micpath4_mux_controls),
+
+	/* Sidetone */
+	SND_SOC_DAPM_MUX("Sidetone Mux", SND_SOC_NOPM, 0, 0,
+			&audioh_sidetone_mux_controls),
 
 	/* Digital inputs (TDM) */
 	SND_SOC_DAPM_AIF_IN("TDM_PLAY_Slot0", "TDM Playback", 0,
@@ -921,6 +936,12 @@ static const struct snd_soc_dapm_route audioh_dapm_routes[] = {
 	{"Earpiece DAC2", NULL, "TDM_PLAY_Slot3"},
 	{"Earpiece DAC1", NULL, "FIFO_PLAY_Slot3"},
 	{"Earpiece DAC2", NULL, "FIFO_PLAY_Slot3"},
+
+	/* -----  Sidetone Path  ------------------------------------------ */
+	{"Sidetone Mux", "Capture1", "Capture1 Mux"},
+	{"Sidetone Mux", "Capture2", "Capture2 Mux"},
+	{"Sidetone Mux", "Capture3", "Capture3 Mux"},
+	{"Sidetone Mux", "Capture4", "Capture4 Mux"},
 
 	/* -----  Capture Path  ------------------------------------------ */
 	{"ADC1 Mux", "main mic", "AMIC1"},
@@ -1193,7 +1214,7 @@ static int tonegen_scale_get(struct snd_kcontrol *kcontrol,
 static const DECLARE_TLV_DB_SCALE(adcpga_tlv, 0, 300, 0);
 
 static const struct snd_kcontrol_new audioh_control[] = {
-	SOC_SINGLE("Headset Mute Switch",
+	SOC_SINGLE("Stereo Headset Mute Switch",
 			AUDIOH_DAC_CTL, AUDIOH_DAC_CTL_HS_MUTE, 1, 0),
 	SOC_SINGLE("IHF Mute Switch",
 			AUDIOH_DAC_CTL, AUDIOH_DAC_CTL_IHF_MUTE, 1, 0),
@@ -1204,6 +1225,15 @@ static const struct snd_kcontrol_new audioh_control[] = {
 			mono_headset_enable_get, mono_headset_enable_put),
 	SOC_SINGLE_EXT("Mono Earpiece Enable", 0, 0, 1, 0,
 			mono_earpiece_enable_get, mono_earpiece_enable_put),
+
+	SOC_SINGLE("Stereo Headset Sidetone Switch",
+		   AUDIOH_DAC_CTL, AUDIOH_DAC_CTL_HS_SIDETONE_EN, 1, 0),
+	SOC_SINGLE("IHF Sidetone Switch",
+		   AUDIOH_DAC_CTL, AUDIOH_DAC_CTL_IHF_SIDETONE_EN, 1, 0),
+	SOC_SINGLE("EP Sidetone Switch",
+		   AUDIOH_DAC_CTL, AUDIOH_DAC_CTL_EP_SIDETONE_EN, 1, 0),
+	SOC_SINGLE("Sidetone Switch",
+		   AUDIOH_ADC_CTL, AUDIOH_ADC_CTL_SIDETONE_EN, 1, 0),
 
 	SOC_SINGLE_EXT("Common ToneGen", 0, 0, 1, 0,
 			tonegen_common_enable_get, tonegen_common_enable_put),
