@@ -1,0 +1,37 @@
+Omega Enterprise Phone reference design
+
+Required properties:
+- compatible: "brcm,bcm91140x15_entphn-machine"
+
+Optional properties:
+- brcm,ext-headset-amp-en-gpio: gpio used to control the enabling of
+	the mono headset speaker amplifier.
+
+In addition to these properties, the device follows the general construct
+of the multi-dai generic "simple audio card".  Refer to simple-card.txt.
+
+Example:
+
+sound {
+	compatible = "brcm,bcm91140x15_entphn-machine";
+	status = "okay";
+
+	link0 {
+		format = "dsp_a";
+		bitclock-master = <&dailink0_master>;
+		frame-master = <&dailink0_master>;
+
+		cpu {
+			sound-dai = <&omega_audio 2>;
+
+			dai-tdm-slot-num = <8>;
+			dai-tdm-slot-width = <32>;
+			dai-tdm-slot-tx-mask = <1 1 1 1 0 0 0 0>;
+			dai-tdm-slot-rx-mask = <1 1 1 1 0 0 0 0>;
+		};
+
+		dailink0_master: codec {
+			sound-dai = <&omega_codec 0>;
+		};
+	};
+};
