@@ -35,7 +35,7 @@ bcm_omega_defconfig="base-arm64          \
     optee                                \
     pci pwm                              \
     regulator rng                        \
-    sound spi stmpe trace                \
+    sound spi stmpe switch trace         \
     usb usbd                             \
     watchdog wifi"
 
