@@ -1093,21 +1093,22 @@ static int iproc_pcie_setup_ob(struct iproc_pcie *pcie, u64 axi_addr,
 				ob_map->window_sizes[size_idx] * SZ_1M;
 
 			/*
-			 * Keep iterating until we reach the last window and with
-			 * the minimal window size at index zero. In this case,
-			 * we take a compromise by mapping it using the minimum
-			 * window size that can be supported
+			 * Keep iterating until we reach the last window and
+			 * with the minimal window size at index zero. In this
+			 * case, we take a compromise by mapping it using the
+			 * minimum window size that can be supported
 			 */
-			if (size < window_size && (size_idx > 0 || window_idx > 0))
-				continue;
+			if (size < window_size) {
+				if (size_idx > 0 || window_idx > 0)
+					continue;
 
-			/*
-			 * For the corner case of reaching the minimal window
-			 * size that can be supported
-			 */
-			if (size_idx == 0 && size < window_size) {
-				axi_addr = ALIGN(axi_addr, window_size);
-				pci_addr = ALIGN(pci_addr, window_size);
+				/*
+				 * For the corner case of reaching the minimal
+				 * window size that can be supported on the
+				 * last window
+				 */
+				axi_addr = ALIGN_DOWN(axi_addr, window_size);
+				pci_addr = ALIGN_DOWN(pci_addr, window_size);
 				size = window_size;
 			}
 
