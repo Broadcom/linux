@@ -260,7 +260,10 @@ static void analog_mic_enable(struct snd_soc_codec *codec)
 
 	codec_mic_bias_pwrup(codec);
 
-	mask = BIT(ADC_CFG2_ADC_RESET);
+	/* Power up ADC and PGA, release reset */
+	mask = BIT(ADC_CFG2_ADC_PD) |
+		BIT(ADC_CFG2_PGA_PD) |
+		BIT(ADC_CFG2_ADC_RESET);
 	audioh_update_bits(codec, AUDIOH_ADC1_CFG2, mask, 0);
 	audioh_update_bits(codec, AUDIOH_ADC2_CFG2, mask, 0);
 }
@@ -451,17 +454,6 @@ static void headset_afe_enable(struct snd_soc_codec *codec)
 	audioh_update_bits(codec, AUDIOH_DAC_CTL, mask, mask);
 }
 
-static void power_up_all_interfaces(struct snd_soc_codec *codec)
-{
-	analog_global_init(codec);
-
-	ihf_afe_enable(codec);
-	headset_afe_enable(codec);
-	ep_afe_enable(codec);
-
-	analog_mic_enable(codec);
-}
-
 static void clear_capture_fifos(struct snd_soc_codec *codec)
 {
 	u32 mask1, mask2;
@@ -476,15 +468,17 @@ static void clear_capture_fifos(struct snd_soc_codec *codec)
 	audioh_update_bits(codec, AUDIOH_MIC34_FIFO_CTRL, mask2, 0);
 }
 
+#define TDM_PLAYBACK_PATH_MASK  (BIT(CODEC_TDM_PLAYOUT_PATH_EP_ENABLE) | \
+				BIT(CODEC_TDM_PLAYOUT_PATH_IHF_ENABLE) | \
+				BIT(CODEC_TDM_PLAYOUT_PATH_STEREO_HS_ENABLE) | \
+				BIT(CODEC_TDM_PLAYOUT_PATH_GLOBAL_ENABLE))
+
 static void enable_tx_path(struct snd_soc_codec *codec, bool use_tdm)
 {
 	u32 mask, val;
 
 	if (use_tdm) {
-		mask = BIT(CODEC_TDM_PLAYOUT_PATH_EP_ENABLE) |
-			BIT(CODEC_TDM_PLAYOUT_PATH_IHF_ENABLE) |
-			BIT(CODEC_TDM_PLAYOUT_PATH_STEREO_HS_ENABLE) |
-			BIT(CODEC_TDM_PLAYOUT_PATH_GLOBAL_ENABLE);
+		mask = TDM_PLAYBACK_PATH_MASK;
 		val = mask;
 		audioh_update_bits(codec,
 			CODEC_TDM_PLAYOUT_PATH_ENABLE, mask, val);
@@ -512,10 +506,7 @@ static void disable_tx_path(struct snd_soc_codec *codec, bool use_tdm)
 		mask = BIT(IOP_IN_I2S_STREAM_CFG_ENABLE);
 		audioh_update_bits(codec, CODEC_IOP_IN_I2S_STREAM_CFG, mask, 0);
 
-		mask = BIT(CODEC_TDM_PLAYOUT_PATH_EP_ENABLE) |
-			BIT(CODEC_TDM_PLAYOUT_PATH_IHF_ENABLE) |
-			BIT(CODEC_TDM_PLAYOUT_PATH_STEREO_HS_ENABLE) |
-			BIT(CODEC_TDM_PLAYOUT_PATH_GLOBAL_ENABLE);
+		mask = TDM_PLAYBACK_PATH_MASK;
 		audioh_update_bits(codec,
 			CODEC_TDM_PLAYOUT_PATH_ENABLE, mask, 0);
 
@@ -526,24 +517,28 @@ static void disable_tx_path(struct snd_soc_codec *codec, bool use_tdm)
 	}
 }
 
+#define TDM_CAPTURE_SLOT_MASK  (BIT(CODEC_TDM_CAPTURE_SLOT0_ACTIVE) | \
+				BIT(CODEC_TDM_CAPTURE_SLOT1_ACTIVE) | \
+				BIT(CODEC_TDM_CAPTURE_SLOT2_ACTIVE) | \
+				BIT(CODEC_TDM_CAPTURE_SLOT3_ACTIVE))
+
+#define TDM_CAPTURE_PATH_MASK  (BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_GLOBAL) | \
+				BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO1)  | \
+				BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO2)  | \
+				BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO3)  | \
+				BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO4))
+
 static void enable_rx_path(struct snd_soc_codec *codec, bool use_tdm)
 {
 	u32 mask, val;
 
 	if (use_tdm) {
-		mask = BIT(CODEC_TDM_CAPTURE_SLOT0_ACTIVE) |
-			BIT(CODEC_TDM_CAPTURE_SLOT1_ACTIVE) |
-			BIT(CODEC_TDM_CAPTURE_SLOT2_ACTIVE) |
-			BIT(CODEC_TDM_CAPTURE_SLOT3_ACTIVE);
+		mask = TDM_CAPTURE_SLOT_MASK;
 		val = mask;
 		audioh_update_bits(codec,
 			CODEC_TDM_CAPTURE_SLOTS_ACTIVE, mask, val);
 
-		mask = BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_GLOBAL) |
-			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO1) |
-			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO2) |
-			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO3) |
-			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO4);
+		mask = TDM_CAPTURE_PATH_MASK;
 		val = mask;
 		audioh_update_bits(codec,
 			CODEC_TDM_CAPTURE_PATH_ENABLE, mask, val);
@@ -572,18 +567,11 @@ static void disable_rx_path(struct snd_soc_codec *codec, bool use_tdm)
 		audioh_update_bits(codec,
 			CODEC_IOP_OUT_I2S_STREAM_CFG, mask, 0);
 
-		mask =  BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_GLOBAL) |
-			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO1)  |
-			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO2)  |
-			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO3)  |
-			BIT(CODEC_TDM_CAPTURE_PATH_ENABLE_FIFO4);
+		mask = TDM_CAPTURE_PATH_MASK;
 		audioh_update_bits(codec,
 			CODEC_TDM_CAPTURE_PATH_ENABLE, mask, 0);
 
-		mask = BIT(CODEC_TDM_CAPTURE_SLOT0_ACTIVE) |
-			BIT(CODEC_TDM_CAPTURE_SLOT1_ACTIVE) |
-			BIT(CODEC_TDM_CAPTURE_SLOT2_ACTIVE) |
-			BIT(CODEC_TDM_CAPTURE_SLOT3_ACTIVE);
+		mask = TDM_CAPTURE_SLOT_MASK;
 		audioh_update_bits(codec,
 			CODEC_TDM_CAPTURE_SLOTS_ACTIVE, mask, 0);
 
@@ -893,13 +881,11 @@ static const struct snd_soc_dapm_widget audioh_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("FIFO_CAP_Slot3", "FIFO Capture", 3,
 				SND_SOC_NOPM, 0, 0),
 
-	SND_SOC_DAPM_ADC("ADC1", NULL, AUDIOH_ADC1_CFG2, ADC_CFG2_ADC_PD, 1),
-	SND_SOC_DAPM_ADC("ADC2", NULL, AUDIOH_ADC2_CFG2, ADC_CFG2_ADC_PD, 1),
+	SND_SOC_DAPM_ADC("ADC1", NULL, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_ADC("ADC2", NULL, SND_SOC_NOPM, 0, 0),
 
-	SND_SOC_DAPM_PGA("ADC1 PGA",
-			AUDIOH_ADC1_CFG2, ADC_CFG2_PGA_PD, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("ADC2 PGA",
-			AUDIOH_ADC2_CFG2, ADC_CFG2_PGA_PD, 1, NULL, 0),
+	SND_SOC_DAPM_PGA("ADC1 PGA", SND_SOC_NOPM, 0, 1, NULL, 0),
+	SND_SOC_DAPM_PGA("ADC2 PGA", SND_SOC_NOPM, 0, 1, NULL, 0),
 
 	SND_SOC_DAPM_DAC("Headset DAC Left", NULL, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_DAC("Headset DAC Right", NULL, SND_SOC_NOPM, 0, 0),
@@ -1338,7 +1324,12 @@ static int audioh_codec_probe(struct snd_soc_codec *codec)
 	mask = BIT(AUDIOH_SDT_CTRL_TARGET_GAIN_LOAD);
 	audioh_update_bits(codec, AUDIOH_SDT_CTRL, mask, mask);
 
-	power_up_all_interfaces(codec);
+	/* power up the analog interfaces */
+	analog_global_init(codec);
+	ihf_afe_enable(codec);
+	headset_afe_enable(codec);
+	ep_afe_enable(codec);
+	analog_mic_enable(codec);
 
 	return 0;
 }
