@@ -1264,6 +1264,9 @@ static const struct snd_kcontrol_new audioh_control[] = {
 			AUDIOH_ADC1_CFG, ADC_CFG_PGA_GAIN, 0xF, 0, adcpga_tlv),
 	SOC_SINGLE_TLV("ADC2 PGA",
 			AUDIOH_ADC2_CFG, ADC_CFG_PGA_GAIN, 0xF, 0, adcpga_tlv),
+
+	SOC_SINGLE_RANGE("Sidetone Gain", AUDIOH_SDT_CTRL,
+			AUDIOH_SDT_CTRL_TARGET_GAIN, 0, 0x7FFF, 1),
 };
 
 
@@ -1292,7 +1295,7 @@ static void capture_path_filter_disable(struct snd_soc_codec *codec)
 
 static int audioh_codec_probe(struct snd_soc_codec *codec)
 {
-	u32 mask;
+	u32 mask, val;
 
 	codec_reset_release(codec);
 
@@ -1316,6 +1319,24 @@ static int audioh_codec_probe(struct snd_soc_codec *codec)
 
 	mask = BIT(CAPTURE_FIFO3_24BIT) | BIT(CAPTURE_FIFO4_24BIT);
 	audioh_update_bits(codec, AUDIOH_MIC34_FIFO_CTRL, mask, mask);
+
+	/* Enable Sidetone FIFO in 24 bit mode*/
+	mask = BIT(AUDIOH_SDT_CTRL_3_MODE16BIT) |
+		BIT(AUDIOH_SDT_CTRL_3_FIFO_ENABLE);
+	val = BIT(AUDIOH_SDT_CTRL_3_FIFO_ENABLE);
+	audioh_update_bits(codec, AUDIOH_SDT_CTRL_3, mask, val);
+
+	/* Enable sidetone fir filter */
+	mask = BIT(AUDIOH_SDT_CTRL_FIR_FILTER_DISABLE);
+	audioh_update_bits(codec, AUDIOH_SDT_CTRL, mask, 0);
+
+	/* Bypass sidetone filters */
+	mask = BIT(AUDIOH_SDT_CTRL_4_FILTER_BYPASS);
+	audioh_update_bits(codec, AUDIOH_SDT_CTRL_4, mask, mask);
+
+	/* Allow sidetone gain to be updated */
+	mask = BIT(AUDIOH_SDT_CTRL_TARGET_GAIN_LOAD);
+	audioh_update_bits(codec, AUDIOH_SDT_CTRL, mask, mask);
 
 	power_up_all_interfaces(codec);
 
