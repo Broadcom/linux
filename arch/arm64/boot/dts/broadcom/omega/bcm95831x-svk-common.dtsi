@@ -43,6 +43,7 @@
 			/* Outputs */
 			"SVK Handsfree", "LSPK_OUT",
 			"SVK Handset Earpiece", "EP_OUT",
+			"SVK Headset Speaker", "EP_OUT2",
 			"SVK Headphone jack", "HS_OUT_L",
 			"SVK Headphone jack", "HS_OUT_R",
 
