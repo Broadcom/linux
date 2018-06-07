@@ -132,13 +132,6 @@
 	status = "okay";
 };
 
-&eth0 {
-	brcm,amac-switch-bypass;
-	phy-handle = <&gphy0>;
-	phy-mode = "gmii";
-	status = "okay";
-};
-
 &ehci {
 	phys = <&usbphy0>;
 	phy-names = "usbp0";
