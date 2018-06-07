@@ -10,6 +10,12 @@
 / {
 	model = "Broadcom Omega (bcm958313) Wireless Audio";
 
+	gpio_backlight: backlight {
+		compatible = "gpio-backlight";
+		gpios = <&stmpe_gpio 2 0>;
+		default-on;
+	};
+
 	sound {
 		compatible = "simple-audio-card";
 		status = "okay";
@@ -153,6 +159,57 @@
 			label = "lan";
 			phy-handle = <&gphy0>;
 			phy-mode = "gmii";
+		};
+	};
+};
+
+&spi2 {
+	status = "okay";
+	num-cs = <2>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi2_pins>;
+	cs-gpios = <&gpio_west 31 0>, <&gpio_east 60 0>;
+
+	pitft: pitft@0{
+		compatible = "ilitek,ili9341";
+		reg = <0>;
+		spi-max-frequency = <25000000>;
+		pl022,com-mode = <0>;
+		rotate = <270>;
+		fps = <10>;
+		bgr;
+		buswidth = <8>;
+		dc-gpios = <&gpio_east 56 0>;
+		debug = <0>;
+	};
+
+	pitft_ts@1 {
+		compatible = "st,stmpe610";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		irq-gpio = <&gpio_east 55 0>;
+
+		stmpe_touchscreen {
+			compatible = "st,stmpe-ts";
+			st,sample-time = <4>;
+			st,mod-12b = <1>;
+			st,ref-sel = <0>;
+			st,adc-freq = <2>;
+			st,ave-ctrl = <3>;
+			st,touch-det-delay = <4>;
+			st,settling = <2>;
+			st,fraction-z = <7>;
+			st,i-drive = <0>;
+		};
+
+		stmpe_gpio: stmpe_gpio {
+			#gpio-cells = <2>;
+			compatible = "st,stmpe-gpio";
+			/*
+			 * only GPIO2 is wired/available
+			 * and it is wired to the backlight
+			 */
+			st,norequest-mask = <0x7b>;
 		};
 	};
 };

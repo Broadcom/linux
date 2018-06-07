@@ -321,6 +321,50 @@
 			pinctrl-0 = <&uart0_pins>;
 		};
 
+		spi0: spi@28530000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x28530000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_periph_apb>;
+			clock-names = "apb_pclk";
+			status = "disabled";
+		};
+
+		spi1: spi@28540000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x28540000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_periph_apb>;
+			clock-names = "apb_pclk";
+			status = "disabled";
+		};
+
+		spi2: spi@28550000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x28550000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_periph_apb>;
+			clock-names = "apb_pclk";
+			status = "disabled";
+		};
+
+		spi3: spi@28560000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x28560000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_periph_apb>;
+			clock-names = "apb_pclk";
+			status = "disabled";
+		};
+
 		i2c0: i2c@28570000 {
 			compatible = "brcm,iproc-i2c";
 			reg = <0x28570000 0x100>;
