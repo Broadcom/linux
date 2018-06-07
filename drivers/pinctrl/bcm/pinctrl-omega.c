@@ -112,6 +112,7 @@ struct omega_pin {
  * struct omega_pinctrl - state for an omega pinctrl device
  * @dev:            device handle.
  * @pctrl:          pinctrl handle.
+ * @pctrldesc:      pinctrl descriptor.
  * @chip:           gpiochip handle.
  * @irq:            parent irq for the irq_chip.
  * @lock:           spinlock to protect register resources as well
@@ -122,6 +123,7 @@ struct omega_pin {
 struct omega_pinctrl {
 	struct device *dev;
 	struct pinctrl_dev *pctrl;
+	struct pinctrl_desc pctrldesc;
 	struct gpio_chip chip;
 	int irq;
 	raw_spinlock_t lock;
@@ -552,12 +554,6 @@ static const struct pinconf_ops omega_pinconf_ops = {
 	.pin_config_set = omega_pin_config_set,
 };
 
-static struct pinctrl_desc omega_pinctrl_desc = {
-	.pctlops = &omega_pinctrl_ops,
-	.confops = &omega_pinconf_ops,
-	.owner = THIS_MODULE,
-};
-
 /*
  *
  * Here a local pinctrl device is created with simple 1-to-1 pin mapping to the
@@ -571,6 +567,7 @@ static struct pinctrl_desc omega_pinctrl_desc = {
 static int omega_gpio_register_pinctrl(struct omega_pinctrl *pctrl)
 {
 	struct pinctrl_pin_desc *pins;
+	struct pinctrl_desc *pctrldesc = &pctrl->pctrldesc;
 	int i;
 
 	pins = devm_kcalloc(pctrl->dev, pctrl->ngpio, sizeof(*pins),
@@ -586,12 +583,13 @@ static int omega_gpio_register_pinctrl(struct omega_pinctrl *pctrl)
 			return -ENOMEM;
 	}
 
-	omega_pinctrl_desc.name = dev_name(pctrl->dev);
-	omega_pinctrl_desc.pins = pins;
-	omega_pinctrl_desc.npins = pctrl->ngpio;
+	pctrldesc->name = dev_name(pctrl->dev);
+	pctrldesc->pins = pins;
+	pctrldesc->npins = pctrl->ngpio;
+	pctrldesc->pctlops = &omega_pinctrl_ops;
+	pctrldesc->confops = &omega_pinconf_ops;
 
-	pctrl->pctrl = devm_pinctrl_register(pctrl->dev, &omega_pinctrl_desc,
-					     pctrl);
+	pctrl->pctrl = devm_pinctrl_register(pctrl->dev, pctrldesc, pctrl);
 	if (IS_ERR(pctrl->pctrl)) {
 		dev_err(pctrl->dev, "unable to register pinctrl device\n");
 		return PTR_ERR(pctrl->pctrl);
