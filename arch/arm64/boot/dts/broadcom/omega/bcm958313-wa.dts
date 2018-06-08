@@ -62,6 +62,20 @@
 	};
 };
 
+&i2c0 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_mfio043_pins>;
+};
+
+&i2c1 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_mfio045_pins>;
+};
+
 &omega_codec {
 	status = "okay";
 
@@ -135,10 +149,10 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		port@0 {
-		       reg = <0>;
-		       label = "lan";
-		       phy-handle = <&gphy0>;
-		       phy-mode = "gmii";
+			reg = <0>;
+			label = "lan";
+			phy-handle = <&gphy0>;
+			phy-mode = "gmii";
 		};
 	};
 };
