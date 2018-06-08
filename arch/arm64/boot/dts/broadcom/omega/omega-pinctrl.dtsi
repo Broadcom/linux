@@ -359,7 +359,18 @@
 				>;
 			};
 
-			sdio0_pins: sdio0_mux_func {
+			sdio0_4bit_mode_pins: sdio0_4bit_mode_mux_func {
+				pinctrl-single,pins = <
+					0x24 ALT_1 /* MFIO_060: SDIO_CLK */
+					0x28 ALT_1 /* MFIO_061: SDIO_CMD */
+					0x2c ALT_1 /* MFIO_062: SDIO_D0 */
+					0x30 ALT_1 /* MFIO_063: SDIO_D1 */
+					0x34 ALT_1 /* MFIO_064: SDIO_D2 */
+					0x38 ALT_1 /* MFIO_065: SDIO_D3 */
+				>;
+			};
+
+			sdio0_8bit_mode_pins: sdio0_8bit_mode_mux_func {
 				pinctrl-single,pins = <
 					0x24 ALT_1 /* MFIO_060: SDIO_CLK */
 					0x28 ALT_1 /* MFIO_061: SDIO_CMD */
