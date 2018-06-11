@@ -86,6 +86,8 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_kfree_name;
 	}
 
+	dev_info(dev, "BCM-VK:%u\n", id);
+
 	return 0;
 
 err_kfree_name:
