@@ -16,8 +16,11 @@
 
 static DEFINE_IDA(bcm_vk_ida);
 
+#define MAX_BAR 3
+
 struct bcm_vk {
 	struct pci_dev *pdev;
+	void __iomem *bar[MAX_BAR];
 	int num_irqs;
 	struct miscdevice miscdev;
 };
@@ -77,6 +80,14 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_disable_pdev;
 	}
 
+	for (i = 0; i < MAX_BAR; i++) {
+		vk->bar[i] = pci_ioremap_bar(pdev, i);
+		if (!vk->bar[i]) {
+			dev_err(dev, "failed to remap BAR%d\n", i);
+			goto err_iounmap;
+		}
+	}
+
 	pci_set_drvdata(pdev, vk);
 
 	for (vk->num_irqs = 0; vk->num_irqs < irq; vk->num_irqs++) {
@@ -94,7 +105,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (id < 0) {
 		err = id;
 		dev_err(dev, "unable to get id\n");
-		goto err_iounmap;
+		goto err_irq;
 	}
 
 	snprintf(name, sizeof(name), DRV_MODULE_NAME ".%d", id);
@@ -130,6 +141,10 @@ err_irq:
 	pci_disable_msi(pdev);
 
 err_iounmap:
+	for (i = 0; i < MAX_BAR; i++) {
+		if (vk->bar[i])
+			pci_iounmap(pdev, vk->bar[i]);
+	}
 	pci_release_regions(pdev);
 
 err_disable_pdev:
@@ -157,6 +172,10 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 		devm_free_irq(&pdev->dev, pci_irq_vector(pdev->irq, i), vk);
 
 	pci_disable_msi(pdev);
+	for (i = 0; i < MAX_BAR; i++) {
+		if (vk->bar[i])
+			pci_iounmap(pdev, vk->bar[i]);
+	}
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);
 }
