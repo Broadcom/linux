@@ -18,8 +18,15 @@ static DEFINE_IDA(bcm_vk_ida);
 
 struct bcm_vk {
 	struct pci_dev *pdev;
+	int num_irqs;
 	struct miscdevice miscdev;
 };
+
+static irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id)
+{
+	return IRQ_HANDLED;
+}
+
 
 static long bcm_vk_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -35,7 +42,9 @@ static const struct file_operations bcm_vk_fops = {
 static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	int err;
+	int i;
 	int id;
+	int irq;
 	char name[20];
 	struct bcm_vk *vk;
 	struct device *dev = &pdev->dev;
@@ -61,7 +70,25 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	pci_set_master(pdev);
 
+	irq = pci_alloc_irq_vectors(pdev, 1, 32, PCI_IRQ_MSI | PCI_IRQ_MSIX);
+	if (irq < 0) {
+		dev_err(dev, "failed to get MSIX interrupts\n");
+		err = irq;
+		goto err_disable_pdev;
+	}
+
 	pci_set_drvdata(pdev, vk);
+
+	for (vk->num_irqs = 0; vk->num_irqs < irq; vk->num_irqs++) {
+		err = devm_request_irq(dev, pci_irq_vector(pdev, vk->num_irqs),
+				       bcm_vk_irqhandler,
+				       IRQF_SHARED, DRV_MODULE_NAME, vk);
+		if (err) {
+			dev_err(dev, "failed to request IRQ %d for MSIX %d\n",
+				pdev->irq + vk->num_irqs, vk->num_irqs + 1);
+			goto err_irq;
+		}
+	}
 
 	id = ida_simple_get(&bcm_vk_ida, 0, 0, GFP_KERNEL);
 	if (id < 0) {
@@ -96,8 +123,13 @@ err_kfree_name:
 err_ida_remove:
 	ida_simple_remove(&bcm_vk_ida, id);
 
-err_iounmap:
+err_irq:
+	for (i = 0; i < vk->num_irqs; i++)
+		devm_free_irq(dev, pci_irq_vector(pdev->irq, i), vk);
+
 	pci_disable_msi(pdev);
+
+err_iounmap:
 	pci_release_regions(pdev);
 
 err_disable_pdev:
@@ -108,6 +140,7 @@ err_disable_pdev:
 
 static void bcm_vk_remove(struct pci_dev *pdev)
 {
+	int i;
 	int id;
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &vk->miscdev;
@@ -120,6 +153,9 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	misc_deregister(&vk->miscdev);
 	kfree(misc_device->name);
 	ida_simple_remove(&bcm_vk_ida, id);
+	for (i = 0; i < vk->num_irqs; i++)
+		devm_free_irq(&pdev->dev, pci_irq_vector(pdev->irq, i), vk);
+
 	pci_disable_msi(pdev);
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);
