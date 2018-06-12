@@ -78,6 +78,29 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"DMIC4", NULL, "Digital Mic4"},
 };
 
+/* AudioH requires 8 x 32 bit slots */
+#define AUDIOH_NUM_TDM_SLOTS   8
+#define AUDIOH_TDM_SLOT_WIDTH  32
+
+/* We will be using 4 of these slots */
+#define ACTIVE_TDM_SLOTS       4
+
+static int bcm91140x15_entphn_audioh_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct device *dev = rtd->card->dev;
+	unsigned int mask;
+	int ret;
+
+	mask = BIT(ACTIVE_TDM_SLOTS) - 1;
+	ret = snd_soc_dai_set_tdm_slot(cpu_dai, mask, mask,
+				AUDIOH_NUM_TDM_SLOTS, AUDIOH_TDM_SLOT_WIDTH);
+	if (ret < 0)
+		dev_err(dev, "%s Failed snd_soc_dai_set_tdm_slot\n", __func__);
+
+	return ret;
+}
+
 static struct snd_soc_card bcm91140x15_entphn_audio_card = {
 	.name = "bcm91140x15_entphn-card",
 	.owner = THIS_MODULE,
@@ -119,6 +142,8 @@ static int bcm91140x15_entphn_probe(struct platform_device *pdev)
 					&card->dai_link[linknum]);
 	if (ret)
 		goto err_exit;
+
+	card->dai_link[linknum].init = bcm91140x15_entphn_audioh_init;
 
 	snd_soc_card_set_drvdata(card, card_data);
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
