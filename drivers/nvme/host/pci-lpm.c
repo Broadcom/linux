@@ -12,6 +12,7 @@
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/nvme-lpm-ssr.h>
 #include <linux/sizes.h>
 #include <linux/types.h>
 
@@ -817,8 +818,9 @@ static int nvme_pci_setup_prps(struct nvme_dev *dev, phys_addr_t *mem_addr,
 	return 0;
 }
 
-int nvme_send_flush_cmd(struct nvme_dev *dev)
+static int nvme_send_flush_cmd(void *ndev_cntxt)
 {
+	struct nvme_dev *dev = ndev_cntxt;
 	struct nvme_command cmnd = { };
 	unsigned int qid = nvme_used_io_queues(dev);
 	struct nvme_queue *q =  dev->queues[qid];
@@ -894,7 +896,7 @@ static int nvme_alloc_ns(struct nvme_ctrl *ctrl, unsigned int nsid)
 	return 0;
 }
 
-int nvme_initiate_xfers(void *ndev_cntxt)
+static int nvme_initiate_xfers(void *ndev_cntxt)
 {
 	struct nvme_dev *ndev = ndev_cntxt;
 	unsigned int qid, used_queues = nvme_used_io_queues(ndev);
@@ -928,8 +930,9 @@ static void nvme_poll_xfers_on_queue(struct nvme_dev *dev, int qid)
 	}
 }
 
-int nvme_poll_xfers(struct nvme_dev *dev)
+static int nvme_poll_xfers(void *ndev_cntxt)
 {
+	struct nvme_dev *dev = ndev_cntxt;
 	unsigned int qid, polled_cqs;
 	unsigned int used_queues = nvme_used_io_queues(dev);
 	int timeout = dev->num_prp_pages * IO_CMD_TIMEOUT;
@@ -962,7 +965,7 @@ int nvme_poll_xfers(struct nvme_dev *dev)
 /**
  * nvme_destroy_backup_io_queues: Destroy any previously created command Qs
  */
-int nvme_destroy_backup_io_queues(void *ndev_cntxt)
+static int nvme_destroy_backup_io_queues(void *ndev_cntxt)
 {
 	int i;
 	struct nvme_dev *dev = ndev_cntxt;
@@ -1041,8 +1044,9 @@ static void nvme_put_shared_data(struct nvme_dev *ndev, void *shared_data)
  * @ data: pointer to memory region shared with CRMU for CQ polling,
  *	   this region must be mapped prior to using it
  */
-int nvme_build_backup_io_queues(void *ndev_cntxt, u64 mem_addr, u64 blknr,
-				u64 xfer_length, bool write, void *data)
+static int nvme_build_backup_io_queues(void *ndev_cntxt, u64 mem_addr,
+				       u64 blknr, u64 xfer_length, bool write,
+				       void *data)
 {
 	struct nvme_dev *dev = ndev_cntxt;
 	struct nvme_lpm_dev *lpm_dev = &dev->lpm_dev;
@@ -1117,6 +1121,14 @@ int nvme_build_backup_io_queues(void *ndev_cntxt, u64 mem_addr, u64 blknr,
 	return 0;
 }
 
+struct nvme_lpm_drv_ops nvme_lpm_driver_ops = {
+	.nvme_destroy_backup_io_queues = nvme_destroy_backup_io_queues,
+	.nvme_build_backup_io_queues = nvme_build_backup_io_queues,
+	.nvme_initiate_xfers = nvme_initiate_xfers,
+	.nvme_poll_xfers = nvme_poll_xfers,
+	.nvme_send_flush_cmd = nvme_send_flush_cmd,
+};
+
 static int nvme_lpm_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret = -ENOMEM;
@@ -1148,6 +1160,14 @@ static int nvme_lpm_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	dev->ctrl.dev = dev->dev;
 	dev->ctrl.ops = &nvme_pci_ctrl_ops;
 
+
+	ret = register_nvme_lpm_ops(&nvme_lpm_driver_ops);
+	if (ret) {
+		dev_err(dev->dev, "Failed to register LPM ioctls\n");
+		goto put_pci;
+	}
+	nvme_lpm_driver_ops.ctxt = dev;
+
 	ret = nvme_pci_enable(dev);
 	if (ret)
 		goto put_pci;
@@ -1161,8 +1181,7 @@ static int nvme_lpm_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		goto put_pci;
 
-	dev_info(dev->dev, "pci-lpm function %s\n",
-		 dev_name(&pdev->dev));
+	dev_info(dev->dev, "pci-lpm function %s\n", dev_name(&pdev->dev));
 
 	min_page_shift = NVME_CAP_MPSMIN(dev->ctrl.cap) + 12;
 	if (!id_ctrl->mdts)
@@ -1221,18 +1240,8 @@ static struct pci_driver nvme_driver = {
 	.remove		= nvme_lpm_remove,
 };
 
-static int __init nvme_lpm_init(void)
-{
-	return pci_register_driver(&nvme_driver);
-}
-
-static void __exit nvme_lpm_exit(void)
-{
-	pci_unregister_driver(&nvme_driver);
-}
+module_pci_driver(nvme_driver);
 
 MODULE_AUTHOR("Abhishek Shah <abhishek.shah@broadcom.com>");
 MODULE_DESCRIPTION("Low Power Mode Memory backup driver");
 MODULE_LICENSE("GPL v2");
-module_init(nvme_lpm_init);
-module_exit(nvme_lpm_exit);

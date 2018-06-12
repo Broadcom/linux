@@ -62,6 +62,7 @@ config NVME_LPM_BACKUP
 	tristate "NVM Express low power mode memory backup host driver"
 	depends on HAS_DMA
 	select NVME_CORE
+	select NVME_LPM_SSR
 	help
 	  This provides support for the NVMe low power mode memory backup.
 	  This allows you to backup specified contiguous memory to specified

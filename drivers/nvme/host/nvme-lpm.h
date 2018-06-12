@@ -74,12 +74,4 @@ struct nvme_queue {
 	unsigned int cmd_id;
 };
 
-int nvme_build_backup_io_queues(void *ndev_cntxt, u64 mem_addr, u64 slba,
-				u64 req_length, bool write, void *data);
-int nvme_destroy_backup_io_queues(void *ndev_cntxt);
-int nvme_initiate_xfers(void *ndev_cntxt);
-int nvme_used_io_queues(struct nvme_dev *ndev);
-int nvme_poll_xfers(struct nvme_dev *ndev);
-int nvme_send_flush_cmd(struct nvme_dev *dev);
-
 #endif /* _NVME_LPM_H */
