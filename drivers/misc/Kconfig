@@ -529,4 +529,15 @@ config BCM_IPROC_DTE
 
           If unsure, say N.
 
+config NVME_LPM_SSR
+        bool "NVME LPM data-back support"
+        depends on ARCH_BCM_IPROC || COMPILE_TEST
+        depends on OF_GPIO
+        help
+          This module enables support for udpating SSR struct stored in NVM
+          memory and initiate data-back to nvme once poweloss interrupt gets
+          triggered indicating for data-backup.
+
+          If unsure, say N.
+
 endmenu

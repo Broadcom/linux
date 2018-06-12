@@ -69,6 +69,7 @@ lkdtm-$(CONFIG_LKDTM)		+= lkdtm_perms.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_refcount.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_rodata_objcopy.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_usercopy.o
+obj-$(CONFIG_NVME_LPM_SSR)	+= nvme-lpm-ssr.o
 
 KCOV_INSTRUMENT_lkdtm_rodata.o	:= n
 
