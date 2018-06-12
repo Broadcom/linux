@@ -13,6 +13,7 @@
 #ifndef _BCM_IPROC_MAILBOX_H_
 #define _BCM_IPROC_MAILBOX_H_
 
+#include <linux/types.h>
 /*
  * A message to send to the M0 processor.
  * @cmd Command to send.
