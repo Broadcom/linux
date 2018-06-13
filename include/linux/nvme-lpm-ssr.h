@@ -98,4 +98,19 @@ struct ssr_wrapper {
 						struct armed_ssr)
 #define NVME_LPM_IOCTL_AP_POLL		_IO(NVME_LPM_IOCTL_MAGIC, 7)
 
+struct nvme_lpm_drv_ops {
+	void *ctxt;
+	int (*nvme_destroy_backup_io_queues)(void *ctxt);
+	int (*nvme_build_backup_io_queues)(void *ctxt, uint64_t memory_address,
+					   uint64_t disk_address,
+					   uint64_t length,
+					   bool write_to_nvme,
+					   void *shared_nvme_data);
+	int (*nvme_initiate_xfers)(void *ctxt);
+	int (*nvme_poll_xfers)(void *ctxt);
+	int (*nvme_send_flush_cmd)(void *ctxt);
+};
+
+int register_nvme_lpm_ops(void *nvme_drv_ops);
+
 #endif

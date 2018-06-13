@@ -45,6 +45,8 @@ struct nvme_lpm {
 	unsigned int ssr_state_armed;
 };
 
+static struct nvme_lpm_drv_ops *nvme_drv_ops;
+
 static int iproc_mbox_send_msg(struct nvme_lpm *nvme_lpm,
 				struct ssr_wrapper *lwrap)
 {
@@ -124,13 +126,33 @@ static int nvme_lpm_arm_ssr(struct nvme_lpm *nvme_lpm, void __user *argp)
 {
 	struct ssr_wrapper wrap = {0,};
 	struct armed_ssr armed_ssr;
-	int ret;
+	int ret = -EINVAL;
+
+	if (!nvme_drv_ops)
+		goto out;
+
+	ret = nvme_drv_ops->nvme_destroy_backup_io_queues(nvme_drv_ops->ctxt);
+	if (ret) {
+		dev_err(nvme_lpm->dev, "Failed to prepare nvme for backup\n");
+		goto out;
+	}
 
 	if (copy_from_user(&armed_ssr, argp, sizeof(struct armed_ssr))) {
 		dev_err(nvme_lpm->dev, "Failed to copy armed ssr from user\n");
-		return -EFAULT;
+		ret = -EFAULT;
+		goto out;
 	}
 
+	ret = nvme_drv_ops->nvme_build_backup_io_queues(nvme_drv_ops->ctxt,
+						    armed_ssr.memory_address,
+						    armed_ssr.disk_address,
+						    armed_ssr.length, true,
+						    nvme_lpm->shared_nvme_data);
+
+	if (ret) {
+		dev_err(nvme_lpm->dev, "Failed to build backup io queues\n");
+		goto out;
+	}
 	wrap.ssr_cmd_id = NVME_LPM_CMD_ARM_SSR;
 	wrap.ssr.state = SSR_STATE_ARM;
 	wrap.ssr.sequence = armed_ssr.sequence;
@@ -142,6 +164,7 @@ static int nvme_lpm_arm_ssr(struct nvme_lpm *nvme_lpm, void __user *argp)
 	else
 		nvme_lpm->ssr_state_armed = true;
 
+out:
 	return ret;
 }
 
@@ -149,7 +172,16 @@ static int nvme_lpm_disarm_cmd(struct nvme_lpm *nvme_lpm, void __user *argp)
 {
 	struct ssr_wrapper wrap = {0,};
 	struct disarmed_ssr disarmed_ssr;
-	int ret;
+	int ret = -EINVAL;
+
+	if (!nvme_drv_ops)
+		goto out;
+
+	ret = nvme_drv_ops->nvme_destroy_backup_io_queues(nvme_drv_ops->ctxt);
+	if (ret) {
+		dev_err(nvme_lpm->dev, "Failed to destroy nvme io queues\n");
+		goto out;
+	}
 
 	ret = copy_from_user(&disarmed_ssr, argp, sizeof(struct disarmed_ssr));
 	if (ret) {
@@ -168,11 +200,79 @@ out:
 
 static int nvme_lpm_trigger_ssr(struct nvme_lpm *nvme_lpm)
 {
-	/* TODO: Trigger NVMe backup transactions */
+	int ret = -EINVAL;
 
-	return 0;
+	if (!nvme_drv_ops)
+		goto out;
+
+	ret = nvme_drv_ops->nvme_initiate_xfers(nvme_drv_ops->ctxt);
+	if (ret)
+		dev_err(nvme_lpm->dev, "Failed to initiate nvme backup\n");
+out:
+	return ret;
+
 }
 
+static int nvme_lpm_read_test(struct nvme_lpm *nvme_lpm, void __user *argp)
+{
+	struct armed_ssr armed_ssr;
+	int ret = -EINVAL;
+
+	if (!nvme_drv_ops)
+		goto out;
+
+	ret = nvme_drv_ops->nvme_destroy_backup_io_queues(nvme_drv_ops->ctxt);
+	if (ret) {
+		dev_err(nvme_lpm->dev, "Failed to prepare nvme for backup\n");
+		goto out;
+	}
+
+	if (copy_from_user(&armed_ssr, argp, sizeof(struct armed_ssr))) {
+		dev_err(nvme_lpm->dev, "Failed to copy armed ssr from user\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	/*
+	 * Read back case is for testing purpose only, SSR does not get
+	 * accessed for this case
+	 */
+	ret = nvme_drv_ops->nvme_build_backup_io_queues(nvme_drv_ops->ctxt,
+						    armed_ssr.memory_address,
+						    armed_ssr.disk_address,
+						    armed_ssr.length, false,
+						    nvme_lpm->shared_nvme_data);
+
+	if (ret)
+		dev_err(nvme_lpm->dev, "Failed to build read-back io queues\n");
+
+out:
+	return ret;
+}
+
+static int nvme_lpm_poll_xfers_from_ap(struct nvme_lpm *nvme_lpm)
+{
+	int ret = -EINVAL;
+
+	if (!nvme_drv_ops)
+		goto out;
+
+	ret = nvme_drv_ops->nvme_poll_xfers(nvme_drv_ops->ctxt);
+	if (ret) {
+		dev_err(nvme_lpm->dev, "Transfer not completed");
+		goto out;
+	}
+	dev_err(nvme_lpm->dev, "Transfer done");
+
+	ret = nvme_drv_ops->nvme_send_flush_cmd(nvme_drv_ops->ctxt);
+	if (ret)
+		dev_err(nvme_lpm->dev, "Flush not completed");
+	else
+		dev_info(nvme_lpm->dev, "Flush done");
+
+out:
+	return ret;
+}
 /* IOCTL interface through character device */
 static int nvme_dev_open(struct inode *inode, struct file *file)
 {
@@ -205,6 +305,12 @@ static long nvme_dev_ioctl(struct file *file, unsigned int cmd,
 	case NVME_LPM_IOCTL_TRIGGER_SSR:
 		ret = nvme_lpm_trigger_ssr(nvme_lpm);
 		break;
+	case NVME_LPM_IOCTL_READ:
+		ret = nvme_lpm_read_test(nvme_lpm, argp);
+		break;
+	case NVME_LPM_IOCTL_AP_POLL:
+		ret = nvme_lpm_poll_xfers_from_ap(nvme_lpm);
+		break;
 	default:
 		return -ENOENT;
 	}
@@ -220,7 +326,7 @@ static irqreturn_t iproc_gpio_isr(int irq, void *drv_ctx)
 	console_silent();
 	if (nvme_lpm->ssr_state_armed == true) {
 		/* TBD: need to take ssr check-point */
-		/* TBD: Trigger NVMe backup transaction */
+		nvme_lpm_trigger_ssr(nvme_lpm);
 		/* TBD: need to take ssr check-point */
 	}
 	smp_send_stop();
@@ -229,6 +335,19 @@ static irqreturn_t iproc_gpio_isr(int irq, void *drv_ctx)
 
 	return IRQ_HANDLED;
 }
+
+int register_nvme_lpm_ops(void *nvme_lpm_drv_ops)
+{
+	int ret = -EINVAL;
+
+	if (!nvme_drv_ops) {
+		nvme_drv_ops = nvme_lpm_drv_ops;
+		ret = 0;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(register_nvme_lpm_ops);
 
 static const struct file_operations nvme_dev_fops = {
 	.owner		= THIS_MODULE,
