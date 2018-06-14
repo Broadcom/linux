@@ -200,17 +200,15 @@ out:
 
 static int nvme_lpm_trigger_ssr(struct nvme_lpm *nvme_lpm)
 {
-	int ret = -EINVAL;
+	console_silent();
+	if (nvme_lpm->ssr_state_armed == true)
+		if (nvme_drv_ops)
+			nvme_drv_ops->nvme_initiate_xfers(nvme_drv_ops->ctxt);
+	smp_send_stop();
+	set_cpu_online(smp_processor_id(), false);
+	cpu_die();
 
-	if (!nvme_drv_ops)
-		goto out;
-
-	ret = nvme_drv_ops->nvme_initiate_xfers(nvme_drv_ops->ctxt);
-	if (ret)
-		dev_err(nvme_lpm->dev, "Failed to initiate nvme backup\n");
-out:
-	return ret;
-
+	return 0;
 }
 
 static int nvme_lpm_read_test(struct nvme_lpm *nvme_lpm, void __user *argp)
@@ -317,21 +315,11 @@ static long nvme_dev_ioctl(struct file *file, unsigned int cmd,
 	return ret;
 }
 
-
 static irqreturn_t iproc_gpio_isr(int irq, void *drv_ctx)
 {
 	struct nvme_lpm *nvme_lpm = (struct nvme_lpm *)drv_ctx;
 
-	/* Actions to be taken when GPIO interrupt is generated */
-	console_silent();
-	if (nvme_lpm->ssr_state_armed == true) {
-		/* TBD: need to take ssr check-point */
-		nvme_lpm_trigger_ssr(nvme_lpm);
-		/* TBD: need to take ssr check-point */
-	}
-	smp_send_stop();
-	set_cpu_online(smp_processor_id(), false);
-	cpu_die();
+	nvme_lpm_trigger_ssr(nvme_lpm);
 
 	return IRQ_HANDLED;
 }
