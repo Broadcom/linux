@@ -12,7 +12,7 @@ obj-$(CONFIG_ATMEL_SSC)		+= atmel-ssc.o
 obj-$(CONFIG_ATMEL_TCLIB)	+= atmel_tclib.o
 obj-$(CONFIG_DUMMY_IRQ)		+= dummy-irq.o
 obj-$(CONFIG_ICS932S401)	+= ics932s401.o
-obj-$(CONFIG_LKDTM)		+= lkdtm.o
+obj-$(CONFIG_LKDTM)		+= lkdtm/
 obj-$(CONFIG_TIFM_CORE)       	+= tifm_core.o
 obj-$(CONFIG_TIFM_7XX1)       	+= tifm_7xx1.o
 obj-$(CONFIG_PHANTOM)		+= phantom.o
@@ -61,22 +61,4 @@ obj-$(CONFIG_MISC_RTSX)		+= cardreader/
 obj-$(CONFIG_BCM_IPROC_DTE)     += bcm_iproc_dte.o
 obj-y				+= bcm-iproc-ftm/
 obj-$(CONFIG_BRCM_SMARTCARD)	+= smartcard/
-
-lkdtm-$(CONFIG_LKDTM)		+= lkdtm_core.o
-lkdtm-$(CONFIG_LKDTM)		+= lkdtm_bugs.o
-lkdtm-$(CONFIG_LKDTM)		+= lkdtm_heap.o
-lkdtm-$(CONFIG_LKDTM)		+= lkdtm_perms.o
-lkdtm-$(CONFIG_LKDTM)		+= lkdtm_refcount.o
-lkdtm-$(CONFIG_LKDTM)		+= lkdtm_rodata_objcopy.o
-lkdtm-$(CONFIG_LKDTM)		+= lkdtm_usercopy.o
 obj-$(CONFIG_NVME_LPM_SSR)	+= nvme-lpm-ssr.o
-
-KCOV_INSTRUMENT_lkdtm_rodata.o	:= n
-
-OBJCOPYFLAGS :=
-OBJCOPYFLAGS_lkdtm_rodata_objcopy.o := \
-			--set-section-flags .text=alloc,readonly \
-			--rename-section .text=.rodata
-targets += lkdtm_rodata.o lkdtm_rodata_objcopy.o
-$(obj)/lkdtm_rodata_objcopy.o: $(obj)/lkdtm_rodata.o FORCE
-	$(call if_changed,objcopy)

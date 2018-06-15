@@ -587,34 +587,8 @@ static int ov5640_s_fmt(struct v4l2_subdev *sd,
 	return ret;
 }
 
-static int ov5640_g_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *param)
-{
-	struct v4l2_captureparm *cparm;
-
-	if (param->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
-		return -EINVAL;
-
-	cparm = &param->parm.capture;
-	memset(param, 0, sizeof(*param));
-
-	param->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	cparm->capability = V4L2_CAP_TIMEPERFRAME;
-	/* Configured only for VGA resolution */
-	cparm->timeperframe.numerator = 1;
-	cparm->timeperframe.denominator = 24;
-
-	return 0;
-}
-
-static int ov5640_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *param)
-{
-	return ov5640_g_parm(sd, param);
-}
-
 static const struct v4l2_subdev_video_ops ov5640_subdev_video_ops = {
 	.s_stream = ov5640_s_stream,
-	.g_parm = ov5640_g_parm,
-	.s_parm = ov5640_s_parm,
 };
 
 static const struct v4l2_subdev_pad_ops ov5640_subdev_pad_ops = {
