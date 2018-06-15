@@ -50,3 +50,11 @@
 &gphy0 {
 	reg = <0x0>;
 };
+
+&i2c0 {
+	thermal: thermal@4c {
+		compatible = "national,lm90";
+		reg = <0x4c>;
+		#thermal-sensor-cells = <1>;
+	};
+};
