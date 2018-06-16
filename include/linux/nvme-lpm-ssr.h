@@ -38,9 +38,9 @@ struct state_save_checkpoint {
 struct ssr {
 	uint8_t state;
 	uint32_t sequence;
-	uint32_t nvme_error_code;
-	uint32_t ddr_error_code;
-	uint32_t l3_cache_err;
+	uint64_t nvme_error_code;
+	uint64_t ddr0_ecc_code;
+	uint64_t ddr1_ecc_code;
 	struct state_save_checkpoint power_loss;
 	struct state_save_checkpoint in_progress;
 	struct state_save_checkpoint complete;
