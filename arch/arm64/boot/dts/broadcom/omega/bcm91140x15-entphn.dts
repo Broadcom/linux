@@ -216,6 +216,12 @@
 	>;
 };
 
+&top_ctrl {
+	brcm,omega-key-row-mux = <0x0 0x1 0x2 0x3 0x4>;
+	brcm,omega-key-col-mux = <0x5 0x6 0x7 0x8 0x9>;
+	status = "okay";
+};
+
 / {
 	model = "Broadcom Omega bcm91140x15-entphn";
 };

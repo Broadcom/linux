@@ -395,6 +395,17 @@
 			gpio-ranges = <&pinmux0 0 0 51>;
 		};
 
+		icfg: syscon@285b0000 {
+			compatible = "brcm,omega-icfg", "syscon";
+			reg = <0x285b0000 0x600>;
+		};
+
+		top_ctrl: ctrl {
+			compatible = "brcm,omega-top-ctrl";
+			brcm,omega-icfg = <&icfg>;
+			status = "disabled";
+		};
+
 		iproc_dsi: dsi@28610000 {
 			compatible = "brcm,iproc-dsi";
 			id = <0>;
