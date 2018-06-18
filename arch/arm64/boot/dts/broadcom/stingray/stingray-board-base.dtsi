@@ -116,7 +116,6 @@
 			intrpt-gpio = <&gpio_hsls 2 GPIO_ACTIVE_HIGH>;
 			mboxes = <&mailbox 0>;
 			memory-region = <&pci_lpm_region>;
-			status = "disabled";
 		};
 	};
 };
