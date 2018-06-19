@@ -5,9 +5,6 @@
 #include "bcmlcddc.dtsi"
 
 / {
-	chosen {
-	};
-
 	sound {
 		compatible = "brcm,omega-svk-machine";
 		status = "okay";

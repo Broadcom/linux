@@ -9,9 +9,6 @@
 #include "wintek-lcd-panel.dtsi"
 
 / {
-	chosen {
-	};
-
 	vbus: regulator@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "usb-vbus-p0";
