@@ -56,7 +56,7 @@
 				<0 0 0 0 2 &pcie0 2>,
 				<0 0 0 0 3 &pcie0 3>,
 				<0 0 0 0 4 &pcie0 4>;
-		interrupts = <GIC_SPI 420 IRQ_TYPE_NONE>;
+		interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <0>;
 
@@ -103,7 +103,7 @@
 				<0 0 0 0 2 &pcie1 2>,
 				<0 0 0 0 3 &pcie1 3>,
 				<0 0 0 0 4 &pcie1 4>;
-		interrupts = <GIC_SPI 426 IRQ_TYPE_NONE>;
+		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <1>;
 
@@ -150,7 +150,7 @@
 				<0 0 0 0 2 &pcie2 2>,
 				<0 0 0 0 3 &pcie2 3>,
 				<0 0 0 0 4 &pcie2 4>;
-		interrupts = <GIC_SPI 432 IRQ_TYPE_NONE>;
+		interrupts = <GIC_SPI 432 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <2>;
 
@@ -197,7 +197,7 @@
 				<0 0 0 0 2 &pcie3 2>,
 				<0 0 0 0 3 &pcie3 3>,
 				<0 0 0 0 4 &pcie3 4>;
-		interrupts = <GIC_SPI 438 IRQ_TYPE_NONE>;
+		interrupts = <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <3>;
 
@@ -244,7 +244,7 @@
 				<0 0 0 0 2 &pcie4 2>,
 				<0 0 0 0 3 &pcie4 3>,
 				<0 0 0 0 4 &pcie4 4>;
-		interrupts = <GIC_SPI 444 IRQ_TYPE_NONE>;
+		interrupts = <GIC_SPI 444 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <4>;
 
@@ -291,7 +291,7 @@
 				<0 0 0 0 2 &pcie5 2>,
 				<0 0 0 0 3 &pcie5 3>,
 				<0 0 0 0 4 &pcie5 4>;
-		interrupts = <GIC_SPI 450 IRQ_TYPE_NONE>;
+		interrupts = <GIC_SPI 450 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <5>;
 
@@ -338,7 +338,7 @@
 				<0 0 0 0 2 &pcie6 2>,
 				<0 0 0 0 3 &pcie6 3>,
 				<0 0 0 0 4 &pcie6 4>;
-		interrupts = <GIC_SPI 456 IRQ_TYPE_NONE>;
+		interrupts = <GIC_SPI 456 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <6>;
 
@@ -385,7 +385,7 @@
 				<0 0 0 0 2 &pcie7 2>,
 				<0 0 0 0 3 &pcie7 3>,
 				<0 0 0 0 4 &pcie7 4>;
-		interrupts = <GIC_SPI 462 IRQ_TYPE_NONE>;
+		interrupts = <GIC_SPI 462 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <7>;
 
