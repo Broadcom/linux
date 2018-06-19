@@ -113,6 +113,7 @@ static int xhci_platform_phy_on(struct usb_hcd *hcd)
 		ret = usb_phy_init(hcd->usb_phy);
 		if (ret)
 			return ret;
+		hcd->skip_phy_initialization = 1;
 	}
 	for (phy_num = 0; phy_num < priv->num_phys; phy_num++) {
 		ret = phy_init(priv->phys[phy_num]);
@@ -215,8 +216,9 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	struct resource         *res;
 	struct usb_hcd		*hcd;
 	struct clk              *clk;
-	struct xhci_plat_priv	*priv;
+	struct clk              *reg_clk;
 	int			ret;
+	struct xhci_plat_priv   *priv;
 	int			irq, phy_num;
 
 	if (usb_disabled())
@@ -285,17 +287,27 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	hcd->rsrc_len = resource_size(res);
 
 	/*
-	 * Not all platforms have a clk so it is not an error if the
-	 * clock does not exists.
+	 * Not all platforms have clks so it is not an error if the
+	 * clock do not exist.
 	 */
+	reg_clk = devm_clk_get(&pdev->dev, "reg");
+	if (!IS_ERR(reg_clk)) {
+		ret = clk_prepare_enable(reg_clk);
+		if (ret)
+			goto put_hcd;
+	} else if (PTR_ERR(reg_clk) == -EPROBE_DEFER) {
+		ret = -EPROBE_DEFER;
+		goto put_hcd;
+	}
+
 	clk = devm_clk_get(&pdev->dev, NULL);
 	if (!IS_ERR(clk)) {
 		ret = clk_prepare_enable(clk);
 		if (ret)
-			goto put_hcd;
+			goto disable_reg_clk;
 	} else if (PTR_ERR(clk) == -EPROBE_DEFER) {
 		ret = -EPROBE_DEFER;
-		goto put_hcd;
+		goto disable_reg_clk;
 	}
 
 	xhci = hcd_to_xhci(hcd);
@@ -312,6 +324,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	device_wakeup_enable(hcd->self.controller);
 
 	xhci->clk = clk;
+	xhci->reg_clk = reg_clk;
 	xhci->main_hcd = hcd;
 	xhci->shared_hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
 			dev_name(&pdev->dev), hcd);
@@ -402,8 +415,10 @@ put_usb3_hcd:
 	usb_put_hcd(xhci->shared_hcd);
 
 disable_clk:
-	if (!IS_ERR(clk))
-		clk_disable_unprepare(clk);
+	clk_disable_unprepare(clk);
+
+disable_reg_clk:
+	clk_disable_unprepare(reg_clk);
 
 put_hcd:
 	usb_put_hcd(hcd);
@@ -420,6 +435,7 @@ static int xhci_plat_remove(struct platform_device *dev)
 	struct usb_hcd	*hcd = platform_get_drvdata(dev);
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 	struct clk *clk = xhci->clk;
+	struct clk *reg_clk = xhci->reg_clk;
 
 	xhci->xhc_state |= XHCI_STATE_REMOVING;
 
@@ -429,8 +445,8 @@ static int xhci_plat_remove(struct platform_device *dev)
 	usb_remove_hcd(hcd);
 	usb_put_hcd(xhci->shared_hcd);
 
-	if (!IS_ERR(clk))
-		clk_disable_unprepare(clk);
+	clk_disable_unprepare(clk);
+	clk_disable_unprepare(reg_clk);
 	usb_put_hcd(hcd);
 
 	pm_runtime_set_suspended(&dev->dev);
@@ -502,7 +518,6 @@ MODULE_DEVICE_TABLE(acpi, usb_xhci_acpi_match);
 static struct platform_driver usb_xhci_driver = {
 	.probe	= xhci_plat_probe,
 	.remove	= xhci_plat_remove,
-	.shutdown	= usb_hcd_platform_shutdown,
 	.driver	= {
 		.name = "xhci-hcd",
 		.pm = &xhci_plat_pm_ops,

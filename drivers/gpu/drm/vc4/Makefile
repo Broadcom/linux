@@ -9,6 +9,7 @@ vc4-y := \
 	vc4_fence.o \
 	vc4_gem.o \
 	vc4_irq.o \
+	vc4_perfmon.o \
 	vc4_plane.o \
 	vc4_render_cl.o \
 	vc4_trace_points.o \
