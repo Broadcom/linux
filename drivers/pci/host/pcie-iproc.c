@@ -426,6 +426,13 @@ static const u16 iproc_pcie_reg_paxc_v2[] = {
 	[IPROC_PCIE_CFG_DATA]		= 0x1fc,
 };
 
+static int iproc_pci_raw_config_read32(struct iproc_pcie *pcie,
+				       unsigned int devfn, int where,
+				       int size, u32 *val);
+static int iproc_pci_raw_config_write32(struct iproc_pcie *pcie,
+					unsigned int devfn, int where,
+					int size, u32 val);
+
 static inline struct iproc_pcie *iproc_data(struct pci_bus *bus)
 {
 	struct iproc_pcie *pcie = bus->sysdata;
@@ -463,6 +470,14 @@ static inline void iproc_pcie_write_reg(struct iproc_pcie *pcie,
 		return;
 
 	writel(val, pcie->base + offset);
+}
+
+static inline bool iproc_pcie_link_is_active(struct iproc_pcie *pcie)
+{
+	u32 val;
+
+	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_LINK_STATUS);
+	return !!((val & PCIE_PHYLINKUP) && (val & PCIE_DL_ACTIVE));
 }
 
 /**
@@ -560,6 +575,25 @@ static unsigned int iproc_pcie_cfg_retry(struct iproc_pcie *pcie,
 	return data;
 }
 
+static void iproc_pcie_cmd_fix(struct iproc_pcie *pcie, int where)
+
+{
+	u32 cmd;
+
+	if (pcie->ep_is_internal || !iproc_pcie_link_is_active(pcie))
+		return;
+
+	/*
+	 * When link is active, upon the first config read for vendor ID,
+	 * one needs to enable the memory access and bus master explicitly
+	 */
+	if ((where & ~0x3) == PCI_VENDOR_ID) {
+		iproc_pci_raw_config_read32(pcie, 0, PCI_COMMAND, 2, &cmd);
+		cmd |= PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER;
+		iproc_pci_raw_config_write32(pcie, 0, PCI_COMMAND, 2, cmd);
+	}
+}
+
 static int iproc_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 				  int where, int size, u32 *val)
 {
@@ -573,6 +607,8 @@ static int iproc_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 
 	/* root complex access */
 	if (busno == 0) {
+		iproc_pcie_cmd_fix(pcie, where);
+
 		ret = pci_generic_config_read32(bus, devfn, where, size, val);
 		if (ret != PCIBIOS_SUCCESSFUL)
 			return ret;
@@ -715,20 +751,17 @@ static int iproc_pcie_config_read32(struct pci_bus *bus, unsigned int devfn,
 {
 	int ret;
 	struct iproc_pcie *pcie = iproc_data(bus);
-	u32 link_status;
 
 	if (!pcie->ep_is_internal) {
-		if (bus->number && (where == PCI_VENDOR_ID)) {
-			link_status = iproc_pcie_read_reg(
-						pcie, IPROC_PCIE_LINK_STATUS);
-			if (!(link_status & PCIE_PHYLINKUP) ||
-			    !(link_status & PCIE_DL_ACTIVE)) {
+		if (bus->number && ((where & ~0x3) == PCI_VENDOR_ID)) {
+			if (!iproc_pcie_link_is_active(pcie)) {
 				dev_dbg(pcie->dev,
 					"LinkDown so skipping downstream read req\n");
 				return PCIBIOS_DEVICE_NOT_FOUND;
 			}
 		}
 	}
+
 	iproc_pcie_apb_err_disable(bus, true);
 	if (pcie->iproc_cfg_read)
 		ret = iproc_pcie_config_read(bus, devfn, where, size, val);
@@ -814,7 +847,7 @@ static bool iproc_pci_hp_check_ltssm(struct iproc_pcie *pcie)
 static int iproc_pcie_check_link(struct iproc_pcie *pcie)
 {
 	struct device *dev = pcie->dev;
-	u32 hdr_type, link_ctrl, link_status, class, val;
+	u32 hdr_type, link_ctrl, link_status, class;
 	bool link_is_active = false;
 
 	/*
@@ -842,8 +875,7 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie)
 	iproc_pci_raw_config_write32(pcie, 0, PCI_BRIDGE_CTRL_REG_OFFSET,
 				     4, class);
 
-	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_LINK_STATUS);
-	if (!(val & PCIE_PHYLINKUP) || !(val & PCIE_DL_ACTIVE)) {
+	if (!iproc_pcie_link_is_active(pcie)) {
 		if (!iproc_pci_hp_check_ltssm(pcie)) {
 			dev_err(dev, "PHY or data link is INACTIVE!\n");
 			return -ENODEV;
