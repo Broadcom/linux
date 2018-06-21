@@ -412,4 +412,12 @@ static inline u64 pci_rebar_size_to_bytes(int size)
 	return 1ULL << (size + 20);
 }
 
+#ifdef CONFIG_PCIEAER
+void pci_no_aer(void);
+void pci_aer_init(struct pci_dev *dev);
+#else
+static inline void pci_no_aer(void) { }
+static inline int pci_aer_init(struct pci_dev *d) { return -ENODEV; }
+#endif
+
 #endif /* DRIVERS_PCI_H */
