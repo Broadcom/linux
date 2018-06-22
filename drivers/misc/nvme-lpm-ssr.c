@@ -17,6 +17,7 @@
 #include <linux/nvme-lpm-ssr.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
+#include <linux/reboot.h>
 #include <linux/smp.h>
 #include <linux/uaccess.h>
 #include <uapi/asm-generic/errno.h>
@@ -204,6 +205,9 @@ static int nvme_lpm_trigger_ssr(struct nvme_lpm *nvme_lpm)
 	if (nvme_lpm->ssr_state_armed == true)
 		if (nvme_drv_ops)
 			nvme_drv_ops->nvme_initiate_xfers(nvme_drv_ops->ctxt);
+	else
+		machine_halt();
+
 	smp_send_stop();
 	set_cpu_online(smp_processor_id(), false);
 	cpu_die();
