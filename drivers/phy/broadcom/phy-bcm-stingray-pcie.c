@@ -25,6 +25,9 @@
 #define SR_NR_PCIE_PHYS               9
 #define SR_PAXC_PHY_IDX               (SR_NR_PCIE_PHYS - 1)
 
+#define PCIE_PIPEMUX_CFG_OFFSET       0x10c
+#define PCIE_PIPEMUX_SELECT_STRAP     0xf
+
 #define CDRU_STRAP_DATA_LSW_OFFSET    0x5c
 #define PCIE_PIPEMUX_SHIFT            19
 #define PCIE_PIPEMUX_MASK             0xf
@@ -58,6 +61,7 @@ struct sr_pcie_phy {
  * struct sr_pcie_phy_core - Stingray PCIe PHY core control
  *
  * @dev: pointer to device
+ * @base: base register of PCIe SS
  * @cdru: regmap to the CDRU device
  * @mhb: regmap to the MHB device
  * @pipemux: pipemuex strap
@@ -65,6 +69,7 @@ struct sr_pcie_phy {
  */
 struct sr_pcie_phy_core {
 	struct device *dev;
+	void __iomem *base;
 	struct regmap *cdru;
 	struct regmap *mhb;
 	u32 pipemux;
@@ -127,9 +132,19 @@ static u32 pipemux_strap_read(struct sr_pcie_phy_core *core)
 {
 	u32 pipemux;
 
-	regmap_read(core->cdru, CDRU_STRAP_DATA_LSW_OFFSET, &pipemux);
-	pipemux >>= PCIE_PIPEMUX_SHIFT;
+	/*
+	 * Read PIPEMUX configuration register to determine the pipemux setting
+	 *
+	 * In the case when the value indicates using HW strap, fall back to
+	 * use HW strap
+	 */
+	pipemux = readl(core->base + PCIE_PIPEMUX_CFG_OFFSET);
 	pipemux &= PCIE_PIPEMUX_MASK;
+	if (pipemux == PCIE_PIPEMUX_SELECT_STRAP) {
+		regmap_read(core->cdru, CDRU_STRAP_DATA_LSW_OFFSET, &pipemux);
+		pipemux >>= PCIE_PIPEMUX_SHIFT;
+		pipemux &= PCIE_PIPEMUX_MASK;
+	}
 
 	return pipemux;
 }
@@ -239,6 +254,7 @@ static int sr_pcie_phy_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *node = dev->of_node;
 	struct sr_pcie_phy_core *core;
+	struct resource *res;
 	struct phy_provider *provider;
 	unsigned int phy_idx = 0;
 
@@ -247,6 +263,11 @@ static int sr_pcie_phy_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	core->dev = dev;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	core->base = devm_ioremap_resource(core->dev, res);
+	if (IS_ERR(core->base))
+		return PTR_ERR(core->base);
 
 	core->cdru = syscon_regmap_lookup_by_phandle(node, "brcm,sr-cdru");
 	if (IS_ERR(core->cdru)) {
