@@ -255,6 +255,9 @@ static int nvme_lpm_poll_xfers_from_ap(struct nvme_lpm *nvme_lpm)
 	if (!nvme_drv_ops)
 		goto out;
 
+	/* initiate transfers */
+	nvme_drv_ops->nvme_initiate_xfers(nvme_drv_ops->ctxt);
+
 	ret = nvme_drv_ops->nvme_poll_xfers(nvme_drv_ops->ctxt);
 	if (ret) {
 		dev_err(nvme_lpm->dev, "Transfer not completed");
