@@ -130,6 +130,14 @@
 			clock-names = "timer1clk", "timer2clk", "apb_pclk";
 		};
 
+		wdt0: wdt@3a0000 {
+			compatible = "arm,sp805", "arm,primecell";
+			reg = <0x003a0000 0x1000>;
+			interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_ref25m_div2>, <&clk_periph_apb>;
+			clock-names = "wdogclk", "apb_pclk";
+		};
+
 		mdio_mux: mdio-mux@3b0000 {
 			compatible = "brcm,mdio-mux-iproc";
 			reg = <0x3b0000 0x250>;
