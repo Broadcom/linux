@@ -255,16 +255,16 @@ static int nvme_identify_controller(struct nvme_ctrl *ctrl,
 	struct nvme_dev *dev = to_nvme_dev(ctrl);
 	struct nvme_queue *q =  dev->queues[0];
 	struct nvme_command c = { };
-	phys_addr_t id_phys;
+	dma_addr_t id_phys;
 
 	memset(&c, 0, sizeof(c));
 	c.identify.opcode = nvme_admin_identify;
 	c.identify.cns = NVME_ID_CNS_CTRL;
 
-	*id = devm_kmalloc(dev->dev, sizeof(struct nvme_id_ctrl), GFP_KERNEL);
+	*id = dmam_alloc_coherent(dev->dev, sizeof(struct nvme_id_ctrl),
+				&id_phys, GFP_KERNEL);
 	if (!*id)
 		return -ENOMEM;
-	id_phys = virt_to_phys((void *)(*id));
 	c.identify.dptr.prp1 = id_phys;
 
 	return nvme_submit_cmd_sync(&c, q, NULL);
@@ -730,7 +730,7 @@ static struct nvme_id_ns *nvme_identify_ns(struct nvme_ctrl *ctrl,
 	struct nvme_command c = { };
 	struct nvme_dev *dev = to_nvme_dev(ctrl);
 	struct nvme_queue *q =  dev->queues[0];
-	phys_addr_t id_phys;
+	dma_addr_t id_phys;
 	int error;
 
 	memset(&c, 0, sizeof(c));
@@ -738,10 +738,10 @@ static struct nvme_id_ns *nvme_identify_ns(struct nvme_ctrl *ctrl,
 	c.identify.nsid = cpu_to_le32(nsid);
 	c.identify.cns = NVME_ID_CNS_NS;
 
-	id = devm_kmalloc(dev->dev, sizeof(*id), GFP_KERNEL);
+	id = dmam_alloc_coherent(dev->dev, sizeof(*id),
+				&id_phys, GFP_KERNEL);
 	if (!id)
 		return NULL;
-	id_phys = virt_to_phys((void *)id);
 	c.identify.dptr.prp1 = id_phys;
 
 	error = nvme_submit_cmd_sync(&c, q, NULL);
@@ -1067,7 +1067,7 @@ static int nvme_build_backup_io_queues(void *ndev_cntxt, u64 mem_addr,
 	}
 	dev_info(dev->dev, "online Qs: %d", dev->online_queues);
 
-	dev->prp_addr = vmalloc(MAX_IO_QPAIR * (dev->q_depth)
+	dev->prp_addr = vmalloc((dev->max_qid) * (dev->q_depth)
 				* sizeof(struct prp_list_addr));
 	if (!dev->prp_addr)
 		return -ENOMEM;
