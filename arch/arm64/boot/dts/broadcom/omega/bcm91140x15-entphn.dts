@@ -41,6 +41,13 @@
 			};
 		};
 	};
+
+	bl: backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm1 3 255000 0>;
+		brightness-levels = <0 16 24 32 50 64 128 255>;
+		default-brightness-level = <6>;
+	};
 };
 
 &omega_codec {
@@ -112,6 +119,17 @@
 	phys = <&usbphy0>;
 	phy-names = "usbp0";
 	status = "okay";
+};
+
+&clcd {
+	pinctrl-names = "default";
+	pinctrl-0 = <&lcd_18bit_pins>;
+};
+
+&pwm1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm1_mfio081_pins>;
 };
 
 &spi4 {

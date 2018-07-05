@@ -443,7 +443,7 @@
 				>;
 			};
 
-			lcd_pins: lcd_mux_func {
+			lcd_24bit_pins: lcd_24bit_mux_func {
 				pinctrl-single,pins = <
 					0x60 ALT_1 /* MFIO_075: LCD_CLCP */
 					0x64 ALT_1 /* MFIO_076: LCD_CLPOWER */
@@ -466,9 +466,38 @@
 					0xa8 ALT_1 /* MFIO_093: LCD_CLD12 */
 					0xac ALT_1 /* MFIO_094: LCD_CLD13 */
 					0xb0 ALT_1 /* MFIO_095: LCD_CLD14 */
-					0xb4 ALT_1 /* MFIO_096: LCD_CLD15*/
+					0xb4 ALT_1 /* MFIO_096: LCD_CLD15 */
 					0xb8 ALT_1 /* MFIO_097: LCD_CLD16 */
 					0xbc ALT_1 /* MFIO_098: LCD_CLD17 */
+					0xc0 ALT_1 /* MFIO_099: LCD_CLD18 */
+					0xc4 ALT_1 /* MFIO_100: LCD_CLD19 */
+					0xc8 ALT_1 /* MFIO_101: LCD_CLD20 */
+					0xcc ALT_1 /* MFIO_102: LCD_CLD21 */
+					0xd0 ALT_1 /* MFIO_103: LCD_CLD22 */
+					0xd4 ALT_1 /* MFIO_104: LCD_CLD23 */
+				>;
+			};
+
+			lcd_18bit_pins: lcd_18bit_mux_func {
+				pinctrl-single,pins = <
+					0x60 ALT_1 /* MFIO_075: LCD_CLCP */
+					0x64 ALT_1 /* MFIO_076: LCD_CLPOWER */
+					0x68 ALT_1 /* MFIO_077: LCD_CLLE */
+					0x6c ALT_1 /* MFIO_078: LCD_CLFP */
+					0x70 ALT_1 /* MFIO_079: LCD_CLLP */
+					0x74 ALT_1 /* MFIO_080: LCD_CLAC */
+					0x80 ALT_1 /* MFIO_083: LCD_CLD2 */
+					0x84 ALT_1 /* MFIO_084: LCD_CLD3 */
+					0x88 ALT_1 /* MFIO_085: LCD_CLD4 */
+					0x8c ALT_1 /* MFIO_086: LCD_CLD5 */
+					0x90 ALT_1 /* MFIO_087: LCD_CLD6 */
+					0x94 ALT_1 /* MFIO_088: LCD_CLD7 */
+					0xa0 ALT_1 /* MFIO_091: LCD_CLD10 */
+					0xa4 ALT_1 /* MFIO_092: LCD_CLD11 */
+					0xa8 ALT_1 /* MFIO_093: LCD_CLD12 */
+					0xac ALT_1 /* MFIO_094: LCD_CLD13 */
+					0xb0 ALT_1 /* MFIO_095: LCD_CLD14 */
+					0xb4 ALT_1 /* MFIO_096: LCD_CLD15 */
 					0xc0 ALT_1 /* MFIO_099: LCD_CLD18 */
 					0xc4 ALT_1 /* MFIO_100: LCD_CLD19 */
 					0xc8 ALT_1 /* MFIO_101: LCD_CLD20 */
@@ -509,8 +538,23 @@
 			pwm1_mfio081_pins: pwm1_mfio081_mux_func {
 				pinctrl-single,pins = <
 					0x78 ALT_3 /* MFIO_081: PWM1_TM3 */
+				>;
+			};
+
+			pwm1_mfio082_pins: pwm1_mfio082_mux_func {
+				pinctrl-single,pins = <
 					0x7c ALT_3 /* MFIO_082: PWM1_TM2 */
+				>;
+			};
+
+			pwm1_mfio083_pins: pwm1_mfio083_mux_func {
+				pinctrl-single,pins = <
 					0x80 ALT_3 /* MFIO_083: PWM1_TM1 */
+				>;
+			};
+
+			pwm1_mfio084_pins: pwm1_mfio084_mux_func {
+				pinctrl-single,pins = <
 					0x84 ALT_3 /* MFIO_084: PWM1_TM0 */
 				>;
 			};

@@ -180,6 +180,8 @@
 
 &clcd {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&lcd_24bit_pins>;
 	port {
 		clcd_pads: endpoint {
 			remote-endpoint = <&clcd_panel>;

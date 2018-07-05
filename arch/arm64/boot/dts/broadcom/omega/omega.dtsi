@@ -434,8 +434,6 @@
 			clocks = <&cdru_video_axi_clock>, <&clk_periph_apb>;
 			clock-names = "clcdclk", "apb_pclk";
 			clcd-enable-clock-divisor;
-			pinctrl-names = "default";
-			pinctrl-0 = <&lcd_pins>;
 			status = "disabled";
 		};
 
