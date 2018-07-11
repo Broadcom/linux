@@ -1142,7 +1142,13 @@ static int vfio_pci_mmap(void *device_data, struct vm_area_struct *vma)
 	}
 
 	vma->vm_private_data = vdev;
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	if (pci_resource_flags(pdev, index) & IORESOURCE_PREFETCH)
+		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	else
+#endif
+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
 	vma->vm_pgoff = (pci_resource_start(pdev, index) >> PAGE_SHIFT) + pgoff;
 
 	return remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
