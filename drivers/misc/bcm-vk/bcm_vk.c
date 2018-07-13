@@ -136,7 +136,7 @@ err_ida_remove:
 
 err_irq:
 	for (i = 0; i < vk->num_irqs; i++)
-		devm_free_irq(dev, pci_irq_vector(pdev->irq, i), vk);
+		devm_free_irq(dev, pci_irq_vector(pdev, i), vk);
 
 	pci_disable_msi(pdev);
 
@@ -169,7 +169,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	kfree(misc_device->name);
 	ida_simple_remove(&bcm_vk_ida, id);
 	for (i = 0; i < vk->num_irqs; i++)
-		devm_free_irq(&pdev->dev, pci_irq_vector(pdev->irq, i), vk);
+		devm_free_irq(&pdev->dev, pci_irq_vector(pdev, i), vk);
 
 	pci_disable_msi(pdev);
 	for (i = 0; i < MAX_BAR; i++) {
