@@ -33,7 +33,7 @@ static irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id)
 
 static long bcm_vk_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	int ret = -EINVAL;
+	long ret = -EINVAL;
 	return ret;
 }
 
