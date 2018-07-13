@@ -343,6 +343,7 @@
 				reg = <0x2>;
 				#address-cells = <1>;
 				#size-cells = <0>;
+				status = "disabled";
 			};
 
 			mdio@3 { /* USB */
