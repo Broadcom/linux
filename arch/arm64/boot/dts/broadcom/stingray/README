@@ -2,6 +2,8 @@ bcm957604k.dtb                         - SmartIO SVK
 bcm957604k-diag.dtb                    - SmartIO SVK for userspace diag
 bcm957604k-fs4.dtb                     - SmartIO SVK w/FS4
 
+bcm958732t.dtb                         - COMX
+
 bcm958742k.dtb                         - Combo SVK
 bcm958742k-diag.dtb                    - Combo SVK for userspace diag
 bcm958742k-fs4.dtb                     - Combo SVK w/FS4
