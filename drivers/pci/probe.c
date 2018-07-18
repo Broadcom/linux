@@ -552,7 +552,7 @@ struct pci_host_bridge *pci_alloc_host_bridge(size_t priv)
 	 * OS from interfering.
 	 */
 	bridge->native_aer = 1;
-	bridge->native_hotplug = 1;
+	bridge->native_pcie_hotplug = 1;
 	bridge->native_pme = 1;
 
 	return bridge;
@@ -2006,6 +2006,7 @@ static void pci_configure_device(struct pci_dev *dev)
 
 static void pci_release_capabilities(struct pci_dev *dev)
 {
+	pci_aer_exit(dev);
 	pci_vpd_release(dev);
 	pci_iov_release(dev);
 	pci_free_cap_save_buffers(dev);
