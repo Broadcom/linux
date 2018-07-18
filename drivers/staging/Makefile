@@ -3,6 +3,7 @@
 
 obj-y				+= media/
 obj-y				+= typec/
+obj-$(CONFIG_BRCMESW_CTL)	+= brcmesw/
 obj-$(CONFIG_IPX)		+= ipx/
 obj-$(CONFIG_NCP_FS)		+= ncpfs/
 obj-$(CONFIG_PRISM2_USB)	+= wlan-ng/

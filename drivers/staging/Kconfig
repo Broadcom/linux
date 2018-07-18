@@ -24,6 +24,8 @@ menuconfig STAGING
 
 if STAGING
 
+source "drivers/staging/brcmesw/Kconfig"
+
 source "drivers/staging/ipx/Kconfig"
 
 source "drivers/staging/ncpfs/Kconfig"
