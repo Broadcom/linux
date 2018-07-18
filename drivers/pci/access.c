@@ -172,10 +172,6 @@ int pci_generic_config_write32(struct pci_bus *bus, unsigned int devfn,
 	dev_warn_ratelimited(&bus->dev, "%d-byte config write to %04x:%02x:%02x.%d offset %#x may corrupt adjacent RW1C bits\n",
 			     size, pci_domain_nr(bus), bus->number,
 			     PCI_SLOT(devfn), PCI_FUNC(devfn), where);
-#else
-	dev_dbg(&bus->dev, "%d-byte config write to %04x:%02x:%02x.%d offset %#x may corrupt adjacent RW1C bits\n",
-		size, pci_domain_nr(bus), bus->number, PCI_SLOT(devfn),
-		PCI_FUNC(devfn), where);
 #endif
 
 	mask = ~(((1 << (size * 8)) - 1) << ((where & 0x3) * 8));
