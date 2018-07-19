@@ -14,6 +14,8 @@
 
 #define DRV_MODULE_NAME "bcm-vk"
 
+#define PCI_DEVICE_ID_VALKYRIE 0x5E87
+
 static DEFINE_IDA(bcm_vk_ida);
 
 #define MAX_BAR 3
