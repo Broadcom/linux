@@ -11,6 +11,10 @@
 #define ENABLE_ENET	1
 #endif
 
+#ifndef ENABLE_MDIO
+#define ENABLE_MDIO	1
+#endif
+
 #ifndef ENABLE_NAND
 #define ENABLE_NAND	0
 #endif
@@ -253,6 +257,9 @@
 };
 
 &mdio_mux_iproc {
+#if (ENABLE_MDIO == 1)
+	status = "okay";
+#endif
 	mdio@2 { /* SATA */
 #if (NUM_SATA > 0)
 		status = "okay";

@@ -332,6 +332,7 @@
 			reg = <0x00020000 0x250>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			status = "disabled";
 
 			mdio@2 { /* SATA */
 				reg = <0x2>;
