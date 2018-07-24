@@ -11,13 +11,14 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/acpi.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/nvmem-provider.h>
 #include <linux/of.h>
-#include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 
 /*
@@ -65,16 +66,22 @@ struct otpc_map {
 	u16 data_w_offset[4];
 };
 
-static struct otpc_map otp_map = {
-	.otpc_row_size = 1,
-	.data_r_offset = {0x10},
-	.data_w_offset = {0x2c},
+enum otpc_map_type {
+	OTP_MAP_V1,
+	OTP_MAP_V2,
 };
 
-static struct otpc_map otp_map_v2 = {
-	.otpc_row_size = 2,
-	.data_r_offset = {0x10, 0x5c},
-	.data_w_offset = {0x2c, 0x64},
+static struct otpc_map otp_map[] = {
+	[OTP_MAP_V1] = {
+		.otpc_row_size = 1,
+		.data_r_offset = {0x10},
+		.data_w_offset = {0x2c},
+	},
+	[OTP_MAP_V2] = {
+		.otpc_row_size = 2,
+		.data_r_offset = {0x10, 0x5c},
+		.data_w_offset = {0x2c, 0x64},
+	}
 };
 
 struct otpc_priv {
@@ -237,34 +244,51 @@ static struct nvmem_config bcm_otpc_nvmem_config = {
 };
 
 static const struct of_device_id bcm_otpc_dt_ids[] = {
-	{ .compatible = "brcm,ocotp" },
-	{ .compatible = "brcm,ocotp-v2" },
+	{ .compatible = "brcm,ocotp", .data = (void *)OTP_MAP_V1 },
+	{ .compatible = "brcm,ocotp-v2", .data = (void *)OTP_MAP_V2 },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, bcm_otpc_dt_ids);
 
+static const struct acpi_device_id bcm_otpc_acpi_ids[] = {
+	{ .id = "BRCM0700", .driver_data = OTP_MAP_V1 },
+	{ .id = "BRCM0701", .driver_data = OTP_MAP_V2 },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(acpi, bcm_otpc_acpi_ids);
+
 static int bcm_otpc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *dn = dev->of_node;
+	const struct of_device_id *match;
+	const struct acpi_device_id *acpi_id;
 	struct resource *res;
 	struct otpc_priv *priv;
 	struct nvmem_device *nvmem;
 	int err;
 	u32 num_words;
+	enum otpc_map_type map_type;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
-	if (of_device_is_compatible(dev->of_node, "brcm,ocotp"))
-		priv->map = &otp_map;
-	else if (of_device_is_compatible(dev->of_node, "brcm,ocotp-v2"))
-		priv->map = &otp_map_v2;
-	else {
-		dev_err(dev, "%s otpc config map not defined\n", __func__);
-		return -EINVAL;
-	}
+	if (dev->of_node) {
+		match = of_match_device(bcm_otpc_dt_ids, dev);
+		if (match)
+			map_type = (enum otpc_map_type)match->data;
+		else
+			return -ENODEV;
+	} else if (has_acpi_companion(dev)) {
+		acpi_id = acpi_match_device(bcm_otpc_acpi_ids, dev);
+		if (acpi_id)
+			map_type = (enum otpc_map_type)acpi_id->driver_data;
+		else
+			return -ENODEV;
+	} else
+		return -ENODEV;
+
+	priv->map = &otp_map[map_type];
 
 	/* Get OTP base address register. */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -281,7 +305,7 @@ static int bcm_otpc_probe(struct platform_device *pdev)
 	reset_start_bit(priv->base);
 
 	/* Read size of memory in words. */
-	err = of_property_read_u32(dn, "brcm,ocotp-size", &num_words);
+	err = device_property_read_u32(dev, "brcm,ocotp-size", &num_words);
 	if (err) {
 		dev_err(dev, "size parameter not specified\n");
 		return -EINVAL;
@@ -294,7 +318,7 @@ static int bcm_otpc_probe(struct platform_device *pdev)
 	bcm_otpc_nvmem_config.dev = dev;
 	bcm_otpc_nvmem_config.priv = priv;
 
-	if (of_device_is_compatible(dev->of_node, "brcm,ocotp-v2")) {
+	if (map_type == OTP_MAP_V2) {
 		bcm_otpc_nvmem_config.word_size = 8;
 		bcm_otpc_nvmem_config.stride = 8;
 	}
@@ -315,6 +339,7 @@ static struct platform_driver bcm_otpc_driver = {
 	.driver = {
 		.name	= "brcm-otpc",
 		.of_match_table = bcm_otpc_dt_ids,
+		.acpi_match_table = ACPI_PTR(bcm_otpc_acpi_ids),
 	},
 };
 module_platform_driver(bcm_otpc_driver);
