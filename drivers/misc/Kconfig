@@ -539,4 +539,13 @@ config NVME_LPM_SSR
 
           If unsure, say N.
 
+config LPM_SSR_DISABLE_NVME
+        bool "Disable NVMe callbacks from SSR driver"
+        depends on NVME_LPM_SSR
+        default n
+        help
+          Disabling NVMe callbacks from SSR driver helps in, triggerig
+          low power mode and debugging SSR(SPI access) related issues,
+          without involving NVMe.
+
 endmenu

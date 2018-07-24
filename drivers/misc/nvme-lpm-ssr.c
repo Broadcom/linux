@@ -129,6 +129,7 @@ static int nvme_lpm_arm_ssr(struct nvme_lpm *nvme_lpm, void __user *argp)
 	struct armed_ssr armed_ssr;
 	int ret = -EINVAL;
 
+#ifndef CONFIG_LPM_SSR_DISABLE_NVME
 	if (!nvme_drv_ops)
 		goto out;
 
@@ -137,6 +138,7 @@ static int nvme_lpm_arm_ssr(struct nvme_lpm *nvme_lpm, void __user *argp)
 		dev_err(nvme_lpm->dev, "Failed to prepare nvme for backup\n");
 		goto out;
 	}
+#endif
 
 	if (copy_from_user(&armed_ssr, argp, sizeof(struct armed_ssr))) {
 		dev_err(nvme_lpm->dev, "Failed to copy armed ssr from user\n");
@@ -144,6 +146,7 @@ static int nvme_lpm_arm_ssr(struct nvme_lpm *nvme_lpm, void __user *argp)
 		goto out;
 	}
 
+#ifndef CONFIG_LPM_SSR_DISABLE_NVME
 	ret = nvme_drv_ops->nvme_build_backup_io_queues(nvme_drv_ops->ctxt,
 						    armed_ssr.memory_address,
 						    armed_ssr.disk_address,
@@ -154,6 +157,7 @@ static int nvme_lpm_arm_ssr(struct nvme_lpm *nvme_lpm, void __user *argp)
 		dev_err(nvme_lpm->dev, "Failed to build backup io queues\n");
 		goto out;
 	}
+#endif
 	wrap.ssr_cmd_id = NVME_LPM_CMD_ARM_SSR;
 	wrap.ssr.state = SSR_STATE_ARM;
 	wrap.ssr.sequence = armed_ssr.sequence;
@@ -175,6 +179,7 @@ static int nvme_lpm_disarm_cmd(struct nvme_lpm *nvme_lpm, void __user *argp)
 	struct disarmed_ssr disarmed_ssr;
 	int ret = -EINVAL;
 
+#ifndef CONFIG_LPM_SSR_DISABLE_NVME
 	if (!nvme_drv_ops)
 		goto out;
 
@@ -183,6 +188,7 @@ static int nvme_lpm_disarm_cmd(struct nvme_lpm *nvme_lpm, void __user *argp)
 		dev_err(nvme_lpm->dev, "Failed to destroy nvme io queues\n");
 		goto out;
 	}
+#endif
 
 	ret = copy_from_user(&disarmed_ssr, argp, sizeof(struct disarmed_ssr));
 	if (ret) {
@@ -202,11 +208,15 @@ out:
 static int nvme_lpm_trigger_ssr(struct nvme_lpm *nvme_lpm)
 {
 	console_silent();
-	if (nvme_lpm->ssr_state_armed == true)
+
+#ifndef CONFIG_LPM_SSR_DISABLE_NVME
+	if (nvme_lpm->ssr_state_armed == true) {
 		if (nvme_drv_ops)
 			nvme_drv_ops->nvme_initiate_xfers(nvme_drv_ops->ctxt);
+	}
 	else
 		machine_halt();
+#endif
 
 	smp_send_stop();
 	set_cpu_online(smp_processor_id(), false);
@@ -215,6 +225,7 @@ static int nvme_lpm_trigger_ssr(struct nvme_lpm *nvme_lpm)
 	return 0;
 }
 
+#ifndef CONFIG_LPM_SSR_DISABLE_NVME
 static int nvme_lpm_read_test(struct nvme_lpm *nvme_lpm, void __user *argp)
 {
 	struct armed_ssr armed_ssr;
@@ -278,6 +289,8 @@ static int nvme_lpm_poll_xfers_from_ap(struct nvme_lpm *nvme_lpm)
 out:
 	return ret;
 }
+#endif
+
 /* IOCTL interface through character device */
 static int nvme_dev_open(struct inode *inode, struct file *file)
 {
@@ -310,12 +323,14 @@ static long nvme_dev_ioctl(struct file *file, unsigned int cmd,
 	case NVME_LPM_IOCTL_TRIGGER_SSR:
 		ret = nvme_lpm_trigger_ssr(nvme_lpm);
 		break;
+#ifndef CONFIG_LPM_SSR_DISABLE_NVME
 	case NVME_LPM_IOCTL_READ:
 		ret = nvme_lpm_read_test(nvme_lpm, argp);
 		break;
 	case NVME_LPM_IOCTL_AP_POLL:
 		ret = nvme_lpm_poll_xfers_from_ap(nvme_lpm);
 		break;
+#endif
 	default:
 		return -ENOENT;
 	}
@@ -433,7 +448,7 @@ static int nvme_lpm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(nvme_lpm->mbox_chan);
 		goto out_put_node;
 	}
-	dev_info(dev, "Mailbox registration done\n");
+	dev_dbg(dev, "Mailbox registration done\n");
 	ret = alloc_chrdev_region(&nvme_lpm->devt, 0, 1, "nvme-lpm");
 	if (ret) {
 		dev_err(dev, "cannot get add chrdev, err:%d\n", ret);
@@ -445,14 +460,14 @@ static int nvme_lpm_probe(struct platform_device *pdev)
 		dev_err(dev, "cannot get add chrdev, err:%d\n", ret);
 		goto out_region;
 	}
-	dev_info(dev, "Character device created\n");
+	dev_dbg(dev, "Character device created\n");
 
 	nvme_lpm->class = class_create(THIS_MODULE, "nvme-lpm");
 	if (IS_ERR(nvme_lpm->class)) {
 		ret = PTR_ERR(nvme_lpm->class);
 		goto out_cdev;
 	}
-	dev_info(dev, "Class creation done\n");
+	dev_dbg(dev, "Class creation done\n");
 
 	nvme_lpm->class_dev = device_create(nvme_lpm->class, nvme_lpm->dev,
 				  nvme_lpm->devt, nvme_lpm, "nvme-lpm");
