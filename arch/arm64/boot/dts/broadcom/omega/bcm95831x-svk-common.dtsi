@@ -245,3 +245,7 @@
 		drive-strength = <16>;
 	};
 };
+
+&pcie {
+	status = "okay";
+};

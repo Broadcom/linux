@@ -505,5 +505,56 @@
 		};
 	};
 
+	pcie: pcie@28420000 {
+		compatible = "brcm,iproc-pcie";
+		reg = <0 0x28420000 0 0x1000>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &pcie 1>,
+				<0 0 0 2 &pcie 2>,
+				<0 0 0 3 &pcie 3>,
+				<0 0 0 4 &pcie 4>;
+		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+		linux,pci-domain = <0>;
+		bus-range = <0x00 0xff>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+
+		ranges = <0x83000000 0 0x40000000 0 0x40000000 0 0x08000000>;
+		brcm,pcie-ob;
+		brcm,pcie-ob-axi-offset = <0x00000000>;
+
+		dma-ranges = <0x43000000 0 0x80000000 0 0x80000000 0 0x80000000>;
+
+		phys = <&pcie0_phy>;
+		phy-names = "pcie-phy";
+
+		msi-parent = <&msi0>;
+		msi0: msi-controller {
+			compatible = "brcm,iproc-msi";
+			msi-controller;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
+		};
+	};
+
+	pcie_phy: pcie_phy {
+		compatible = "brcm,omega-pcie-phy";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		brcm,pciephy-crmu-syscon = <&crmu_syscon>;
+
+		pcie0_phy: phy@0 {
+			reg = <0>;
+			#phy-cells = <0>;
+		};
+	};
+
 	#include "omega-optee.dtsi"
 };
