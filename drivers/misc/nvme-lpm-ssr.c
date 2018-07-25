@@ -83,10 +83,21 @@ static int iproc_mbox_send_msg(struct nvme_lpm *nvme_lpm,
 	if (i == MAX_CRMU_RESPONSE_TIMEOUT) {
 		dev_err(nvme_lpm->dev, "CRMU response timed out\n");
 		ret = -ETIMEDOUT;
+		goto fail;
 	}
 
-	if (wrap->crmu_maia_valid_response != CRMU_MAIA_VALID_RESPONSE)
+	if (wrap->crmu_maia_valid_response != CRMU_MAIA_VALID_RESPONSE) {
 		ret = -ENODATA;
+		goto fail;
+	}
+
+	/*
+	 * Data needs to be written back from shared memory to local SSR
+	 * in GET_SSR case
+	 */
+	if (lwrap->ssr_cmd_id == NVME_LPM_CMD_GET_SSR)
+		memcpy(&lwrap->ssr, &wrap->ssr, SSR_SIZE);
+
 fail:
 	spin_unlock(&nvme_lpm->shmlock);
 	return ret;
