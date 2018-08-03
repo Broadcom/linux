@@ -3,18 +3,15 @@
  * Copyright(c) 2018 Broadcom
  */
 
+#include "bcm_vk.h"
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
-#include <linux/irq.h>
-#include <linux/miscdevice.h>
 #include <linux/module.h>
 #include <linux/pci.h>
-#include <linux/pci_ids.h>
 #include <linux/pci_regs.h>
 #include <linux/sizes.h>
-#include <linux/uaccess.h>
 #include <uapi/linux/misc/bcm_vk.h>
 
 #define DRV_MODULE_NAME		"bcm-vk"
@@ -24,13 +21,6 @@
 static DEFINE_IDA(bcm_vk_ida);
 
 #define to_bcm_vk(priv) container_of((priv), struct bcm_vk, miscdev)
-
-#define MAX_BAR 3
-enum pci_barno {
-	BAR_0 = 0,
-	BAR_1,
-	BAR_2
-};
 
 /* Location of registers of interest in BAR0 */
 #define BAR_FB_REQ		0x400
@@ -52,37 +42,7 @@ enum pci_barno {
 /* Load Boot2 to start of DDR0 */
 #define BAR1_CODEPUSH_BASE_FIRMWARE	0x300000
 
-struct bcm_vk {
-	struct pci_dev *pdev;
-	void __iomem *bar[MAX_BAR];
-	int num_irqs;
-	/* mutex to protect the ioctls */
-	struct mutex mutex;
-	struct miscdevice miscdev;
-};
-
-static inline u32 vkread32(struct bcm_vk *vk,
-			   enum pci_barno bar,
-			   uint64_t offset)
-{
-	u32 value;
-
-	value = ioread32(vk->bar[bar] + offset);
-	return value;
-}
-
-static inline void vkwrite32(struct bcm_vk *vk,
-			   u32 value,
-			   enum pci_barno bar,
-			   uint64_t offset)
-{
-	iowrite32(value, vk->bar[bar] + offset);
-}
-
-static irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id)
-{
-	return IRQ_HANDLED;
-}
+#define VK_MSIX_IRQ_MAX			3
 
 static long bcm_vk_get_metadata(struct bcm_vk *vk, struct vk_metadata *arg)
 {
@@ -305,6 +265,10 @@ static long bcm_vk_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 static const struct file_operations bcm_vk_fops = {
 	.owner = THIS_MODULE,
+	.open = bcm_vk_open,
+	.read = bcm_vk_read,
+	.write = bcm_vk_write,
+	.release = bcm_vk_release,
 	.unlocked_ioctl = bcm_vk_ioctl,
 };
 
@@ -341,7 +305,11 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	pci_set_master(pdev);
 
-	irq = pci_alloc_irq_vectors(pdev, 1, 32, PCI_IRQ_MSI | PCI_IRQ_MSIX);
+	irq = pci_alloc_irq_vectors(pdev,
+				    1,
+				    VK_MSIX_IRQ_MAX,
+				    PCI_IRQ_MSI | PCI_IRQ_MSIX);
+
 	if (irq < 0) {
 		dev_err(dev, "failed to get MSIX interrupts\n");
 		err = irq;
@@ -392,6 +360,12 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_kfree_name;
 	}
 
+	err = bcm_vk_msg_init(vk);
+	if (err) {
+		dev_err(dev, "failed to init msg queue info\n");
+		goto err_kfree_name;
+	}
+
 	dev_info(dev, "BCM-VK:%u\n", id);
 
 	return 0;
@@ -427,6 +401,8 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	int id;
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &vk->miscdev;
+
+	bcm_vk_msg_remove(vk);
 
 	if (sscanf(misc_device->name, DRV_MODULE_NAME ".%d", &id) != 1)
 		return;
