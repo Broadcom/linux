@@ -23,7 +23,7 @@ bcm_cygnus_defconfig="base-arm32 cygnus  \
     watchdog wifi                        \
     "
 
-bcm_omega_defconfig="base-arm64          \
+bcm_omega_defconfig="base-arm64 omega    \
     blk bt                               \
     clocksource                          \
     dbg dma dte                          \
