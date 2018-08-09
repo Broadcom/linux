@@ -112,6 +112,7 @@ main() {
 	#
 	make ARCH=x86_64 x86_64_defconfig
 	make ARCH=x86_64 kvm_guest.config
+	cat brcm-genconfigs/dbg.cfg >> .config
 	make ARCH=x86_64 savedefconfig
 	cp -v defconfig arch/x86/configs/qemu_x86_64_defconfig
 
@@ -124,6 +125,7 @@ main() {
 
 	make ARCH=x86 i386_defconfig
 	make ARCH=x86 kvm_guest.config
+	cat brcm-genconfigs/dbg.cfg >> .config
 	make ARCH=x86 savedefconfig
 	cp -v defconfig arch/x86/configs/qemu_i386_defconfig
 
