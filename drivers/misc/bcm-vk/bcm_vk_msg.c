@@ -40,7 +40,8 @@ static uint16_t bcm_vk_get_msg_id(struct bcm_vk *vk)
 	uint16_t rc;
 
 	spin_lock(&vk->msg_id_lock);
-	vk->msg_id = (++vk->msg_id & 0x0FFF);
+	vk->msg_id++;
+	vk->msg_id = (vk->msg_id & 0x0FFF);
 	rc = vk->msg_id;
 	spin_unlock(&vk->msg_id_lock);
 
