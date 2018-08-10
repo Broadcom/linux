@@ -471,7 +471,7 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 			   loff_t *f_pos)
 {
-	ssize_t rc = 0;
+	ssize_t rc = -ENOMSG;
 	struct bcm_vk_ctx *p_ctx = p_file->private_data;
 	struct bcm_vk *vk = container_of(p_ctx->p_miscdev, struct bcm_vk,
 					 miscdev);
@@ -495,10 +495,15 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 	for (q_num = 0; q_num < p_chan->q_nr; q_num++) {
 		list_for_each_entry(p_ent, &p_chan->pendq_head[q_num],
 				    list_node) {
-			if ((p_ent->p_ctx->idx == p_ctx->idx) &&
-			    (count >= p_ent->vk2h_blks * VK_MSGQ_BLK_SIZE)) {
-				list_del(&p_ent->list_node);
-				found = true;
+			if (p_ent->p_ctx->idx == p_ctx->idx) {
+				if (count >= p_ent->vk2h_blks *
+					     VK_MSGQ_BLK_SIZE) {
+					list_del(&p_ent->list_node);
+					found = true;
+				} else {
+					/* buffer not big enough */
+					rc = -EMSGSIZE;
+				}
 				goto bcm_vk_read_loop_exit;
 			}
 		}
@@ -521,7 +526,7 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 			    size_t count, loff_t *f_pos)
 {
-	ssize_t rc = 0;
+	ssize_t rc = -EPERM;
 	struct bcm_vk_ctx *p_ctx = p_file->private_data;
 	struct bcm_vk *vk = container_of(p_ctx->p_miscdev, struct bcm_vk,
 					 miscdev);
@@ -535,14 +540,16 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	if ((count % VK_MSGQ_BLK_SIZE) != 0) {
 		dev_err(dev, "Failure with size %ld not multiple of %ld\n",
 			count, VK_MSGQ_BLK_SIZE);
+		rc = -EBADR;
 		goto bcm_vk_write_err;
 	}
 
 	/* allocate the work entry and the buffer */
 	p_ent = kzalloc(sizeof(struct bcm_vk_wkent) + count, GFP_KERNEL);
-	if (!p_ent)
+	if (!p_ent) {
+		rc = -ENOMEM;
 		goto bcm_vk_write_err;
-
+	}
 
 	/* now copy msg from user space, and then formulate the wk ent */
 	if (copy_from_user(&p_ent->p_h2vk_msg[0], buf, count))
@@ -556,6 +563,7 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	if (p_ent->h2vk_blks > (p_msgq->size - 1)) {
 		dev_err(dev, "Blk size %d exceed max queue size allowed %d\n",
 			p_ent->h2vk_blks, p_msgq->size - 1);
+		rc = -EOVERFLOW;
 		goto bcm_vk_write_free_ent;
 	}
 
