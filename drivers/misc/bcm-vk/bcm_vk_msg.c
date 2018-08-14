@@ -519,6 +519,20 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 			rc = rsp_length;
 
 		bcm_vk_free_wkent(p_ent);
+	} else if (rc == -EMSGSIZE) {
+		struct bcm_vk_msg_blk tmp_msg = p_ent->p_vk2h_msg[0];
+
+		/*
+		 * in this case, return just the first block, so
+		 * that app knows what size it is looking for.
+		 */
+		tmp_msg.msg_id = p_ent->usr_msg_id;
+		tmp_msg.size = p_ent->vk2h_blks - 1;
+		if (copy_to_user(buf, &tmp_msg, VK_MSGQ_BLK_SIZE) != 0) {
+			dev_err(dev,
+				"Error returning first block in -EMSGSIZE case");
+			rc = -EFAULT;
+		}
 	}
 	return rc;
 }
