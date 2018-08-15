@@ -80,12 +80,11 @@ struct dsi_cm_vc {
 };
 
 struct dsi_lcd_upd_req {
-	void *buff;		/* frame buffer */
+	dma_addr_t buff;		/* frame buffer */
 	unsigned int buff_bpp;	/* frame buffer BytesPerPixel */
 	unsigned int line_len_p;	/* HOR length in pixels */
 	unsigned int line_count;	/* VER length in lines */
 	unsigned int xstride_b;	/* stride in bytes */
-	unsigned int timeout_ms;	/* msec to wait for the end of upd */
 };
 
 struct dsi_clk_cfg {
@@ -187,7 +186,7 @@ static inline void dsic_sem_free(void *sem_ptr)
 		devm_kfree(&dsi_pdev->dev, sem_ptr);
 }
 
-static inline unsigned int dsic_sem_obtain(void *s, unsigned int timeout)
+static inline unsigned int dsic_sem_obtain(void *s, long timeout)
 {
 	int status = down_timeout((struct semaphore *)s, timeout);
 
@@ -360,7 +359,7 @@ static int dsic_axipv_start(struct dsi_upd_req_msg *updmsg)
 				* updmsg->upd_req.buff_bpp;
 	axipv_cfg->height = updmsg->upd_req.line_count;
 
-	axipv_cfg->buff.sync.addr = (unsigned int) updmsg->upd_req.buff;
+	axipv_cfg->buff.sync.addr = updmsg->upd_req.buff;
 	axipv_cfg->buff.sync.xlen = updmsg->upd_req.line_len_p *
 					updmsg->upd_req.buff_bpp;
 	axipv_cfg->buff.sync.ylen = updmsg->upd_req.line_count;
@@ -931,7 +930,7 @@ static int dsic_update_vmvc(void *vc_handle, struct dsi_lcd_upd_req *req)
 		}
 		panel.video_enabled = 1;
 	} else {
-		axipv_cfg->buff.async = (unsigned int) updmsg.upd_req.buff;
+		axipv_cfg->buff.async = updmsg.upd_req.buff;
 		axipv_post(axipv_cfg);
 	}
 done:
@@ -1331,7 +1330,7 @@ int dsic_powercontrol(void *drv_h, enum disp_pwr_state state)
 	return res;
 }
 
-int dsic_update(void *drv_h, void *buff)
+int dsic_update(void *drv_h, dma_addr_t buff)
 {
 	struct dispdrv_panel *panel_t = (struct dispdrv_panel *)drv_h;
 	struct dsi_lcd_upd_req req;
@@ -1346,16 +1345,14 @@ int dsic_update(void *drv_h, void *buff)
 
 	p_win =	&panel_t->win_dim;
 
-	offset = (unsigned int)buff;
-	offset += (p_win->t * panel_t->disp_info->width + p_win->l)
+	offset = (p_win->t * panel_t->disp_info->width + p_win->l)
 			* panel_t->disp_info->bpp;
 
-	req.buff = (unsigned int *)offset;
+	req.buff = buff + offset;
 	req.line_len_p = p_win->w;
 	req.line_count = p_win->h;
 	req.xstride_b = panel_t->disp_info->width - p_win->w;
 	req.buff_bpp = panel_t->disp_info->bpp;
-	req.timeout_ms = MAX_SCHEDULE_TIMEOUT;
 
 	res = dsic_update_vmvc(panel_t->dsicmvc_handle, &req);
 	if (res)	{

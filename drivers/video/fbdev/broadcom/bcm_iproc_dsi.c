@@ -106,12 +106,12 @@ static int iproc_fb_pan_display(struct fb_var_screeninfo *var,
 {
 	int ret = 0;
 	unsigned int buff_idx;
-	void *fb_buff = NULL;
+	dma_addr_t fb_buff;
 	struct dsi_platform_data *fb =
 			container_of(info, struct dsi_platform_data, fb);
 
 	buff_idx = (var->yoffset / var->yres);
-	fb_buff = (void *)fb->buff[buff_idx];
+	fb_buff = fb->buff[buff_idx];
 	ret = dsic_update(fb->display_hdl, fb_buff);
 
 	return ret;
@@ -189,8 +189,7 @@ static int iproc_fb_blank(int blank_mode, struct fb_info *info)
 
 		enable_display(dsi_pvt);
 		buff_idx = (dsi_pvt->fb.var.yoffset / dsi_pvt->fb.var.yres);
-		dsic_update(dsi_pvt->display_hdl,
-					(void *)dsi_pvt->buff[buff_idx]);
+		dsic_update(dsi_pvt->display_hdl, dsi_pvt->buff[buff_idx]);
 
 		dsic_powercontrol(dsi_pvt->display_hdl, CTRL_SCREEN_ON);
 		dsi_pvt->blank_state = false;
@@ -233,20 +232,19 @@ static int allocate_fb(struct platform_device *pdev, struct dispdrv_info *info)
 	if (dsi_pvt->fb.screen_base == NULL)
 		return -ENOMEM;
 	dsi_pvt->buff = devm_kzalloc(&pdev->dev,
-			(dsi_pvt->num_fb) * sizeof(void *), GFP_KERNEL);
+			(dsi_pvt->num_fb) * sizeof(dma_addr_t), GFP_KERNEL);
 	if (dsi_pvt->buff == NULL)
 		return -ENOMEM;
 
 	for (i = 0; i < dsi_pvt->num_fb; i++) {
-		dsi_pvt->buff[i] = (void *)dma_addr +
-				i * framesize / dsi_pvt->num_fb;
+		dsi_pvt->buff[i] = dma_addr + i * framesize / dsi_pvt->num_fb;
 	}
 	dsi_pvt->fb.fix.smem_start = dma_addr;
 	dsi_pvt->fb.fix.smem_len = framesize;
 
-	dev_info(&pdev->dev, "Framebuffer start [0x%08x]\n", dma_addr);
-	dev_info(&pdev->dev, "Virt[0x%08x] with frame size[0x%08x]\n",
-				(uint32_t)dsi_pvt->fb.screen_base, framesize);
+	dev_info(&pdev->dev, "Framebuffer start [%pad]\n", &dma_addr);
+	dev_info(&pdev->dev, "Virt[0x%p] with frame size[0x%zx]\n",
+				dsi_pvt->fb.screen_base, framesize);
 
 	return 0;
 }
@@ -391,10 +389,10 @@ static struct dsi_platform_data * __init dsi_get_of_data
 	dsip_data->reset_gpio = devm_gpiod_get_optional(&pdev->dev, "reset",
 						GPIOD_OUT_LOW);
 	if (IS_ERR(dsip_data->reset_gpio)) {
-		if (dsip_data->reset_gpio != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Failed to get reset line: %d\n",
-				dsip_data->reset_gpio);
-		return PTR_ERR(dsip_data->reset_gpio);
+		if (PTR_ERR(dsip_data->reset_gpio) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Failed to get reset gpio: %ld\n",
+				PTR_ERR(dsip_data->reset_gpio));
+		return ERR_CAST(dsip_data->reset_gpio);
 	}
 
 	if (of_get_property(np, "brcm,iproc-mipi-reg-errata", NULL))

@@ -69,7 +69,7 @@
 #define AXIPV_ARCACHE		(2 << ARCACHE_SHIFT)
 
 struct axipv_sync_buf {
-	unsigned int addr;
+	dma_addr_t addr;
 	unsigned int xlen;
 	unsigned int ylen;
 };

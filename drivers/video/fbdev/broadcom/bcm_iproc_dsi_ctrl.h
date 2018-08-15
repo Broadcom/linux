@@ -73,7 +73,7 @@ struct dsi_platform_data {
 	uint32_t open_count;
 	void *display_hdl;
 	bool blank_state;
-	void **buff;
+	dma_addr_t *buff;
 	struct gpio_desc *reset_gpio;
 };
 
@@ -141,6 +141,6 @@ int dsic_close(void *handle);
 int dsic_start(void);
 int dsic_stop(void);
 int dsic_powercontrol(void *handle, enum disp_pwr_state powerstate);
-int dsic_update(void *handle, void *buff);
+int dsic_update(void *handle, dma_addr_t buff);
 
 #endif		/* __BCM_IPROC_DSI_CTRL_H__ */
