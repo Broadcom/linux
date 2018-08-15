@@ -20,8 +20,6 @@
 
 static DEFINE_IDA(bcm_vk_ida);
 
-#define to_bcm_vk(priv) container_of((priv), struct bcm_vk, miscdev)
-
 /* Location of registers of interest in BAR0 */
 #define BAR_FB_REQ		0x400
 #define BAR_CODEPUSH_ADDRESS	0x404
@@ -228,7 +226,9 @@ err_out:
 static long bcm_vk_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	long ret = -EINVAL;
-	struct bcm_vk *vk = to_bcm_vk(file->private_data);
+	struct bcm_vk_ctx *ctx = file->private_data;
+	struct bcm_vk *vk = container_of(ctx->p_miscdev, struct bcm_vk,
+					 miscdev);
 	void __user *argp = (void __user *)arg;
 
 	dev_dbg(&vk->pdev->dev,
