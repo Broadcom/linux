@@ -304,6 +304,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 
 	pci_set_master(pdev);
+	pci_set_drvdata(pdev, vk);
 
 	irq = pci_alloc_irq_vectors(pdev,
 				    1,
@@ -323,8 +324,6 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 			goto err_iounmap;
 		}
 	}
-
-	pci_set_drvdata(pdev, vk);
 
 	for (vk->num_irqs = 0; vk->num_irqs < irq; vk->num_irqs++) {
 		err = devm_request_irq(dev, pci_irq_vector(pdev, vk->num_irqs),
@@ -372,6 +371,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 err_kfree_name:
 	kfree(misc_device->name);
+	misc_device->name = NULL;
 
 err_ida_remove:
 	ida_simple_remove(&bcm_vk_ida, id);
@@ -404,14 +404,17 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 
 	bcm_vk_msg_remove(vk);
 
-	if (sscanf(misc_device->name, DRV_MODULE_NAME ".%d", &id) != 1)
-		return;
-	if (id < 0)
-		return;
+	/* remove if name is set which means misc dev registered */
+	if (misc_device->name) {
+		if (sscanf(misc_device->name, DRV_MODULE_NAME ".%d", &id) != 1)
+			return;
+		if (id < 0)
+			return;
 
-	misc_deregister(&vk->miscdev);
-	kfree(misc_device->name);
-	ida_simple_remove(&bcm_vk_ida, id);
+		misc_deregister(&vk->miscdev);
+		kfree(misc_device->name);
+		ida_simple_remove(&bcm_vk_ida, id);
+	}
 	for (i = 0; i < vk->num_irqs; i++)
 		devm_free_irq(&pdev->dev, pci_irq_vector(pdev, i), vk);
 
