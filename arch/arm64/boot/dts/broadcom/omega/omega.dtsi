@@ -173,6 +173,11 @@
 			gpio-ranges = <&pinmux1 0 0 62>;
 		};
 
+		rng: rng@3f0000 {
+			compatible = "brcm,iproc-rng200";
+			reg = <0x3f0000 0x28>;
+		};
+
 		sdhci0: sdhci@400000 {
 			compatible = "brcm,sdhci-iproc-cygnus";
 			reg = <0x400000 0x100>;
