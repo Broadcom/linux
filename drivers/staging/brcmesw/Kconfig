@@ -2,6 +2,7 @@ config BRCMESW_CTL
 	tristate "Broadcom Internal Ethernet Switch Control Interface"
         depends on B53 || COMPILE_TEST
         depends on OF && HAS_IOMEM
+	default ARCH_BCM_IPROC
 	help
 	  Enable access to the Broadcom SoC's internal ethernet switch
 	  registers.
