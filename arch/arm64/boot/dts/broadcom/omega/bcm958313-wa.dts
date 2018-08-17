@@ -207,6 +207,10 @@
 	};
 };
 
+&esw_ctl {
+	status = "okay";
+};
+
 &spi2 {
 	status = "okay";
 	num-cs = <2>;

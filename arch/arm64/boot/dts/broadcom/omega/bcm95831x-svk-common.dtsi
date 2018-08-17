@@ -227,6 +227,10 @@
 	};
 };
 
+&esw_ctl {
+	status = "okay";
+};
+
 &gpio_east {
 	/*
 	 * East controller starts at 51, so add 51 get real mfio pin.

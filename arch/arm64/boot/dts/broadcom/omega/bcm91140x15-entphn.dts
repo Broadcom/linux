@@ -182,6 +182,10 @@
 	};
 };
 
+&esw_ctl {
+	status = "okay";
+};
+
 &keypad {
 	keypad,num-rows = <5>;
 	keypad,num-columns = <5>;

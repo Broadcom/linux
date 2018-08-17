@@ -281,6 +281,12 @@
 			};
 		};
 
+		esw_ctl: esw_ctl@28242000 {
+			compatible = "brcm,esw-ctl";
+			reg = <0x28242000 0x50>;
+			status = "disabled";
+		};
+
 		keypad: keypad@28270000 {
 			compatible = "brcm,bcm-keypad";
 			reg = <0x28270000 0x14c>;
