@@ -9,6 +9,8 @@
 #include "wintek-lcd-panel.dtsi"
 
 / {
+	model = "Broadcom Omega bcm91140x15-entphn";
+
 	vbus: regulator@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "usb-vbus-p0";
@@ -166,16 +168,16 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		port@0 {
-		       reg = <0>;
-		       label = "pc";
-		       phy-handle = <&gphy0>;
-		       phy-mode = "gmii";
+			reg = <0>;
+			label = "pc";
+			phy-handle = <&gphy0>;
+			phy-mode = "gmii";
 		};
 		port@1 {
-		       reg = <1>;
-		       label = "lan";
-		       phy-handle = <&gphy1>;
-		       phy-mode = "gmii";
+			reg = <1>;
+			label = "lan";
+			phy-handle = <&gphy1>;
+			phy-mode = "gmii";
 		};
 	};
 };
@@ -216,12 +218,17 @@
 	>;
 };
 
+&sdhci0 {
+	status = "okay";
+
+	no-1-8-v;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdio0_4bit_mode_pins>;
+};
+
 &top_ctrl {
 	brcm,omega-key-row-mux = <0x0 0x1 0x2 0x3 0x4>;
 	brcm,omega-key-col-mux = <0x5 0x6 0x7 0x8 0x9>;
 	status = "okay";
-};
-
-/ {
-	model = "Broadcom Omega bcm91140x15-entphn";
 };
