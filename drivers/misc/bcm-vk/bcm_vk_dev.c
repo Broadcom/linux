@@ -318,7 +318,8 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 
 	for (i = 0; i < MAX_BAR; i++) {
-		vk->bar[i] = pci_ioremap_bar(pdev, i);
+		/* multiple by 2 for 64 bit BAR mapping */
+		vk->bar[i] = pci_ioremap_bar(pdev, i * 2);
 		if (!vk->bar[i]) {
 			dev_err(dev, "failed to remap BAR%d\n", i);
 			goto err_iounmap;
