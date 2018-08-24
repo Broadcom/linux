@@ -52,10 +52,12 @@
 #define CFG_RC_PMI_WDATA		0x1134
 #define CFG_RC_WCMD_SHIFT		31
 #define CFG_RC_WCMD_MASK		(1 << CFG_RC_WCMD_SHIFT)
-#define CFG_RC_PMI_RDATA		0x1138
 #define CFG_RC_RCMD_SHIFT		30
 #define CFG_RC_RCMD_MASK		(1 << CFG_RC_RCMD_SHIFT)
+#define CFG_RC_PMI_RDATA		0x1138
 #define CFG_RC_RWCMD_MASK		(CFG_RC_WCMD_MASK | CFG_RC_RCMD_MASK)
+#define CFG_RC_RACK_SHIFT		31
+#define CFG_RC_RACK_MASK		(1 << CFG_RC_RACK_SHIFT)
 
 #define MERLIN16_PCIE_BLK2_PWRMGMT_7		0x1208
 #define MERLIN16_PCIE_BLK2_PWRMGMT_8		0x1209
@@ -231,8 +233,8 @@ static int pmi_write_via_paxb(struct pcie_prbs_dev *pd,
 	uint32_t status;
 	unsigned int timeout = PMI_TIMEOUT_MS;
 
-	dev_info(pd->dev, "pmi_write_via_paxb: pmi = 0x%x, data = 0x%x\n",
-			pmi_addr, data);
+	dev_info(pd->dev, "%s: pmi = 0x%x, data = 0x%x\n",
+		 __func__, pmi_addr, data);
 	paxb_rc_write_config(base, CFG_RC_PMI_ADDR, pmi_addr);
 
 	/* initiate pmi write transaction */
@@ -243,11 +245,14 @@ static int pmi_write_via_paxb(struct pcie_prbs_dev *pd,
 	/* poll for PMI write transaction completion */
 	do {
 		status = paxb_rc_read_config(base, CFG_RC_PMI_WDATA);
+
+		/* wait for write command bit to clear */
 		if ((status & CFG_RC_WCMD_MASK) == 0)
 			return 0;
 	} while (timeout--);
 
-	return 0;
+	dev_err(pd->dev, "PMI write timeout!\n");
+	return -EIO;
 }
 
 /*
@@ -263,22 +268,22 @@ static int pmi_read_via_paxb(struct pcie_prbs_dev *pd,
 	paxb_rc_write_config(base, CFG_RC_PMI_ADDR, pmi_addr);
 
 	/* initiate PMI read transaction */
-	*data &= ~CFG_RC_RWCMD_MASK;
-	*data |= CFG_RC_RCMD_MASK;
-	paxb_rc_write_config(base, CFG_RC_PMI_WDATA, *data);
+	paxb_rc_write_config(base, CFG_RC_PMI_WDATA, CFG_RC_RCMD_MASK);
 
 	/* poll for PMI read transaction completion */
 	do {
 		status = paxb_rc_read_config(base, CFG_RC_PMI_RDATA);
-		if ((status & CFG_RC_WCMD_MASK) == 1)
+		/* wait for read ack bit set */
+		if (status & CFG_RC_RACK_MASK) {
+			*data = paxb_rc_read_config(base, CFG_RC_PMI_RDATA);
+			dev_info(pd->dev, "%s : 0x%x = 0x%x\n",
+				 __func__, pmi_addr, *data);
 			return 0;
+		}
 	} while (timeout--);
 
-	/* now read the data */
-	*data = paxb_rc_read_config(base, CFG_RC_PMI_RDATA);
-	dev_info(pd->dev, "pmi_read_via_paxb: 0x%x = 0x%x\n", pmi_addr, *data);
-
-	return 0;
+	dev_err(pd->dev, "PMI read timeout!\n");
+	return -EIO;
 }
 
 static int workaround_needed_for_phy(struct pcie_prbs_dev *pd, int phy_num)
