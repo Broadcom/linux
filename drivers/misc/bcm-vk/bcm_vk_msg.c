@@ -197,7 +197,6 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
 	struct bcm_vk_msgq *p_msgq;
 	uint32_t q_num = p_src_blk->queue_id;
 	uint32_t wr_idx; /* local copy */
-	uint32_t delay_cnt = 0;
 	uint32_t i;
 
 	/*
@@ -218,17 +217,13 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
 	p_msgq = p_chan->msgq[q_num];
 
 	rmb(); /* start with a read barrier */
-	/* just wait for enough space... this may need some revision later */
 	mutex_lock(&p_chan->msgq_mutex);
-	while (VK_MSGQ_AVAIL_SPACE(p_msgq) < p_ent->h2vk_blks) {
-		mutex_unlock(&p_chan->msgq_mutex);
-		msleep(1000);
-		delay_cnt++;
-		mutex_lock(&p_chan->msgq_mutex);
-	}
 
-	if (delay_cnt >= 2)
-		dev_err(dev, "Waiting for room exceeds 1s\n");
+	/* if not enough space, return EAGAIN and let app handles it */
+	if (VK_MSGQ_AVAIL_SPACE(p_msgq) < p_ent->h2vk_blks) {
+		mutex_unlock(&p_chan->msgq_mutex);
+		return -EAGAIN;
+	}
 
 	/* at this point, mutex is got and it is sure there is enough space */
 
@@ -596,7 +591,8 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	bcm_vk_append_pendq(&vk->h2vk_msg_chan, p_ent->p_h2vk_msg[0].queue_id,
 			    p_ent);
 
-	if (bcm_h2vk_msg_enqueue(vk, p_ent)) {
+	rc = bcm_h2vk_msg_enqueue(vk, p_ent);
+	if (rc) {
 		dev_err(dev, "Fail to enqueue msg to h2vk queue\n");
 
 		/* remove message from pending list */
