@@ -7,6 +7,7 @@
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/fs.h>
+#include <linux/idr.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/pci.h>
@@ -316,6 +317,8 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		err = irq;
 		goto err_disable_pdev;
 	}
+
+	dev_info(dev, "Number of IRQs %d allocated.", irq);
 
 	for (i = 0; i < MAX_BAR; i++) {
 		/* multiple by 2 for 64 bit BAR mapping */

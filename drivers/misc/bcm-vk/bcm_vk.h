@@ -11,8 +11,14 @@
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
 #include <linux/uaccess.h>
+#include <linux/version.h>
 
 #include "bcm_vk_msg.h"
+
+/*
+ * Use legacy way of implementation with older version
+ */
+#define BCM_VK_MISC_API  (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0))
 
 #define MAX_BAR 3
 enum pci_barno {
@@ -25,6 +31,10 @@ struct bcm_vk {
 	struct pci_dev *pdev;
 	void __iomem *bar[MAX_BAR];
 	int num_irqs;
+
+#if BCM_VK_MISC_API
+	struct msix_entry msix[32];
+#endif
 	/* mutex to protect the ioctls */
 	struct mutex mutex;
 	struct miscdevice miscdev;
@@ -67,5 +77,20 @@ int bcm_vk_release(struct inode *inode, struct file *p_file);
 irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id);
 int bcm_vk_msg_init(struct bcm_vk *vk);
 void bcm_vk_msg_remove(struct bcm_vk *vk);
+
+#if BCM_VK_MISC_API
+
+/*
+ * For legacy kernels, the following 2 PCI APIs will be missing, and
+ * have to use msix_entry[] instead.  The APIs are provided in file bcm_vk_pci.c
+ */
+#define PCI_IRQ_MSI		    BIT(0)
+#define PCI_IRQ_MSIX		    BIT(1)
+
+int pci_irq_vector(struct pci_dev *pdev, unsigned int nr);
+int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
+			  unsigned int max_vecs, unsigned int flags);
+
+#endif
 
 #endif
