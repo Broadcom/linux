@@ -312,9 +312,9 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 				    VK_MSIX_IRQ_MAX,
 				    PCI_IRQ_MSI | PCI_IRQ_MSIX);
 
-	if (irq < 0) {
+	if (irq <= 0) {
 		dev_err(dev, "failed to get MSIX interrupts\n");
-		err = irq;
+		err = (irq == 0) ? -EINVAL : irq;
 		goto err_disable_pdev;
 	}
 
