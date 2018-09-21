@@ -403,7 +403,7 @@ static int omega_config_reg(struct omega_pinctrl *pctrl,
 		*bit = p.ind_bit;
 		*mask = MSK_IND;
 		break;
-	case PIN_CONFIG_INPUT_SCHMITT:
+	case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
 		*bit = p.hys_bit;
 		*mask = MSK_HYS;
 		break;
@@ -422,6 +422,8 @@ static unsigned int omega_regval_to_drive(u32 val)
 #define OMEGA_PULL_DOWN	2
 #define OMEGA_PULL_UP	1
 #define OMEGA_NO_PULL	0
+#define OMEGA_INPUT_DISABLE 1
+#define OMEGA_SCHMITT_ENABLE 1
 static int omega_pin_config_get(struct pinctrl_dev *pctldev,
 				unsigned int pin,
 				unsigned long *config)
@@ -457,11 +459,12 @@ static int omega_pin_config_get(struct pinctrl_dev *pctldev,
 
 	case PIN_CONFIG_INPUT_ENABLE:
 		/* 1 means input disable */
-		arg = arg ^ 1;
-		break;
+		return (arg == OMEGA_INPUT_DISABLE) ? -EINVAL : 0;
+
+	case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
+		return (arg == OMEGA_SCHMITT_ENABLE) ? 0 : -EINVAL;
 
 	case PIN_CONFIG_SLEW_RATE:
-	case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
 		break;
 
 	default:
