@@ -815,7 +815,10 @@ static int bcm_iproc_i2c_xfer(struct i2c_adapter *adapter,
 static uint32_t bcm_iproc_i2c_functionality(struct i2c_adapter *adap)
 {
 	struct bcm_iproc_i2c_dev *iproc_i2c = i2c_get_adapdata(adap);
-	u32 val = I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
+	u32 val;
+
+	/* We do not support the SMBUS Quick command */
+	val = I2C_FUNC_I2C | (I2C_FUNC_SMBUS_EMUL & ~I2C_FUNC_SMBUS_QUICK);
 
 	if (!iproc_i2c->no_slave)
 		val |= I2C_FUNC_SLAVE;
