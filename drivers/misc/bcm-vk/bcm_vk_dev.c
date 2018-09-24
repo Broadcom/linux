@@ -392,6 +392,7 @@ err_irq:
 	for (i = 0; i < vk->num_irqs; i++)
 		devm_free_irq(dev, pci_irq_vector(pdev, i), vk);
 
+	pci_disable_msix(pdev);
 	pci_disable_msi(pdev);
 
 err_iounmap:
@@ -414,6 +415,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &vk->miscdev;
 
+	cancel_work_sync(&vk->vk2h_wq);
 	bcm_vk_msg_remove(vk);
 
 	/* remove if name is set which means misc dev registered */
@@ -430,6 +432,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	for (i = 0; i < vk->num_irqs; i++)
 		devm_free_irq(&pdev->dev, pci_irq_vector(pdev, i), vk);
 
+	pci_disable_msix(pdev);
 	pci_disable_msi(pdev);
 
 	for (i = 0; i < MAX_BAR; i++) {
