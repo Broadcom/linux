@@ -82,6 +82,20 @@ config SND_SOC_OMEGA_BCM91140X15_ENTPHN_MACHINE
 	  The design uses the Omega SOC and its internal codec, there are not
 	  any external codecs attached.
 
+config SND_SOC_OMEGA_BCM958313_WA_MACHINE
+	tristate "SoC Audio support for Broadcom Omega Wireless Audio board"
+	depends on SND_SOC_OMEGA
+	select SND_SOC_BCMDUMMY
+	select SND_SOC_BCMAUDIOH
+	select SND_SOC_AK4458
+	select SND_SOC_SPDIF
+	select SND_SIMPLE_CARD_UTILS
+
+	help
+	  Say Y if you want to add audio support for Omega WA reference board.
+	  This design uses the Omega SOC mounted on board with an Ak4458 codec.
+	  There is also a link for Omega's internal audio codec.
+
 config SND_SOC_OMEGA_SVK_MACHINE
 	tristate "SoC Audio support for Broadcom Omega SVK"
 	depends on SND_SOC_OMEGA
