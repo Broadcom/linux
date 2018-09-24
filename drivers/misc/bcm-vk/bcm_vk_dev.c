@@ -304,6 +304,14 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_disable_pdev;
 	}
 
+	/* make sure DMA is good */
+	err = dma_set_mask_and_coherent(&pdev->dev,
+					DMA_BIT_MASK(BCM_VK_DMA_BITS));
+	if (err) {
+		dev_err(dev, "failed to set DMA mask");
+		goto err_disable_pdev;
+	}
+
 	pci_set_master(pdev);
 	pci_set_drvdata(pdev, vk);
 
@@ -369,7 +377,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_kfree_name;
 	}
 
-	dev_info(dev, "BCM-VK:%u\n", id);
+	dev_info(dev, "BCM-VK:%u created\n", id);
 
 	return 0;
 
@@ -402,7 +410,7 @@ err_disable_pdev:
 static void bcm_vk_remove(struct pci_dev *pdev)
 {
 	int i;
-	int id;
+	int id = -1;
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &vk->miscdev;
 
@@ -423,10 +431,13 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 		devm_free_irq(&pdev->dev, pci_irq_vector(pdev, i), vk);
 
 	pci_disable_msi(pdev);
+
 	for (i = 0; i < MAX_BAR; i++) {
 		if (vk->bar[i])
 			pci_iounmap(pdev, vk->bar[i]);
 	}
+
+	dev_info(&pdev->dev, "BCM-VK:%d released\n", id);
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);
 }

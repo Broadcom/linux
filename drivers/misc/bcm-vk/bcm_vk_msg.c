@@ -113,14 +113,31 @@ static int bcm_vk_sync_msgq(struct bcm_vk *vk)
 	struct device *dev = &vk->pdev->dev;
 	uint32_t msgq_off;
 	uint32_t num_q;
+	uint32_t rdy_marker;
 	struct bcm_vk_msg_chan *chan_list[] = {&vk->h2vk_msg_chan,
 					       &vk->vk2h_msg_chan};
 	struct bcm_vk_msg_chan *p_chan = NULL;
 	int i, j;
 
-	if (!vkread32(vk, BAR_1, VK_BAR1_DDRSEG_MSGQ_DEF_RDY)) {
-		dev_err(dev, "BAR1 not initialized.\n");
+	/*
+	 * if this function is called when it is already inited,
+	 * something is wrong
+	 */
+	if (vk->msgq_inited) {
+		dev_err(dev, "Msgq info already in sync");
 		return -EPERM;
+	}
+
+	/*
+	 * If the driver is loaded at startup where vk OS is not up yet,
+	 * the msgq-info may not be available until a later time.  In
+	 * this case, we skip and the sync function is supposed to be
+	 * called again.
+	 */
+	rdy_marker = vkread32(vk, BAR_1, VK_BAR1_DDRSEG_MSGQ_DEF_RDY);
+	if (rdy_marker != VK_BAR1_DDRSEG_MSGQ_RDY_MARKER) {
+		dev_info(dev, "BAR1 msgq marker not initialized.\n");
+		return 0;
 	}
 
 	msgq_off = vkread32(vk, BAR_1, VK_BAR1_DDRSEG_MSGQ_CTRL_OFF);
@@ -154,6 +171,8 @@ static int bcm_vk_sync_msgq(struct bcm_vk *vk)
 			rmb(); /* do a read mb to guarantee */
 		}
 	}
+
+	vk->msgq_inited = true;
 
 	return 0;
 }
@@ -427,8 +446,15 @@ irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id)
 {
 	struct bcm_vk *vk = dev_id;
 
+	if (!vk->msgq_inited) {
+		dev_err(&vk->pdev->dev,
+			"Interrupt %d received when msgq not inited", irq);
+		goto skip_schedule_work;
+	}
+
 	schedule_work(&vk->vk2h_wq);
 
+skip_schedule_work:
 	return IRQ_HANDLED;
 }
 
@@ -478,7 +504,11 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 	uint32_t rsp_length;
 	bool found = false;
 
-	dev_info(dev, "%s(): called with buf count %ld\n", __func__, count);
+	dev_info(dev, "%s(): called with buf count %ld, msgq_inited %d\n",
+		 __func__, count, vk->msgq_inited);
+
+	if (!vk->msgq_inited)
+		return -EPERM;
 
 	found = false;
 
@@ -544,7 +574,11 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_wkent *p_ent;
 
-	dev_info(dev, "%s() called with msg count %ld\n", __func__, count);
+	dev_info(dev, "%s() called with msg count %ld, msg_inited %d\n",
+		 __func__, count, vk->msgq_inited);
+
+	if (!vk->msgq_inited)
+		return -EPERM;
 
 	/* first, do sanity check where count should be multiple of basic blk */
 	if ((count % VK_MSGQ_BLK_SIZE) != 0) {
@@ -661,4 +695,5 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 	/* drain all pending items */
 	bcm_vk_drain_all_pend(&vk->h2vk_msg_chan, NULL);
 	bcm_vk_drain_all_pend(&vk->vk2h_msg_chan, NULL);
+	vk->msgq_inited = false;
 }
