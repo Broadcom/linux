@@ -40,37 +40,10 @@
 	};
 
 	sound {
-		compatible = "simple-audio-card";
+		compatible = "brcm,omega-wa-machine";
 		status = "okay";
 
-		simple-audio-card,name = "bcm958313wa-card";
-
-		simple-audio-card,widgets =
-			"Headphone", "Headphone jack",
-
-			"Microphone", "Analog Mic1",
-			"Microphone", "Analog Mic2",
-			"Microphone", "Analog Mic3",
-			"Microphone", "Digital Mic1",
-			"Microphone", "Digital Mic2",
-			"Microphone", "Digital Mic3",
-			"Microphone", "Digital Mic4";
-
-		simple-audio-card,,audio-routing =
-			/* Outputs */
-			"Headphone jack", "HS_OUT_L",
-			"Headphone jack", "HS_OUT_R",
-
-			/* Inputs */
-			"AMIC1", "Analog Mic1",
-			"AUXMIC1", "Analog Mic2",
-			"AMIC3", "Analog Mic3",
-			"DMIC1", "Digital Mic1",
-			"DMIC2", "Digital Mic2",
-			"DMIC3", "Digital Mic3",
-			"DMIC4", "Digital Mic4";
-
-		simple-audio-card,dai-link@0 {
+		link0 {
 			format = "dsp_a";
 			bitclock-master = <&dailink0_master>;
 			frame-master = <&dailink0_master>;
@@ -88,6 +61,27 @@
 				sound-dai = <&omega_codec 0>;
 			};
 		};
+
+		link1 {
+			format = "dsp_b";
+			bitclock-master = <&dailink1_master>;
+			frame-master = <&dailink1_master>;
+
+			dailink1_master: cpu {
+				sound-dai = <&omega_audio 0>;
+
+				dai-tdm-slot-num = <8>;
+				dai-tdm-slot-width = <32>;
+			};
+
+			codec {
+				sound-dai = <&ak4458>;
+
+				dai-tdm-slot-num = <8>;
+				dai-tdm-slot-width = <32>;
+			};
+		};
+
 	};
 };
 
@@ -103,6 +97,12 @@
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c1_mfio045_pins>;
+
+	ak4458: dac@10 {
+		#sound-dai-cells = <0>;
+		compatible = "asahi-kasei,ak4458";
+		reg = <0x10>;
+	};
 };
 
 &omega_codec {
@@ -114,6 +114,9 @@
 
 &omega_audio {
 	#sound-dai-cells = <1>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2s0_pins &i2s1_mfio089_pins>;
 
 	assigned-clocks = <&audiopll_1 BCM_OMEGA_AUDIOPLL>,
 			  <&ssp0_clock>,
@@ -136,10 +139,6 @@
 	};
 
 	ssp2: ssp_port@2 {
-		status = "okay";
-	};
-
-	spdif: spdif_port@3 {
 		status = "okay";
 	};
 };
