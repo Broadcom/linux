@@ -1,0 +1,53 @@
+Omega Wireless Audio reference design
+
+Required properties:
+- compatible: "brcm,omega-wa-machine"
+
+In addition to these properties, the device follows the general construct
+of the multi-dai generic "simple audio card".  Refer to simple-card.txt.
+
+Example:
+
+sound {
+	compatible = "brcm,omega-wa-machine";
+	status = "okay";
+
+	link0 {
+		format = "dsp_a";
+		bitclock-master = <&dailink0_master>;
+		frame-master = <&dailink0_master>;
+
+		cpu {
+			sound-dai = <&omega_audio 2>;
+
+			dai-tdm-slot-num = <8>;
+			dai-tdm-slot-width = <32>;
+			dai-tdm-slot-tx-mask = <1 1 1 1 0 0 0 0>;
+			dai-tdm-slot-rx-mask = <1 1 1 1 0 0 0 0>;
+		};
+
+		dailink0_master: codec {
+			sound-dai = <&omega_codec 0>;
+		};
+	};
+
+	link1 {
+		format = "dsp_b";
+		bitclock-master = <&dailink1_master>;
+		frame-master = <&dailink1_master>;
+
+		dailink1_master: cpu {
+			sound-dai = <&omega_audio 0>;
+
+			dai-tdm-slot-num = <8>;
+			dai-tdm-slot-width = <32>;
+		};
+
+		codec {
+			sound-dai = <&ak4458>;
+
+			dai-tdm-slot-num = <8>;
+			dai-tdm-slot-width = <32>;
+		};
+	};
+};
