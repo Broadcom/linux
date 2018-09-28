@@ -198,13 +198,14 @@ static void bcm_vk_append_pendq(struct bcm_vk_msg_chan *p_chan, uint16_t q_num,
 	spin_unlock(&p_chan->pendq_lock);
 }
 
-static void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num)
+static void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num,
+			      uint32_t db_val)
 {
-	/* assume door bell to be adjacent for now? */
+	/* press door bell based on q_num */
 	vkwrite32(vk,
-		  1,
+		  db_val,
 		  BAR_0,
-		  VK_BAR0_REGSEG_DB_BASE + (q_num * sizeof(uint32_t)));
+		  VK_BAR0_REGSEG_DB_BASE + q_num * VK_BAR0_REGSEG_DB_REG_GAP);
 }
 
 static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
@@ -274,8 +275,12 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
 
 	mutex_unlock(&p_chan->msgq_mutex);
 
-	/* press door bell based on queue number */
-	bcm_h2vk_doorbell(vk, q_num);
+	/*
+	 * press door bell based on queue number. 1 is added to the wr_idx
+	 * to avoid the value of 0 appearing on the VK side to distinguish
+	 * from initial value.
+	 */
+	bcm_h2vk_doorbell(vk, q_num, wr_idx + 1);
 
 	return 0;
 }

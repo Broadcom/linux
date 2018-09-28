@@ -118,10 +118,13 @@ struct bcm_vk_msg_chan {
 #define VK_BAR0_SEG_SIZE	    (4 * SZ_1K)	/* segment size for BAR0 */
 
 /*
- * fisrt door bell reg, ie for queue = 0.  Only need the first one, as
- * we will use the queue number as offset
+ * first door bell reg, ie for queue = 0.  Only need the first one, as
+ * we will use the queue number to derive the others
  */
-#define VK_BAR0_REGSEG_DB_BASE		(1 * VK_BAR0_SEG_SIZE + 0x0)
+#define VK_BAR0_REGSEG_DB_BASE		0x484
+#define VK_BAR0_REGSEG_DB_REG_GAP	8 /* DB register gap,
+					   * DB1 at 0x48c and DB2 at 0x494
+					   */
 
 #define VK_BAR1_SEG_SIZE		(1 * SZ_1M)
 #define VK_BAR1_DDRSEG_BASE		(4 * VK_BAR1_SEG_SIZE)
