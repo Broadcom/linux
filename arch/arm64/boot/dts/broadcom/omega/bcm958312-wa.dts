@@ -89,6 +89,16 @@
 			};
 		};
 	};
+
+	wlan4356_reg0: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "4356-rf-reg0";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio_crmu 2 0>;
+		enable-active-high;
+		regulator-always-on;
+	};
 };
 
 &i2c0 {
@@ -272,5 +282,14 @@
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&sdio0_4bit_mode_pins>;
+};
+
+&pcie {
+	status = "okay";
+
+	brcmf1: bcrmf@1 {
+		compatible = "brcm,bcm4329-fmac";
+		status = "okay";
+	};
 };
 
