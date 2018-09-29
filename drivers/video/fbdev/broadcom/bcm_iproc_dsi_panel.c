@@ -101,6 +101,10 @@ int dsi_parse_panel_data(struct platform_device *pdev,
 	if (of_property_read_u32(pnode, "brcm,lanes", &val))
 		goto of_fail;
 	panel.disp_info->lanes = (uint8_t)val;
+	if (of_property_read_bool(pnode, "brcm,sync-pulses"))
+		panel.disp_info->sync_pulses = true;
+	else
+		panel.disp_info->sync_pulses = false;
 
 	return 0;
 of_fail:
