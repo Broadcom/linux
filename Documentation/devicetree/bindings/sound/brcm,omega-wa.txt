@@ -2,6 +2,13 @@ Omega Wireless Audio reference design
 
 Required properties:
 - compatible: "brcm,omega-wa-machine"
+- brcm,reset-ak4458-gpio: gpio used to reset ak4458 codec.  The gpio is
+	controlled from the machine driver instead of from the ak4458 driver
+	in order to workaround a problem where the i2c bys glitches during
+	the reset of the codec.
+- pinctrl-name: Must be "default" and "gpio"
+- pinctrl-0: phandle for node which sets mfio45 and 46 to i2c mode
+- pinctrl-1: phandle for node which sets mfio45 and 46 to gpio mode
 
 In addition to these properties, the device follows the general construct
 of the multi-dai generic "simple audio card".  Refer to simple-card.txt.
@@ -11,6 +18,12 @@ Example:
 sound {
 	compatible = "brcm,omega-wa-machine";
 	status = "okay";
+
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&i2c1_mfio045_pins>;
+	pinctrl-1 = <&gpio_mfio045_pins>;
+
+	brcm,reset-ak4458-gpio = <&gpio_east 37 GPIO_ACTIVE_LOW>;
 
 	link0 {
 		format = "dsp_a";
