@@ -6,6 +6,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 
 #include <sound/core.h>
@@ -24,6 +25,7 @@
 
 struct card_state_data {
 	struct snd_soc_dai_link  bcm_omega_wa_dai_links[MAX_LINKS];
+	struct gpio_desc *gpio_ak4458_reset;
 };
 
 static int omega_hw_params_ak4458(struct snd_pcm_substream *substream,
@@ -116,6 +118,64 @@ static const struct snd_soc_dapm_route wa_card_dapm_routes[] = {
 	{"AK_Chan4 jack", NULL, "AK4458 AOUTD"},
 };
 
+static int bcm_omega_wa_card_probe(struct snd_soc_card *card)
+{
+	struct pinctrl  *pinctrl;
+	struct pinctrl_state *state_default;
+	struct pinctrl_state *state_gpio;
+
+	struct device *dev;
+	int ret;
+	struct card_state_data *card_data = snd_soc_card_get_drvdata(card);
+	struct gpio_desc *gpio = card_data->gpio_ak4458_reset;
+
+	dev = card->dev;
+
+	pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(pinctrl)) {
+		ret = PTR_ERR(pinctrl);
+		dev_err(dev, "Failed getting pinctrl %d.\n", ret);
+		return ret;
+	}
+
+	state_default = pinctrl_lookup_state(pinctrl, "default");
+	if (IS_ERR(state_default)) {
+		ret = PTR_ERR(state_default);
+		dev_err(dev, "Failed looking up pinctrl state %d.\n", ret);
+		return ret;
+	}
+
+	state_gpio = pinctrl_lookup_state(pinctrl, "gpio");
+	if (IS_ERR(state_gpio)) {
+		ret = PTR_ERR(state_gpio);
+		dev_err(dev, "Failed looking up pinctrl state %d.\n", ret);
+		return ret;
+	}
+
+	ret = pinctrl_select_state(pinctrl, state_gpio);
+	if (ret < 0) {
+		dev_err(dev, "Failed selecting pinctrl state gpio.\n");
+		return ret;
+	}
+
+	/* power down codec */
+	gpiod_set_raw_value_cansleep(gpio, 0);
+	usleep_range(1000, 2000);
+
+	/* power up codec */
+	gpiod_set_raw_value_cansleep(gpio, 1);
+	usleep_range(1000, 2000);
+
+	/* set pins back to i2c */
+	ret = pinctrl_select_state(pinctrl, state_default);
+	if (ret < 0) {
+		dev_err(dev, "Failed selecting pinctrl state i2c.\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 /* Audio machine driver */
 static struct snd_soc_card bcm_omega_wa_audio_card = {
 	.name = "bcm-omega-wa-card",
@@ -126,6 +186,8 @@ static struct snd_soc_card bcm_omega_wa_audio_card = {
 
 	.dapm_routes = wa_card_dapm_routes,
 	.num_dapm_routes = ARRAY_SIZE(wa_card_dapm_routes),
+
+	.probe =  bcm_omega_wa_card_probe,
 };
 
 static int bcm_omega_wa_probe(struct platform_device *pdev)
@@ -155,6 +217,14 @@ static int bcm_omega_wa_probe(struct platform_device *pdev)
 
 	card->dai_link = card_data->bcm_omega_wa_dai_links;
 	card->num_links = linktotal;
+
+	card_data->gpio_ak4458_reset = devm_gpiod_get(&pdev->dev,
+				"brcm,reset-ak4458", GPIOD_OUT_LOW);
+	if (IS_ERR(card_data->gpio_ak4458_reset)) {
+		ret = PTR_ERR(card_data->gpio_ak4458_reset);
+		dev_err(&pdev->dev, "Invalid gpio for ak4458 reset %d\n", ret);
+		return ret;
+	}
 
 	for (linknum = 0; linknum < linktotal; linknum++) {
 		snprintf(name, PROP_LEN_MAX, "link%d", linknum);
