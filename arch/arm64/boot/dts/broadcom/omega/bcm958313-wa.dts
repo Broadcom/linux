@@ -7,6 +7,7 @@
 
 #include "omega-base-board.dtsi"
 #include "dt-bindings/input/input.h"
+#include "dt-bindings/gpio/gpio.h"
 
 / {
 	model = "Broadcom Omega (bcm958313) Wireless Audio";
@@ -42,6 +43,13 @@
 	sound {
 		compatible = "brcm,omega-wa-machine";
 		status = "okay";
+
+		pinctrl-names = "default", "gpio";
+		pinctrl-0 = <&i2c1_mfio045_pins>;
+		pinctrl-1 = <&gpio_mfio045_pins>;
+
+		/* gpio88 */
+		brcm,reset-ak4458-gpio = <&gpio_east 37 GPIO_ACTIVE_LOW>;
 
 		link0 {
 			format = "dsp_a";
@@ -94,9 +102,6 @@
 
 &i2c1 {
 	status = "okay";
-
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c1_mfio045_pins>;
 
 	ak4458: dac@10 {
 		#sound-dai-cells = <0>;
@@ -270,3 +275,11 @@
 	pinctrl-0 = <&sdio0_4bit_mode_pins>;
 };
 
+&pinmux0 {
+	gpio_mfio045_pins: gpio_mfio045_mux_func {
+		pinctrl-single,pins = <
+			0xb4 ALT_0 /* MFIO_045: GPIO */
+			0xb8 ALT_0 /* MFIO_046: GPIO */
+		>;
+	};
+};
