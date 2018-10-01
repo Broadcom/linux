@@ -99,6 +99,11 @@ Required properties:
 		Second byte is the actual command.
 - panel-timing	: Display timing information (Refer to panel/display-timing.txt)
 
+Optional properties:
+- brcm,sync-pulses	: Enable sync-pulse which will make timing like DPI synchronizing
+			pulse, remove it to enable for sync-event which does not require
+			synchronizing pulse, rather it will use binary code as sync event.
+
 Example:
 
 	dsi_panel {
@@ -110,6 +115,7 @@ Example:
 		brcm,vmode;
 		brcm,fps = <60>;
 		brcm,lanes = <2>;
+		brcm,sync-pulses;
 		brcm,cmd-lp;
 		brcm,hs-bitrate = <420000000>;
 		brcm,lp-bitrate = <5000000>;
