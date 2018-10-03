@@ -36,6 +36,10 @@
 #define ENABLE_PAXB_IOMMU	0
 #endif
 
+#ifndef ENABLE_IHOST12_CPUS
+#define ENABLE_IHOST12_CPUS	1
+#endif
+
 / {
 	compatible = "brcm,stingray";
 	interrupt-parent = <&gic>;
@@ -62,7 +66,7 @@
 			enable-method = "psci";
 			next-level-cache = <&CLUSTER0_L2>;
 		};
-
+#if (ENABLE_IHOST12_CPUS == 1)
 		cpu@100 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a72", "arm,armv8";
@@ -94,7 +98,7 @@
 			enable-method = "psci";
 			next-level-cache = <&CLUSTER2_L2>;
 		};
-
+#endif
 		cpu@300 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a72", "arm,armv8";
@@ -114,7 +118,7 @@
 		CLUSTER0_L2: l2-cache@0 {
 			compatible = "cache";
 		};
-
+#if (ENABLE_IHOST12_CPUS == 1)
 		CLUSTER1_L2: l2-cache@100 {
 			compatible = "cache";
 		};
@@ -122,7 +126,7 @@
 		CLUSTER2_L2: l2-cache@200 {
 			compatible = "cache";
 		};
-
+#endif
 		CLUSTER3_L2: l2-cache@300 {
 			compatible = "cache";
 		};
