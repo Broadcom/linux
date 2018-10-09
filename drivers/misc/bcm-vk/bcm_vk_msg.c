@@ -124,7 +124,7 @@ static int bcm_vk_sync_msgq(struct bcm_vk *vk)
 	 * something is wrong
 	 */
 	if (vk->msgq_inited) {
-		dev_err(dev, "Msgq info already in sync");
+		dev_err(dev, "Msgq info already in sync\n");
 		return -EPERM;
 	}
 
@@ -453,11 +453,11 @@ irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id)
 
 	if (!vk->msgq_inited) {
 		dev_err(&vk->pdev->dev,
-			"Interrupt %d received when msgq not inited", irq);
+			"Interrupt %d received when msgq not inited\n", irq);
 		goto skip_schedule_work;
 	}
 
-	schedule_work(&vk->vk2h_wq);
+	queue_work(vk->vk2h_wq_thread, &vk->vk2h_wq);
 
 skip_schedule_work:
 	return IRQ_HANDLED;
@@ -471,7 +471,7 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 	struct device *dev = &vk->pdev->dev;
 	int    rc = 0;
 
-	dev_info(dev, "%s\n", __func__);
+	dev_info(dev, "open\n");
 
 	/* get a context and set it up for file */
 	p_ctx = bcm_vk_get_ctx(vk);
@@ -509,8 +509,8 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 	uint32_t rsp_length;
 	bool found = false;
 
-	dev_info(dev, "%s(): called with buf count %ld, msgq_inited %d\n",
-		 __func__, count, vk->msgq_inited);
+	dev_info(dev, "Buf count %ld, msgq_inited %d\n",
+		 count, vk->msgq_inited);
 
 	if (!vk->msgq_inited)
 		return -EPERM;
@@ -561,7 +561,7 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 		tmp_msg.size = p_ent->vk2h_blks - 1;
 		if (copy_to_user(buf, &tmp_msg, VK_MSGQ_BLK_SIZE) != 0) {
 			dev_err(dev,
-				"Error returning first block in -EMSGSIZE case");
+				"Error returning first block in -EMSGSIZE case\n");
 			rc = -EFAULT;
 		}
 	}
@@ -579,8 +579,8 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_wkent *p_ent;
 
-	dev_info(dev, "%s() called with msg count %ld, msg_inited %d\n",
-		 __func__, count, vk->msgq_inited);
+	dev_info(dev, "Msg count %ld, msg_inited %d\n",
+		 count, vk->msgq_inited);
 
 	if (!vk->msgq_inited)
 		return -EPERM;
@@ -672,21 +672,29 @@ int bcm_vk_msg_init(struct bcm_vk *vk)
 	int err = 0;
 
 	if (bcm_vk_data_init(vk)) {
-		dev_err(dev, "Error initializing internal data structures");
+		dev_err(dev, "Error initializing internal data structures\n");
 		err = -EINVAL;
 		goto err_out;
 	}
 
 	if (bcm_vk_msg_chan_init(&vk->h2vk_msg_chan) ||
 	    bcm_vk_msg_chan_init(&vk->vk2h_msg_chan)) {
-		dev_err(dev, "Error initializing communication channel");
+		dev_err(dev, "Error initializing communication channel\n");
 		err = -EIO;
+		goto err_out;
+	}
+
+	/* create dedicated workqueue */
+	vk->vk2h_wq_thread = create_singlethread_workqueue(vk->miscdev.name);
+	if (!vk->vk2h_wq_thread) {
+		dev_err(dev, "Fail to create workqueue thread\n");
+		err = -ENOMEM;
 		goto err_out;
 	}
 
 	/* read msgq info */
 	if (bcm_vk_sync_msgq(vk)) {
-		dev_err(dev, "Error reading comm msg Q info");
+		dev_err(dev, "Error reading comm msg Q info\n");
 		err = -EIO;
 		goto err_out;
 	}
@@ -697,6 +705,8 @@ err_out:
 
 void bcm_vk_msg_remove(struct bcm_vk *vk)
 {
+	destroy_workqueue(vk->vk2h_wq_thread);
+
 	/* drain all pending items */
 	bcm_vk_drain_all_pend(&vk->h2vk_msg_chan, NULL);
 	bcm_vk_drain_all_pend(&vk->vk2h_msg_chan, NULL);

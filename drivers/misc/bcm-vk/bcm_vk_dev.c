@@ -308,7 +308,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	err = dma_set_mask_and_coherent(&pdev->dev,
 					DMA_BIT_MASK(BCM_VK_DMA_BITS));
 	if (err) {
-		dev_err(dev, "failed to set DMA mask");
+		dev_err(dev, "failed to set DMA mask\n");
 		goto err_disable_pdev;
 	}
 
@@ -326,7 +326,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_disable_pdev;
 	}
 
-	dev_info(dev, "Number of IRQs %d allocated.", irq);
+	dev_info(dev, "Number of IRQs %d allocated.\n", irq);
 
 	for (i = 0; i < MAX_BAR; i++) {
 		/* multiple by 2 for 64 bit BAR mapping */

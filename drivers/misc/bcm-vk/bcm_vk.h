@@ -48,6 +48,7 @@ struct bcm_vk {
 	struct bcm_vk_msg_chan h2vk_msg_chan;
 	struct bcm_vk_msg_chan vk2h_msg_chan;
 
+	struct workqueue_struct *vk2h_wq_thread;
 	struct work_struct vk2h_wq; /* work queue for deferred job */
 };
 
