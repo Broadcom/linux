@@ -17,9 +17,6 @@
 #include <linux/platform_device.h>
 #include <linux/thermal.h>
 
-#define TMON_CRIT_TEMP          105000 /* temp in millidegree C */
-#define SR_TMON_MAX_LIST        6
-
 /*
  * In stingray thermal IO memory,
  * Total Number of available TMONs MASK is at offset 0
@@ -28,14 +25,7 @@
  */
 #define SR_TMON_TEMP_BASE(id)   ((id) * 0x4)
 
-static const char * const sr_tmon_names[SR_TMON_MAX_LIST] = {
-	"sr_tmon_ihost0",
-	"sr_tmon_ihost1",
-	"sr_tmon_ihost2",
-	"sr_tmon_ihost3",
-	"sr_tmon_crmu",
-	"sr_tmon_nitro",
-};
+#define SR_TMON_MAX_LIST        6
 
 struct sr_tmon {
 	struct thermal_zone_device *tz;
@@ -45,14 +35,14 @@ struct sr_tmon {
 };
 
 struct sr_thermal {
-	struct device *dev;
 	void __iomem *regs;
+	unsigned int max_crit_temp;
 	struct sr_tmon tmon[SR_TMON_MAX_LIST];
 };
 
-static int sr_get_temp(struct thermal_zone_device *tz, int *temp)
+static int sr_get_temp(void *data, int *temp)
 {
-	struct sr_tmon *tmon = tz->devdata;
+	struct sr_tmon *tmon = data;
 	struct sr_thermal *sr_thermal = tmon->priv;
 
 	*temp = readl(sr_thermal->regs + SR_TMON_TEMP_BASE(tmon->tmon_id));
@@ -60,66 +50,8 @@ static int sr_get_temp(struct thermal_zone_device *tz, int *temp)
 	return 0;
 }
 
-static int sr_get_trip_type(struct thermal_zone_device *tz, int trip,
-					enum thermal_trip_type *type)
-{
-	struct sr_tmon *tmon = tz->devdata;
-	struct sr_thermal *sr_thermal = tmon->priv;
-
-	switch (trip) {
-	case 0:
-		*type = THERMAL_TRIP_CRITICAL;
-		break;
-	default:
-		dev_err(sr_thermal->dev,
-			"Driver does not support more than 1 trip point\n");
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static int sr_get_trip_temp(struct thermal_zone_device *tz, int trip, int *temp)
-{
-	struct sr_tmon *tmon = tz->devdata;
-	struct sr_thermal *sr_thermal = tmon->priv;
-
-	switch (trip) {
-	case 0:
-		*temp = tmon->crit_temp;
-		break;
-	default:
-		dev_err(sr_thermal->dev,
-			"Driver does not support more than 1 trip point\n");
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static int sr_set_trip_temp(struct thermal_zone_device *tz, int trip, int temp)
-{
-	struct sr_tmon *tmon = tz->devdata;
-
-	switch (trip) {
-	case 0:
-		/*
-		 * Allow the user to change critical temperature
-		 * as per their requirement, could be for debug
-		 * purpose, even if it's more than the recommended
-		 * critical temperature.
-		 */
-		tmon->crit_temp = temp;
-		break;
-	default:
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static struct thermal_zone_device_ops sr_thermal_ops = {
+static const struct thermal_zone_of_device_ops sr_tz_ops = {
 	.get_temp = sr_get_temp,
-	.get_trip_type = sr_get_trip_type,
-	.get_trip_temp = sr_get_trip_temp,
-	.set_trip_temp = sr_set_trip_temp,
 };
 
 static int sr_thermal_probe(struct platform_device *pdev)
@@ -136,11 +68,10 @@ static int sr_thermal_probe(struct platform_device *pdev)
 	if (!sr_thermal)
 		return -ENOMEM;
 
-	sr_thermal->dev = dev;
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	sr_thermal->regs = devm_memremap(&pdev->dev, res->start,
-					 resource_size(res), MEMREMAP_WB);
+	sr_thermal->regs = (void __iomem *)devm_memremap(&pdev->dev, res->start,
+							 resource_size(res),
+							 MEMREMAP_WB);
 	if (IS_ERR(sr_thermal->regs)) {
 		dev_err(dev, "failed to get io address\n");
 		return PTR_ERR(sr_thermal->regs);
@@ -150,48 +81,39 @@ static int sr_thermal_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	for (i = 0; i < SR_TMON_MAX_LIST; i++) {
+	tmon = sr_thermal->tmon;
+	for (i = 0; i < SR_TMON_MAX_LIST; i++, tmon++) {
 
 		if (!(sr_tmon_list & BIT(i)))
 			continue;
 
 		/* Flush temperature registers */
 		writel(0, sr_thermal->regs + SR_TMON_TEMP_BASE(i));
-		tmon = &sr_thermal->tmon[i];
-		tmon->crit_temp = TMON_CRIT_TEMP;
 		tmon->tmon_id = i;
 		tmon->priv = sr_thermal;
-		tmon->tz = thermal_zone_device_register(sr_tmon_names[i],
-				1, 1,
-				tmon,
-				&sr_thermal_ops,
-				NULL, 1000, 1000);
+		tmon->tz = devm_thermal_zone_of_sensor_register(dev, i, tmon,
+								&sr_tz_ops);
 		if (IS_ERR(tmon->tz))
-			goto err_exit;
+			return PTR_ERR(tmon->tz);
 
-		dev_info(dev, "%s: registered\n", sr_tmon_names[i]);
+		dev_info(dev, "thermal sensor %d registered\n", i);
 	}
 	platform_set_drvdata(pdev, sr_thermal);
 
 	return 0;
-
-err_exit:
-	while (--i >= 0) {
-		if (sr_thermal->tmon[i].tz)
-			thermal_zone_device_unregister(sr_thermal->tmon[i].tz);
-	}
-
-	return PTR_ERR(tmon->tz);
 }
 
 static int sr_thermal_remove(struct platform_device *pdev)
 {
 	struct sr_thermal *sr_thermal = platform_get_drvdata(pdev);
 	unsigned int i;
+	struct sr_tmon *tmon;
 
-	for (i = 0; i < SR_TMON_MAX_LIST; i++)
-		if (sr_thermal->tmon[i].tz)
-			thermal_zone_device_unregister(sr_thermal->tmon[i].tz);
+	tmon = sr_thermal->tmon;
+	for (i = 0; i < SR_TMON_MAX_LIST; i++, tmon++)
+		if (tmon->tz)
+			devm_thermal_zone_of_sensor_unregister(&pdev->dev,
+							       tmon->tz);
 
 	return 0;
 }
