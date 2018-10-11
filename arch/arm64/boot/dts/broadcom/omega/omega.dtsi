@@ -572,5 +572,11 @@
 		};
 	};
 
+	scp: scp {
+		compatible = "brcm,omega-scp";
+		mboxes = <&mailbox 1>;
+		status = "disabled";
+	};
+
 	#include "omega-optee.dtsi"
 };
