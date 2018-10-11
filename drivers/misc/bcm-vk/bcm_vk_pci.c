@@ -27,6 +27,7 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 	struct device *dev = &pdev->dev;
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	uint32_t i;
+	int num_vecs = 0;
 
 	dev_info(dev, "Request min %d max %d flags 0x%x\n",
 		 min_vecs, max_vecs, flags);
@@ -36,7 +37,25 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 		vk->msix[i].vector = 0;
 	}
 
-	return pci_enable_msix_range(pdev, vk->msix, min_vecs, max_vecs);
+	if (flags & PCI_IRQ_MSIX)
+		num_vecs = pci_enable_msix_range(pdev, vk->msix,
+						 min_vecs, max_vecs);
+
+	/* if MSI-x fails and MSI is chosen */
+	if ((num_vecs == 0) && (flags & PCI_IRQ_MSI)) {
+		num_vecs = pci_enable_msi_block(pdev, max_vecs);
+		if (num_vecs == 0) {
+
+			for (num_vecs = 0; num_vecs < max_vecs; num_vecs++)
+				vk->msix[num_vecs].vector =
+					num_vecs + pdev->irq;
+
+			dev_info(dev, "Fallback to MSI with %d irqs\n",
+				 num_vecs);
+		}
+	}
+
+	return num_vecs;
 }
 
 #endif
