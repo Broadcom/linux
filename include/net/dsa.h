@@ -489,6 +489,12 @@ struct dsa_switch_ops {
 				 struct sk_buff *clone, unsigned int type);
 	bool	(*port_rxtstamp)(struct dsa_switch *ds, int port,
 				 struct sk_buff *skb, unsigned int type);
+	/*
+	 * ethtool pause parameter
+	 */
+	int	(*set_pauseparam)(struct dsa_switch *ds,
+				  struct phy_device *phydev,
+				  struct ethtool_pauseparam *pause);
 };
 
 struct dsa_switch_driver {
