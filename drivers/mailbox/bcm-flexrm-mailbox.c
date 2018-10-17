@@ -1193,10 +1193,19 @@ static int flexrm_debugfs_stats_show(struct seq_file *file, void *offset)
 
 static irqreturn_t flexrm_irq_event(int irq, void *dev_id)
 {
-	/* We only have MSI for completions so just wakeup IRQ thread */
-	/* Ring related errors will be informed via completion descriptors */
+	struct flexrm_ring *ring = (struct flexrm_ring *)dev_id;
+	u32 cmpl_write_offset;
 
-	return IRQ_WAKE_THREAD;
+	cmpl_write_offset = readl_relaxed(ring->regs + RING_CMPL_WRITE_PTR);
+	cmpl_write_offset *= RING_DESC_SIZE;
+	/*
+	 * Don't schedule irq thread if there is no data to process.
+	 * It means peek_data() has already processed all data.
+	 */
+	if (cmpl_write_offset == ring->cmpl_read_offset)
+		return IRQ_HANDLED;
+	else
+		return IRQ_WAKE_THREAD;
 }
 
 static irqreturn_t flexrm_irq_thread(int irq, void *dev_id)
