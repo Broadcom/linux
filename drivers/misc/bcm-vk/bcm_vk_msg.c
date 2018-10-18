@@ -504,7 +504,7 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 					 miscdev);
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_msg_chan *p_chan = &vk->vk2h_msg_chan;
-	struct bcm_vk_wkent *p_ent;
+	struct bcm_vk_wkent *p_ent = NULL;
 	uint32_t q_num;
 	uint32_t rsp_length;
 	bool found = false;
