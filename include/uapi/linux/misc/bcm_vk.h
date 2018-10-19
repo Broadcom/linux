@@ -30,7 +30,7 @@ struct vk_image {
 	__u32 type;     /* Type of image */
 #define VK_IMAGE_TYPE_BOOT1 1 /* 1st stage (load to SRAM) */
 #define VK_IMAGE_TYPE_BOOT2 2 /* 2nd stage (load to DDR) */
-	char *filename; /* Filename of image */
+	char filename[64]; /* Filename of image */
 };
 
 struct vk_access {
