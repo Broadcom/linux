@@ -234,6 +234,20 @@ static int bcm_bt_rfkill_probe(struct platform_device *pdev)
 
 	data->dev = dev;
 
+	gpio_value = of_get_named_gpio(np, "bt-dev-wake-gpio", 0);
+	if (gpio_value == -EPROBE_DEFER)
+		return gpio_value;
+
+	if (gpio_is_valid(gpio_value))
+		data->dev_wake_gpio = gpio_value;
+
+	gpio_value = of_get_named_gpio(np, "bt-host-wake-gpio", 0);
+	if (gpio_value == -EPROBE_DEFER)
+		return gpio_value;
+
+	if (gpio_is_valid(gpio_value))
+		data->host_wake_gpio = gpio_value;
+
 	err = bcm_bt_regulator_get(data);
 	if (err)
 		return err;
@@ -261,18 +275,6 @@ static int bcm_bt_rfkill_probe(struct platform_device *pdev)
 	if (err)
 		goto err_host_wake_create;
 
-	/* Read device tree to get bluetooth device and host wake GPIOs */
-	gpio_value = of_get_named_gpio(np, "bt-dev-wake-gpio", 0);
-	if (gpio_value < 0)
-		dev_warn(dev, "bt-dev-wake-gpio missing\n");
-	else
-		data->dev_wake_gpio = gpio_value;
-
-	gpio_value = of_get_named_gpio(np, "bt-host-wake-gpio", 0);
-	if (gpio_value < 0)
-		dev_warn(dev, "bt-host-wake-gpio missing\n");
-	else
-		data->host_wake_gpio = gpio_value;
 
 	return 0;
 
