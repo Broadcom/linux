@@ -22,11 +22,12 @@
 static DEFINE_IDA(bcm_vk_ida);
 
 /* Location of registers of interest in BAR0 */
-#define BAR_FB_REQ		0x400
-#define BAR_CODEPUSH_ADDRESS	0x404
+#define BAR_CODEPUSH		0x400
+#define CODEPUSH_FASTBOOT_ENTRY 0x00400000
+#define CODEPUSH_FIRMWARE_ENTRY 0x60000000
 #define CODEPUSH_FASTBOOT	BIT(0)
 #define CODEPUSH_FIRMWARE	BIT(1)
-#define BAR_FB_RAM_OPEN		0x40C
+#define BAR_FB_RAM_OPEN		0x404
 #define RAM_OPEN_SRAM		BIT(16)
 #define RAM_OPEN_DDR		BIT(17)
 #define BAR_CARD_STATUS		0x410
@@ -80,7 +81,8 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		ret = -EACCES;
 		goto err_out;
 	}
-	dev_dbg(dev, "image type 0x%x", image.type);
+	dev_dbg(dev, "image type: 0x%x name: %s\n",
+		image.type, image.filename);
 
 	ret = request_firmware(&fw, image.filename, dev);
 	if (ret) {
@@ -92,7 +94,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 
 	if (image.type == VK_IMAGE_TYPE_BOOT1) {
 		offset = BAR1_CODEPUSH_BASE_FASTBOOT;
-		codepush = CODEPUSH_FASTBOOT;
+		codepush = CODEPUSH_FASTBOOT + CODEPUSH_FASTBOOT_ENTRY;
 		if (fw->size > SZ_256K) {
 			dev_err(dev, "Error size 0x%zx > 256K\n", fw->size);
 			ret = -EINVAL;
@@ -103,7 +105,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		dev_dbg(dev, "ram_open=0x%x\n", ram_open);
 
 		/* Write a 1 to request SRAM open bit */
-		vkwrite32(vk, 1, BAR_0, BAR_FB_REQ);
+		vkwrite32(vk, CODEPUSH_FASTBOOT, BAR_0, BAR_CODEPUSH);
 
 		/* Wait for SRAM to open */
 		do {
@@ -118,7 +120,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		} while (timeout_ms);
 	} else if (image.type == VK_IMAGE_TYPE_BOOT2) {
 		offset = BAR1_CODEPUSH_BASE_FIRMWARE;
-		codepush = CODEPUSH_FIRMWARE;
+		codepush = CODEPUSH_FIRMWARE + CODEPUSH_FIRMWARE_ENTRY;
 		if (fw->size > SZ_2M) {
 			dev_err(dev, "Error size 0x%zx > 2M\n", fw->size);
 			ret = -EINVAL;
@@ -151,7 +153,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		vkwrite8(vk, fw->data[i], BAR_1, offset + i);
 
 	dev_dbg(dev, "Signaling 0x%x\n", codepush);
-	vkwrite32(vk, codepush, BAR_0, BAR_CODEPUSH_ADDRESS);
+	vkwrite32(vk, codepush, BAR_0, BAR_CODEPUSH);
 
 err_firmware_out:
 	release_firmware(fw);
