@@ -63,11 +63,19 @@ static inline u32 vkread32(struct bcm_vk *vk,
 }
 
 static inline void vkwrite32(struct bcm_vk *vk,
-			   u32 value,
-			   enum pci_barno bar,
-			   uint64_t offset)
+			     u32 value,
+			     enum pci_barno bar,
+			     uint64_t offset)
 {
 	iowrite32(value, vk->bar[bar] + offset);
+}
+
+static inline void vkwrite8(struct bcm_vk *vk,
+			    u8 value,
+			    enum pci_barno bar,
+			    uint64_t offset)
+{
+	iowrite8(value, vk->bar[bar] + offset);
 }
 
 int bcm_vk_open(struct inode *inode, struct file *p_file);

@@ -147,8 +147,8 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		goto err_firmware_out;
 	}
 
-	for (i = 0; i < fw->size; i += sizeof(u32))
-		vkwrite32(vk, fw->data[i], BAR_1, offset + i);
+	for (i = 0; i < fw->size; i += sizeof(u8))
+		vkwrite8(vk, fw->data[i], BAR_1, offset + i);
 
 	dev_dbg(dev, "Signaling 0x%x\n", codepush);
 	vkwrite32(vk, codepush, BAR_0, BAR_CODEPUSH_ADDRESS);
