@@ -95,6 +95,20 @@
 		#include "omega-clock.dtsi"
 		#include "omega-pinctrl.dtsi"
 
+		uart3: uart@320000 {
+			device_type = "serial";
+			compatible = "snps,dw-apb-uart";
+			reg = <0x320000 0x1000>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			clock-frequency = <100000000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart3_mfio056_pins>;
+			status = "disabled";
+		};
+
 		spi4: spi@330000 {
 			compatible = "arm,pl022", "arm,primecell";
 			reg = <0x330000 0x1000>;
