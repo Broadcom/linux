@@ -481,6 +481,8 @@ static void enable_tx_path(struct snd_soc_component *component, bool use_tdm)
 	u32 mask, val;
 
 	if (use_tdm) {
+		tdm_mode_enable(component);
+
 		mask = TDM_PLAYBACK_PATH_MASK;
 		val = mask;
 		audioh_update_bits(component,
@@ -537,6 +539,8 @@ static void enable_rx_path(struct snd_soc_component *component, bool use_tdm)
 	u32 mask, val;
 
 	if (use_tdm) {
+		tdm_mode_enable(component);
+
 		mask = TDM_CAPTURE_SLOT_MASK;
 		val = mask;
 		audioh_update_bits(component,
