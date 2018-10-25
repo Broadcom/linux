@@ -37,6 +37,7 @@ struct dsi_cfg {
 	struct dsi_clk hsbit_clk;	/* HS  Clk Configuration */
 	unsigned int lpbitrate_mbps;	/* LP Data Bit Rate, MAX=10[Mbps] */
 	bool ena_st_end;	/* enable ST_END */
+	bool ena_cnt_clk;	/* enable Continuous clock */
 	bool vmode;		/* 1 = Video Mode, 0 = Command Mode */
 	uint8_t hs, hbp, hfp, hbllp;
 	uint8_t vs, vbp, vfp;
@@ -146,6 +147,7 @@ struct dsi_handle {
 	bool vmode;		/* 1 = Video Mode, 0 = Command Mode */
 	unsigned int dlcount;	/* Number of data lanes*/
 	bool st_end;		/* control transfer of end SYNC events */
+	bool cnt_clk;		/* Continuous clock */
 };
 
 struct dsi_upd_req_msg {
@@ -285,6 +287,7 @@ int dsic_init(struct dispdrv_info *info, void **handle, int id)
 	dispdrv_dsicfg.hfp = info->hfp;
 	dispdrv_dsicfg.hbllp = info->hbllp;
 	dispdrv_dsicfg.ena_st_end = info->sync_pulses;
+	dispdrv_dsicfg.ena_cnt_clk = info->enable_cnt_clk;
 
 	panel_t->disp_info = info;
 	panel_t->maxretpktsize = 0;
@@ -1109,6 +1112,7 @@ static int dsic_mod_init(const struct dsi_cfg *dsi_cfg,
 
 	dsic_handle->dlcount = dsi_cfg->dlcount;
 	dsic_handle->st_end = dsi_cfg->ena_st_end;
+	dsic_handle->cnt_clk = dsi_cfg->ena_cnt_clk;
 	dsic_handle->vmode = dsi_cfg->vmode;
 
 	if (dsic_handle->initpv != DSI_INITIALIZED) {
@@ -1230,7 +1234,9 @@ int dsic_open(void *drv_h)
 
 	dsic_handle = &dsi_bus;
 
-	dsi_hw_on(dsic_handle->dsi_hw_handle, dsic_pvt_data->dsi_genpll_base);
+	dsi_hw_on(dsic_handle->dsi_hw_handle,
+			dsic_pvt_data->dsi_genpll_base,
+			dsic_handle->cnt_clk);
 
 	/* do dsic_hw_reset in power off state only */
 	if (panel_t->pwrstate == STATE_PWR_OFF)

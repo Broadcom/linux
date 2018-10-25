@@ -121,6 +121,7 @@ struct dispdrv_info {
 	unsigned int lp_bps;
 	void (*vsync_cb)(void);
 	bool sync_pulses;
+	bool enable_cnt_clk;
 };
 
 struct bcm_pixel_format {

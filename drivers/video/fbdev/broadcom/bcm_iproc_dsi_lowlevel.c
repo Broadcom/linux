@@ -810,7 +810,7 @@ static void dsi_hw_enable_phy(void __iomem *dsihw_base,
 	}
 }
 
-void dsi_hw_on(void *handle, void __iomem *dsi_genpll_base)
+void dsi_hw_on(void *handle, void __iomem *dsi_genpll_base, bool cnt_clk)
 {
 	uint32_t ctrl, phyc_val;
 	struct dsi_hw *dsihw = (struct dsi_hw *)handle;
@@ -843,6 +843,11 @@ void dsi_hw_on(void *handle, void __iomem *dsi_genpll_base)
 	phyc_val |=
 		(DSI1_PHYC_PHY_DLANE0_EN_MASK | DSI1_PHYC_PHY_CLANE_EN_MASK);
 	phyc_val |= DSI1_PHYC_PHY_DLANE1_EN_MASK;
+
+	if (cnt_clk)
+		phyc_val |= DSI1_PHYC_TX_HSCLK_CONT_MASK;
+	else
+		phyc_val &= ~DSI1_PHYC_TX_HSCLK_CONT_MASK;
 
 	dsi_hw_write_reg(phyc_val, dsihw->base_addr + DSI1_PHYC_OFFSET);
 }

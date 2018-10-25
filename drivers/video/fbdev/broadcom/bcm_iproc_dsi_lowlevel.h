@@ -305,7 +305,7 @@ enum dsi_hw_res dsi_hw_tx_long(void *handle,
 				uint8_t tx_eng, struct dsi_tx_cfg *tx_cfg);
 enum dsi_hw_res dsi_hw_tx_short(void *handle,
 				 uint8_t tx_cfg, struct dsi_tx_cfg *cmnd);
-void dsi_hw_on(void *handle, void __iomem *dsi_genpll_base);
+void dsi_hw_on(void *handle, void __iomem *dsi_genpll_base, bool cnt_clk);
 void dsi_hw_off(void *handle);
 void dsi_reset(void __iomem *dsi_reset_base, int reset_active, bool on);
 void dsi_hw_phy_afe_off(void *handle);

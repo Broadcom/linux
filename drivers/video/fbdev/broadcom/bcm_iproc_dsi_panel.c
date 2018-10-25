@@ -105,6 +105,10 @@ int dsi_parse_panel_data(struct platform_device *pdev,
 		panel.disp_info->sync_pulses = true;
 	else
 		panel.disp_info->sync_pulses = false;
+	if (of_property_read_bool(pnode, "brcm,cont-hs-clk"))
+		panel.disp_info->enable_cnt_clk = true;
+	else
+		panel.disp_info->enable_cnt_clk = false;
 
 	return 0;
 of_fail:
