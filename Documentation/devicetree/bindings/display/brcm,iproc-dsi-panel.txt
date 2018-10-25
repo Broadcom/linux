@@ -103,6 +103,7 @@ Optional properties:
 - brcm,sync-pulses	: Enable sync-pulse which will make timing like DPI synchronizing
 			pulse, remove it to enable for sync-event which does not require
 			synchronizing pulse, rather it will use binary code as sync event.
+- brcm,cont-hs-clk	: Enable continuous HS clock. remove it to active pulse clock
 
 Example:
 
@@ -116,6 +117,7 @@ Example:
 		brcm,fps = <60>;
 		brcm,lanes = <2>;
 		brcm,sync-pulses;
+		brcm,cont-hs-clk;
 		brcm,cmd-lp;
 		brcm,hs-bitrate = <420000000>;
 		brcm,lp-bitrate = <5000000>;
