@@ -16,6 +16,7 @@
 #include <sound/soc-dapm.h>
 
 #include "bcm-card-utils.h"
+#include "cygnus-clk-utils.h"
 
 #define AUDIOH_LINK	0
 #define AK4458_LINK	1
@@ -26,6 +27,7 @@
 struct card_state_data {
 	struct snd_soc_dai_link  bcm_omega_wa_dai_links[MAX_LINKS];
 	struct gpio_desc *gpio_ak4458_reset;
+	struct pll_tweak_info tweak_info;
 };
 
 static int omega_hw_params_ak4458(struct snd_pcm_substream *substream,
@@ -69,6 +71,31 @@ static int omega_hw_params_ak4458(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
+	return 0;
+}
+
+#define MAX_PREFIX  40
+
+static int bcm_omega_wa_init_ak4458(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_card *card = rtd->card;
+	struct card_state_data *card_data = snd_soc_card_get_drvdata(rtd->card);
+	char prefix[MAX_PREFIX];
+	int ret;
+
+	snprintf(prefix, MAX_PREFIX, "Link %d (AK4458)", AK4458_LINK);
+
+	/*
+	 * For testing and as an example add in the ssp kcontrols that
+	 * allow us to tweak the pll.  This could be done on any port
+	 * but this one has the headphone jack so it is easiest.
+	 */
+	card_data->tweak_info.cpu_dai = rtd->cpu_dai;
+	ret = cygnus_ssp_pll_tweak_initialize(&card_data->tweak_info, prefix);
+	if (ret) {
+		dev_err(card->dev, "Could not init Tweak control\n");
+		return ret;
+	}
 	return 0;
 }
 
@@ -238,8 +265,10 @@ static int bcm_omega_wa_probe(struct platform_device *pdev)
 		if (ret)
 			goto err_exit;
 
-		if (linknum == AK4458_LINK)
+		if (linknum == AK4458_LINK) {
 			card->dai_link[linknum].ops = &bcm_omega_wa_ops_ak4458;
+			card->dai_link[linknum].init = bcm_omega_wa_init_ak4458;
+		}
 	}
 
 	snd_soc_card_set_drvdata(card, card_data);
