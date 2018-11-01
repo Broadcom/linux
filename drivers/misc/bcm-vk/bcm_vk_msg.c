@@ -134,17 +134,17 @@ static int bcm_vk_sync_msgq(struct bcm_vk *vk)
 	 * this case, we skip and the sync function is supposed to be
 	 * called again.
 	 */
-	rdy_marker = vkread32(vk, BAR_1, VK_BAR1_DDRSEG_MSGQ_DEF_RDY);
-	if (rdy_marker != VK_BAR1_DDRSEG_MSGQ_RDY_MARKER) {
+	rdy_marker = vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
+	if (rdy_marker != VK_BAR1_MSGQ_RDY_MARKER) {
 		dev_info(dev, "BAR1 msgq marker not initialized.\n");
 		return 0;
 	}
 
-	msgq_off = vkread32(vk, BAR_1, VK_BAR1_DDRSEG_MSGQ_CTRL_OFF);
+	msgq_off = vkread32(vk, BAR_1, VK_BAR1_MSGQ_CTRL_OFF);
 
 	/* each side is always half the total  */
 	num_q = vk->h2vk_msg_chan.q_nr = vk->vk2h_msg_chan.q_nr =
-		vkread32(vk, BAR_1, VK_BAR1_DDRSEG_MSGQ_NR) / 2;
+		vkread32(vk, BAR_1, VK_BAR1_MSGQ_NR) / 2;
 
 	/* first msgq location */
 	p_msgq = (struct bcm_vk_msgq *)(vk->bar[1] + msgq_off);

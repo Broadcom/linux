@@ -126,18 +126,15 @@ struct bcm_vk_msg_chan {
 					   * DB1 at 0x48c and DB2 at 0x494
 					   */
 
-#define VK_BAR1_SEG_SIZE		(1 * SZ_1M)
-#define VK_BAR1_DDRSEG_BASE		(4 * VK_BAR1_SEG_SIZE)
-
 /* BAR1 message q definition */
 
 /* indicate if msgq ctrl in BAR1 is populated */
-#define VK_BAR1_DDRSEG_MSGQ_DEF_RDY	(VK_BAR1_DDRSEG_BASE + 0x0)
+#define VK_BAR1_MSGQ_DEF_RDY		0x60c0
 /* ready marker value for the above location */
-#define VK_BAR1_DDRSEG_MSGQ_RDY_MARKER	0xbeefcafe
+#define VK_BAR1_MSGQ_RDY_MARKER		0xbeefcafe
 /* number of msgqs in BAR1 */
-#define VK_BAR1_DDRSEG_MSGQ_NR		(VK_BAR1_DDRSEG_BASE + 0x4)
+#define VK_BAR1_MSGQ_NR			0x60c4
 /* BAR1 queue control structure offset */
-#define VK_BAR1_DDRSEG_MSGQ_CTRL_OFF	(VK_BAR1_DDRSEG_BASE + 0x8)
+#define VK_BAR1_MSGQ_CTRL_OFF		0x60c8
 
 #endif
