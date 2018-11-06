@@ -39,8 +39,8 @@ struct dsi_cfg {
 	bool ena_st_end;	/* enable ST_END */
 	bool ena_cnt_clk;	/* enable Continuous clock */
 	bool vmode;		/* 1 = Video Mode, 0 = Command Mode */
-	uint8_t hs, hbp, hfp, hbllp;
-	uint8_t vs, vbp, vfp;
+	uint16_t hs, hbp, hfp, hbllp;
+	uint16_t vs, vbp, vfp;
 };
 
 struct dsi_cmd {

@@ -115,8 +115,8 @@ struct dispdrv_info {
 	char *scrn_on_seq;
 	char *scrn_off_seq;
 	void *phy_timing;
-	uint8_t hs, hbp, hfp, hbllp;
-	uint8_t vs, vbp, vfp;
+	uint16_t hs, hbp, hfp, hbllp;
+	uint16_t vs, vbp, vfp;
 	unsigned int hs_bps;
 	unsigned int lp_bps;
 	void (*vsync_cb)(void);
