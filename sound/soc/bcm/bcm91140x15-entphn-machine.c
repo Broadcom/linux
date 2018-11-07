@@ -145,6 +145,18 @@ static int bcm91140x15_entphn_probe(struct platform_device *pdev)
 
 	card->dai_link[linknum].init = bcm91140x15_entphn_audioh_init;
 
+	/* External headset amplifier enable */
+	card_data->gpio_ext_headset_amp_en =
+				devm_gpiod_get_optional(&pdev->dev,
+							"brcm,ext-headset-amp-en",
+							GPIOD_OUT_LOW);
+
+	if (IS_ERR(card_data->gpio_ext_headset_amp_en)) {
+		dev_err(&pdev->dev, "Invalid gpio for headset amp enable\n");
+		ret = PTR_ERR(card_data->gpio_ext_headset_amp_en);
+		goto err_exit;
+	}
+
 	snd_soc_card_set_drvdata(card, card_data);
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret) {
