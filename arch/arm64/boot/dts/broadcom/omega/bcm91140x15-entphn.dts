@@ -24,6 +24,9 @@
 		compatible = "brcm,bcm91140x15_entphn-machine";
 		status = "okay";
 
+		/* Use gpio 110 to control amp */
+		brcm,ext-headset-amp-en-gpio = <&gpio_east 59 0>;
+
 		link0 {
 			format = "dsp_a";
 			bitclock-master = <&dailink0_master>;
