@@ -53,6 +53,18 @@
 		brightness-levels = <0 16 24 32 50 64 128 255>;
 		default-brightness-level = <6>;
 	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		hook {
+			label = "HOOK";
+			linux,code = <KEY_O>;
+			gpios = <&gpio_west 49 0>;
+		};
+	};
 };
 
 &omega_codec {
