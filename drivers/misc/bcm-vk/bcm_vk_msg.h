@@ -6,6 +6,8 @@
 #ifndef __BCM_VK_MSG_H
 #define __BCM_VK_MSG_H
 
+#include <uapi/linux/misc/bcm_vk.h>
+
 /* This is a single message queue control structure */
 struct bcm_vk_msgq {
 	uint16_t q_type;	  /* queue type */
@@ -26,22 +28,9 @@ struct bcm_vk_msgq {
 };
 
 /*
- * message block - basic unit in the message where a message's size is always a
- *		   N x sizeof(basic_block)
- */
-struct bcm_vk_msg_blk {
-	uint8_t function_id;
-	uint8_t size;
-	uint16_t queue_id:4;
-	uint16_t msg_id:12;
-	uint32_t context_id;
-	uint32_t args[2];
-};
-
-/*
  * some useful message queue macros
  */
-#define VK_MSGQ_BLK_SIZE   (sizeof(struct bcm_vk_msg_blk))
+#define VK_MSGQ_BLK_SIZE   (sizeof(struct vk_msg_blk))
 
 #define VK_MSGQ_EMPTY(_p)						\
 	 (_p->rd_idx == _p->wr_idx)
@@ -59,7 +48,7 @@ struct bcm_vk_msg_blk {
 	 (_p->q_start_loc + VK_MSGQ_BLK_SIZE * (idx))
 
 #define VK_MSGQ_BLK_ADDR(base, _p, idx)					\
-	 (volatile struct bcm_vk_msg_blk *)(base + VK_MSGQ_OFFSET(_p, idx))
+	 (volatile struct vk_msg_blk *)(base + VK_MSGQ_OFFSET(_p, idx))
 
 #define VK_MSGQ_OCCUPIED(_p)						\
 	 ((_p->wr_idx - _p->rd_idx) & VK_MSGQ_SIZE_MASK(_p))
@@ -87,7 +76,7 @@ struct bcm_vk_wkent {
 	 */
 
 	uint32_t vk2h_blks;	    /* response */
-	struct bcm_vk_msg_blk *p_vk2h_msg;
+	struct vk_msg_blk *p_vk2h_msg;
 
 	/*
 	 * put the h2vk_msg at the end so that we could simply append h2vk msg
@@ -95,7 +84,7 @@ struct bcm_vk_wkent {
 	 */
 	uint32_t usr_msg_id;
 	uint32_t h2vk_blks;
-	struct bcm_vk_msg_blk p_h2vk_msg[0];
+	struct vk_msg_blk p_h2vk_msg[0];
 };
 
 /* control channel structure for either h2vk or vk2h communication */

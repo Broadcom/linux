@@ -62,4 +62,17 @@ struct vk_reset {
 /* Send Reset to Valkyrie */
 #define VK_IOCTL_RESET        _IOW(VK_MAGIC, 0x4, struct vk_reset)
 
+/*
+ * message block - basic unit in the message where a message's size is always
+ *		   N x sizeof(basic_block)
+ */
+struct vk_msg_blk {
+	__u8 function_id;
+	__u8 size;
+	__u16 queue_id:4;
+	__u16 msg_id:12;
+	__u32 context_id;
+	__u32 args[2];
+};
+
 #endif /* __UAPI_LINUX_MISC_BCM_VK_H */

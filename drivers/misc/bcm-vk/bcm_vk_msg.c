@@ -212,9 +212,9 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
 {
 	struct bcm_vk_msg_chan *p_chan = &vk->h2vk_msg_chan;
 	struct device *dev = &vk->pdev->dev;
-	struct bcm_vk_msg_blk *p_src_blk = &p_ent->p_h2vk_msg[0];
+	struct vk_msg_blk *p_src_blk = &p_ent->p_h2vk_msg[0];
 
-	volatile struct bcm_vk_msg_blk *p_dst_blk;
+	volatile struct vk_msg_blk *p_dst_blk;
 	struct bcm_vk_msgq *p_msgq;
 	uint32_t q_num = p_src_blk->queue_id;
 	uint32_t wr_idx; /* local copy */
@@ -309,9 +309,9 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_msg_chan *p_chan = &vk->vk2h_msg_chan;
-	struct bcm_vk_msg_blk *p_data;
-	volatile struct bcm_vk_msg_blk *p_src_blk;
-	struct bcm_vk_msg_blk *p_dst_blk;
+	struct vk_msg_blk *p_data;
+	volatile struct vk_msg_blk *p_src_blk;
+	struct vk_msg_blk *p_dst_blk;
 	struct bcm_vk_msgq *p_msgq;
 	struct bcm_vk_wkent *p_ent;
 	uint32_t rd_idx;
@@ -551,7 +551,7 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 
 		bcm_vk_free_wkent(p_ent);
 	} else if (rc == -EMSGSIZE) {
-		struct bcm_vk_msg_blk tmp_msg = p_ent->p_vk2h_msg[0];
+		struct vk_msg_blk tmp_msg = p_ent->p_vk2h_msg[0];
 
 		/*
 		 * in this case, return just the first block, so
