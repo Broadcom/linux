@@ -65,6 +65,16 @@
 			gpios = <&gpio_west 49 0>;
 		};
 	};
+
+	wlan_reg0: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan-rf-reg0";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio_crmu 2 0>;
+		enable-active-high;
+		regulator-always-on;
+	};
 };
 
 &omega_codec {
@@ -241,13 +251,44 @@
 	>;
 };
 
+&gpio_east {
+	/*
+	 * East controller starts at 51, so add 51 to get real mfio pin.
+	 * Enable slew rate and hysteresis on SDIO CLK, CMD and DATA lines.
+	 * Enable pull-up on SDIO CMD and DATA lines.
+	 */
+
+	sdio_mfio61_65_pad_ctrl: sdio_mfio61_65_pad {
+		pins = "mfio-10", "mfio-11", "mfio-12", "mfio-13", "mfio-14";
+		bias-pull-up;
+		slew-rate = <1>;
+		input-schmitt-enable;
+	};
+
+	sdio_mfio60_pad_ctrl: sdio_mfio60_pad {
+		pins = "mfio-9";
+		slew-rate = <1>;
+		input-schmitt-enable;
+	};
+};
+
 &sdhci0 {
 	status = "okay";
-
+	keep-power-in-suspend;
+	wakeup-source;
+	non-removable;
 	no-1-8-v;
 
+
 	pinctrl-names = "default";
-	pinctrl-0 = <&sdio0_4bit_mode_pins>;
+	pinctrl-0 = <&sdio0_4bit_mode_pins &sdio_mfio61_65_pad_ctrl
+		     &sdio_mfio60_pad_ctrl>;
+
+	brcmf: bcrmf@1 {
+		reg = <1>;
+		compatible = "brcm,bcm4329-fmac";
+		status = "okay";
+	};
 };
 
 &top_ctrl {
