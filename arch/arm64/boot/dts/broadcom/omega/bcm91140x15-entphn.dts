@@ -99,6 +99,10 @@
 	status = "okay";
 };
 
+&uart3 {
+	status = "okay";
+};
+
 &usbphy {
 	status = "okay";
 	usbphy0: phy@0 {
