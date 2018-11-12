@@ -1645,7 +1645,6 @@ void pci_disable_enabled_device(struct pci_dev *dev)
 void pci_disable_device(struct pci_dev *dev)
 {
 	struct pci_devres *dr;
-	unsigned long flags;
 
 	dr = find_pci_dr(dev);
 	if (dr)
@@ -1659,9 +1658,7 @@ void pci_disable_device(struct pci_dev *dev)
 
 	do_pci_disable_device(dev);
 
-	spin_lock_irqsave(&dev->lock, flags);
 	dev->is_busmaster = 0;
-	spin_unlock_irqrestore(&dev->lock, flags);
 }
 EXPORT_SYMBOL(pci_disable_device);
 
@@ -3665,7 +3662,6 @@ EXPORT_SYMBOL(devm_pci_remap_cfg_resource);
 static void __pci_set_master(struct pci_dev *dev, bool enable)
 {
 	u16 old_cmd, cmd;
-	unsigned long flags;
 
 	pci_read_config_word(dev, PCI_COMMAND, &old_cmd);
 	if (enable)
@@ -3677,10 +3673,7 @@ static void __pci_set_master(struct pci_dev *dev, bool enable)
 			enable ? "enabling" : "disabling");
 		pci_write_config_word(dev, PCI_COMMAND, cmd);
 	}
-
-	spin_lock_irqsave(&dev->lock, flags);
 	dev->is_busmaster = enable;
-	spin_unlock_irqrestore(&dev->lock, flags);
 }
 
 /**

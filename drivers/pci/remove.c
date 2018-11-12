@@ -17,18 +17,13 @@ static void pci_free_resources(struct pci_dev *dev)
 
 static void pci_stop_dev(struct pci_dev *dev)
 {
-	unsigned long flags;
-
 	pci_pme_active(dev, false);
 
 	if (dev->is_added) {
 		device_release_driver(&dev->dev);
 		pci_proc_detach_device(dev);
 		pci_remove_sysfs_dev_files(dev);
-
-		spin_lock_irqsave(&dev->lock, flags);
 		dev->is_added = 0;
-		spin_unlock_irqrestore(&dev->lock, flags);
 	}
 
 	if (dev->bus->self)

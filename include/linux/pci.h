@@ -366,7 +366,6 @@ struct pci_dev {
 
 	bool		match_driver;		/* Skip attaching driver */
 
-	spinlock_t	lock;			/* Protect is_added and is_busmaster */
 	unsigned int	transparent:1;		/* Subtractive decode bridge */
 	unsigned int	multifunction:1;	/* Multi-function device */
 

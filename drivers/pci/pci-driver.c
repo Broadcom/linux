@@ -121,8 +121,6 @@ static ssize_t new_id_store(struct device_driver *driver, const char *buf,
 		pdev->subsystem_device = subdevice;
 		pdev->class = class;
 
-		spin_lock_init(&pdev->lock);
-
 		if (pci_match_id(pdrv->id_table, pdev))
 			retval = -EEXIST;
 
