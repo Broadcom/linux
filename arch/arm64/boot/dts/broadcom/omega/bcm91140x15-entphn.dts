@@ -20,6 +20,13 @@
 		status = "okay";
 	};
 
+	bluetooth {
+		compatible = "brcm,bt-rfkill";
+		brcm,rfkill-regulator = <&bt_reg0>;
+		bt-dev-wake-gpio = <&gpio_west 46 0>;
+		bt-host-wake-gpio = <&gpio_crmu 5 0>;
+	};
+
 	sound {
 		compatible = "brcm,bcm91140x15_entphn-machine";
 		status = "okay";
@@ -64,6 +71,15 @@
 			linux,code = <KEY_O>;
 			gpios = <&gpio_west 49 0>;
 		};
+	};
+
+	bt_reg0: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "bt-reg0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio_crmu 3 0>;
+		enable-active-high;
 	};
 
 	wlan_reg0: regulator@1 {
