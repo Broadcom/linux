@@ -1,0 +1,176 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright(c) 2018 Broadcom
+ */
+#include <linux/dma-mapping.h>
+#include <linux/mm.h>
+#include <linux/pagemap.h>
+#include <linux/vmalloc.h>
+
+#include <asm/page.h>
+#include <asm/pgtable.h>
+#include <asm/unaligned.h>
+
+#include <uapi/linux/misc/bcm_vk.h>
+
+#include "bcm_vk.h"
+#include "bcm_vk_msg.h"
+#include "bcm_vk_sg.h"
+
+/* Uncomment to dump SGLIST */
+//#define BCM_VK_DUMP_SGLIST
+
+int bcm_vk_dma_alloc(struct device *dev,
+		     struct bcm_vk_dma *dma,
+		     int direction,
+		     struct _vk_data *vkdata)
+{
+	dma_addr_t addr;
+	int err;
+	int i;
+	int offset;
+	uint32_t *mysglist;
+	uint32_t remaining_size;
+	uint64_t data;
+	unsigned long first, last;
+	struct _vk_data *sgdata;
+
+	/* Get 64-bit user address */
+	data = get_unaligned(&(vkdata->address));
+
+	/* offset into first page */
+	offset = offset_in_page(data);
+
+	/* Calculate number of pages */
+	first = (data & PAGE_MASK) >> PAGE_SHIFT;
+	last  = ((data + vkdata->size - 1) & PAGE_MASK) >> PAGE_SHIFT;
+	dma->nr_pages = last - first + 1;
+
+	/* Allocate DMA pages */
+	dma->pages = kmalloc_array(dma->nr_pages,
+				   sizeof(struct page *),
+				   GFP_KERNEL);
+	if (dma->pages == NULL)
+		return -ENOMEM;
+
+	dev_info(dev, "Alloc DMA Pages [0x%llx+0x%x => %d pages]\n",
+		 data, vkdata->size, dma->nr_pages);
+
+	dma->direction = direction;
+
+	/* Get user pages into memory */
+	err = get_user_pages_fast(data & PAGE_MASK,
+				  dma->nr_pages,
+				  direction == DMA_FROM_DEVICE,
+				  dma->pages);
+	if (err != dma->nr_pages) {
+		dma->nr_pages = (err >= 0) ? err : 0;
+		dev_err(dev, "get_user_pages_fast, err=%d [%d]\n",
+			err, dma->nr_pages);
+		return err < 0 ? err : -EINVAL;
+	}
+
+	/* Max size of sg list is 1 per mapped page + the size field at start */
+	dma->sglen = (dma->nr_pages * sizeof(*sgdata)) + sizeof(uint32_t);
+
+	/* Allocate sglist */
+	dma->sglist = dma_alloc_coherent(dev,
+					 dma->sglen,
+					 &dma->handle,
+					 GFP_KERNEL);
+	if (!dma->sglist)
+		return -ENOMEM;
+
+	mysglist = dma->sglist;
+	*mysglist = dma->nr_pages;
+	mysglist++;
+	remaining_size = vkdata->size;
+	sgdata = (struct __packed _vk_data *)mysglist;
+	/* Map all pages into DMA */
+	i = 0;
+	sgdata->size = min_t(size_t, PAGE_SIZE - offset, remaining_size);
+	remaining_size -= sgdata->size;
+	addr = dma_map_page(dev,
+			    dma->pages[0],
+			    offset,
+			    sgdata->size,
+			    dma->direction);
+	if (unlikely(dma_mapping_error(dev, addr))) {
+		__free_page(dma->pages[0]);
+		return -EIO;
+	}
+	*((uint64_t *)&(sgdata->address)) = addr;
+
+	for (i = 1; i < dma->nr_pages; i++) {
+		sgdata++;
+		sgdata->size = min_t(size_t, PAGE_SIZE, remaining_size);
+		remaining_size -= sgdata->size;
+		addr = dma_map_page(dev,
+				    dma->pages[i],
+				    0,
+				    sgdata->size,
+				    dma->direction);
+		if (unlikely(dma_mapping_error(dev, addr))) {
+			__free_page(dma->pages[0]);
+			return -EIO;
+		}
+		put_unaligned(addr, (uint64_t *)&(sgdata->address));
+	}
+
+#ifdef BCM_VK_DUMP_SGLIST
+	for (i = 0; i < dma->sglen / sizeof(uint32_t); i++)
+		dev_info(dev, "i:0x%x 0x%x\n", i, dma->sglist[i]);
+#endif
+
+	/* Update pointers and size field to point to sglist */
+	put_unaligned((uint64_t)dma->sglist, &(vkdata->address));
+	vkdata->size = dma->sglen;
+	return 0;
+}
+
+static int bcm_vk_dma_free(struct device *dev, struct bcm_vk_dma *dma)
+{
+	dma_addr_t addr;
+	int i;
+	int num_sg;
+	uint32_t size;
+	struct _vk_data *vkdata;
+
+	dev_dbg(dev, "free sglist=%p sglen=0x%x\n",
+		dma->sglist, dma->sglen);
+
+	/* Unmap all pages in the sglist */
+	num_sg = dma->sglist[0];
+	vkdata = (struct _vk_data *)&(dma->sglist[1]);
+	for (i = 0; i < num_sg; i++) {
+		size = vkdata[i].size;
+		addr = get_unaligned(&(vkdata[i].address));
+
+		dma_unmap_page(dev, addr, size, dma->direction);
+	}
+
+	/* Free allocated sglist */
+	dma_free_coherent(dev, dma->sglen, dma->sglist, dma->handle);
+
+	/* Release lock on all pages */
+	for (i = 0; i < dma->nr_pages; i++)
+		put_page(dma->pages[i]);
+
+	/* Free allocated dma pages */
+	kfree(dma->pages);
+
+	return 0;
+}
+
+int bcm_vk_msg_free_sg(struct device *dev, struct bcm_vk_dma *dma, int num)
+{
+	int i;
+
+	/* Unmap and free all pages and sglists */
+	for (i = 0; i < num; i++) {
+		if (dma[i].sglist)
+			bcm_vk_dma_free(dev, &(dma[i]));
+	}
+
+	return 0;
+}

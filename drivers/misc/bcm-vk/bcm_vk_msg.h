@@ -7,6 +7,7 @@
 #define __BCM_VK_MSG_H
 
 #include <uapi/linux/misc/bcm_vk.h>
+#include "bcm_vk_sg.h"
 
 /* This is a single message queue control structure */
 struct bcm_vk_msgq {
@@ -65,6 +66,7 @@ struct bcm_vk_ctx {
 	struct miscdevice *p_miscdev;
 };
 
+#define VK_DMA_MAX_ADDRS 4 /* Max 4 DMA Addresses */
 /* structure for house keeping a single work entry */
 struct bcm_vk_wkent {
 
@@ -72,8 +74,9 @@ struct bcm_vk_wkent {
 	struct bcm_vk_ctx *p_ctx;
 
 	/*
-	 * DMA stuff to be added here later
+	 * Store up to 4 dma pointers
 	 */
+	struct bcm_vk_dma dma[VK_DMA_MAX_ADDRS];
 
 	uint32_t vk2h_blks;	    /* response */
 	struct vk_msg_blk *p_vk2h_msg;

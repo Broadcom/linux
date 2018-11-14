@@ -12,6 +12,7 @@
 
 #include "bcm_vk.h"
 #include "bcm_vk_msg.h"
+#include "bcm_vk_sg.h"
 
 /*
  * allocate a ctx per file struct
@@ -72,15 +73,16 @@ static void bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *p_ctx)
 	spin_unlock(&vk->ctx_lock);
 }
 
-static void bcm_vk_free_wkent(struct bcm_vk_wkent *p_ent)
+static void bcm_vk_free_wkent(struct device *dev, struct bcm_vk_wkent *p_ent)
 {
+	bcm_vk_msg_free_sg(dev, p_ent->dma, VK_DMA_MAX_ADDRS);
+
 	kfree(p_ent->p_vk2h_msg);
 	kfree(p_ent);
-
-	/* TO_DO: add DMA buffer related cleaning */
 }
 
-static void bcm_vk_drain_all_pend(struct bcm_vk_msg_chan *p_chan,
+static void bcm_vk_drain_all_pend(struct device *dev,
+				  struct bcm_vk_msg_chan *p_chan,
 				  struct bcm_vk_ctx *p_ctx)
 {
 	uint32_t q_num;
@@ -95,7 +97,7 @@ static void bcm_vk_drain_all_pend(struct bcm_vk_msg_chan *p_chan,
 			if ((p_ctx == NULL) ||
 			    (p_ent->p_ctx->idx == p_ctx->idx)) {
 				list_del(&p_ent->list_node);
-				bcm_vk_free_wkent(p_ent);
+				bcm_vk_free_wkent(dev, p_ent);
 			}
 		}
 	}
@@ -549,7 +551,7 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 		if (copy_to_user(buf, p_ent->p_vk2h_msg, rsp_length) == 0)
 			rc = rsp_length;
 
-		bcm_vk_free_wkent(p_ent);
+		bcm_vk_free_wkent(dev, p_ent);
 	} else if (rc == -EMSGSIZE) {
 		struct vk_msg_blk tmp_msg = p_ent->p_vk2h_msg[0];
 
@@ -571,6 +573,7 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 			    size_t count, loff_t *f_pos)
 {
+	int i;
 	ssize_t rc = -EPERM;
 	struct bcm_vk_ctx *p_ctx = p_file->private_data;
 	struct bcm_vk *vk = container_of(p_ctx->p_miscdev, struct bcm_vk,
@@ -624,6 +627,40 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		 p_ctx->idx, p_ent->usr_msg_id,
 		 p_ent->p_h2vk_msg[0].msg_id);
 
+	/* Convert any pointers to sg list */
+	if (p_ent->p_h2vk_msg[0].function_id == VK_FID_TRANS_BUF) {
+		int num_planes;
+		int dir;
+		struct _vk_data *data;
+
+		num_planes = p_ent->p_h2vk_msg[0].args[0] & VK_CMD_PLANES_MASK;
+		if ((p_ent->p_h2vk_msg[0].args[0] & VK_CMD_MASK) ==
+		    VK_CMD_DOWNLOAD) {
+			/* Memory transfer from vk device */
+			dir = DMA_FROM_DEVICE;
+		} else {
+			/* Memory transfer to vk device */
+			dir = DMA_TO_DEVICE;
+		}
+
+		/* Calculate vk_data location */
+		/* Go to end of the message */
+		data = (struct _vk_data *)
+			&(p_ent->p_h2vk_msg[p_ent->p_h2vk_msg[0].size + 1]);
+		/* Now back up to the start of the pointers */
+		data -= num_planes;
+
+		/* Convert user addresses to DMA SG List */
+		for (i = 0; i < num_planes; i++) {
+			if (data->size)
+				bcm_vk_dma_alloc(dev,
+						 &p_ent->dma[i],
+						 dir,
+						 data);
+			data++;
+		}
+	}
+
 	/*
 	 * store wk ent to pending queue until a response is got. This needs to
 	 * be done before enqueuing the message
@@ -659,8 +696,8 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 
 	dev_info(dev, "Draining with context idx %d\n", p_ctx->idx);
 
-	bcm_vk_drain_all_pend(&vk->h2vk_msg_chan, p_ctx);
-	bcm_vk_drain_all_pend(&vk->vk2h_msg_chan, p_ctx);
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, p_ctx);
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, p_ctx);
 
 	bcm_vk_free_ctx(vk, p_ctx);
 	return 0;
@@ -708,7 +745,7 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 	destroy_workqueue(vk->vk2h_wq_thread);
 
 	/* drain all pending items */
-	bcm_vk_drain_all_pend(&vk->h2vk_msg_chan, NULL);
-	bcm_vk_drain_all_pend(&vk->vk2h_msg_chan, NULL);
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, NULL);
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, NULL);
 	vk->msgq_inited = false;
 }

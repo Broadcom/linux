@@ -68,11 +68,16 @@ struct vk_reset {
  */
 struct vk_msg_blk {
 	__u8 function_id;
+#define VK_FID_TRANS_BUF 5
 	__u8 size;
 	__u16 queue_id:4;
 	__u16 msg_id:12;
 	__u32 context_id;
 	__u32 args[2];
+#define VK_CMD_PLANES_MASK 0x000F /* number of planes to up/download */
+#define VK_CMD_UPLOAD      0x0400 /* memory transfer to vk */
+#define VK_CMD_DOWNLOAD    0x0500 /* memory transfer from vk */
+#define VK_CMD_MASK        0x0F00 /* command mask */
 };
 
 #endif /* __UAPI_LINUX_MISC_BCM_VK_H */
