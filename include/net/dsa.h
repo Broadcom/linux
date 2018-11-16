@@ -495,6 +495,11 @@ struct dsa_switch_ops {
 	int	(*set_pauseparam)(struct dsa_switch *ds,
 				  struct phy_device *phydev,
 				  struct ethtool_pauseparam *pause);
+	/*
+	 * MTU change functionality
+	 */
+	int	(*change_mtu)(struct dsa_switch *ds, int port,
+			      int new_mtu);
 };
 
 struct dsa_switch_driver {
