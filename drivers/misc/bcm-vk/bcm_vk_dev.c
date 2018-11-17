@@ -3,7 +3,6 @@
  * Copyright(c) 2018 Broadcom
  */
 
-#include "bcm_vk.h"
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/fs.h>
@@ -14,6 +13,8 @@
 #include <linux/pci_regs.h>
 #include <linux/sizes.h>
 #include <uapi/linux/misc/bcm_vk.h>
+
+#include "bcm_vk.h"
 
 #define DRV_MODULE_NAME		"bcm-vk"
 
