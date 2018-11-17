@@ -120,10 +120,12 @@ int bcm_vk_dma_alloc(struct device *dev,
 #ifdef BCM_VK_DUMP_SGLIST
 	for (i = 0; i < dma->sglen / sizeof(uint32_t); i++)
 		dev_info(dev, "i:0x%x 0x%x\n", i, dma->sglist[i]);
+	dev_info(dev, "sgl 0x%lx dma_handle 0x%lx, size: 0x%x\n",
+		 (uint64_t) dma->sglist, dma->handle, dma->sglen);
 #endif
 
 	/* Update pointers and size field to point to sglist */
-	put_unaligned((uint64_t)dma->sglist, &(vkdata->address));
+	put_unaligned((uint64_t)dma->handle, &(vkdata->address));
 	vkdata->size = dma->sglen;
 	return 0;
 }
