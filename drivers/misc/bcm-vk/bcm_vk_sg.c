@@ -29,7 +29,6 @@ int bcm_vk_dma_alloc(struct device *dev,
 	int err;
 	int i;
 	int offset;
-	uint32_t *mysglist;
 	uint32_t remaining_size;
 	uint64_t data;
 	unsigned long first, last;
@@ -81,11 +80,11 @@ int bcm_vk_dma_alloc(struct device *dev,
 	if (!dma->sglist)
 		return -ENOMEM;
 
-	mysglist = dma->sglist;
-	*mysglist = dma->nr_pages;
-	mysglist++;
+	dma->sglist[SGLIST_NUM_SG] = dma->nr_pages;
+	dma->sglist[SGLIST_TOTALSIZE] = vkdata->size;
 	remaining_size = vkdata->size;
-	sgdata = (struct __packed _vk_data *)mysglist;
+	sgdata = (struct _vk_data *)&(dma->sglist[SGLIST_VKDATA_START]);
+
 	/* Map all pages into DMA */
 	i = 0;
 	sgdata->size = min_t(size_t, PAGE_SIZE - offset, remaining_size);
@@ -142,8 +141,8 @@ static int bcm_vk_dma_free(struct device *dev, struct bcm_vk_dma *dma)
 		dma->sglist, dma->sglen);
 
 	/* Unmap all pages in the sglist */
-	num_sg = dma->sglist[0];
-	vkdata = (struct _vk_data *)&(dma->sglist[1]);
+	num_sg = dma->sglist[SGLIST_NUM_SG];
+	vkdata = (struct _vk_data *)&(dma->sglist[SGLIST_VKDATA_START]);
 	for (i = 0; i < num_sg; i++) {
 		size = vkdata[i].size;
 		addr = get_unaligned(&(vkdata[i].address));

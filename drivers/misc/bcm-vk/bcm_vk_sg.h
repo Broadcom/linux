@@ -18,15 +18,20 @@ struct bcm_vk_dma {
 	/*
 	 * sglist is of the following LE format
 	 * [U32] num_sg  = number of sg addresses (N)
-	 * [U32] size[0] = size of address0
+	 * [U32] totalsize = totalsize of data being transferred in sglist
+	 * [U32] size[0] = size of data in address0
 	 * [U32] addr_l[0] = lower 32-bits of address0
 	 * [U32] addr_h[0] = higher 32-bits of address0
 	 * ..
-	 * [U32] size[N-1] = size of addressN-1
+	 * [U32] size[N-1] = size of data in addressN-1
 	 * [U32] addr_l[N-1] = lower 32-bits of addressN-1
 	 * [U32] addr_h[N-1] = higher 32-bits of addressN-1
 	 */
 	uint32_t *sglist;
+#define SGLIST_NUM_SG		0
+#define SGLIST_TOTALSIZE	1
+#define SGLIST_VKDATA_START	2
+
 	int sglen; /* Length (bytes) of sglist */
 	int direction;
 };
