@@ -16,11 +16,15 @@
 #define ENABLE_32BIT_OUTBOUND 1
 #define ENABLE_IHOST12_CPUS 0
 
+#include "../../stingray-board-base.dtsi"
+
 / {
 	model = "Stingray HT (BCM958802HT)";
-};
 
-#include "../../stingray-board-base.dtsi"
+	chosen {
+		stdout-path = "serial1:115200n8";
+	};
+};
 
 &sdio0 {
 	no-1-8-v;
