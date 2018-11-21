@@ -7034,12 +7034,15 @@ EXPORT_SYMBOL(dev_change_flags);
 int __dev_set_mtu(struct net_device *dev, int new_mtu)
 {
 	const struct net_device_ops *ops = dev->netdev_ops;
+	int ret = 0;
 
 	if (ops->ndo_change_mtu)
-		return ops->ndo_change_mtu(dev, new_mtu);
+		ret = ops->ndo_change_mtu(dev, new_mtu);
 
-	dev->mtu = new_mtu;
-	return 0;
+	if (ret >= 0)
+		dev->mtu = new_mtu;
+
+	return ret;
 }
 EXPORT_SYMBOL(__dev_set_mtu);
 
