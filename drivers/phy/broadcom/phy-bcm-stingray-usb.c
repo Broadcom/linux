@@ -245,13 +245,14 @@ static int bcm_usb_phy_reset(struct phy *phy)
 static int bcm_usb_phy_init(struct phy *phy)
 {
 	struct bcm_usb_phy_cfg *phy_cfg = phy_get_drvdata(phy);
+	int ret = -EINVAL;
 
 	if (phy_cfg->type == USB_SS_PHY)
-		bcm_usb_ss_phy_init(phy_cfg);
-	if (phy_cfg->type == USB_HS_PHY)
-		bcm_usb_hs_phy_init(phy_cfg);
+		ret = bcm_usb_ss_phy_init(phy_cfg);
+	else if (phy_cfg->type == USB_HS_PHY)
+		ret = bcm_usb_hs_phy_init(phy_cfg);
 
-	return 0;
+	return ret;
 }
 
 static struct phy_ops sr_phy_ops = {
