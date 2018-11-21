@@ -157,14 +157,16 @@ static int bcm_vk_sync_msgq(struct bcm_vk *vk)
 
 			p_chan->msgq[j] = p_msgq;
 
-			dev_info(dev, "MsgQ[%d] info - type %d num %d, @ 0x%x, rd_idx %d wr_idx %d, size %d, off 0x%x\n",
-				 j, p_chan->msgq[j]->q_type,
-				 p_chan->msgq[j]->q_num,
-				 p_chan->msgq[j]->q_start_loc,
-				 p_chan->msgq[j]->rd_idx,
-				 p_chan->msgq[j]->wr_idx,
-				 p_chan->msgq[j]->size,
-				 p_chan->msgq[j]->next_off);
+			dev_dbg(dev,
+				"MsgQ[%d] info - type %d num %d, @ 0x%x, rd_idx %d wr_idx %d, size %d, off 0x%x\n",
+				j,
+				p_chan->msgq[j]->q_type,
+				p_chan->msgq[j]->q_num,
+				p_chan->msgq[j]->q_start_loc,
+				p_chan->msgq[j]->rd_idx,
+				p_chan->msgq[j]->wr_idx,
+				p_chan->msgq[j]->size,
+				p_chan->msgq[j]->next_off);
 
 			p_msgq = (struct bcm_vk_msgq *)
 				 ((char *)p_msgq + sizeof(*p_msgq) +
@@ -268,12 +270,13 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
 	wmb(); /* flush */
 
 	/* log new info for debugging */
-	dev_info(dev, "MsgQ[%d] [Rd Wr] = [%d %d] blks inserted %d - Q = [u-%d a-%d]/%d\n",
-		 p_msgq->q_num,
-		 p_msgq->rd_idx, p_msgq->wr_idx, p_ent->h2vk_blks,
-		 VK_MSGQ_OCCUPIED(p_msgq),
-		 VK_MSGQ_AVAIL_SPACE(p_msgq),
-		 p_msgq->size);
+	dev_dbg(dev,
+		"MsgQ[%d] [Rd Wr] = [%d %d] blks inserted %d - Q = [u-%d a-%d]/%d\n",
+		p_msgq->q_num,
+		p_msgq->rd_idx, p_msgq->wr_idx, p_ent->h2vk_blks,
+		VK_MSGQ_OCCUPIED(p_msgq),
+		VK_MSGQ_AVAIL_SPACE(p_msgq),
+		p_msgq->size);
 
 	mutex_unlock(&p_chan->msgq_mutex);
 
@@ -377,12 +380,13 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 			mb(); /* do both rd/wr as we are extracting data out */
 
 			/* log new info for debugging */
-			dev_info(dev, "MsgQ[%d] [Rd Wr] = [%d %d] blks extracted %d - Q = [u-%d a-%d]/%d\n",
-				 p_msgq->q_num,
-				 p_msgq->rd_idx, p_msgq->wr_idx, num_blks,
-				 VK_MSGQ_OCCUPIED(p_msgq),
-				 VK_MSGQ_AVAIL_SPACE(p_msgq),
-				 p_msgq->size);
+			dev_dbg(dev,
+				"MsgQ[%d] [Rd Wr] = [%d %d] blks extracted %d - Q = [u-%d a-%d]/%d\n",
+				p_msgq->q_num,
+				p_msgq->rd_idx, p_msgq->wr_idx, num_blks,
+				VK_MSGQ_OCCUPIED(p_msgq),
+				VK_MSGQ_AVAIL_SPACE(p_msgq),
+				p_msgq->size);
 
 			/* lookup original message in h2vk direction */
 			p_ent = bcm_vk_find_pending(&vk->h2vk_msg_chan, q_num,
@@ -407,7 +411,7 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 		}
 	}
 	mutex_unlock(&p_chan->msgq_mutex);
-	dev_info(dev, "total %d drained from queues\n", total);
+	dev_dbg(dev, "total %d drained from queues\n", total);
 
 	return total;
 }
@@ -473,8 +477,6 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 	struct device *dev = &vk->pdev->dev;
 	int    rc = 0;
 
-	dev_info(dev, "open\n");
-
 	/* get a context and set it up for file */
 	p_ctx = bcm_vk_get_ctx(vk);
 	if (!p_ctx) {
@@ -492,7 +494,7 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 		 */
 		p_ctx->p_miscdev = p_miscdev;
 		p_file->private_data = p_ctx;
-		dev_info(dev, "ctx_returned with idx %d\n", p_ctx->idx);
+		dev_dbg(dev, "ctx_returned with idx %d\n", p_ctx->idx);
 	}
 	return rc;
 }
@@ -511,8 +513,8 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 	uint32_t rsp_length;
 	bool found = false;
 
-	dev_info(dev, "Buf count %ld, msgq_inited %d\n",
-		 count, vk->msgq_inited);
+	dev_dbg(dev, "Buf count %ld, msgq_inited %d\n",
+		count, vk->msgq_inited);
 
 	if (!vk->msgq_inited)
 		return -EPERM;
@@ -582,7 +584,7 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_wkent *p_ent;
 
-	dev_info(dev, "Msg count %ld, msg_inited %d\n",
+	dev_dbg(dev, "Msg count %ld, msg_inited %d\n",
 		 count, vk->msgq_inited);
 
 	if (!vk->msgq_inited)
@@ -623,9 +625,10 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	p_ent->usr_msg_id = p_ent->p_h2vk_msg[0].msg_id;
 	p_ent->p_h2vk_msg[0].msg_id = bcm_vk_get_msg_id(vk);
 
-	dev_info(dev, "Message ctx id %d, usr_msg_id 0x%x sent msg_id 0x%x\n",
-		 p_ctx->idx, p_ent->usr_msg_id,
-		 p_ent->p_h2vk_msg[0].msg_id);
+	dev_dbg(dev,
+		"Message ctx id %d, usr_msg_id 0x%x sent msg_id 0x%x\n",
+		p_ctx->idx, p_ent->usr_msg_id,
+		p_ent->p_h2vk_msg[0].msg_id);
 
 	/* Convert any pointers to sg list */
 	if (p_ent->p_h2vk_msg[0].function_id == VK_FID_TRANS_BUF) {
@@ -694,7 +697,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 					 miscdev);
 	struct device *dev = &vk->pdev->dev;
 
-	dev_info(dev, "Draining with context idx %d\n", p_ctx->idx);
+	dev_dbg(dev, "Draining with context idx %d\n", p_ctx->idx);
 
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, p_ctx);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, p_ctx);

@@ -52,8 +52,8 @@ int bcm_vk_dma_alloc(struct device *dev,
 	if (dma->pages == NULL)
 		return -ENOMEM;
 
-	dev_info(dev, "Alloc DMA Pages [0x%llx+0x%x => %d pages]\n",
-		 data, vkdata->size, dma->nr_pages);
+	dev_dbg(dev, "Alloc DMA Pages [0x%llx+0x%x => %d pages]\n",
+		data, vkdata->size, dma->nr_pages);
 
 	dma->direction = direction;
 
@@ -117,10 +117,10 @@ int bcm_vk_dma_alloc(struct device *dev,
 	}
 
 #ifdef BCM_VK_DUMP_SGLIST
+	dev_dbg(dev, "sgl 0x%lx dma_handle 0x%lx, size: 0x%x\n",
+		(uint64_t)dma->sglist, dma->handle, dma->sglen);
 	for (i = 0; i < dma->sglen / sizeof(uint32_t); i++)
-		dev_info(dev, "i:0x%x 0x%x\n", i, dma->sglist[i]);
-	dev_info(dev, "sgl 0x%lx dma_handle 0x%lx, size: 0x%x\n",
-		 (uint64_t) dma->sglist, dma->handle, dma->sglen);
+		dev_dbg(dev, "i:0x%x 0x%x\n", i, dma->sglist[i]);
 #endif
 
 	/* Update pointers and size field to point to sglist */
