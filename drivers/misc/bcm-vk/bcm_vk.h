@@ -90,10 +90,6 @@ void bcm_vk_msg_remove(struct bcm_vk *vk);
 
 #if BCM_VK_MISC_API
 
-#define BCM_VK_DMA_BITS             30 /* 30 bits for legacy system,
-					* limit to lo 1G
-					*/
-
 /*
  * For legacy kernels, the following 2 PCI APIs will be missing, and
  * have to use msix_entry[] instead.  The APIs are provided in file bcm_vk_pci.c
@@ -104,10 +100,6 @@ void bcm_vk_msg_remove(struct bcm_vk *vk);
 int pci_irq_vector(struct pci_dev *pdev, unsigned int nr);
 int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 			  unsigned int max_vecs, unsigned int flags);
-
-#else
-
-#define BCM_VK_DMA_BITS             64 /* real target uses full 64 bits */
 
 #endif
 

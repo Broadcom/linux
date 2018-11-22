@@ -45,6 +45,8 @@ static DEFINE_IDA(bcm_vk_ida);
 
 #define VK_MSIX_IRQ_MAX			3
 
+#define BCM_VK_DMA_BITS			64
+
 static long bcm_vk_get_metadata(struct bcm_vk *vk, struct vk_metadata *arg)
 {
 	struct device *dev = &vk->pdev->dev;
