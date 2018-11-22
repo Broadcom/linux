@@ -185,7 +185,8 @@ static long bcm_vk_access_bar(struct bcm_vk *vk, struct vk_access *arg)
 			access.barno, access.offset, access.len);
 		num = access.len / sizeof(u32);
 		for (i = 0; i < num; i++) {
-			value = vkread32(vk, access.barno, access.offset + i);
+			value = vkread32(vk, access.barno,
+					 access.offset + (i * sizeof(u32)));
 			ret = put_user(value, access.data + i);
 			if (ret)
 				goto err_out;
@@ -201,7 +202,8 @@ static long bcm_vk_access_bar(struct bcm_vk *vk, struct vk_access *arg)
 			if (ret)
 				goto err_out;
 
-			vkwrite32(vk, value, access.barno, access.offset + i);
+			vkwrite32(vk, value, access.barno,
+				  access.offset + (i * sizeof(u32)));
 			dev_dbg(dev, "0x%x\n", value);
 		}
 	} else {
