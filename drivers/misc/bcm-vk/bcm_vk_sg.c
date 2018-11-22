@@ -69,8 +69,9 @@ int bcm_vk_dma_alloc(struct device *dev,
 		return err < 0 ? err : -EINVAL;
 	}
 
-	/* Max size of sg list is 1 per mapped page + the size field at start */
-	dma->sglen = (dma->nr_pages * sizeof(*sgdata)) + sizeof(uint32_t);
+	/* Max size of sg list is 1 per mapped page + fields at start */
+	dma->sglen = (dma->nr_pages * sizeof(*sgdata)) +
+		     (sizeof(uint32_t) * SGLIST_VKDATA_START);
 
 	/* Allocate sglist */
 	dma->sglist = dma_alloc_coherent(dev,
