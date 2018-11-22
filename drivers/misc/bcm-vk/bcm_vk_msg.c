@@ -75,7 +75,7 @@ static void bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *p_ctx)
 
 static void bcm_vk_free_wkent(struct device *dev, struct bcm_vk_wkent *p_ent)
 {
-	bcm_vk_msg_free_sg(dev, p_ent->dma, VK_DMA_MAX_ADDRS);
+	bcm_vk_sg_free(dev, p_ent->dma, VK_DMA_MAX_ADDRS);
 
 	kfree(p_ent->p_vk2h_msg);
 	kfree(p_ent);
@@ -575,7 +575,6 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 			    size_t count, loff_t *f_pos)
 {
-	int i;
 	ssize_t rc = -EPERM;
 	struct bcm_vk_ctx *p_ctx = p_file->private_data;
 	struct bcm_vk *vk = container_of(p_ctx->p_miscdev, struct bcm_vk,
@@ -654,14 +653,9 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		data -= num_planes;
 
 		/* Convert user addresses to DMA SG List */
-		for (i = 0; i < num_planes; i++) {
-			if (data->size)
-				bcm_vk_dma_alloc(dev,
-						 &p_ent->dma[i],
-						 dir,
-						 data);
-			data++;
-		}
+		rc = bcm_vk_sg_alloc(dev, p_ent->dma, dir, data, num_planes);
+		if (rc)
+			goto bcm_vk_write_free_ent;
 	}
 
 	/*

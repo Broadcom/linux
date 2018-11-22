@@ -48,12 +48,13 @@ struct _vk_data {
  * scatter-gather list from userspace address and map the memory
  * for DMA operation.
  */
-int bcm_vk_dma_alloc(struct device *dev,
-		     struct bcm_vk_dma *dma,
-		     int dir,
-		     struct _vk_data *vkdata);
+int bcm_vk_sg_alloc(struct device *dev,
+		    struct bcm_vk_dma *dma,
+		    int dir,
+		    struct _vk_data *vkdata,
+		    int num);
 
-int bcm_vk_msg_free_sg(struct device *dev, struct bcm_vk_dma *dma, int num);
+int bcm_vk_sg_free(struct device *dev, struct bcm_vk_dma *dma, int num);
 
 #endif
 

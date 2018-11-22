@@ -17,13 +17,19 @@
 #include "bcm_vk_msg.h"
 #include "bcm_vk_sg.h"
 
+static int bcm_vk_dma_alloc(struct device *dev,
+			    struct bcm_vk_dma *dma,
+			    int dir,
+			    struct _vk_data *vkdata);
+static int bcm_vk_dma_free(struct device *dev, struct bcm_vk_dma *dma);
+
 /* Uncomment to dump SGLIST */
 //#define BCM_VK_DUMP_SGLIST
 
-int bcm_vk_dma_alloc(struct device *dev,
-		     struct bcm_vk_dma *dma,
-		     int direction,
-		     struct _vk_data *vkdata)
+static int bcm_vk_dma_alloc(struct device *dev,
+			    struct bcm_vk_dma *dma,
+			    int direction,
+			    struct _vk_data *vkdata)
 {
 	dma_addr_t addr;
 	int err;
@@ -118,7 +124,7 @@ int bcm_vk_dma_alloc(struct device *dev,
 	}
 
 #ifdef BCM_VK_DUMP_SGLIST
-	dev_dbg(dev, "sgl 0x%lx dma_handle 0x%lx, size: 0x%x\n",
+	dev_dbg(dev, "sgl 0x%llx dma_handle 0x%llx, size: 0x%x\n",
 		(uint64_t)dma->sglist, dma->handle, dma->sglen);
 	for (i = 0; i < dma->sglen / sizeof(uint32_t); i++)
 		dev_dbg(dev, "i:0x%x 0x%x\n", i, dma->sglist[i]);
@@ -128,6 +134,58 @@ int bcm_vk_dma_alloc(struct device *dev,
 	put_unaligned((uint64_t)dma->handle, &(vkdata->address));
 	vkdata->size = dma->sglen;
 	return 0;
+}
+
+int bcm_vk_sg_alloc(struct device *dev,
+		    struct bcm_vk_dma *dma,
+		    int dir,
+		    struct _vk_data *vkdata,
+		    int num)
+{
+	int i;
+	int rc = -EINVAL;
+
+	/* Convert user addresses to DMA SG List */
+	for (i = 0; i < num; i++) {
+		if (vkdata[i].size && vkdata[i].address) {
+			/*
+			 * If both size and address are non-zero
+			 * then DMA alloc.
+			 */
+			rc = bcm_vk_dma_alloc(dev,
+					      &dma[i],
+					      dir,
+					      &vkdata[i]);
+		} else if (vkdata[i].size ||
+			   vkdata[i].address) {
+			/*
+			 * If one of size and address are zero
+			 * there is a problem.
+			 */
+			dev_err(dev,
+				"Invalid vkdata %x 0x%x 0x%llx\n",
+				i, vkdata[i].size, vkdata[i].address);
+			rc = -EINVAL;
+		} else {
+			/*
+			 * If size and address are both zero
+			 * don't convert, but return success.
+			 */
+			rc = 0;
+		}
+
+		if (rc)
+			goto fail_alloc;
+	}
+	return rc;
+
+fail_alloc:
+	while (i > 0) {
+		i--;
+		if (dma[i].sglist)
+			bcm_vk_dma_free(dev, &dma[i]);
+	}
+	return rc;
 }
 
 static int bcm_vk_dma_free(struct device *dev, struct bcm_vk_dma *dma)
@@ -160,18 +218,19 @@ static int bcm_vk_dma_free(struct device *dev, struct bcm_vk_dma *dma)
 
 	/* Free allocated dma pages */
 	kfree(dma->pages);
+	dma->sglist = NULL;
 
 	return 0;
 }
 
-int bcm_vk_msg_free_sg(struct device *dev, struct bcm_vk_dma *dma, int num)
+int bcm_vk_sg_free(struct device *dev, struct bcm_vk_dma *dma, int num)
 {
 	int i;
 
 	/* Unmap and free all pages and sglists */
 	for (i = 0; i < num; i++) {
 		if (dma[i].sglist)
-			bcm_vk_dma_free(dev, &(dma[i]));
+			bcm_vk_dma_free(dev, &dma[i]);
 	}
 
 	return 0;
