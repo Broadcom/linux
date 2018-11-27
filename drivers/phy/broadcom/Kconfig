@@ -19,6 +19,15 @@ config PHY_OMEGA_PCIE
 	  Enable this to support the Broadcom Omega PCIe PHY.
 	  If unsure, say N.
 
+config PHY_SR_PCIE_DIAG
+	tristate "Broadcom Stingray PCIe PHY Diag driver"
+	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
+	select GENERIC_PHY
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the Broadcom Stingray PCIe PHY diag test.
+	  If unsure, say N.
+
 config PHY_STINGRAY_PCIE
 	tristate "Broadcom Stingray PCIe PHY driver"
 	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
@@ -27,15 +36,6 @@ config PHY_STINGRAY_PCIE
 	default ARCH_BCM_IPROC
 	help
 	  Enable this to support the Broadcom Stingray PCIe PHY
-	  If unsure, say N.
-
-config PHY_STINGRAY_PCIE_PRBS
-	tristate "Broadcom Stingray PCIe PHY PRBS driver"
-	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
-	select GENERIC_PHY
-	default ARCH_BCM_IPROC
-	help
-	  Enable this to support the Broadcom Stingray PCIe PHY PRBS test.
 	  If unsure, say N.
 
 config PHY_STINGRAY_SATA_PRBS
