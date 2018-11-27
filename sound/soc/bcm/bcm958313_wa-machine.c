@@ -103,6 +103,29 @@ static struct snd_soc_ops bcm_omega_wa_ops_ak4458 = {
 	.hw_params = omega_hw_params_ak4458,
 };
 
+/* AudioH requires 8 x 32 bit slots */
+#define AUDIOH_NUM_TDM_SLOTS   8
+#define AUDIOH_TDM_SLOT_WIDTH  32
+
+/* We will be using 4 of these slots */
+#define ACTIVE_TDM_SLOTS       4
+
+static int bcm_omega_wa_audioh_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct device *dev = rtd->card->dev;
+	unsigned int mask;
+	int ret;
+
+	mask = BIT(ACTIVE_TDM_SLOTS) - 1;
+	ret = snd_soc_dai_set_tdm_slot(cpu_dai, mask, mask,
+				AUDIOH_NUM_TDM_SLOTS, AUDIOH_TDM_SLOT_WIDTH);
+	if (ret < 0)
+		dev_err(dev, "%s Failed snd_soc_dai_set_tdm_slot\n", __func__);
+
+	return ret;
+}
+
 /* Machine DAPM */
 static const struct snd_soc_dapm_widget wa_card_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone jack", NULL),
@@ -268,6 +291,8 @@ static int bcm_omega_wa_probe(struct platform_device *pdev)
 		if (linknum == AK4458_LINK) {
 			card->dai_link[linknum].ops = &bcm_omega_wa_ops_ak4458;
 			card->dai_link[linknum].init = bcm_omega_wa_init_ak4458;
+		} else if (linknum == AUDIOH_LINK) {
+			card->dai_link[linknum].init = bcm_omega_wa_audioh_init;
 		}
 	}
 
