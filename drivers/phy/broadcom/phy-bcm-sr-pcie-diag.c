@@ -49,6 +49,15 @@
 #define PAXB_CFG_IND_DATA_OFFSET	0x124
 
 #define CFG_RC_PMI_ADDR			0x1130
+#define CFG_RC_DEV_ID_SHIFT		27
+#define CFG_RC_DEV_ID			BIT(27)
+#define CFG_RC_BCAST_SHIFT		21
+#define CFG_RC_BCAST_VAL		0xf
+#define CFG_RC_LANE_SHIFT		16
+#define LANE_BCAST_VAL			0x1f
+#define NR_LANES_PER_SET		4
+#define LANE_OFFSET_SHIFT		2
+
 #define CFG_RC_PMI_WDATA		0x1134
 #define CFG_RC_WCMD_SHIFT		31
 #define CFG_RC_WCMD_MASK		(1 << CFG_RC_WCMD_SHIFT)
@@ -71,7 +80,6 @@
 
 /* allow up to 5 ms for PMI read/write transaction to finish */
 #define PMI_TIMEOUT_MS			5
-#define SERDES_LANES_BCAST		0x1ff
 #define GEN1_PRBS_VAL			0x4
 #define GEN2_PRBS_VAL			0x5
 #define GEN3_PRBS_VAL			0x6
@@ -113,15 +121,6 @@ struct pcie_prbs_dev {
 	unsigned int phy_count;
 	enum pcie_modes pcie_mode;
 	struct mutex test_lock;
-};
-
-union pmi_xfer_address {
-	struct {
-		unsigned int address : 16;
-		unsigned int lane_number : 11;
-		unsigned int device_id : 5;
-	};
-	unsigned int effective_addr;
 };
 
 /*
@@ -190,6 +189,24 @@ static unsigned int phy_workaround_table[14] = {
 	/* Mode 13: 2x4(EP), 1x4(RC), 2x2(RC) */
 	0x00
 };
+
+static inline u32 pmi_addr(u16 addr, u8 lane)
+{
+	u32 val;
+
+	if (lane == LANE_BCAST_VAL) {
+		val = CFG_RC_DEV_ID |
+		      (CFG_RC_BCAST_VAL << CFG_RC_BCAST_SHIFT) |
+		      (LANE_BCAST_VAL << CFG_RC_LANE_SHIFT) |
+		      addr;
+	} else {
+		lane = ((lane / NR_LANES_PER_SET) << LANE_OFFSET_SHIFT) |
+		       (lane % NR_LANES_PER_SET);
+		val = CFG_RC_DEV_ID | (lane << CFG_RC_LANE_SHIFT) | addr;
+	}
+
+	return val;
+}
 
 static uint32_t pcie_pipemux_strap_read(struct pcie_prbs_dev *pd)
 {
@@ -297,12 +314,9 @@ static int workaround_needed_for_phy(struct pcie_prbs_dev *pd, int phy_num)
 static int pcie_phy_bert_setup(struct pcie_prbs_dev *pd, int phy_num)
 {
 	struct device *dev = pd->dev;
-	union pmi_xfer_address pmi_addr;
+	u32 addr;
 
 	dev_info(dev, "Setting up BERT for PHY 0x%x\n", phy_num);
-	/* Broadcasting PRBS settings to all lanes */
-	pmi_addr.device_id = 0x1;
-	pmi_addr.lane_number = SERDES_LANES_BCAST;
 
 	/*
 	 * Although, signal integrity code is already present in firmware,
@@ -312,57 +326,56 @@ static int pcie_phy_bert_setup(struct pcie_prbs_dev *pd, int phy_num)
 	 */
 
 	/* Enable pre/post cursors */
-	pmi_addr.address = MERLIN16_AMS_TX_CTRL_5;
-	pmi_write(pd, pmi_addr.effective_addr,
+	addr = pmi_addr(MERLIN16_AMS_TX_CTRL_5, LANE_BCAST_VAL);
+	pmi_write(pd, addr,
 		  MERLIN16_AMS_TX_CTRL_5_POST2_TO_1 |
 		  MERLIN16_AMS_TX_CTRL_5_ENA_PRE |
 		  MERLIN16_AMS_TX_CTRL_5_ENA_POST1 |
 		  MERLIN16_AMS_TX_CTRL_5_ENA_POST2);
 
 	/* Configure Ref Clock sense counters */
-	pmi_addr.address = MERLIN16_PCIE_BLK2_PWRMGMT_7;
-	pmi_write(pd, pmi_addr.effective_addr,
-		  MERLIN16_PCIE_BLK2_PWRMGMT_7_VAL);
-	pmi_addr.address = MERLIN16_PCIE_BLK2_PWRMGMT_8;
-	pmi_write(pd, pmi_addr.effective_addr,
-		  MERLIN16_PCIE_BLK2_PWRMGMT_8_VAL);
+	addr = pmi_addr(MERLIN16_PCIE_BLK2_PWRMGMT_7, LANE_BCAST_VAL);
+	pmi_write(pd, addr, MERLIN16_PCIE_BLK2_PWRMGMT_7_VAL);
 
-	pmi_addr.address = 0x1300;
-	pmi_write(pd, pmi_addr.effective_addr, 0x2080);
+	addr = pmi_addr(MERLIN16_PCIE_BLK2_PWRMGMT_8, LANE_BCAST_VAL);
+	pmi_write(pd, addr, MERLIN16_PCIE_BLK2_PWRMGMT_8_VAL);
+
+	addr = pmi_addr(0x1300, LANE_BCAST_VAL);
+	pmi_write(pd, addr, 0x2080);
 
 	/* set speed */
-	pmi_addr.address = 0x1301;
+	addr = pmi_addr(0x1301, LANE_BCAST_VAL);
 	if (!strncasecmp(pd->test_gen, "gen1", GEN_STR_LEN)) {
-		pmi_write(pd, pmi_addr.effective_addr, GEN1_PRBS_VAL);
+		pmi_write(pd, addr, GEN1_PRBS_VAL);
 	} else if (!strncasecmp(pd->test_gen, "gen2", GEN_STR_LEN)) {
-		pmi_write(pd, pmi_addr.effective_addr, GEN2_PRBS_VAL);
+		pmi_write(pd, addr, GEN2_PRBS_VAL);
 	} else if (!strncasecmp(pd->test_gen, "gen3", GEN_STR_LEN)) {
-		pmi_write(pd, pmi_addr.effective_addr, GEN3_PRBS_VAL);
+		pmi_write(pd, addr, GEN3_PRBS_VAL);
 	} else {
 		dev_err(pd->dev, "PCIe GEN: Invalid option\n");
 		return -EINVAL;
 	}
 
 	/* Disable 8b10b & verify. */
-	pmi_addr.address =  0x1402;
-	pmi_write(pd, pmi_addr.effective_addr, 0x0000);
+	addr = pmi_addr(0x1402, LANE_BCAST_VAL);
+	pmi_write(pd, addr, 0x0000);
 
 	/* PRBS7 is default order ;Set PRBS enable */
-	pmi_addr.address = 0x1501;
-	pmi_write(pd, pmi_addr.effective_addr, 0xffff);
+	addr = pmi_addr(0x1501, LANE_BCAST_VAL);
+	pmi_write(pd, addr, 0xffff);
 
 	/* Set RX status = PRBS monitor on all lanes. */
-	pmi_addr.address = 0x7003;
-	pmi_write(pd, pmi_addr.effective_addr, 0xe020);
+	addr = pmi_addr(0x7003, LANE_BCAST_VAL);
+	pmi_write(pd, addr, 0xe020);
 
 	/* Set sigdet, disable EIEOS in gen3. */
-	pmi_addr.address = 0x7007;
-	pmi_write(pd, pmi_addr.effective_addr, 0xf010);
+	addr = pmi_addr(0x7007, LANE_BCAST_VAL);
+	pmi_write(pd, addr, 0xf010);
 
 	/* workaround for PHY3 and PHY7 PRBS in x8 RC */
 	if (workaround_needed_for_phy(pd, phy_num)) {
-		pmi_addr.address = 0xd073;
-		pmi_write(pd, pmi_addr.effective_addr, 0x7110);
+		addr = pmi_addr(0xd073, LANE_BCAST_VAL);
+		pmi_write(pd, addr, 0x7110);
 	}
 
 	return 0;
@@ -411,31 +424,26 @@ static void connect_pcie_core_to_phy(struct pcie_prbs_dev *pd, int phy_num)
 	};
 }
 
-static int pcie_phy_lane_prbs_flush(struct pcie_prbs_dev *pd, int lane_number)
+static int pcie_phy_lane_prbs_flush(struct pcie_prbs_dev *pd, int lane)
 {
-	union pmi_xfer_address pmi_addr;
-	uint32_t data;
+	uint32_t addr, data;
 
-	pmi_addr.device_id = 0x1;
-	pmi_addr.lane_number = lane_number;
-	pmi_addr.address = 0x7000;
-	pmi_read(pd, pmi_addr.effective_addr, &data);
+	addr = pmi_addr(0x7000, lane);
+	pmi_read(pd, addr, &data);
 
 	return 0;
 }
 
-static int pcie_phy_lane_prbs_status(struct pcie_prbs_dev *pd, int lane_number)
+static int pcie_phy_lane_prbs_status(struct pcie_prbs_dev *pd, int lane)
 {
 	struct device *dev = pd->dev;
-	union pmi_xfer_address pmi_addr;
-	uint32_t data;
+	uint32_t addr, data;
 	int lane_retries = 0;
+
+	addr = pmi_addr(0x7000, lane);
 	do {
-		pmi_addr.device_id = 0x1;
-		pmi_addr.lane_number = lane_number;
-		pmi_addr.address = 0x7000;
-		pmi_read(pd, pmi_addr.effective_addr, &data);
-		dev_info(dev, "Status on Lane %d:[0x%x]\n", lane_number, data);
+		pmi_read(pd, addr, &data);
+		dev_info(dev, "Status on Lane %d:[0x%x]\n", lane, data);
 		lane_retries++;
 	} while ((data != PMI_PASS_STATUS) &&
 				(lane_retries < MAX_LANE_RETRIES));
