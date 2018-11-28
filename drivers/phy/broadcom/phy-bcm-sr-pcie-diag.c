@@ -56,6 +56,7 @@
 #define CFG_RC_LANE_SHIFT		16
 #define LANE_BCAST_VAL			0x1f
 #define NR_LANES_PER_SET		4
+#define NR_LANES_PER_PHY		2
 #define LANE_OFFSET_SHIFT		2
 
 #define CFG_RC_PMI_WDATA		0x1134
@@ -456,29 +457,26 @@ static int pcie_phy_lane_prbs_status(struct pcie_prbs_dev *pd, int lane)
 
 static int pcie_phy_prbs_status(struct pcie_prbs_dev *pd, int phy_num)
 {
-	int ret = 0;
+	int ret = 0, lane_idx;
 	struct device *dev = pd->dev;
 
 	dev_info(dev, "Checking PRBS status for PHY 0x%x\n", phy_num);
 	/* Flush PRBS monitor status */
-	pcie_phy_lane_prbs_flush(pd, 0);
-	pcie_phy_lane_prbs_flush(pd, 1);
+	for (lane_idx = 0; lane_idx < NR_LANES_PER_PHY; lane_idx++)
+		pcie_phy_lane_prbs_flush(pd, lane_idx);
 
-	/* Checking PRBS status on Lane 0 */
-	ret = pcie_phy_lane_prbs_status(pd, 0);
-	if (ret) {
-		dev_err(dev, "PHY 0x%x: Lane 0 PRBS failed\n", phy_num);
-		return ret;
-	}
-	dev_info(dev, "PHY 0x%x: Lane 0 PRBS Passed\n", phy_num);
+	/* Checking PRBS status */
+	for (lane_idx = 0; lane_idx < NR_LANES_PER_PHY; lane_idx++) {
+		ret = pcie_phy_lane_prbs_status(pd, lane_idx);
+		if (ret) {
+			dev_err(dev, "PHY 0x%x: Lane %d PRBS failed\n",
+				phy_num, lane_idx);
+			return ret;
+		}
 
-	/* Checking PRBS status on Lane 1 */
-	ret = pcie_phy_lane_prbs_status(pd, 1);
-	if (ret) {
-		dev_err(dev, "PHY 0x%x: Lane 1 PRBS failed\n", phy_num);
-		return ret;
+		dev_info(dev, "PHY 0x%x: Lane %d PRBS Passed\n",
+			 phy_num, lane_idx);
 	}
-	dev_info(dev, "PHY 0x%x: Lane 1 PRBS Passed\n", phy_num);
 
 	return ret;
 }
