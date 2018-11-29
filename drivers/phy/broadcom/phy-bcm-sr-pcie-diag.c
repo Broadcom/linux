@@ -66,6 +66,7 @@
 #define CFG_RC_RCMD_MASK		(1 << CFG_RC_RCMD_SHIFT)
 #define CFG_RC_PMI_RDATA		0x1138
 #define CFG_RC_RWCMD_MASK		(CFG_RC_WCMD_MASK | CFG_RC_RCMD_MASK)
+#define CFG_RC_RDATA_MASK		0xffff
 #define CFG_RC_RACK_SHIFT		31
 #define CFG_RC_RACK_MASK		(1 << CFG_RC_RACK_SHIFT)
 
@@ -86,7 +87,7 @@
 #define GEN3_PRBS_VAL			0x6
 #define GEN_STR_LEN			4
 #define MAX_LANE_RETRIES		10
-#define PMI_PASS_STATUS			0x80008000
+#define PMI_PASS_STATUS			0x8000
 
 #define RC_PCIE_RST_OUTPUT_SHIFT	0
 #define RC_PCIE_RST_OUTPUT		BIT(RC_PCIE_RST_OUTPUT_SHIFT)
@@ -245,10 +246,10 @@ static unsigned int paxb_rc_read_config(void __iomem *base, unsigned int where)
  * Function for writes to the Serdes registers through the PMI interface
  */
 static int pmi_write(struct pcie_prbs_dev *pd, uint32_t pmi_addr,
-		     uint32_t data)
+		     u16 data)
 {
 	void __iomem *base = pd->paxb_base[pd->slot_num];
-	uint32_t status;
+	uint32_t status, val;
 	unsigned int timeout = PMI_TIMEOUT_MS;
 
 	dev_info(pd->dev, "%s: pmi = 0x%x, data = 0x%x\n",
@@ -256,9 +257,8 @@ static int pmi_write(struct pcie_prbs_dev *pd, uint32_t pmi_addr,
 	paxb_rc_write_config(base, CFG_RC_PMI_ADDR, pmi_addr);
 
 	/* initiate pmi write transaction */
-	data &= ~CFG_RC_RWCMD_MASK;
-	data |= CFG_RC_WCMD_MASK;
-	paxb_rc_write_config(base, CFG_RC_PMI_WDATA, data);
+	val = data | CFG_RC_WCMD_MASK;
+	paxb_rc_write_config(base, CFG_RC_PMI_WDATA, val);
 
 	/* poll for PMI write transaction completion */
 	do {
@@ -277,7 +277,7 @@ static int pmi_write(struct pcie_prbs_dev *pd, uint32_t pmi_addr,
  * Function to read the Serdes registers through the PMI interface
  */
 static int pmi_read(struct pcie_prbs_dev *pd, uint32_t pmi_addr,
-		    uint32_t *data)
+		    u16 *data)
 {
 	void __iomem *base = pd->paxb_base[pd->slot_num];
 	uint32_t status;
@@ -289,11 +289,13 @@ static int pmi_read(struct pcie_prbs_dev *pd, uint32_t pmi_addr,
 	paxb_rc_write_config(base, CFG_RC_PMI_WDATA, CFG_RC_RCMD_MASK);
 
 	/* poll for PMI read transaction completion */
+	*data = 0;
 	do {
 		status = paxb_rc_read_config(base, CFG_RC_PMI_RDATA);
 		/* wait for read ack bit set */
 		if (status & CFG_RC_RACK_MASK) {
-			*data = paxb_rc_read_config(base, CFG_RC_PMI_RDATA);
+			status = paxb_rc_read_config(base, CFG_RC_PMI_RDATA);
+			*data = status & CFG_RC_RDATA_MASK;
 			dev_info(pd->dev, "%s : 0x%x = 0x%x\n",
 				 __func__, pmi_addr, *data);
 			return 0;
@@ -427,7 +429,8 @@ static void connect_pcie_core_to_phy(struct pcie_prbs_dev *pd, int phy_num)
 
 static int pcie_phy_lane_prbs_flush(struct pcie_prbs_dev *pd, int lane)
 {
-	uint32_t addr, data;
+	uint32_t addr;
+	u16 data;
 
 	addr = pmi_addr(0x7000, lane);
 	pmi_read(pd, addr, &data);
@@ -438,7 +441,8 @@ static int pcie_phy_lane_prbs_flush(struct pcie_prbs_dev *pd, int lane)
 static int pcie_phy_lane_prbs_status(struct pcie_prbs_dev *pd, int lane)
 {
 	struct device *dev = pd->dev;
-	uint32_t addr, data;
+	uint32_t addr;
+	u16 data;
 	int lane_retries = 0;
 
 	addr = pmi_addr(0x7000, lane);
