@@ -13,6 +13,7 @@ Required properties:
 			"brcm,stingray-dte"
 	- reg       : Address and size of the DTE registers.
 		      Address and size of ASIU_TOP_MISC2 register (optional)
+	- reg-names : Must name "dte_primary", and optionally "dte_trigg";
 
 Optional properties:
 	- interrupts: DTE IIG Interrupt number
@@ -31,8 +32,10 @@ Examples:
 	/* Cygnus (ISR mode) */
 	dte: dte@180af000 {
 		compatible = "brcm,cygnus-dte", "brcm,iproc-dte";
-		reg = <0x180af000 0x1000>,
-		      <0x180aa054 0x4>;
+
+		reg = <0x180af000 0x1000>, <0x180aa054 0x4>;
+		reg-names = "dte_primary", "dte_trigg";
+
 		interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>;
 		brcm,dte-interval-ns = <500000000>;
 		status = "okay";
@@ -42,7 +45,10 @@ Examples:
 	/* Stingray (Soft-timer mode) */
 	dte: dte@180af000 {
 		compatible = "brcm,stingray-dte", "brcm,iproc-dte";
+
 		reg = <0x180af000 0x1000>;
+		reg-names = "dte_primary";
+
 		brcm,dte-interval-ns = <500000000>;
 		status = "okay";
 	};
