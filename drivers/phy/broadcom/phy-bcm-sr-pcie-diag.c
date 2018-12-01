@@ -121,6 +121,7 @@ struct pcie_prbs_dev {
 	unsigned int err_count;
 	unsigned int test_start;
 	unsigned int phy_count;
+	unsigned int lane;
 	enum pcie_modes pcie_mode;
 	struct mutex test_lock;
 };
@@ -767,6 +768,89 @@ static ssize_t pcie_phy_err_count_show(struct device *dev,
 	return ret;
 }
 
+static ssize_t lane_store(struct device *dev, struct device_attribute *attr,
+			  const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *pd = platform_get_drvdata(pdev);
+	unsigned int lane;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &lane);
+	if (ret)
+		return ret;
+
+	if (lane >= NR_LANES_PER_PHY)
+		return -EINVAL;
+
+	mutex_lock(&pd->test_lock);
+	pd->lane = lane;
+	mutex_unlock(&pd->test_lock);
+
+	return count;
+}
+
+static ssize_t lane_show(struct device *dev, struct device_attribute *attr,
+			 char *buf)
+{
+	ssize_t ret;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *pd = platform_get_drvdata(pdev);
+
+	mutex_lock(&pd->test_lock);
+	ret = sprintf(buf, "%u\n", pd->lane);
+	mutex_unlock(&pd->test_lock);
+
+	return ret;
+}
+
+static ssize_t pmi_read_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *pd = platform_get_drvdata(pdev);
+	int ret;
+	u32 addr, lane;
+	u16 data;
+
+	ret = sscanf(buf, "%x %x", &addr, &lane);
+	if ((ret != 1) && (ret != 2))
+		return -EINVAL;
+	if (ret == 1)
+		lane = 0;
+
+	mutex_lock(&pd->test_lock);
+	addr = pmi_addr(addr, lane);
+	pmi_read(pd, addr, &data);
+	mutex_unlock(&pd->test_lock);
+
+	return count;
+}
+
+static ssize_t pmi_write_store(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *pd = platform_get_drvdata(pdev);
+	int ret;
+	u32 addr, lane, val;
+
+	ret = sscanf(buf, "%x %x %x", &addr, &val, &lane);
+	if ((ret != 2) && (ret != 3))
+		return -EINVAL;
+	if (ret == 2)
+		lane = 0;
+
+	mutex_lock(&pd->test_lock);
+	addr = pmi_addr(addr, lane);
+	pmi_write(pd, addr, val & 0xffff);
+	mutex_unlock(&pd->test_lock);
+
+	return count;
+}
+
 static DEVICE_ATTR(test_retries, 0644,		/* S_IRUGO | S_IWUSR */
 		   pcie_prbs_retries_show, pcie_prbs_retries_store);
 
@@ -784,6 +868,10 @@ static DEVICE_ATTR(test_start, 0644,		/* S_IRUGO | S_IWUSR */
 
 static DEVICE_ATTR(err_count, 0444,		/* S_IRUGO */
 		   pcie_phy_err_count_show, NULL);
+
+static DEVICE_ATTR_RW(lane);
+static DEVICE_ATTR_WO(pmi_read);
+static DEVICE_ATTR_WO(pmi_write);
 
 static int stingray_pcie_phy_probe(struct platform_device *pdev)
 {
@@ -870,6 +958,15 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	ret = device_create_file(dev, &dev_attr_test_start);
 	if (ret < 0)
 		goto destroy_err_count;
+	ret = device_create_file(dev, &dev_attr_lane);
+	if (ret < 0)
+		goto destroy_test_start;
+	ret = device_create_file(dev, &dev_attr_pmi_read);
+	if (ret < 0)
+		goto destroy_lane;
+	ret = device_create_file(dev, &dev_attr_pmi_write);
+	if (ret < 0)
+		goto destroy_pmi_read;
 
 	mutex_init(&pd->test_lock);
 	pd->test_retries = 0;
@@ -880,6 +977,12 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	dev_info(dev, "%d PCIe PHYs registered\n", pd->phy_count);
 	return 0;
 
+destroy_pmi_read:
+	device_remove_file(dev, &dev_attr_pmi_read);
+destroy_lane:
+	device_remove_file(dev, &dev_attr_lane);
+destroy_test_start:
+	device_remove_file(dev, &dev_attr_test_start);
 destroy_err_count:
 	device_remove_file(dev, &dev_attr_err_count);
 destroy_test_gen:
