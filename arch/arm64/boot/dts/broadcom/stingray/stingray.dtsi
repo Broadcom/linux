@@ -576,6 +576,7 @@
 		dte: dte@1a1600 {
 			compatible = "brcm,iproc-dte";
 			reg = <0x001a1600 0x1000>;
+			reg-names = "dte_primary";
 			status = "disabled";
 		};
 
