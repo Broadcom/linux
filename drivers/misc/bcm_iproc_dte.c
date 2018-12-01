@@ -1197,7 +1197,11 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 	mutex_init(&iproc_dte->en_ts_lock);
 
 	/* Audio DTE memory mapped registers */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dte_primary");
+	if (!res) {
+		dev_err(&pdev->dev, "dte_primary io mem not specified.");
+		return -ENODEV;
+	}
 	iproc_dte->audioeav = devm_ioremap_resource(dev, res);
 	if (IS_ERR(iproc_dte->audioeav)) {
 		dev_err(&pdev->dev, "%s IO remap audioeav failed\n", __func__);
@@ -1205,10 +1209,15 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 	}
 
 	/* optional register to set DTE edge trigger */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	iproc_dte->trigg_reg = devm_ioremap_resource(dev, res);
-	if (IS_ERR(iproc_dte->trigg_reg))
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "trigg");
+	if (!res) {
+		dev_info(&pdev->dev, "optional trigg io not specified.");
 		iproc_dte->trigg_reg = NULL;
+	} else {
+		iproc_dte->trigg_reg = devm_ioremap_resource(dev, res);
+		if (IS_ERR(iproc_dte->trigg_reg))
+			return PTR_ERR(iproc_dte->trigg_reg);
+	}
 
 	spin_lock_init(&iproc_dte->lock);
 	dte_disable_nco(iproc_dte);
