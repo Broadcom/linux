@@ -253,8 +253,8 @@ static int pmi_write(struct pcie_prbs_dev *pd, uint32_t pmi_addr,
 	uint32_t status, val;
 	unsigned int timeout = PMI_TIMEOUT_MS;
 
-	dev_info(pd->dev, "%s: pmi = 0x%x, data = 0x%x\n",
-		 __func__, pmi_addr, data);
+	dev_dbg(pd->dev, "%s: pmi = 0x%x, data = 0x%x\n",
+		__func__, pmi_addr, data);
 	paxb_rc_write_config(base, CFG_RC_PMI_ADDR, pmi_addr);
 
 	/* initiate pmi write transaction */
@@ -297,8 +297,8 @@ static int pmi_read(struct pcie_prbs_dev *pd, uint32_t pmi_addr,
 		if (status & CFG_RC_RACK_MASK) {
 			status = paxb_rc_read_config(base, CFG_RC_PMI_RDATA);
 			*data = status & CFG_RC_RDATA_MASK;
-			dev_info(pd->dev, "%s : 0x%x = 0x%x\n",
-				 __func__, pmi_addr, *data);
+			dev_dbg(pd->dev, "%s : 0x%x = 0x%x\n",
+				__func__, pmi_addr, *data);
 			return 0;
 		}
 	} while (timeout--);
@@ -823,6 +823,8 @@ static ssize_t pmi_read_store(struct device *dev,
 	mutex_lock(&pd->test_lock);
 	addr = pmi_addr(addr, lane);
 	pmi_read(pd, addr, &data);
+	dev_info(dev, "lane: %u pmi_addr: 0x%08x val: 0x%04x\n",
+		 lane, addr, data);
 	mutex_unlock(&pd->test_lock);
 
 	return count;
