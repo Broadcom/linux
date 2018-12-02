@@ -24,6 +24,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/slab.h>
 #include <linux/string.h>
 
 #define MAX_PHY_COUNT 8
@@ -79,6 +80,29 @@
 #define MERLIN16_AMS_TX_CTRL_5_ENA_POST2	BIT(10)
 #define MERLIN16_PCIE_BLK2_PWRMGMT_7_VAL	0x96
 #define MERLIN16_PCIE_BLK2_PWRMGMT_8_VAL	0x12c
+
+/* microcode related fields */
+#define DSC_A_UC_CTRL			0xd00d
+#define DSC_SUPP_INFO_SHIFT		8
+#define DSC_READY_SHIFT			7
+#define DSC_READY			BIT(DSC_READY_SHIFT)
+#define DSC_ERR_SHIFT			6
+#define DSC_ERR				BIT(DSC_ERR_SHIFT)
+
+#define UC_A_AHB_CTRL0			0xd202
+#define UC_AUTO_INC_RADDR_EN_SHIFT	13
+#define UC_AUTO_INC_RADDR_EN		BIT(UC_AUTO_INC_RADDR_EN_SHIFT)
+#define UC_RSIZE_SHIFT			4
+#define UC_RSIZE_8			0
+#define UC_RSIZE_16			1
+#define UC_RSIZE_32			2
+#define UC_WORD_SIZE			16
+#define UC_WORD_MASK			(BIT(UC_WORD_SIZE) - 1)
+
+#define UC_A_AHB_RADDR_LSW		0xd208
+#define UC_A_AHB_RADDR_MSW		0xd209
+#define UC_A_AHB_RDATA_LSW		0xd20a
+#define UC_A_AHB_RDATA_MSW		0xd20b
 
 /* allow up to 5 ms for PMI read/write transaction to finish */
 #define PMI_TIMEOUT_MS			5
@@ -311,6 +335,38 @@ static int workaround_needed_for_phy(struct pcie_prbs_dev *pd, int phy_num)
 {
 	if (phy_workaround_table[pd->pcie_mode] & (1 << phy_num))
 		return 1;
+	return 0;
+}
+
+static int uc_ram_read(struct pcie_prbs_dev *pd, u32 *buf, u32 ram_addr,
+		       u32 len, unsigned int lane)
+{
+	u32 i, paddr;
+	u16 val, lsw, wsw;
+
+	if (!buf)
+		return -EINVAL;
+
+	ram_addr = ALIGN_DOWN(ram_addr, SZ_4);
+	len = ALIGN_DOWN(len, SZ_4);
+
+	paddr = pmi_addr(UC_A_AHB_CTRL0, lane);
+	val = UC_AUTO_INC_RADDR_EN | (UC_RSIZE_32 << UC_RSIZE_SHIFT);
+	pmi_write(pd, paddr, val);
+
+	paddr = pmi_addr(UC_A_AHB_RADDR_MSW, lane);
+	pmi_write(pd, paddr, ram_addr >> UC_WORD_SIZE);
+	paddr = pmi_addr(UC_A_AHB_RADDR_LSW, lane);
+	pmi_write(pd, paddr, ram_addr & UC_WORD_MASK);
+
+	for (i = 0; i < len; i += SZ_4, buf++) {
+		paddr = pmi_addr(UC_A_AHB_RDATA_MSW, lane);
+		pmi_read(pd, paddr, &wsw);
+		paddr = pmi_addr(UC_A_AHB_RDATA_LSW, lane);
+		pmi_read(pd, paddr, &lsw);
+		*buf = (wsw << UC_WORD_SIZE) | lsw;
+	}
+
 	return 0;
 }
 
@@ -853,6 +909,51 @@ static ssize_t pmi_write_store(struct device *dev,
 	return count;
 }
 
+static ssize_t uc_ram_store(struct device *dev,
+			    struct device_attribute *attr, const char *buf,
+			    size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *pd = platform_get_drvdata(pdev);
+	int ret;
+	u32 i, addr, len, lane;
+	u32 *data;
+
+	ret = sscanf(buf, "%x %x %x", &addr, &len, &lane);
+	if (ret != 2 && ret != 3)
+		return -EINVAL;
+	if (len < SZ_4)
+		return -EINVAL;
+	if (ret == 2)
+		lane = 0;
+
+	addr = ALIGN_DOWN(addr, SZ_4);
+	len = ALIGN_DOWN(len, SZ_4);
+
+	data = kzalloc(len, GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	mutex_lock(&pd->test_lock);
+	ret = uc_ram_read(pd, data, addr, len, lane);
+	if (ret) {
+		mutex_unlock(&pd->test_lock);
+		kfree(data);
+		return ret;
+	}
+
+	pr_info("Dump of ucode RAM starting from Lane[%u]...\n\n", lane);
+	for (i = 0; i < len; i += SZ_4) {
+		pr_info("[0x%08x] 0x%08x\n", addr + i, *data);
+		data++;
+	}
+	pr_info("\nDump of ucode RAM finished\n");
+
+	mutex_unlock(&pd->test_lock);
+	kfree(data);
+	return count;
+}
+
 static DEVICE_ATTR(test_retries, 0644,		/* S_IRUGO | S_IWUSR */
 		   pcie_prbs_retries_show, pcie_prbs_retries_store);
 
@@ -874,6 +975,7 @@ static DEVICE_ATTR(err_count, 0444,		/* S_IRUGO */
 static DEVICE_ATTR_RW(lane);
 static DEVICE_ATTR_WO(pmi_read);
 static DEVICE_ATTR_WO(pmi_write);
+static DEVICE_ATTR_WO(uc_ram);
 
 static int stingray_pcie_phy_probe(struct platform_device *pdev)
 {
@@ -969,6 +1071,9 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	ret = device_create_file(dev, &dev_attr_pmi_write);
 	if (ret < 0)
 		goto destroy_pmi_read;
+	ret = device_create_file(dev, &dev_attr_uc_ram);
+	if (ret < 0)
+		goto destroy_pmi_write;
 
 	mutex_init(&pd->test_lock);
 	pd->test_retries = 0;
@@ -979,6 +1084,8 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	dev_info(dev, "%d PCIe PHYs registered\n", pd->phy_count);
 	return 0;
 
+destroy_pmi_write:
+	device_remove_file(dev, &dev_attr_pmi_write);
 destroy_pmi_read:
 	device_remove_file(dev, &dev_attr_pmi_read);
 destroy_lane:
