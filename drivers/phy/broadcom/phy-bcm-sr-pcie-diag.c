@@ -954,6 +954,26 @@ static ssize_t uc_ram_store(struct device *dev,
 	return count;
 }
 
+static ssize_t reset_store(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *pd = platform_get_drvdata(pdev);
+	unsigned int reset;
+
+	if (kstrtouint(buf, 0, &reset) != 0)
+		return -EINVAL;
+
+	mutex_lock(&pd->test_lock);
+	if (reset)
+		iproc_pcie_assert_reset(pd->paxb_base[pd->slot_num]);
+	else
+		iproc_pcie_release_reset(pd->paxb_base[pd->slot_num]);
+	mutex_unlock(&pd->test_lock);
+
+	return count;
+}
+
 static DEVICE_ATTR(test_retries, 0644,		/* S_IRUGO | S_IWUSR */
 		   pcie_prbs_retries_show, pcie_prbs_retries_store);
 
@@ -976,6 +996,7 @@ static DEVICE_ATTR_RW(lane);
 static DEVICE_ATTR_WO(pmi_read);
 static DEVICE_ATTR_WO(pmi_write);
 static DEVICE_ATTR_WO(uc_ram);
+static DEVICE_ATTR_WO(reset);
 
 static int stingray_pcie_phy_probe(struct platform_device *pdev)
 {
@@ -1074,6 +1095,9 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	ret = device_create_file(dev, &dev_attr_uc_ram);
 	if (ret < 0)
 		goto destroy_pmi_write;
+	ret = device_create_file(dev, &dev_attr_reset);
+	if (ret < 0)
+		goto destroy_uc_ram;
 
 	mutex_init(&pd->test_lock);
 	pd->test_retries = 0;
@@ -1084,6 +1108,8 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	dev_info(dev, "%d PCIe PHYs registered\n", pd->phy_count);
 	return 0;
 
+destroy_uc_ram:
+	device_remove_file(dev, &dev_attr_uc_ram);
 destroy_pmi_write:
 	device_remove_file(dev, &dev_attr_pmi_write);
 destroy_pmi_read:
