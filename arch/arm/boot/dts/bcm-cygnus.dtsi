@@ -912,8 +912,8 @@
 
 		dte: dte@180af000 {
 			compatible = "brcm,cygnus-dte", "brcm,iproc-dte";
-			reg = <0x180af000 0x1000>,
-			      <0x180aa054 0x4>;
+			reg = <0x180af000 0x1000>, <0x180aa054 0x4>;
+			reg-names = "dte_primary", "dte_trigg";
 		};
 
 		pm: pm@19020000 {
