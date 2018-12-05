@@ -99,16 +99,17 @@
 
 	};
 
-	bt_reg0: regulator@0 {
+	bt_reg0: regulator@1 {
 		compatible = "regulator-fixed";
 		regulator-name = "4356-bt-reg0";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		gpio = <&gpio_crmu 3 0>;
 		enable-active-high;
+		startup-delay-us = <1000>;
 	};
 
-	wlan_reg0: regulator@1 {
+	wlan_reg0: regulator@2 {
 		compatible = "regulator-fixed";
 		regulator-name = "wlan-rf-reg0";
 		regulator-min-microvolt = <3300000>;
@@ -116,6 +117,17 @@
 		gpio = <&gpio_crmu 2 0>;
 		enable-active-high;
 		regulator-always-on;
+		startup-delay-us = <1000>;
+	};
+
+	vdd_reg: regulator@3 {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd-reg";
+		gpio = <&gpio_crmu 0 0>;
+		enable-active-high;
+		regulator-always-on;
+		startup-delay-us = <1000>;
+		status = "okay";
 	};
 };
 
@@ -320,5 +332,29 @@
 	brcmf1: bcrmf@1 {
 		compatible = "brcm,bcm4329-fmac";
 		status = "okay";
+	};
+};
+
+&scp {
+	status = "okay";
+
+	scp0: scp@0 {
+		brcm,pm-function = "regulator";
+		brcm,pm-supply = <&vdd_reg>;
+		brcm,pm-regulator-off-in-mem-state;
+		brcm,pm-regulator-off-in-off-state;
+	};
+
+	scp1: scp@1 {
+		brcm,pm-function = "regulator";
+		brcm,pm-supply = <&wlan_reg0>;
+		brcm,pm-regulator-off-in-off-state;
+	};
+
+	scp2: scp@2 {
+		brcm,pm-function = "regulator";
+		brcm,pm-supply = <&bt_reg0>;
+		brcm,pm-regulator-off-in-mem-state;
+		brcm,pm-regulator-off-in-off-state;
 	};
 };
