@@ -89,20 +89,71 @@
 #define DSC_ERR_SHIFT			6
 #define DSC_ERR				BIT(DSC_ERR_SHIFT)
 
+#define DSC_E_CTRL			0xd040
+#define DSC_P1_THRESH_SEL_SHIFT		3
+#define DSC_P1_THRESH_SEL		BIT(DSC_P1_THRESH_SEL_SHIFT)
+
+#define RX_LOCK_STATUS			0xd0dc
+#define RX_LOCK				BIT(0)
+
 #define UC_A_AHB_CTRL0			0xd202
 #define UC_AUTO_INC_RADDR_EN_SHIFT	13
 #define UC_AUTO_INC_RADDR_EN		BIT(UC_AUTO_INC_RADDR_EN_SHIFT)
+#define UC_AUTO_INC_WADDR_EN_SHIFT	12
+#define UC_AUTO_INC_WADDR_EN		BIT(UC_AUTO_INC_WADDR_EN_SHIFT)
 #define UC_RSIZE_SHIFT			4
 #define UC_RSIZE_8			0
 #define UC_RSIZE_16			1
 #define UC_RSIZE_32			2
 #define UC_WORD_SIZE			16
 #define UC_WORD_MASK			(BIT(UC_WORD_SIZE) - 1)
+#define UC_WSIZE_SHIFT			0
 
+#define UC_A_AHB_WADDR_LSW		0xd204
+#define UC_A_AHB_WADDR_MSW		0xd205
+#define UC_A_AHB_WDATA_LSW		0xd206
+#define UC_A_AHB_WDATA_MSW		0xd207
 #define UC_A_AHB_RADDR_LSW		0xd208
 #define UC_A_AHB_RADDR_MSW		0xd209
 #define UC_A_AHB_RDATA_LSW		0xd20a
 #define UC_A_AHB_RDATA_MSW		0xd20b
+
+#define LANE_VAR_RAM_BASE		0x500
+#define LANE_VAR_RAM_SIZE		0x100
+
+#define UC_RAM_BASE			0x0100
+#define UC_SIGNATURE_OFFSET		((UC_RAM_BASE) + 0x0000)
+#define UC_SIGNATURE_MASK		0x00ffffff
+#define UC_SIGNATURE			0x00666e49
+#define UC_VERSION_SHIFT		24
+#define UC_VERSION_MASK			0xff
+
+#define UC_TRACE_LANE_MEM_SIZE_OFFSET	((UC_RAM_BASE) + 0x0008)
+#define UC_DIAG_MEM_SIZE_MASK		0xffff
+#define UC_TRACE_MEM_SIZE_MASK		0xffff
+
+#define UC_OTHER_SIZE_OFFSET		((UC_RAM_BASE) + 0x000c)
+#define UC_LANE_SIZE_SHIFT		0
+#define UC_LANE_SIZE_MASK		0xff
+#define UC_TR_MEM_DESC_WR_MASK		0x1000000
+#define UC_CORE_VAR_RAM_SIZE_SHIFT	8
+#define UC_CORE_VAR_RAM_SIZE_MASK	0xff
+#define UC_LANE_VAR_RAM_SIZE_SHIFT	16
+#define UC_LANE_VAR_RAM_SIZE_MASK	0xffff
+
+#define UC_TRACE_MEM_PTR_OFFSET		((UC_RAM_BASE) + 0x0010)
+#define UC_CORE_MEM_PTR_OFFSET		((UC_RAM_BASE) + 0x0014)
+#define UC_LANE_MEM_PTR_OFFSET		((UC_RAM_BASE) + 0x001c)
+#define UC_MICRO_MEM_PTR_OFFSET		((UC_RAM_BASE) + 0x0064)
+
+#define UC_OTHER_SIZE_2_OFFSET		((UC_RAM_BASE) + 0x0060)
+#define UC_MICRO_MEM_SIZE_SHIFT		4
+#define UC_MICRO_MEM_SIZE_MASK		0xff
+#define UC_MICRO_CNT_MASK		0xf
+
+#define UC_DIAG_RD_PTR_OFFSET		0x0016
+#define UC_DIAG_VAR_MASK		0xff
+#define UC_DIAG_WR_PTR_OFFSET		0x001c
 
 /* allow up to 5 ms for PMI read/write transaction to finish */
 #define PMI_TIMEOUT_MS			5
@@ -115,6 +166,14 @@
 
 #define RC_PCIE_RST_OUTPUT_SHIFT	0
 #define RC_PCIE_RST_OUTPUT		BIT(RC_PCIE_RST_OUTPUT_SHIFT)
+
+#define MAX_EYE_Y			63
+#define Y_START				31
+
+#define MAX_EYE_X			64
+#define X_START				(-31)
+#define X_END				31
+#define STRIPE_SIZE			MAX_EYE_X
 
 enum pcie_modes {
 	PCIE_MODE0 = 0,
@@ -134,6 +193,48 @@ enum pcie_modes {
 	PCIE_MODE_DEFAULT = -1,
 };
 
+/* UC command */
+enum uc_cmd {
+	UC_CMD_NULL = 0,
+	UC_CMD_UC_CTRL = 1,
+	UC_CMD_EN_DIAG = 5,
+};
+
+/* UC control command */
+enum uc_cmd_ctrl {
+	UC_CMD_CTRL_STOP_GRACEFULLY = 0,
+	UC_CMD_CTRL_STOP_IMMEDIATE = 1,
+	UC_CMD_CTRL_RESUME = 2
+};
+
+/* UC diag command */
+enum uc_cmd_diag {
+	UC_CMD_DIAG_DISABLE = 3,
+	UC_CMD_DIAG_START_VSCAN_EYE = 4,
+	UC_CMD_DIAG_START_HSCAN_EYE = 5,
+	UC_CMD_DIAG_GET_EYE_SAMPLE = 6,
+};
+
+/* UC parameters stored in RAM */
+struct uc_info {
+	u32 signature;
+	u32 diag_mem_ram_base;
+	u32 diag_mem_ram_size;
+	u32 core_var_ram_base;
+	u32 core_var_ram_size;
+	u32 lane_var_ram_base;
+	u32 lane_var_ram_size;
+	u32 trace_mem_ram_base;
+	u32 trace_mem_ram_size;
+	u32 micro_var_ram_base;
+	u8 lane_count;
+	u8 trace_mem_desc_writes;
+	u8 micro_count;
+	u8 micro_var_ram_size;
+	u16 grp_ram_size;
+	u8 version;
+};
+
 struct pcie_prbs_dev {
 	struct device *dev;
 	struct regmap *pipemux_strap_map;
@@ -148,6 +249,8 @@ struct pcie_prbs_dev {
 	unsigned int lane;
 	enum pcie_modes pcie_mode;
 	struct mutex test_lock;
+
+	struct uc_info info;
 };
 
 /*
@@ -216,6 +319,9 @@ static unsigned int phy_workaround_table[14] = {
 	/* Mode 13: 2x4(EP), 1x4(RC), 2x2(RC) */
 	0x00
 };
+
+/* for eye scan stripe storage */
+static u32 stripe[MAX_EYE_Y][MAX_EYE_X];
 
 static inline u32 pmi_addr(u16 addr, u8 lane)
 {
@@ -338,8 +444,44 @@ static int workaround_needed_for_phy(struct pcie_prbs_dev *pd, int phy_num)
 	return 0;
 }
 
+static void uc_ram_write_8(struct pcie_prbs_dev *pd, u32 ram_addr, u8 data)
+{
+	u32 paddr;
+	u16 val;
+
+	paddr = pmi_addr(UC_A_AHB_CTRL0, pd->lane);
+	val = UC_RSIZE_8 << UC_WSIZE_SHIFT;
+	pmi_write(pd, paddr, val);
+
+	paddr = pmi_addr(UC_A_AHB_WADDR_MSW, pd->lane);
+	pmi_write(pd, paddr, ram_addr >> UC_WORD_SIZE);
+	paddr = pmi_addr(UC_A_AHB_WADDR_LSW, pd->lane);
+	pmi_write(pd, paddr, ram_addr & UC_WORD_MASK);
+	paddr = pmi_addr(UC_A_AHB_WDATA_LSW, pd->lane);
+	pmi_write(pd, paddr, data);
+}
+
+static u8 uc_ram_read_8(struct pcie_prbs_dev *pd, u32 ram_addr)
+{
+	u32 paddr;
+	u16 val, lsw = 0;
+
+	paddr = pmi_addr(UC_A_AHB_CTRL0, pd->lane);
+	val = UC_RSIZE_8 << UC_RSIZE_SHIFT;
+	pmi_write(pd, paddr, val);
+
+	paddr = pmi_addr(UC_A_AHB_RADDR_MSW, pd->lane);
+	pmi_write(pd, paddr, ram_addr >> UC_WORD_SIZE);
+	paddr = pmi_addr(UC_A_AHB_RADDR_LSW, pd->lane);
+	pmi_write(pd, paddr, ram_addr & UC_WORD_MASK);
+	paddr = pmi_addr(UC_A_AHB_RDATA_LSW, pd->lane);
+	pmi_read(pd, paddr, &lsw);
+
+	return (lsw & 0xff);
+}
+
 static int uc_ram_read(struct pcie_prbs_dev *pd, u32 *buf, u32 ram_addr,
-		       u32 len, unsigned int lane)
+		       u32 len)
 {
 	u32 i, paddr;
 	u16 val, lsw, wsw;
@@ -350,22 +492,469 @@ static int uc_ram_read(struct pcie_prbs_dev *pd, u32 *buf, u32 ram_addr,
 	ram_addr = ALIGN_DOWN(ram_addr, SZ_4);
 	len = ALIGN_DOWN(len, SZ_4);
 
-	paddr = pmi_addr(UC_A_AHB_CTRL0, lane);
+	paddr = pmi_addr(UC_A_AHB_CTRL0, pd->lane);
 	val = UC_AUTO_INC_RADDR_EN | (UC_RSIZE_32 << UC_RSIZE_SHIFT);
 	pmi_write(pd, paddr, val);
 
-	paddr = pmi_addr(UC_A_AHB_RADDR_MSW, lane);
+	paddr = pmi_addr(UC_A_AHB_RADDR_MSW, pd->lane);
 	pmi_write(pd, paddr, ram_addr >> UC_WORD_SIZE);
-	paddr = pmi_addr(UC_A_AHB_RADDR_LSW, lane);
+	paddr = pmi_addr(UC_A_AHB_RADDR_LSW, pd->lane);
 	pmi_write(pd, paddr, ram_addr & UC_WORD_MASK);
 
 	for (i = 0; i < len; i += SZ_4, buf++) {
-		paddr = pmi_addr(UC_A_AHB_RDATA_MSW, lane);
+		paddr = pmi_addr(UC_A_AHB_RDATA_MSW, pd->lane);
 		pmi_read(pd, paddr, &wsw);
-		paddr = pmi_addr(UC_A_AHB_RDATA_LSW, lane);
+		paddr = pmi_addr(UC_A_AHB_RDATA_LSW, pd->lane);
 		pmi_read(pd, paddr, &lsw);
 		*buf = (wsw << UC_WORD_SIZE) | lsw;
 	}
+
+	return 0;
+}
+
+#define UC_CMD_POLL 10
+
+static int uc_cmd_ready(struct pcie_prbs_dev *pd)
+{
+	u32 paddr, poll;
+	u16 val;
+	int ret = 0;
+
+	poll = 0;
+	while (poll < UC_CMD_POLL) {
+		paddr = pmi_addr(DSC_A_UC_CTRL, pd->lane);
+		pmi_read(pd, paddr, &val);
+		if (val & DSC_READY) {
+			if (val & DSC_ERR)
+				ret = -EIO;
+			break;
+		}
+		msleep(20);
+		poll++;
+	}
+
+	if (poll >= UC_CMD_POLL)
+		ret = -ETIMEDOUT;
+
+	return ret;
+}
+
+static int uc_cmd_run(struct pcie_prbs_dev *pd, u8 cmd, u8 supp)
+{
+	int ret;
+	u32 paddr;
+
+	ret = uc_cmd_ready(pd);
+	if (ret) {
+		dev_err(pd->dev,
+			"uc cmd not ready, cmd=0x%02x supp=0x%0x2\n",
+			cmd, supp);
+		return ret;
+	}
+
+	paddr = pmi_addr(DSC_A_UC_CTRL, pd->lane);
+	pmi_write(pd, paddr, cmd | (supp << DSC_SUPP_INFO_SHIFT));
+
+	ret = uc_cmd_ready(pd);
+	if (ret) {
+		dev_err(pd->dev,
+			"uc cmd failed, cmd=0x%02x supp=0x%0x2\n",
+			cmd, supp);
+		return ret;
+	}
+
+	return 0;
+}
+
+static bool uc_rx_lock(struct pcie_prbs_dev *pd)
+{
+	u32 paddr;
+	u16 data;
+
+	paddr = pmi_addr(RX_LOCK_STATUS, pd->lane);
+	pmi_read(pd, paddr, &data);
+
+	return !!(data & RX_LOCK);
+}
+
+static int uc_get_info(struct pcie_prbs_dev *pd)
+{
+	struct uc_info *info = &pd->info;
+	u32 val;
+
+	memset(info, 0, sizeof(*info));
+
+	/* validate signature from uc */
+	uc_ram_read(pd, &val, UC_SIGNATURE_OFFSET, SZ_4);
+	info->signature = val;
+	if ((info->signature & UC_SIGNATURE_MASK) != UC_SIGNATURE)
+		return -ENODEV;
+
+	info->version = (val >> UC_VERSION_SHIFT) & UC_VERSION_MASK;
+
+	uc_ram_read(pd, &val, UC_OTHER_SIZE_OFFSET, SZ_4);
+	info->lane_count = (val >> UC_LANE_SIZE_SHIFT) & UC_LANE_SIZE_MASK;
+	info->trace_mem_desc_writes = !!(val & UC_TR_MEM_DESC_WR_MASK);
+	info->core_var_ram_size = (val >> UC_CORE_VAR_RAM_SIZE_SHIFT) &
+				  UC_CORE_VAR_RAM_SIZE_MASK;
+
+	uc_ram_read(pd, &val, UC_TRACE_LANE_MEM_SIZE_OFFSET, SZ_4);
+	info->lane_var_ram_size = (val >> UC_LANE_VAR_RAM_SIZE_SHIFT) &
+				  UC_LANE_VAR_RAM_SIZE_MASK;
+	if (info->lane_var_ram_size != LANE_VAR_RAM_SIZE)
+		return -EFAULT;
+
+	info->diag_mem_ram_size = (val & UC_DIAG_MEM_SIZE_MASK) /
+				  info->lane_count;
+	info->trace_mem_ram_size = val & UC_TRACE_MEM_SIZE_MASK;
+
+	uc_ram_read(pd, &val, UC_TRACE_MEM_PTR_OFFSET, SZ_4);
+	info->diag_mem_ram_base = val;
+	info->trace_mem_ram_base = info->diag_mem_ram_base;
+
+	uc_ram_read(pd, &val, UC_CORE_MEM_PTR_OFFSET, SZ_4);
+	info->core_var_ram_base = val;
+
+	uc_ram_read(pd, &val, UC_MICRO_MEM_PTR_OFFSET, SZ_4);
+	info->micro_var_ram_base = val;
+
+	uc_ram_read(pd, &val, UC_OTHER_SIZE_2_OFFSET, SZ_4);
+	info->micro_var_ram_size = (val >> UC_MICRO_MEM_SIZE_SHIFT) &
+				   UC_MICRO_MEM_SIZE_MASK;
+
+	/* for uc version below 0x34, micro code count is always 1  */
+	if (info->version < 0x34)
+		info->micro_count = 1;
+	else
+		info->micro_count = val & UC_MICRO_CNT_MASK;
+
+	uc_ram_read(pd, &val, UC_LANE_MEM_PTR_OFFSET, SZ_4);
+	info->lane_var_ram_base = val;
+
+	pr_info("Microcode info for Lane[%u]:", pd->lane);
+	pr_info("Signature = 0x%08x\n", info->signature);
+	pr_info("Diag MEM RAM base = 0x%08x\n", info->diag_mem_ram_base);
+	pr_info("Diag MEM RAM size = 0x%08x\n", info->diag_mem_ram_size);
+	pr_info("Core VAR RAM base = 0x%08x\n", info->core_var_ram_base);
+	pr_info("Core VAR RAM size = 0x%08x\n", info->core_var_ram_size);
+	pr_info("Lane VAR RAM base = 0x%08x\n", info->lane_var_ram_base);
+	pr_info("Lane VAR RAM size = 0x%08x\n", info->lane_var_ram_size);
+	pr_info("Trace MEM RAM base = 0x%08x\n", info->trace_mem_ram_base);
+	pr_info("Trace MEM RAM size = 0x%08x\n", info->trace_mem_ram_size);
+	pr_info("Micro VAR RAM base = 0x%08x\n", info->micro_var_ram_base);
+	pr_info("Lane Count = %u\n", info->lane_count);
+	pr_info("Trace MEM descending writes = %u\n",
+		info->trace_mem_desc_writes);
+	pr_info("Micro Count = %u\n", info->micro_count);
+	pr_info("Micro VAR RAM size =0x%08x\n", info->micro_var_ram_size);
+	pr_info("GRP RAM size = 0x%08x\n", info->grp_ram_size);
+	pr_info("Version = 0x%02x\n", info->version);
+
+	return 0;
+}
+
+static u8 uc_diag_var_read(struct pcie_prbs_dev *pd, u32 offset)
+{
+	struct uc_info *info = &pd->info;
+	u32 addr;
+
+	addr = info->lane_var_ram_base + (pd->lane * info->lane_var_ram_size) +
+	       offset;
+
+	return uc_ram_read_8(pd, addr);
+}
+
+static void uc_diag_var_write(struct pcie_prbs_dev *pd, u32 offset, u8 data)
+{
+	struct uc_info *info = &pd->info;
+	u32 addr;
+
+	addr = info->lane_var_ram_base + (pd->lane * info->lane_var_ram_size) +
+	       offset;
+
+	uc_ram_write_8(pd, addr, data);
+}
+
+static u8 uc_diag_rd_ptr_read(struct pcie_prbs_dev *pd)
+{
+	return uc_diag_var_read(pd, UC_DIAG_RD_PTR_OFFSET);
+}
+
+static void uc_diag_rd_ptr_write(struct pcie_prbs_dev *pd, u8 data)
+{
+	uc_diag_var_write(pd, UC_DIAG_RD_PTR_OFFSET, data);
+}
+
+static u8 uc_diag_wr_ptr_read(struct pcie_prbs_dev *pd)
+{
+	return uc_diag_var_read(pd, UC_DIAG_WR_PTR_OFFSET);
+}
+
+#define UC_DIAG_POLL 1000
+
+static int uc_poll_diag_data(struct pcie_prbs_dev *pd, u8 rdp, u8 len)
+{
+	struct uc_info *info = &pd->info;
+	u32 lane_diag_size = info->diag_mem_ram_size;
+	unsigned int poll;
+
+	/*
+	 * Do not support the case when the len is larger than half of the
+	 * lane_diag_size. In such case, the read pointer cannot be updated
+	 * fast enough
+	 */
+	if (len > (lane_diag_size / 2)) {
+		dev_err(pd->dev, "Excessive len %u detected\n", len);
+		return -EINVAL;
+	}
+
+	/* wait until diag data is ready to be read */
+	poll = 0;
+	while (poll < UC_DIAG_POLL) {
+		u8 wrp, full_count;
+
+		wrp = uc_diag_wr_ptr_read(pd);
+		if (wrp >= rdp)
+			full_count = wrp - rdp;
+		else
+			full_count = (u16)wrp + lane_diag_size - rdp;
+		if (full_count >= len)
+			break;
+
+		msleep(20);
+	}
+
+	if (poll >= UC_DIAG_POLL) {
+		dev_err(pd->dev, "UC diag poll data timed out\n");
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+/*
+ * Magic calculation ported from code from the PCIe Serdes team
+ */
+static s16 ladder_setting_to_mV(s8 ctrl, bool range_250)
+{
+	u16 absv = abs(ctrl);
+	s16 nlmv, nlv;
+
+	nlv = 25 * absv;
+	if (absv > 22)
+		nlv += (absv - 22) * 25;
+
+	if (range_250)
+		nlmv = (nlv + 2) / 4;
+	else
+		nlmv = (nlv * 3 + 10) / 20;
+	return ((ctrl >= 0) ? nlmv : -nlmv);
+}
+
+/*
+ * Magic calculation ported from code from the PCIe Serdes team
+ */
+static u32 float8_to_u32(u8 float8)
+{
+	u32 x;
+
+	if (float8 == 0)
+		return 0;
+
+	x = (float8 >> 5) + 8;
+	if ((float8 & 0x1f) < 3)
+		return (x >> (3 - (float8 & 0x1f)));
+
+	return (x << ((float8 & 0x1f) - 3));
+}
+
+static void uc_eye_scan_convert(u32 *buf, u8 len, u16 data)
+{
+	unsigned int i;
+
+	for (i = 0; i < len; i++)
+		buf[i] = float8_to_u32((data >> (8 * i)) & 0xff);
+}
+
+static void uc_eye_display_header(void)
+{
+	pr_info("\n");
+	pr_info(" Each character N represents approximate error rate 1e-N at that location\n");
+	pr_info("  UI/64  : -30  -25  -20  -15  -10  -5    0    5    10   15   20   25   30\n");
+	pr_info("         : -|----|----|----|----|----|----|----|----|----|----|----|----|-\n");
+}
+
+static void uc_eye_display_footer(void)
+{
+	pr_info("         : -|----|----|----|----|----|----|----|----|----|----|----|----|-");
+	pr_info("  UI/64  : -30  -25  -20  -15  -10  -5    0    5    10   15   20   25   30");
+	pr_info("\n");
+}
+
+#define NR_LIMITS	7
+#define NR_CR		5
+static void uc_eye_display_stripe(struct pcie_prbs_dev *pd, uint32_t *buf, s8 y)
+{
+	const u32 limits[NR_LIMITS] = {917504, 91750, 9175, 917, 91, 9, 1};
+	s8 x, i;
+	s16 level;
+	u32 paddr;
+	u16 val;
+	bool p1_select;
+
+	paddr = pmi_addr(DSC_E_CTRL, pd->lane);
+	pmi_read(pd, paddr, &val);
+	p1_select = !!(val & DSC_P1_THRESH_SEL);
+	level = ladder_setting_to_mV(y, p1_select);
+
+	printk(KERN_INFO "%6dmV : ", level);
+
+	for (x = X_START; x <= X_END; x++) {
+		for (i = 0; i < NR_LIMITS; i++) {
+			if (buf[x + abs(X_START)] >= limits[i]) {
+				printk(KERN_CONT "%c", '0' + i + 1);
+				break;
+			}
+		}
+
+		if (i == NR_LIMITS) {
+			if ((x % NR_CR) == 0 && (y % NR_CR) == 0)
+				printk(KERN_CONT "+");
+			else if ((x % NR_CR) != 0 && (y % NR_CR) == 0)
+				printk(KERN_CONT "-");
+			else if ((x % NR_CR) == 0 && (y % NR_CR) != 0)
+				printk(KERN_CONT ":");
+			else
+				printk(KERN_CONT " ");
+		}
+	}
+}
+
+static int uc_blk_read_generic_ram(struct pcie_prbs_dev *pd, u32 blk_addr,
+				   u16 blk_size, u16 offset, u16 cnt,
+				   u32 *buf)
+{
+	u32 val, read_val = 0;
+	u8 defecit = 0;
+	u32 paddr, addr = blk_addr + offset;
+	u16 lsw;
+	unsigned int lane = pd->lane;
+	unsigned int word_size = sizeof(u16);
+
+	if (offset >= blk_size)
+		return -EINVAL;
+
+	while (cnt > 0) {
+		u16 bytes_left = blk_size - offset;
+		u16 blk_cnt = min(cnt, bytes_left);
+
+		cnt -= blk_cnt;
+
+		/* set up for word reads */
+		paddr = pmi_addr(UC_A_AHB_CTRL0, lane);
+		val = UC_AUTO_INC_RADDR_EN | (UC_RSIZE_16 << UC_RSIZE_SHIFT);
+		pmi_write(pd, paddr, val);
+
+		paddr = pmi_addr(UC_A_AHB_RADDR_MSW, lane);
+		pmi_write(pd, paddr, addr >> UC_WORD_SIZE);
+		paddr = pmi_addr(UC_A_AHB_RADDR_LSW, lane);
+		pmi_write(pd, paddr, addr & UC_WORD_MASK);
+
+		/* read the leading byte, if starting at an odd address */
+		if ((addr & 1)) {
+			paddr = pmi_addr(UC_A_AHB_RDATA_LSW, lane);
+			pmi_read(pd, paddr, &lsw);
+
+			read_val |= ((lsw >> 8) << defecit);
+			if (defecit == 8) {
+				uc_eye_scan_convert(buf, word_size,
+						    (u16)read_val);
+				read_val = 0;
+				buf += word_size;
+			}
+
+			defecit ^= 8;
+			blk_cnt--;
+		}
+
+		/* read the whole word */
+		while (blk_cnt >= 2) {
+			paddr = pmi_addr(UC_A_AHB_RDATA_LSW, lane);
+			pmi_read(pd, paddr, &lsw);
+			read_val |= (lsw << defecit);
+			uc_eye_scan_convert(buf, word_size, (u16)read_val);
+			read_val >>= 16;
+			buf += word_size;
+			blk_cnt -= word_size;
+		}
+
+		/* read the trailing byte */
+		if (blk_cnt > 0) {
+			paddr = pmi_addr(UC_A_AHB_RDATA_LSW, lane);
+			pmi_read(pd, paddr, &lsw);
+			read_val |= ((lsw & 0xff) << defecit);
+			if (defecit == 8) {
+				uc_eye_scan_convert(buf, word_size,
+						    (u16)read_val);
+				read_val = 0;
+				buf += word_size;
+			}
+			defecit ^= 8;
+			blk_cnt--;
+		}
+		addr = blk_addr;
+		offset = 0;
+	}
+
+	/* when the last odd byte is left behind */
+	if (defecit > 0)
+		uc_eye_scan_convert(buf, 1, (u16)read_val);
+
+	return 0;
+}
+
+static int uc_eye_scan_start(struct pcie_prbs_dev *pd, bool vertical)
+{
+	enum uc_cmd_diag diag;
+
+	diag = vertical ?
+	       UC_CMD_DIAG_START_VSCAN_EYE : UC_CMD_DIAG_START_HSCAN_EYE;
+
+	return uc_cmd_run(pd, UC_CMD_EN_DIAG, diag);
+}
+
+static int uc_eye_scan_done(struct pcie_prbs_dev *pd)
+{
+	return uc_cmd_run(pd, UC_CMD_EN_DIAG, UC_CMD_DIAG_DISABLE);
+}
+
+static int uc_eye_scan_stripe(struct pcie_prbs_dev *pd, u32 *buf)
+{
+	struct uc_info *info = &pd->info;
+	u32 lane_diag_base;
+	unsigned int lane = pd->lane;
+	u8 rdp;
+	int ret;
+
+	lane_diag_base = info->diag_mem_ram_base +
+			 ((lane % info->lane_count) * info->diag_mem_ram_size);
+
+	/* obtain the read pointer from uc and wait for data to be ready */
+	rdp = uc_diag_rd_ptr_read(pd);
+	ret = uc_poll_diag_data(pd, rdp, STRIPE_SIZE);
+	if (ret)
+		return ret;
+
+	/* now reading eye diagram data into buffer */
+	ret = uc_blk_read_generic_ram(pd, lane_diag_base,
+				      info->diag_mem_ram_size,
+				      rdp, STRIPE_SIZE, buf);
+	if (ret)
+		return ret;
+
+	/* update the read pointer and write back to uc */
+	rdp = (rdp + STRIPE_SIZE) % info->diag_mem_ram_size;
+	uc_diag_rd_ptr_write(pd, rdp);
 
 	return 0;
 }
@@ -929,13 +1518,14 @@ static ssize_t uc_ram_store(struct device *dev,
 
 	addr = ALIGN_DOWN(addr, SZ_4);
 	len = ALIGN_DOWN(len, SZ_4);
+	pd->lane = lane;
 
 	data = kzalloc(len, GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
 
 	mutex_lock(&pd->test_lock);
-	ret = uc_ram_read(pd, data, addr, len, lane);
+	ret = uc_ram_read(pd, data, addr, len);
 	if (ret) {
 		mutex_unlock(&pd->test_lock);
 		kfree(data);
@@ -974,6 +1564,94 @@ static ssize_t reset_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+static ssize_t eye_store(struct device *dev, struct device_attribute *attr,
+			 const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *pd = platform_get_drvdata(pdev);
+	unsigned int phy, lane;
+	int ret = 0, i;
+	s8 y;
+	u32 pipemux;
+	enum uc_cmd_ctrl ctrl;
+
+	ret = sscanf(buf, "%u %u", &phy, &lane);
+	if (ret != 2)
+		return -EINVAL;
+
+	if (lane >= NR_LANES_PER_PHY)
+		return -EINVAL;
+
+	pipemux = pcie_pipemux_strap_read(pd);
+	if (pd->pcie_mode == PCIE_MODE_DEFAULT) {
+		pipemux = pcie_pipemux_strap_read(pd);
+		dev_info(dev, "PIPEMUX from strap 0x%x\n", pipemux);
+	} else if (pipemux != pd->pcie_mode) {
+		dev_info(dev, "Override PIPEMUX from 0x%x to 0x%x\n",
+			 pipemux, pd->pcie_mode);
+		pipemux = pd->pcie_mode;
+		writel(pipemux, pd->pcie_ss_base + PCIE_PIPEMUX_CFG_OFFSET);
+	}
+
+	if (!((phy_mask[pipemux][pd->slot_num]) & BIT(phy)))
+		return -EINVAL;
+
+	mutex_lock(&pd->test_lock);
+	pd->lane = lane;
+
+	connect_pcie_core_to_phy(pd, phy);
+	iproc_pcie_assert_reset(pd->paxb_base[pd->slot_num]);
+	iproc_pcie_release_reset(pd->paxb_base[pd->slot_num]);
+
+	/* populate uc information */
+	ret = uc_get_info(pd);
+	if (ret) {
+		dev_err(dev, "unable to get uc info\n");
+		goto err;
+	}
+
+	/* check if RX is locked */
+	if (uc_rx_lock(pd))
+		ctrl = UC_CMD_CTRL_STOP_GRACEFULLY;
+	else
+		ctrl = UC_CMD_CTRL_STOP_IMMEDIATE;
+
+	/* stop uc before diag test */
+	ret = uc_cmd_run(pd, UC_CMD_UC_CTRL, ctrl);
+	if (ret) {
+		dev_err(dev, "unable to stop uc\n");
+		goto err;
+	}
+
+	uc_eye_display_header();
+
+	ret = uc_eye_scan_start(pd, false);
+	if (ret) {
+		dev_err(dev, "unable to start eye scan\n");
+		goto err_resume_uc;
+	}
+
+	for (i = 0, y = Y_START; i < MAX_EYE_Y; i++, y--) {
+		memset(&stripe[i][0], 0, MAX_EYE_X);
+		ret = uc_eye_scan_stripe(pd, &stripe[i][0]);
+		if (ret) {
+			dev_err(dev, "eye scan failed\n");
+			goto err_stop_eye_scan;
+		}
+		uc_eye_display_stripe(pd, &stripe[i][0], y);
+	}
+
+	uc_eye_display_footer();
+
+err_stop_eye_scan:
+	uc_eye_scan_done(pd);
+err_resume_uc:
+	uc_cmd_run(pd, UC_CMD_UC_CTRL, UC_CMD_CTRL_RESUME);
+err:
+	mutex_unlock(&pd->test_lock);
+	return ret < 0 ? ret : count;
+}
+
 static DEVICE_ATTR(test_retries, 0644,		/* S_IRUGO | S_IWUSR */
 		   pcie_prbs_retries_show, pcie_prbs_retries_store);
 
@@ -997,6 +1675,7 @@ static DEVICE_ATTR_WO(pmi_read);
 static DEVICE_ATTR_WO(pmi_write);
 static DEVICE_ATTR_WO(uc_ram);
 static DEVICE_ATTR_WO(reset);
+static DEVICE_ATTR_WO(eye);
 
 static int stingray_pcie_phy_probe(struct platform_device *pdev)
 {
@@ -1098,6 +1777,9 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	ret = device_create_file(dev, &dev_attr_reset);
 	if (ret < 0)
 		goto destroy_uc_ram;
+	ret = device_create_file(dev, &dev_attr_eye);
+	if (ret < 0)
+		goto destroy_reset;
 
 	mutex_init(&pd->test_lock);
 	pd->test_retries = 0;
@@ -1108,6 +1790,8 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	dev_info(dev, "%d PCIe PHYs registered\n", pd->phy_count);
 	return 0;
 
+destroy_reset:
+	device_remove_file(dev, &dev_attr_reset);
 destroy_uc_ram:
 	device_remove_file(dev, &dev_attr_uc_ram);
 destroy_pmi_write:
