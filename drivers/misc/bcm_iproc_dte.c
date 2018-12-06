@@ -93,36 +93,36 @@
 #define DTE_POLL_INTERVAL_MIN                    3000000000U /* 3s */
 #define DTE_NCO_OVF_TIMEOUT_MS                   3600000 /* 1 hour */
 
-/* Registers */
-#define DTE_CTRL_REG_BASE                        0x600
+/* Macro to create register codes */
+#define IO_CODE_PAGE_SHIFT  16
+#define IO_CODE_REG_MASK    0xffff
+
+#define PRIMARY_IOPAGE   1
+#define TRIGG_IOPAGE     2
+#define NCO_IOPAGE       3
+
+#define PRIMARY_IO_PAGE_MASK  (PRIMARY_IOPAGE << IO_CODE_PAGE_SHIFT)
+#define TRIGG_IO_PAGE_MASK    (TRIGG_IOPAGE   << IO_CODE_PAGE_SHIFT)
+#define NCO_IO_PAGE_MASK      (NCO_IOPAGE     << IO_CODE_PAGE_SHIFT)
+
+
+/* DTE_CTRL_REG    Bit defs */
 #define DTE_CTRL_REG__INTERRUPT                  16
-#define DTE_NEXT_SOI_REG_BASE                    0x610
-#define DTE_ILEN_REG_BASE                        0x614
-#define DTE_LTS_FIFO_REG_BASE                    0x640
-#define DTE_LTS_CSR_REG_BASE                     0x644
+
+/* DTE_LTS_CSR_REG   Bit defs */
 #define DTE_LTS_CSR_REG__FIFO_EMPTY              4
 #define DTE_LTS_CSR_REG__FIFO_OVERFLOW           3
 #define DTE_LTS_CSR_REG__FIFO_UNDERFLOW          2
-#define DTE_NCO_LOW_TIME_REG_BASE                0x650
-#define DTE_NCO_TIME_REG_BASE                    0x654
-#define DTE_NCO_OVERFLOW_REG_BASE                0x658
-#define DTE_NCO_INC_REG_BASE                     0x65c
-#define DTE_LTS_DIV_54_REG_BASE                  0x660
-#define DTE_LTS_DIV_76_REG_BASE                  0x664
-#define DTE_LTS_DIV_98_REG_BASE                  0x668
-#define DTE_LTS_DIV_1110_REG_BASE                0x66c
-#define DTE_LTS_DIV_1312_REG_BASE                0x670
-#define DTE_LTS_DIV_14_REG_BASE                  0x674
-#define DTE_LTS_DIV_MASK                         0xffff
-#define DTE_LTS_SRC_EN_REG_BASE                  0x680
-#define DTE_INTR_STATUS_REG                      0x6A0
+
+/* DTE_INTR_STATUS_REG  Bit defs */
 #define DTE_INTR_STATUS_ISO_INTR_SHIFT           0
 #define DTE_INTR_STATUS_ISO_INTR_MASK            0x1
 #define DTE_INTR_STATUS_FIFO_LEVEL_INTR_SHIFT    1
 #define DTE_INTR_STATUS_FIFO_LEVEL_INTR_MASK     0x7
 #define DTE_INTR_STATUS_TIMEOUT_INTR_SHIFT       4
 #define DTE_INTR_STATUS_TIMEOUT_INTR_MASK        0x1
-#define DTE_INTR_MASK_REG                        0x6A4
+
+/* DTE_INTR_MASK_REG   Bit defs */
 #define ISO_INTR_MASK_SHIFT                      0
 
 #define NCO_FREQ_ABS_MAX_ADJ_PPB                 50000000
@@ -153,8 +153,9 @@
 #define NCO_INC_NOMINAL 0x80000000
 
 struct bcm_iproc_dte_params {
-	u16 lts_reg_offset;
+	struct dte_reg_offset reg_info;
 	u16 divider_size; /* in bytes. */
+	u32 divider_max;
 	u16 lts_start_index;
 	u16 num_of_clients;
 	struct dte_client_list cli_info[32];
@@ -163,14 +164,34 @@ struct bcm_iproc_dte_params {
 enum {
 	BCM_SOC_CYGNUS,
 	BCM_SOC_STINGRAY,
+	BCM_SOC_OMEGA,
 	BCM_SOC_MAX
 };
 
 static const struct bcm_iproc_dte_params dte_soc_params[BCM_SOC_MAX] = {
 	{
 		/* Cygnus SoC */
-		.lts_reg_offset = 0x660,
+		.reg_info = {
+			.ctrl		= (0x600 | PRIMARY_IO_PAGE_MASK),
+			.next_soi	= (0x610 | PRIMARY_IO_PAGE_MASK),
+			.ilen		= (0x614 | PRIMARY_IO_PAGE_MASK),
+			.lts_fifo	= (0x640 | PRIMARY_IO_PAGE_MASK),
+			.lts_csr	= (0x644 | PRIMARY_IO_PAGE_MASK),
+
+			.nco_low_time	= (0x650 | PRIMARY_IO_PAGE_MASK),
+			.nco_time	= (0x654 | PRIMARY_IO_PAGE_MASK),
+			.nco_overflow	= (0x658 | PRIMARY_IO_PAGE_MASK),
+			.nco_inc	= (0x65c | PRIMARY_IO_PAGE_MASK),
+
+			.lts_div	= (0x660 | PRIMARY_IO_PAGE_MASK),
+			.lts_src_en	= (0x680 | PRIMARY_IO_PAGE_MASK),
+			.intr_status	= (0x6a0 | PRIMARY_IO_PAGE_MASK),
+			.intr_mask	= (0x6a4 | PRIMARY_IO_PAGE_MASK),
+
+			.trigg_reg	= (0x000 | TRIGG_IO_PAGE_MASK),
+		},
 		.divider_size = 2,
+		.divider_max = 0xffff,
 		.lts_start_index = 4,
 		.num_of_clients = 12,
 		.cli_info = {
@@ -191,8 +212,27 @@ static const struct bcm_iproc_dte_params dte_soc_params[BCM_SOC_MAX] = {
 	},
 	{
 		/* Stingray SoC */
-		.lts_reg_offset = 0x660,
+		.reg_info = {
+			.ctrl		= (0x600 | PRIMARY_IO_PAGE_MASK),
+			.next_soi	= (0x610 | PRIMARY_IO_PAGE_MASK),
+			.ilen		= (0x614 | PRIMARY_IO_PAGE_MASK),
+			.lts_fifo	= (0x640 | PRIMARY_IO_PAGE_MASK),
+			.lts_csr	= (0x644 | PRIMARY_IO_PAGE_MASK),
+
+			.nco_low_time	= (0x650 | PRIMARY_IO_PAGE_MASK),
+			.nco_time	= (0x654 | PRIMARY_IO_PAGE_MASK),
+			.nco_overflow	= (0x658 | PRIMARY_IO_PAGE_MASK),
+			.nco_inc	= (0x65c | PRIMARY_IO_PAGE_MASK),
+
+			.lts_div	= (0x660 | PRIMARY_IO_PAGE_MASK),
+			.lts_src_en	= (0x680 | PRIMARY_IO_PAGE_MASK),
+			.intr_status	= (0x6a0 | PRIMARY_IO_PAGE_MASK),
+			.intr_mask	= (0x6a4 | PRIMARY_IO_PAGE_MASK),
+
+			.trigg_reg	= (0x000 | TRIGG_IO_PAGE_MASK),
+		},
 		.divider_size = 2,
+		.divider_max = 0xfff,
 		.lts_start_index = 4,
 		.num_of_clients = 8,
 		.cli_info = {
@@ -207,10 +247,109 @@ static const struct bcm_iproc_dte_params dte_soc_params[BCM_SOC_MAX] = {
 			{"INTERVAL_GEN 1 (TSYNC)", DTE_DIV_YES},
 		}
 	},
+	{
+		/* Omega SoC */
+		.reg_info = {
+			.ctrl		= (0x00 | PRIMARY_IO_PAGE_MASK),
+			.next_soi	= (0x10 | PRIMARY_IO_PAGE_MASK),
+			.ilen		= (0x14 | PRIMARY_IO_PAGE_MASK),
+			.lts_fifo	= (0x40 | PRIMARY_IO_PAGE_MASK),
+			.lts_csr	= (0x44 | PRIMARY_IO_PAGE_MASK),
+
+			.nco_low_time	= (0x00 | NCO_IO_PAGE_MASK),
+			.nco_time	= (0x04 | NCO_IO_PAGE_MASK),
+			.nco_overflow	= (0x08 | NCO_IO_PAGE_MASK),
+			.nco_inc	= (0x0c | NCO_IO_PAGE_MASK),
+
+			.lts_div	= (0x60 | PRIMARY_IO_PAGE_MASK),
+			.lts_src_en	= (0xcc | PRIMARY_IO_PAGE_MASK),
+			.intr_status	= (0xd4 | PRIMARY_IO_PAGE_MASK),
+			.intr_mask	= (0xd8 | PRIMARY_IO_PAGE_MASK),
+
+			.trigg_reg	= (0x000 | TRIGG_IO_PAGE_MASK),
+		},
+		.divider_size = 2,
+		.divider_max = 0xffffffff,
+		.lts_start_index = 4,
+		.num_of_clients = 22,
+		.cli_info = {
+			/* client, divider_status */
+			{"I2S[0] bit clock", DTE_DIV_YES},
+			{"I2S[1] bit clock", DTE_DIV_YES},
+			{"I2S[2] bit clock", DTE_DIV_YES},
+			{"I2S[0] frame clock", DTE_DIV_YES},
+			{"I2S[1] frame clock", DTE_DIV_YES},
+			{"I2S[2] frame clock", DTE_DIV_YES},
+			{"GPIO0", DTE_DIV_YES},
+			{"GPIO1", DTE_DIV_YES},
+			{"GPIO2", DTE_DIV_YES},
+			{"GPIO3", DTE_DIV_YES},
+			{"GPIO4", DTE_DIV_YES},
+			{"P1588 SYN OUT", DTE_DIV_YES},
+			{"HBR bit clock", DTE_DIV_YES},
+			{"HBR frame clock", DTE_DIV_YES},
+			{"GPIO5", DTE_DIV_YES},
+			{"GPIO6", DTE_DIV_YES},
+			{"GPIO7", DTE_DIV_YES},
+			{"SPDIF_OUT Frame Select", DTE_DIV_YES},
+			{"SPDIF_IN Frame Select", DTE_DIV_YES},
+			{"GENPLL_0 Divided Clock", DTE_DIV_YES},
+			{"GENPLL_1 Divided Clock", DTE_DIV_YES},
+			{"GENPLL_2 Divided Clock", DTE_DIV_YES},
+		}
+	}
 };
 
 static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx);
 static void dte_nco_ovf_tmr(struct timer_list *t);
+
+static int dte_ioread(struct bcm_dte *iproc_dte, u32 code, u32 *val)
+{
+	u32 offset, io_page;
+
+	offset = code & IO_CODE_REG_MASK;
+	io_page = code >> IO_CODE_PAGE_SHIFT;
+
+	switch (io_page) {
+	case PRIMARY_IOPAGE:
+		*val = readl(iproc_dte->audioeav_io + offset);
+		break;
+	case TRIGG_IOPAGE:
+		*val = readl(iproc_dte->trigg_io + offset);
+		break;
+	case NCO_IOPAGE:
+		*val = readl(iproc_dte->nco_io + offset);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int dte_iowrite(struct bcm_dte *iproc_dte, u32 code, u32 val)
+{
+	u32 offset, io_page;
+
+	offset = code & IO_CODE_REG_MASK;
+	io_page = code >> IO_CODE_PAGE_SHIFT;
+
+	switch (io_page) {
+	case PRIMARY_IOPAGE:
+		writel(val, iproc_dte->audioeav_io + offset);
+		break;
+	case TRIGG_IOPAGE:
+		writel(val, iproc_dte->trigg_io + offset);
+		break;
+	case NCO_IOPAGE:
+		writel(val, iproc_dte->nco_io + offset);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
 
 static int dte_read_nco_time(struct bcm_dte *iproc_dte,
 	uint64_t *nco_time, uint32_t *ts_ovf)
@@ -226,9 +365,9 @@ static int dte_read_nco_time(struct bcm_dte *iproc_dte,
 	*ts_ovf = 0;
 
 	/* Read Timers */
-	sum1 = readl(iproc_dte->audioeav + DTE_NCO_LOW_TIME_REG_BASE);
-	sum2 = readl(iproc_dte->audioeav + DTE_NCO_TIME_REG_BASE);
-	sum3 = readl(iproc_dte->audioeav + DTE_NCO_OVERFLOW_REG_BASE);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.nco_low_time, &sum1);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.nco_time, &sum2);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.nco_overflow, &sum3);
 
 /*
  * Register            |     sum3    |          sum2     |         sum1       |
@@ -269,7 +408,7 @@ static void bcm_iproc_dte_enable(struct bcm_dte *iproc_dte, bool enable)
 {
 	int intr_mask;
 
-	intr_mask = readl(iproc_dte->audioeav + DTE_INTR_MASK_REG);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.intr_mask, &intr_mask);
 	if (enable)
 		/* enable isochronous interrupt */
 		intr_mask &= ~BIT(ISO_INTR_MASK_SHIFT);
@@ -277,7 +416,7 @@ static void bcm_iproc_dte_enable(struct bcm_dte *iproc_dte, bool enable)
 		/* disable isochronous interrupt */
 		intr_mask |= BIT(ISO_INTR_MASK_SHIFT);
 
-	writel(intr_mask, iproc_dte->audioeav + DTE_INTR_MASK_REG);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.intr_mask, intr_mask);
 }
 
 static int dte_enable_timestamp(struct bcm_dte *iproc_dte,
@@ -293,15 +432,13 @@ static int dte_enable_timestamp(struct bcm_dte *iproc_dte,
 
 	spin_lock_bh(&iproc_dte->lock);
 
-	src_ena = readl(iproc_dte->audioeav +
-		DTE_LTS_SRC_EN_REG_BASE);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.lts_src_en, &src_ena);
 	if (enable)
 		src_ena |= BIT(iproc_dte->dte_cli[client].lts_index);
 	else
 		src_ena &= ~BIT(iproc_dte->dte_cli[client].lts_index);
 
-	writel(src_ena,
-		iproc_dte->audioeav + DTE_LTS_SRC_EN_REG_BASE);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.lts_src_en, src_ena);
 
 	spin_unlock_bh(&iproc_dte->lock);
 
@@ -316,17 +453,17 @@ static void dte_set_ts_trigg_edge(struct bcm_dte *iproc_dte,
 	if (!iproc_dte)
 		return;
 
-	if ((!iproc_dte->trigg_reg) ||
+	if ((!iproc_dte->trigg_io) ||
 		(client >= iproc_dte->num_of_clients))
 		return;
 
-	val = readl(iproc_dte->trigg_reg);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.trigg_reg, &val);
 	if (both_edge)
 		val |= BIT(client);
 	else
 		val &= ~BIT(client);
 
-	writel(val, iproc_dte->trigg_reg);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.trigg_reg, val);
 }
 
 static int dte_set_client_divider(struct bcm_dte *iproc_dte,
@@ -346,17 +483,16 @@ static int dte_set_client_divider(struct bcm_dte *iproc_dte,
 		return 0;
 
 	/* Check for maximum divider size */
-	if (divider > DTE_LTS_DIV_MASK)
+	if (divider > iproc_dte->max_client_div)
 		return -EINVAL;
 
 	spin_lock_bh(&iproc_dte->lock);
 
-	lts_div = readl(iproc_dte->audioeav +
-			iproc_dte->dte_cli[client].reg_offset);
-	lts_div &= ~(DTE_LTS_DIV_MASK << iproc_dte->dte_cli[client].shift);
+	dte_ioread(iproc_dte, iproc_dte->dte_cli[client].reg_code, &lts_div);
+	lts_div &= ~(iproc_dte->max_client_div <<
+		     iproc_dte->dte_cli[client].shift);
 	lts_div |= (divider << iproc_dte->dte_cli[client].shift);
-	writel(lts_div, iproc_dte->audioeav +
-		iproc_dte->dte_cli[client].reg_offset);
+	dte_iowrite(iproc_dte, iproc_dte->dte_cli[client].reg_code, lts_div);
 
 	spin_unlock_bh(&iproc_dte->lock);
 
@@ -394,12 +530,12 @@ static void dte_stop_nco_ovf_tmr(struct bcm_dte *iproc_dte)
 static void dte_disable_nco(struct bcm_dte *iproc_dte)
 {
 	/* Disable NCO Increment */
-	writel(0, iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.nco_inc, 0);
 
 	/* Reset Timers */
-	writel(0, iproc_dte->audioeav + DTE_NCO_LOW_TIME_REG_BASE);
-	writel(0, iproc_dte->audioeav + DTE_NCO_TIME_REG_BASE);
-	writel(0, iproc_dte->audioeav + DTE_NCO_OVERFLOW_REG_BASE);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.nco_low_time, 0);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.nco_time, 0);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.nco_overflow, 0);
 
 	/* Initialize last overflow value to track wrap condition */
 	iproc_dte->timestamp_overflow_last = 0;
@@ -413,7 +549,7 @@ static void dte_enable_nco(struct bcm_dte *iproc_dte,
 		nco_incr = NCO_INC_NOMINAL;
 
 	/* enable NCO Increment */
-	writel(nco_incr, iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.nco_inc, nco_incr);
 }
 
 static void dte_en_nco_if_stopped(struct bcm_dte *iproc_dte)
@@ -421,7 +557,7 @@ static void dte_en_nco_if_stopped(struct bcm_dte *iproc_dte)
 	uint32_t nco_incr;
 
 	spin_lock_bh(&iproc_dte->lock);
-	nco_incr = readl(iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.nco_inc, &nco_incr);
 
 	if (!nco_incr)
 		dte_enable_nco(iproc_dte, nco_incr);
@@ -467,17 +603,17 @@ static int dte_set_irq_interval(struct bcm_dte *iproc_dte,
 	 */
 
 	/* Get the current time (sum2) (units of 16ns) */
-	current_time = readl(iproc_dte->audioeav + DTE_NCO_TIME_REG_BASE);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.nco_time, &current_time);
 
 	/*
 	 * Set the Start of Next Interval (units of ns) to trigger on next
 	 * interval
 	 */
 	next_soi = (current_time << 4) + (nanosec);
-	writel(next_soi, iproc_dte->audioeav + DTE_NEXT_SOI_REG_BASE);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.next_soi, next_soi);
 
 	/* configure interval length (units of ns) */
-	writel(nanosec, iproc_dte->audioeav + DTE_ILEN_REG_BASE);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.ilen, nanosec);
 
 	if (nanosec)
 		/* enable isochronous interrupt */
@@ -521,7 +657,7 @@ static int dte_set_time(struct bcm_dte *iproc_dte, struct timespec *ts)
 		return -EINVAL;
 
 	spin_lock_bh(&iproc_dte->lock);
-	nco_incr = readl(iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.nco_inc, &nco_incr);
 	dte_disable_nco(iproc_dte);
 	/* Initialize Reference timespec */
 	iproc_dte->ts_ref = *ts;
@@ -596,7 +732,7 @@ static int dte_adj_freq(struct bcm_dte *iproc_dte, int32_t ppb)
 	spin_lock_bh(&iproc_dte->lock);
 
 	/* Update NCO Increment */
-	writel(nco_incr, iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.nco_inc, nco_incr);
 
 	spin_unlock_bh(&iproc_dte->lock);
 
@@ -611,7 +747,7 @@ static int dte_get_freq_adj(struct bcm_dte *iproc_dte, int32_t *ppb)
 		return -EINVAL;
 
 	spin_lock_bh(&iproc_dte->lock);
-	nco_incr = readl(iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.nco_inc, &nco_incr);
 	spin_unlock_bh(&iproc_dte->lock);
 
 	/* Calculate the ppb adjustment from the NCO value */
@@ -935,7 +1071,7 @@ static long dte_ioctl(struct file *filep,
 			goto err_out;
 		}
 
-		if (dte_client_info.both_edge && !iproc_dte->trigg_reg) {
+		if (dte_client_info.both_edge && !iproc_dte->trigg_io) {
 			ret = -EPERM;
 			goto err_out;
 		}
@@ -1005,8 +1141,7 @@ static int dte_read_client_ts_fifo(struct bcm_dte *iproc_dte,
 	*clients = 0;
 	*ts = 0;
 
-	fifo_csr = readl(iproc_dte->audioeav +
-		DTE_LTS_CSR_REG_BASE);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.lts_csr, &fifo_csr);
 	if (fifo_csr & BIT(DTE_LTS_CSR_REG__FIFO_EMPTY)) {
 		if (fifo_csr & BIT(DTE_LTS_CSR_REG__FIFO_UNDERFLOW)) {
 			iproc_dte->fifouf++;
@@ -1021,18 +1156,17 @@ static int dte_read_client_ts_fifo(struct bcm_dte *iproc_dte,
 
 		/* overflow/underflow error, reset fifo */
 		if (fifo_csr & 0xc) {
-			writel(0, iproc_dte->audioeav + DTE_LTS_CSR_REG_BASE);
+			dte_iowrite(iproc_dte, iproc_dte->reg_code.lts_csr, 0);
 			dev_err(&iproc_dte->pdev->dev, "Resetting HW FIFO\n");
 		}
 
 		rc = -ENODATA;
 	} else {
 		/* first event contains active clients */
-		*clients = readl(iproc_dte->audioeav +
-			DTE_LTS_FIFO_REG_BASE);
+		dte_ioread(iproc_dte, iproc_dte->reg_code.lts_fifo, clients);
 
 		/* then timestamp */
-		*ts = readl(iproc_dte->audioeav + DTE_LTS_FIFO_REG_BASE);
+		dte_ioread(iproc_dte, iproc_dte->reg_code.lts_fifo, ts);
 	}
 
 	return rc;
@@ -1052,8 +1186,8 @@ static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx)
 	struct timespec client_tstamp = {0, 0};
 
 	/* clear interrupt bit */
-	writel(1<<DTE_CTRL_REG__INTERRUPT,
-		iproc_dte->audioeav + DTE_CTRL_REG_BASE);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.ctrl,
+		    BIT(DTE_CTRL_REG__INTERRUPT));
 
 	/* clear all interrupts in status register */
 	status = (DTE_INTR_STATUS_ISO_INTR_MASK <<
@@ -1062,7 +1196,7 @@ static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx)
 		DTE_INTR_STATUS_FIFO_LEVEL_INTR_SHIFT) |
 		(DTE_INTR_STATUS_TIMEOUT_INTR_MASK <<
 		DTE_INTR_STATUS_TIMEOUT_INTR_SHIFT);
-	writel(status, iproc_dte->audioeav + DTE_INTR_STATUS_REG);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.intr_status, status);
 
 	do {
 		spin_lock(&iproc_dte->lock);
@@ -1088,7 +1222,7 @@ static irqreturn_t bcm_iproc_dte_isr_threaded(int irq, void *drv_ctx)
 		 * that the below can catch the 32-bit overflows,
 		 * which it typically does.
 		 */
-		if (((uint32_t)(nco_time & 0xFFFFFFFF)) <= client_ts_ns) {
+		if (((uint32_t)(nco_time & 0xffffffff)) <= client_ts_ns) {
 			/* account for 44-bit overflow boundary */
 			if (nco_ovf > 0) {
 				nco_ovf--;
@@ -1162,6 +1296,7 @@ MODULE_DEVICE_TABLE(of, bcm_iproc_dte_of_match);
 static const struct of_device_id bcm_dte_soc_of_match[] = {
 	{ .compatible = "brcm,cygnus-dte", .data = (void *)BCM_SOC_CYGNUS },
 	{ .compatible = "brcm,stingray-dte", .data = (void *)BCM_SOC_STINGRAY },
+	{ .compatible = "brcm,omega-dte", .data = (void *)BCM_SOC_OMEGA },
 	{},
 };
 MODULE_DEVICE_TABLE(of, bcm_dte_soc_of_match);
@@ -1175,7 +1310,8 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 	dev_t devt;
 	struct device *retdev;
 	struct class *dte_class;
-	int client, divider, lts_reg_off;
+	int client, divider;
+	uint32_t lts_reg_code;
 	int irq;
 	const struct bcm_iproc_dte_params *dte_params;
 	const struct of_device_id *of_id = NULL;
@@ -1202,21 +1338,38 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "dte_primary io mem not specified.");
 		return -ENODEV;
 	}
-	iproc_dte->audioeav = devm_ioremap_resource(dev, res);
-	if (IS_ERR(iproc_dte->audioeav)) {
+	iproc_dte->audioeav_io = devm_ioremap_resource(dev, res);
+	if (IS_ERR(iproc_dte->audioeav_io)) {
 		dev_err(&pdev->dev, "%s IO remap audioeav failed\n", __func__);
-		return PTR_ERR(iproc_dte->audioeav);
+		return PTR_ERR(iproc_dte->audioeav_io);
+	}
+
+	if ((unsigned long)of_id->data == BCM_SOC_OMEGA) {
+		/* Audio DTE NCO memory mapped registers */
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						   "dte_nco");
+		if (!res) {
+			dev_err(&pdev->dev, "dte_nco io mem not specified.");
+			return -ENODEV;
+		}
+
+		iproc_dte->nco_io = devm_ioremap_resource(dev, res);
+		if (IS_ERR(iproc_dte->nco_io)) {
+			dev_err(&pdev->dev,
+				"%s IO remap dte_nco io failed\n", __func__);
+			return PTR_ERR(iproc_dte->nco_io);
+		}
 	}
 
 	/* optional register to set DTE edge trigger */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "trigg");
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dte_trigg");
 	if (!res) {
-		dev_info(&pdev->dev, "optional trigg io not specified.");
-		iproc_dte->trigg_reg = NULL;
+		dev_info(&pdev->dev, "optional dte_trigg io not specified.");
+		iproc_dte->trigg_io = NULL;
 	} else {
-		iproc_dte->trigg_reg = devm_ioremap_resource(dev, res);
-		if (IS_ERR(iproc_dte->trigg_reg))
-			return PTR_ERR(iproc_dte->trigg_reg);
+		iproc_dte->trigg_io = devm_ioremap_resource(dev, res);
+		if (IS_ERR(iproc_dte->trigg_io))
+			return PTR_ERR(iproc_dte->trigg_io);
 	}
 
 	spin_lock_init(&iproc_dte->lock);
@@ -1278,9 +1431,18 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	divider = sizeof(u32) / dte_params->divider_size;
-	lts_reg_off = dte_params->lts_reg_offset;
+
+	/* save register offsets */
+	memcpy(&iproc_dte->reg_code,
+	       &dte_params->reg_info,
+	       sizeof(struct dte_reg_offset));
+	lts_reg_code = iproc_dte->reg_code.lts_div;
+
+	iproc_dte->max_client_div = dte_params->divider_max;
 
 	for (client = 0; client < iproc_dte->num_of_clients; client++) {
+		struct dte_client_mapping *p_dte_cli;
+
 		ret = kfifo_alloc(&iproc_dte->recv_fifo[client],
 				DTE_SW_FIFO_SIZE * sizeof(struct timespec),
 				GFP_KERNEL);
@@ -1288,26 +1450,30 @@ static int bcm_iproc_dte_probe(struct platform_device *pdev)
 			dev_err(dev, "Failed kfifo alloc\n");
 			goto err_free_kfifo;
 		}
+		p_dte_cli = &iproc_dte->dte_cli[client];
 
-		iproc_dte->dte_cli[client].client_index = client;
-		iproc_dte->dte_cli[client].name =
-			(char *)dte_params->cli_info[client].name;
-		iproc_dte->dte_cli[client].div_status =
-			dte_params->cli_info[client].div_status;
-		iproc_dte->dte_cli[client].lts_index =
-			dte_params->lts_start_index + client;
-		if (divider == client) {
-			lts_reg_off += 4;
-			divider += dte_params->divider_size;
-		}
-		if ((divider - dte_params->divider_size == client)
-			|| (client == 0)) {
-			iproc_dte->dte_cli[client].reg_offset = lts_reg_off;
+		p_dte_cli->client_index = client;
+		p_dte_cli->name = (char *)dte_params->cli_info[client].name;
+		p_dte_cli->div_status = dte_params->cli_info[client].div_status;
+		p_dte_cli->lts_index = dte_params->lts_start_index + client;
+
+		if ((unsigned long)of_id->data == BCM_SOC_OMEGA) {
+			iproc_dte->dte_cli[client].reg_code = lts_reg_code;
+			lts_reg_code += 4;
 			iproc_dte->dte_cli[client].shift = 0;
 		} else {
-			iproc_dte->dte_cli[client].reg_offset = lts_reg_off;
-			iproc_dte->dte_cli[client].shift =
-				dte_params->divider_size * 8;
+			if (divider == client) {
+				lts_reg_code += 4;
+				divider += dte_params->divider_size;
+			}
+			if ((divider - dte_params->divider_size == client)
+			   || (client == 0)) {
+				p_dte_cli->reg_code = lts_reg_code;
+				p_dte_cli->shift = 0;
+			} else {
+				p_dte_cli->reg_code = lts_reg_code;
+				p_dte_cli->shift = dte_params->divider_size * 8;
+			}
 		}
 
 		init_waitqueue_head(&iproc_dte->user[client].ts_wait_queue);
@@ -1413,18 +1579,19 @@ static int bcm_iproc_dte_suspend(struct device *dev)
 	/* disable intr or timer */
 	dte_set_irq_interval(iproc_dte, 0);
 
-	if (iproc_dte->trigg_reg)
-		iproc_dte->trigg_reg_susp_val = readl(iproc_dte->trigg_reg);
+	if (iproc_dte->trigg_io)
+		dte_ioread(iproc_dte, iproc_dte->reg_code.trigg_reg,
+			   &iproc_dte->trigg_reg_susp_val);
 
-	iproc_dte->nco_susp_val =
-		readl(iproc_dte->audioeav + DTE_NCO_INC_REG_BASE);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.nco_inc,
+			&iproc_dte->nco_susp_val);
 	dte_disable_nco(iproc_dte);
 	dte_stop_nco_ovf_tmr(iproc_dte);
 
 	/* Store and disable all sources */
-	iproc_dte->src_ena = readl(
-		iproc_dte->audioeav + DTE_LTS_SRC_EN_REG_BASE);
-	writel(0, iproc_dte->audioeav + DTE_LTS_SRC_EN_REG_BASE);
+	dte_ioread(iproc_dte, iproc_dte->reg_code.lts_src_en,
+		   &iproc_dte->src_ena);
+	dte_iowrite(iproc_dte, iproc_dte->reg_code.lts_src_en, 0);
 
 	return 0;
 }
@@ -1444,13 +1611,13 @@ static int bcm_iproc_dte_resume(struct device *dev)
 		/* re-enable intr or timer */
 		dte_set_irq_interval(iproc_dte, iproc_dte->irq_interval_ns);
 
-		if (iproc_dte->trigg_reg)
-			writel(iproc_dte->trigg_reg_susp_val,
-			       iproc_dte->trigg_reg);
+		if (iproc_dte->trigg_io)
+			dte_iowrite(iproc_dte, iproc_dte->reg_code.trigg_reg,
+				    iproc_dte->trigg_reg_susp_val);
 
 		/* Re-enable sources */
-		writel(iproc_dte->src_ena,
-			iproc_dte->audioeav + DTE_LTS_SRC_EN_REG_BASE);
+		dte_iowrite(iproc_dte, iproc_dte->reg_code.lts_src_en,
+			    iproc_dte->src_ena);
 	}
 
 	return 0;

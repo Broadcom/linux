@@ -31,10 +31,30 @@ struct dte_user_info {
 struct dte_client_mapping {
 	u32 client_index;
 	u32 lts_index;
-	u32 reg_offset;
+	u32 reg_code;
 	u32 shift;
 	char *name;
 	u32 div_status;
+};
+
+struct dte_reg_offset {
+	uint32_t ctrl;
+	uint32_t next_soi;
+	uint32_t ilen;
+	uint32_t lts_fifo;
+	uint32_t lts_csr;
+
+	uint32_t nco_low_time;
+	uint32_t nco_time;
+	uint32_t nco_overflow;
+	uint32_t nco_inc;
+
+	uint32_t lts_div;
+	uint32_t lts_src_en;
+	uint32_t intr_status;
+	uint32_t intr_mask;
+
+	uint32_t trigg_reg;
 };
 
 struct bcm_dte {
@@ -53,8 +73,10 @@ struct bcm_dte {
 	struct mutex mutex;
 	struct timespec ts_ref;
 	uint32_t timestamp_overflow_last;
-	void __iomem *audioeav;
-	void __iomem *trigg_reg;
+
+	void __iomem *audioeav_io;
+	void __iomem *trigg_io;
+	void __iomem *nco_io;
 
 	uint32_t irq_interval_ns;
 	uint32_t usr_cnt; /* tracks num of users */
@@ -63,7 +85,9 @@ struct bcm_dte {
 	struct timer_list ovf_timer;
 	unsigned int num_of_clients;
 	struct dte_client_mapping *dte_cli;
+	uint32_t max_client_div;
 	uint32_t nco_susp_val;
+	struct dte_reg_offset reg_code;
 	uint32_t trigg_reg_susp_val;
 
 	int (*enable_ts)(struct bcm_dte *dte,
