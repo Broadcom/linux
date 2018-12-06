@@ -196,6 +196,21 @@ void iommu_dma_get_resv_regions(struct device *dev, struct list_head *list)
 
 		list_add_tail(&region->list, list);
 	}
+	/* Get reserved DMA windows from host bridge */
+	resource_list_for_each_entry(window, &bridge->dma_resv) {
+		struct iommu_resv_region *region;
+		phys_addr_t start;
+		size_t length;
+
+		start = window->res->start - window->offset;
+		length = window->res->end - window->res->start + 1;
+		region = iommu_alloc_resv_region(start, length, 0,
+				IOMMU_RESV_RESERVED);
+		if (!region)
+			return;
+
+		list_add_tail(&region->list, list);
+	}
 }
 EXPORT_SYMBOL(iommu_dma_get_resv_regions);
 
