@@ -6,7 +6,7 @@
 #include <linux/iommu.h>
 #include <linux/of.h>
 
-struct of_iommu_resv_region {
+struct of_iommu_dma_window {
 	u32 busno;
 	u32 prot;
 	u64 bus_addr;
@@ -15,8 +15,8 @@ struct of_iommu_resv_region {
 
 #ifdef CONFIG_OF_IOMMU
 
-int of_get_resv_region(struct device_node *dn, const char *region, int *index,
-		      struct of_iommu_resv_region *of_region);
+int of_get_dma_window(struct device_node *dn, const char *prefix, int *index,
+		      struct of_iommu_dma_window *dma_window);
 
 extern const struct iommu_ops *of_iommu_configure(struct device *dev,
 					struct device_node *master_np);
@@ -25,8 +25,8 @@ void of_iommu_resv_dma_regions(struct device_node *np, struct list_head *list);
 
 #else
 
-static inline int of_get_resv_region(struct device_node *dn, const char *region,
-			int *index, struct of_iommu_resv_region *of_region)
+static inline int of_get_dma_window(struct device_node *dn, const char *prefix,
+			int *index, struct of_iommu_dma_window *dma_window)
 {
 	return -EINVAL;
 }

@@ -28,34 +28,34 @@
 #define NO_IOMMU	1
 
 /**
- * of_get_resv_region - Parse reserved-*-region property and returns 0 if found.
+ * of_get_dma_window - Parse *dma-windows property and returns 0 if found.
  *
  * @dn: device node
- * @region: region for property name if any
+ * @prefix: prefix for property name if any
  * @index: index to start to parse
- * @of_region: returns read of_iommu_resv_region <busno prot bus_addr size>
+ * @dma_window: returns read of_iommu_dma_window <busno prot bus_addr size>
  *
- * This supports different formats using "region" configured if any.
+ * This supports different formats using "prefix" configured if any.
  */
-int of_get_resv_region(struct device_node *dn, const char *region, int *index,
-		      struct of_iommu_resv_region *of_region)
+int of_get_dma_window(struct device_node *dn, const char *prefix, int *index,
+		      struct of_iommu_dma_window *dma_window)
 {
 	char propname[NAME_MAX];
 	int na, ns, len, pos;
 	const __be32 *prop;
 
-	if (!dn || !of_region || !index)
+	if (!dn || !dma_window || !index)
 		return -EINVAL;
 
-	if (!region)
-		region = "";
+	if (!prefix)
+		prefix = "";
 
-	prop = of_get_property(dn, "#region-address-cells", NULL);
+	prop = of_get_property(dn, "#dma-address-cells", NULL);
 	na = prop ? be32_to_cpup(prop) : of_n_addr_cells(dn);
-	prop = of_get_property(dn, "#region-size-cells", NULL);
+	prop = of_get_property(dn, "#dma-size-cells", NULL);
 	ns = prop ? be32_to_cpup(prop) : of_n_size_cells(dn);
 
-	snprintf(propname, sizeof(propname), "reserved-%s-region", region);
+	snprintf(propname, sizeof(propname), "%sdma-windows", prefix);
 	prop = of_get_property(dn, propname, &len);
 	if (!prop)
 		return -ENOENT;
@@ -66,32 +66,32 @@ int of_get_resv_region(struct device_node *dn, const char *region, int *index,
 	if (pos >= len || (len - pos) % (na + ns + 2))
 		return -EINVAL;
 
-	memset(of_region, 0, sizeof(*of_region));
-	of_region->busno = be32_to_cpup(prop + pos++);
-	of_region->prot = be32_to_cpup(prop + pos++);
-	if (of_region->prot && !(of_region->prot & IOMMU_PROT_FLAGS))
+	memset(dma_window, 0, sizeof(*dma_window));
+	dma_window->busno = be32_to_cpup(prop + pos++);
+	dma_window->prot = be32_to_cpup(prop + pos++);
+	if (dma_window->prot && !(dma_window->prot & IOMMU_PROT_FLAGS))
 		return -EINVAL;
 
-	of_region->bus_addr = of_read_number(prop + pos, na);
+	dma_window->bus_addr = of_read_number(prop + pos, na);
 	pos += na;
-	of_region->size = of_read_number(prop + pos, ns);
+	dma_window->size = of_read_number(prop + pos, ns);
 	pos += ns;
 	*index = pos;
 	return 0;
 
 }
-EXPORT_SYMBOL_GPL(of_get_resv_region);
+EXPORT_SYMBOL_GPL(of_get_dma_window);
 
 void of_iommu_resv_dma_regions(struct device_node *np, struct list_head *list)
 {
-	struct of_iommu_resv_region of_region;
+	struct of_iommu_dma_window dma_window;
 	struct iommu_resv_region *region;
 	int index = 0;
 
-	while (!of_get_resv_region(np, "dma", &index, &of_region)) {
-		region = iommu_alloc_resv_region(of_region.bus_addr,
-						 of_region.size,
-						 of_region.prot,
+	while (!of_get_dma_window(np, "reserved-", &index, &dma_window)) {
+		region = iommu_alloc_resv_region(dma_window.bus_addr,
+						 dma_window.size,
+						 dma_window.prot,
 						 IOMMU_RESV_RESERVED);
 		if (!region)
 			break;
