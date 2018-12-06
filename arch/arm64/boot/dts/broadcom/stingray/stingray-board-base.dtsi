@@ -46,24 +46,10 @@
 #include "stingray.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
-#if (ENABLE_PAXB_IOMMU == 1)
-#define PCIE_DMA_RANGES dma-ranges = < \
-	0x43000000 0x00 0x00000000 0x00 0x00000000 0x04 0x00000000 \
-	0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000 \
-	0x43000000 0x80 0x00000000 0x80 0x00000000 0x80 0x00000000>
-#define PCIE_RESERVED_DMA_REGIONS \
-	#region-address-cells = <2>; \
-	#region-size-cells = <2>; \
-	reserved-dma-region = <0x0 0x0 0x0 0x0 0x0 0x60000000 \
-			       0x0 0x0 0x04 0x0 0x04 0x0 \
-			       0x0 0x0 0x10 0x0 0x70 0x0 \
-			       0x0 0x0 0x100 0x0 0xFF00 0x0>
-#else
 #define PCIE_DMA_RANGES dma-ranges = < \
 	0x43000000 0x00 0x80000000 0x00 0x80000000 0x00 0x80000000 \
 	0x43000000 0x08 0x00000000 0x08 0x00000000 0x08 0x00000000 \
-	0x43000000 0x80 0x00000000 0x80 0x00000000 0x40 0x00000000>
-#endif
+	0x43000000 0x80 0x00000000 0x80 0x00000000 0x80 0x00000000>
 
 / {
 	aliases {
@@ -134,58 +120,34 @@
 
 &pcie0 {
 	PCIE_DMA_RANGES;
-#if (ENABLE_PAXB_IOMMU == 1)
-	PCIE_RESERVED_DMA_REGIONS;
-#endif
 };
 
 &pcie1 {
 	PCIE_DMA_RANGES;
-#if (ENABLE_PAXB_IOMMU == 1)
-	PCIE_RESERVED_DMA_REGIONS;
-#endif
 };
 
 &pcie2 {
 	PCIE_DMA_RANGES;
-#if (ENABLE_PAXB_IOMMU == 1)
-	PCIE_RESERVED_DMA_REGIONS;
-#endif
 };
 
 &pcie3 {
 	PCIE_DMA_RANGES;
-#if (ENABLE_PAXB_IOMMU == 1)
-	PCIE_RESERVED_DMA_REGIONS;
-#endif
 };
 
 &pcie4 {
 	PCIE_DMA_RANGES;
-#if (ENABLE_PAXB_IOMMU == 1)
-	PCIE_RESERVED_DMA_REGIONS;
-#endif
 };
 
 &pcie5 {
 	PCIE_DMA_RANGES;
-#if (ENABLE_PAXB_IOMMU == 1)
-	PCIE_RESERVED_DMA_REGIONS;
-#endif
 };
 
 &pcie6 {
 	PCIE_DMA_RANGES;
-#if (ENABLE_PAXB_IOMMU == 1)
-	PCIE_RESERVED_DMA_REGIONS;
-#endif
 };
 
 &pcie7 {
 	PCIE_DMA_RANGES;
-#if (ENABLE_PAXB_IOMMU == 1)
-	PCIE_RESERVED_DMA_REGIONS;
-#endif
 };
 
 &enet {
