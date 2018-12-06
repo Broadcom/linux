@@ -27,6 +27,8 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
+#include "phy-bcm-sr-eye-ref.h"
+
 #define MAX_PHY_COUNT 8
 
 #define CDRU_STRAP_DATA_LSW_OFFSET	0x5c
@@ -174,6 +176,8 @@
 #define X_START				(-31)
 #define X_END				31
 #define STRIPE_SIZE			MAX_EYE_X
+
+#define EYE_REF_MODE			11
 
 enum pcie_modes {
 	PCIE_MODE0 = 0,
@@ -828,6 +832,18 @@ static void uc_eye_display_stripe(struct pcie_prbs_dev *pd, uint32_t *buf, s8 y)
 				printk(KERN_CONT " ");
 		}
 	}
+}
+
+static void uc_eye_display_ref(void)
+{
+	unsigned int i;
+
+	printk(KERN_INFO "\n");
+
+	for (i = 0; i < sizeof(pcie_eye_ref); i++)
+		printk(KERN_CONT "%c", pcie_eye_ref[i]);
+
+	printk(KERN_INFO"\n");
 }
 
 static int uc_blk_read_generic_ram(struct pcie_prbs_dev *pd, u32 blk_addr,
@@ -1581,6 +1597,12 @@ static ssize_t eye_store(struct device *dev, struct device_attribute *attr,
 
 	if (lane >= NR_LANES_PER_PHY)
 		return -EINVAL;
+
+	/* display reference frame and return immediately */
+	if (phy == EYE_REF_MODE) {
+		uc_eye_display_ref();
+		return count;
+	}
 
 	pipemux = pcie_pipemux_strap_read(pd);
 	if (pd->pcie_mode == PCIE_MODE_DEFAULT) {
