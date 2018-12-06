@@ -13,7 +13,8 @@ Required properties:
 			"brcm,stingray-dte"
 	- reg       : Address and size of the DTE registers.
 		      Address and size of ASIU_TOP_MISC2 register (optional)
-	- reg-names : Must name "dte_primary", and optionally "dte_trigg";
+	- reg-names : Must name "dte_primary", and optionally "dte_trigg"
+		      If using Omega SoC must also name "dte_nco"
 
 Optional properties:
 	- interrupts: DTE IIG Interrupt number
@@ -51,5 +52,16 @@ Examples:
 
 		brcm,dte-interval-ns = <500000000>;
 		status = "okay";
+	};
+
+3.
+	/* Omega */
+	dte: dte@601700 {
+		compatible = "brcm,omega-dte", "brcm,iproc-dte";
+
+		reg = <0x601700 0x100>, <0x601600 0x24>;
+		reg-names = "dte_primary", "dte_nco";
+
+		status = "disabled";
 	};
 
