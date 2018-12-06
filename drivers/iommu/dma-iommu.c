@@ -28,7 +28,6 @@
 #include <linux/iova.h>
 #include <linux/irq.h>
 #include <linux/mm.h>
-#include <linux/of_iommu.h>
 #include <linux/pci.h>
 #include <linux/scatterlist.h>
 #include <linux/vmalloc.h>
@@ -175,7 +174,6 @@ void iommu_dma_get_resv_regions(struct device *dev, struct list_head *list)
 {
 	struct pci_host_bridge *bridge;
 	struct resource_entry *window;
-	struct device_node *np;
 
 	if (!dev_is_pci(dev))
 		return;
@@ -198,10 +196,6 @@ void iommu_dma_get_resv_regions(struct device *dev, struct list_head *list)
 
 		list_add_tail(&region->list, list);
 	}
-	/* check platform device representing bridge for reserved DMA windows */
-	np = bridge->dev.parent->of_node;
-	if (np)
-		of_iommu_resv_dma_regions(np, list);
 }
 EXPORT_SYMBOL(iommu_dma_get_resv_regions);
 

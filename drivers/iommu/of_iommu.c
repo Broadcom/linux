@@ -28,78 +28,72 @@
 #define NO_IOMMU	1
 
 /**
- * of_get_dma_window - Parse *dma-windows property and returns 0 if found.
+ * of_get_dma_window - Parse *dma-window property and returns 0 if found.
  *
  * @dn: device node
  * @prefix: prefix for property name if any
  * @index: index to start to parse
- * @dma_window: returns read of_iommu_dma_window <busno prot bus_addr size>
+ * @busno: Returns busno if supported. Otherwise pass NULL
+ * @addr: Returns address that DMA starts
+ * @size: Returns the range that DMA can handle
  *
- * This supports different formats using "prefix" configured if any.
+ * This supports different formats flexibly. "prefix" can be
+ * configured if any. "busno" and "index" are optionally
+ * specified. Set 0(or NULL) if not used.
  */
-int of_get_dma_window(struct device_node *dn, const char *prefix, int *index,
-		      struct of_iommu_dma_window *dma_window)
+int of_get_dma_window(struct device_node *dn, const char *prefix, int index,
+		      unsigned long *busno, dma_addr_t *addr, size_t *size)
 {
-	char propname[NAME_MAX];
-	int na, ns, len, pos;
-	const __be32 *prop;
+	const __be32 *dma_window, *end;
+	int bytes, cur_index = 0;
+	char propname[NAME_MAX], addrname[NAME_MAX], sizename[NAME_MAX];
 
-	if (!dn || !dma_window || !index)
+	if (!dn || !addr || !size)
 		return -EINVAL;
 
 	if (!prefix)
 		prefix = "";
 
-	prop = of_get_property(dn, "#dma-address-cells", NULL);
-	na = prop ? be32_to_cpup(prop) : of_n_addr_cells(dn);
-	prop = of_get_property(dn, "#dma-size-cells", NULL);
-	ns = prop ? be32_to_cpup(prop) : of_n_size_cells(dn);
+	snprintf(propname, sizeof(propname), "%sdma-window", prefix);
+	snprintf(addrname, sizeof(addrname), "%s#dma-address-cells", prefix);
+	snprintf(sizename, sizeof(sizename), "%s#dma-size-cells", prefix);
 
-	snprintf(propname, sizeof(propname), "%sdma-windows", prefix);
-	prop = of_get_property(dn, propname, &len);
-	if (!prop)
-		return -ENOENT;
+	dma_window = of_get_property(dn, propname, &bytes);
+	if (!dma_window)
+		return -ENODEV;
+	end = dma_window + bytes / sizeof(*dma_window);
 
-	len /= sizeof(*prop);
-	pos = *index;
-	/* prot and busno takes one cell each */
-	if (pos >= len || (len - pos) % (na + ns + 2))
-		return -EINVAL;
+	while (dma_window < end) {
+		u32 cells;
+		const void *prop;
 
-	memset(dma_window, 0, sizeof(*dma_window));
-	dma_window->busno = be32_to_cpup(prop + pos++);
-	dma_window->prot = be32_to_cpup(prop + pos++);
-	if (dma_window->prot && !(dma_window->prot & IOMMU_PROT_FLAGS))
-		return -EINVAL;
+		/* busno is one cell if supported */
+		if (busno)
+			*busno = be32_to_cpup(dma_window++);
 
-	dma_window->bus_addr = of_read_number(prop + pos, na);
-	pos += na;
-	dma_window->size = of_read_number(prop + pos, ns);
-	pos += ns;
-	*index = pos;
+		prop = of_get_property(dn, addrname, NULL);
+		if (!prop)
+			prop = of_get_property(dn, "#address-cells", NULL);
+
+		cells = prop ? be32_to_cpup(prop) : of_n_addr_cells(dn);
+		if (!cells)
+			return -EINVAL;
+		*addr = of_read_number(dma_window, cells);
+		dma_window += cells;
+
+		prop = of_get_property(dn, sizename, NULL);
+		cells = prop ? be32_to_cpup(prop) : of_n_size_cells(dn);
+		if (!cells)
+			return -EINVAL;
+		*size = of_read_number(dma_window, cells);
+		dma_window += cells;
+
+		if (cur_index++ == index)
+			break;
+	}
 	return 0;
-
 }
 EXPORT_SYMBOL_GPL(of_get_dma_window);
-
-void of_iommu_resv_dma_regions(struct device_node *np, struct list_head *list)
-{
-	struct of_iommu_dma_window dma_window;
-	struct iommu_resv_region *region;
-	int index = 0;
-
-	while (!of_get_dma_window(np, "reserved-", &index, &dma_window)) {
-		region = iommu_alloc_resv_region(dma_window.bus_addr,
-						 dma_window.size,
-						 dma_window.prot,
-						 IOMMU_RESV_RESERVED);
-		if (!region)
-			break;
-
-		list_add_tail(&region->list, list);
-	}
-}
-EXPORT_SYMBOL_GPL(of_iommu_resv_dma_regions);
 
 static int of_iommu_xlate(struct device *dev,
 			  struct of_phandle_args *iommu_spec)

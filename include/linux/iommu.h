@@ -41,9 +41,6 @@
  * if the IOMMU page table format is equivalent.
  */
 #define IOMMU_PRIV	(1 << 5)
-#define IOMMU_PROT_FLAGS (IOMMU_READ | IOMMU_WRITE | \
-			  IOMMU_CACHE | IOMMU_NOEXEC | IOMMU_MMIO)
-
 
 struct iommu_ops;
 struct iommu_group;
