@@ -573,13 +573,6 @@
 			status = "disabled";
 		};
 
-		dte: dte@1a1600 {
-			compatible = "brcm,iproc-dte";
-			reg = <0x001a1600 0x1000>;
-			reg-names = "dte_primary";
-			status = "disabled";
-		};
-
 		hwrng: hwrng@220000 {
 			compatible = "brcm,iproc-rng200";
 			reg = <0x00220000 0x28>;
