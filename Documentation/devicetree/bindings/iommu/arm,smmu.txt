@@ -89,15 +89,6 @@ conditions.
                   SMRs and S2CRs for devices requiring System MMU
                   configuration at boot time.
 
-- reserved-msi-region: MSI region to be reserved with specific prot in IOVA
-		  space for direct mapping. The region is specified in tuple
-		  of (busno,prot,bus_addr,size).
-
-- #region-address-cells: specifies number of cells needed to encode bus_addr
-
-- #region-size-cells: specifies number of cells needed to encode size
-
-
 ** Deprecated properties:
 
 - mmu-masters (deprecated in favour of the generic "iommus" binding) :
@@ -122,9 +113,6 @@ conditions.
                              <0 36 4>,
                              <0 37 4>;
                 #iommu-cells = <1>;
-		#region-address-cells = <1>;
-		#region-size-cells = <1>;
-		reserved-msi-region = <0x0 0x1a 0x63c3000 0x8000>;
         };
 
         /* device with two stream IDs, 0 and 7 */
