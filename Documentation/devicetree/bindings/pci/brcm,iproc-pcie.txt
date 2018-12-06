@@ -32,7 +32,7 @@ Optional properties:
 - dma-ranges: Some PAXB-based root complexes do not have inbound mapping done
   by the ASIC after power on reset.  In this case, SW is required to configure
 the mapping, based on inbound memory regions specified by this property.
-- reserved-dma-region: PAXBv2 with IOMMU enabled cannot provide mappings for
+- reserved-dma-windows: PAXBv2 with IOMMU enabled cannot provide mappings for
   entire IOVA space specified by DMA mask. Hence this is used to reserve the
   gaps in dma-ranges.
 
