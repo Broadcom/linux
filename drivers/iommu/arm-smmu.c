@@ -1536,11 +1536,8 @@ static int arm_smmu_of_xlate(struct device *dev, struct of_phandle_args *args)
 static void arm_smmu_get_resv_regions(struct device *dev,
 				      struct list_head *head)
 {
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
-	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
 	struct iommu_resv_region *region;
-	struct of_iommu_resv_region of_region;
-	int index = 0, prot = IOMMU_WRITE | IOMMU_NOEXEC | IOMMU_MMIO;
+	int prot = IOMMU_WRITE | IOMMU_NOEXEC | IOMMU_MMIO;
 
 	region = iommu_alloc_resv_region(MSI_IOVA_BASE, MSI_IOVA_LENGTH,
 					 prot, IOMMU_RESV_SW_MSI);
@@ -1549,15 +1546,6 @@ static void arm_smmu_get_resv_regions(struct device *dev,
 
 	list_add_tail(&region->list, head);
 
-	if (!of_get_resv_region(smmu->dev->of_node, "msi", &index,
-				&of_region)) {
-		region = iommu_alloc_resv_region(of_region.bus_addr,
-						 of_region.size,
-						 of_region.prot,
-						 IOMMU_RESV_DIRECT);
-		if (region)
-			list_add_tail(&region->list, head);
-	}
 	iommu_dma_get_resv_regions(dev, head);
 }
 
