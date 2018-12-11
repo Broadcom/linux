@@ -111,11 +111,12 @@
 	};
 #endif
 
-	nvme_lpm {
+	nvme_lpm: nvme_lpm {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x8f100100 0x100>;
+		status = "disabled";
 		nvme_lpm_data_backup: nvme-lpm-data-backup@14 {
 			compatible = "brcm,nvme-lpm-data-backup";
 			reg = <0x0 0x100>;

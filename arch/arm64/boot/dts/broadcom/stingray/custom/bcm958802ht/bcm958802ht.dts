@@ -33,3 +33,7 @@
 &uart0 {
 	status = "okay";
 };
+
+&nvme_lpm {
+	status = "okay";
+};
