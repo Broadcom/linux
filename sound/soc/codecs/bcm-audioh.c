@@ -327,6 +327,14 @@ static void ep_afe_enable(struct snd_soc_component *component)
 	/* Enable Handset (Earpiece) path */
 	mask = BIT(AUDIOH_DAC_CTL_EP_ENABLE);
 	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, mask);
+
+	/*
+	 * Toggle the enable a 2nd time.
+	 * This is used to clear up a loud noise that occasionally occurs
+	 * on the interface.
+	 */
+	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, 0);
+	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, mask);
 }
 
 static void mono_voip_headset_powerup(struct snd_soc_component *component)
@@ -404,6 +412,14 @@ static void ihf_afe_enable(struct snd_soc_component *component)
 	/* Enable after config is done */
 	mask = BIT(AUDIOH_DAC_CTL_IHF_ENABLE);
 	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, mask);
+
+	/*
+	 * Toggle the enable a 2nd time.
+	 * This is used to clear up a loud noise that occasionally occurs
+	 * on the interface.
+	 */
+	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, 0);
+	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, mask);
 }
 
 static void headset_afe_powerup(struct snd_soc_component *component)
@@ -454,6 +470,14 @@ static void headset_afe_enable(struct snd_soc_component *component)
 
 	/* enable Stereo Headset Left and Right */
 	mask = BIT(AUDIOH_DAC_CTL_HSR_ENABLE) | BIT(AUDIOH_DAC_CTL_HSL_ENABLE);
+	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, mask);
+
+	/*
+	 * Toggle the enable a 2nd time.
+	 * This is used to clear up a loud noise that occasionally occurs
+	 * on the interface.
+	 */
+	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, 0);
 	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, mask);
 }
 
