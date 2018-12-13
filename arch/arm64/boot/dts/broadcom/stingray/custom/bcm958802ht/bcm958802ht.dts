@@ -24,6 +24,10 @@
 	chosen {
 		stdout-path = "serial1:115200n8";
 	};
+
+	nvme_lpm {
+		status = "okay";
+	};
 };
 
 &sdio0 {
