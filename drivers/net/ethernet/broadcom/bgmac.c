@@ -1551,7 +1551,9 @@ int bgmac_enet_probe(struct bgmac *bgmac)
 	net_dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
 	net_dev->hw_features = net_dev->features;
 	net_dev->vlan_features = net_dev->features;
-	net_dev->max_mtu = BGMAC_RX_MAX_FRAME_SIZE;
+
+	/* Omit FCS from max MTU size */
+	net_dev->max_mtu = BGMAC_RX_MAX_FRAME_SIZE - ETH_FCS_LEN;
 
 	err = register_netdev(bgmac->net_dev);
 	if (err) {
