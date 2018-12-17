@@ -60,6 +60,46 @@
 #define BGMAC_FLOW_CTL_THRESH			0x104		/* Flow control thresholds */
 #define BGMAC_WRRTHRESH				0x108
 #define BGMAC_GMAC_IDLE_CNT_THRESH		0x10c
+
+/* WakeUpOnLan(WoL) related registers */
+/* Total 8 DAs, Secure Keys, 2 UDP ports, Unicast/Broadcast check supported */
+#define BGMAC_WOL_DA0_LOWER			0x130
+#define BGMAC_WOL_DA0_UPPER			0x134
+#define BGMAC_WOL_DA1_LOWER			0x138
+#define BGMAC_WOL_DA1_UPPER			0x13c
+#define BGMAC_WOL_DA2_LOWER			0x140
+#define BGMAC_WOL_DA2_UPPER			0x144
+#define BGMAC_WOL_DA3_LOWER			0x148
+#define BGMAC_WOL_DA3_UPPER			0x14c
+#define BGMAC_WOL_DA4_LOWER			0x150
+#define BGMAC_WOL_DA4_UPPER			0x154
+#define BGMAC_WOL_DA5_LOWER			0x158
+#define BGMAC_WOL_DA5_UPPER			0x15c
+#define BGMAC_WOL_DA6_LOWER			0x160
+#define BGMAC_WOL_DA6_UPPER			0x164
+#define BGMAC_WOL_DA7_LOWER			0x168
+#define BGMAC_WOL_DA7_UPPER			0x16c
+#define BGMAC_WOL_SECKEY_LOWER			0x170
+#define BGMAC_WOL_SECKEY_UPPER			0x174
+#define BGMAC_WOL_CONTROL_REG			0x178
+#define  UNICAST_CHECK_ENABLE			BIT(11)
+#define  UDP_DA_EN				BIT(10)
+#define  DA7_ENABLE				BIT(9)
+#define  DA6_ENABLE				BIT(8)
+#define  DA5_ENABLE				BIT(7)
+#define  DA4_ENABLE				BIT(6)
+#define  DA3_ENABLE				BIT(5)
+#define  DA2_ENABLE				BIT(4)
+#define  DA1_ENABLE				BIT(3)
+#define  DA0_ENABLE				BIT(2)
+#define  SECURE_ENABLE				BIT(1)
+#define  WOL_ENABLE				BIT(0)
+#define BGMAC_WOL_UDP_DA_REG			0x17c
+#define  UDP_DA_PORT1_MIN			16
+#define  UDP_DA_PORT1_MAX			31
+#define  UDP_DA_PORT0_MIN			0
+#define  UDP_DA_PORT0_MAX			15
+
 #define BGMAC_PHY_ACCESS			0x180		/* PHY access address */
 #define  BGMAC_PA_DATA_MASK			0x0000ffff
 #define  BGMAC_PA_ADDR_MASK			0x001f0000
@@ -428,6 +468,16 @@
 #define BGMAC_FEAT_CC4_IF_SW_TYPE_RGMII	BIT(18)
 #define BGMAC_FEAT_CC7_IF_TYPE_RGMII	BIT(19)
 #define BGMAC_FEAT_IDM_MASK		BIT(20)
+#define BGMAC_FEAT_WOL			BIT(21)
+
+/* ethtool wakeup on lan options */
+
+#define BGMAC_WAKE_UCAST		BIT(0)
+#define BGMAC_WAKE_BCAST		BIT(1)
+#define BGMAC_WAKE_ARP			BIT(2)
+#define BGMAC_WAKE_MAGIC		BIT(3)
+#define BGMAC_WAKE_MAGICSECURE		BIT(4)
+#define WOL_MAX_ETHADDR			8
 
 struct bgmac_slot_info {
 	union {
@@ -522,6 +572,15 @@ struct bgmac {
 	bool loopback;
 
 	bool switch_disable;
+
+	u32 wolopts;
+	u8 wol_udp_enable;
+	u16 wol_udp_port1;
+	u16 wol_udp_port0;
+	u8 wol_unicast_only;
+	u8 wol_max_ethaddr;
+	u8 wol_ethaddr[WOL_MAX_ETHADDR][ETH_ALEN];
+	u8 sopass[SOPASS_MAX];
 
 	u32 (*read)(struct bgmac *bgmac, u16 offset);
 	void (*write)(struct bgmac *bgmac, u16 offset, u32 value);

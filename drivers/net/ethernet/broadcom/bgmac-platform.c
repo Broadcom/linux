@@ -215,6 +215,8 @@ static int bgmac_probe(struct platform_device *pdev)
 	bgmac->feature_flags |= BGMAC_FEAT_TX_MASK_SETUP;
 	bgmac->feature_flags |= BGMAC_FEAT_RX_MASK_SETUP;
 	bgmac->feature_flags |= BGMAC_FEAT_IDM_MASK;
+	if (of_device_is_compatible(np, "brcm,amac-v2"))
+		bgmac->feature_flags |= BGMAC_FEAT_WOL;
 
 	bgmac->dev = &pdev->dev;
 	bgmac->dma_dev = &pdev->dev;
@@ -316,6 +318,7 @@ static const struct dev_pm_ops bgmac_pm_ops = {
 
 static const struct of_device_id bgmac_of_enet_match[] = {
 	{.compatible = "brcm,amac",},
+	{.compatible = "brcm,amac-v2",},
 	{.compatible = "brcm,nsp-amac",},
 	{.compatible = "brcm,ns2-amac",},
 	{},

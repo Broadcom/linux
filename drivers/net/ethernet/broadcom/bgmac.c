@@ -18,6 +18,21 @@
 #include <net/dsa.h>
 #include "bgmac.h"
 
+static const struct {
+	u32 da_lower;
+	u32 da_upper;
+	u32 da_enable;
+} wol_config[WOL_MAX_ETHADDR] = {
+	{BGMAC_WOL_DA0_LOWER, BGMAC_WOL_DA0_UPPER, DA0_ENABLE},
+	{BGMAC_WOL_DA1_LOWER, BGMAC_WOL_DA1_UPPER, DA1_ENABLE},
+	{BGMAC_WOL_DA2_LOWER, BGMAC_WOL_DA2_UPPER, DA2_ENABLE},
+	{BGMAC_WOL_DA3_LOWER, BGMAC_WOL_DA3_UPPER, DA3_ENABLE},
+	{BGMAC_WOL_DA4_LOWER, BGMAC_WOL_DA4_UPPER, DA4_ENABLE},
+	{BGMAC_WOL_DA5_LOWER, BGMAC_WOL_DA5_UPPER, DA5_ENABLE},
+	{BGMAC_WOL_DA6_LOWER, BGMAC_WOL_DA6_UPPER, DA6_ENABLE},
+	{BGMAC_WOL_DA7_LOWER, BGMAC_WOL_DA7_UPPER, DA7_ENABLE},
+};
+
 static bool bgmac_wait_value(struct bgmac *bgmac, u16 reg, u32 mask,
 			     u32 value, int timeout)
 {
@@ -1384,6 +1399,79 @@ static void bgmac_get_strings(struct net_device *dev, u32 stringset,
 			bgmac_get_strings_stats[i].name, ETH_GSTRING_LEN);
 }
 
+static int bgmac_set_wol(struct net_device *dev,
+			 struct ethtool_wolinfo *wol)
+{
+	struct bgmac *bgmac = netdev_priv(dev);
+	u8  *addr = bgmac->net_dev->dev_addr;
+	u32 val = 0;
+	u32 tmp;
+	int idx;
+
+	if (!(bgmac->feature_flags & BGMAC_FEAT_WOL))
+		return -EOPNOTSUPP;
+
+	bgmac->wolopts = 0;
+
+	if (wol->wolopts & WAKE_MAGIC) {
+		bgmac->wolopts = BGMAC_WAKE_MAGIC;
+
+		val = WOL_ENABLE | DA0_ENABLE;
+		for (idx = 0; idx < bgmac->wol_max_ethaddr; idx++) {
+			addr = bgmac->wol_ethaddr[idx];
+			tmp =  cpu_to_le32(be32_to_cpup((u32 *)&addr[2]));
+			bgmac_write(bgmac, wol_config[idx].da_lower, tmp);
+
+			tmp =  cpu_to_le16(be16_to_cpup((u16 *)&addr[0]));
+			bgmac_write(bgmac, wol_config[idx].da_upper, tmp);
+			val |= wol_config[idx].da_enable;
+		}
+
+		if (bgmac->wol_unicast_only)
+			val |= UNICAST_CHECK_ENABLE;
+		if (bgmac->wol_udp_enable) {
+			val |= UDP_DA_EN;
+			tmp = (cpu_to_le16(bgmac->wol_udp_port1) << 16) |
+			      cpu_to_le16(bgmac->wol_udp_port0);
+			bgmac_write(bgmac, BGMAC_WOL_UDP_DA_REG, tmp);
+		}
+		if (wol->wolopts & WAKE_MAGICSECURE) {
+			bgmac->wolopts |= BGMAC_WAKE_MAGICSECURE;
+			val |= SECURE_ENABLE;
+			memcpy(bgmac->sopass, wol->sopass, sizeof(wol->sopass));
+
+			tmp = cpu_to_le32(be32_to_cpup((u32 *)&wol->sopass[0]));
+			bgmac_write(bgmac, BGMAC_WOL_SECKEY_LOWER, tmp);
+
+			tmp = cpu_to_le16(be16_to_cpup((u16 *)&wol->sopass[4]));
+			bgmac_write(bgmac, BGMAC_WOL_SECKEY_UPPER, tmp);
+		}
+	}
+	bgmac_write(bgmac, BGMAC_WOL_CONTROL_REG, val);
+	return 0;
+}
+
+static void bgmac_get_wol(struct net_device *dev,
+			  struct ethtool_wolinfo *wol)
+{
+	struct bgmac *bgmac = netdev_priv(dev);
+
+	wol->supported = 0;
+	wol->wolopts = 0;
+
+	if (!(bgmac->feature_flags & BGMAC_FEAT_WOL))
+		return;
+
+	wol->supported = WAKE_MAGIC | WAKE_MAGICSECURE;
+
+	if (bgmac->wolopts & BGMAC_WAKE_MAGIC)
+		wol->wolopts |= WAKE_MAGIC;
+	if (bgmac->wolopts & BGMAC_WAKE_MAGICSECURE) {
+		wol->wolopts |= WAKE_MAGICSECURE;
+		memcpy(wol->sopass, bgmac->sopass, sizeof(wol->sopass));
+	}
+}
+
 static void bgmac_get_ethtool_stats(struct net_device *dev,
 				    struct ethtool_stats *ss, uint64_t *data)
 {
@@ -1419,6 +1507,8 @@ static const struct ethtool_ops bgmac_ethtool_ops = {
 	.get_drvinfo		= bgmac_get_drvinfo,
 	.get_link_ksettings     = phy_ethtool_get_link_ksettings,
 	.set_link_ksettings     = phy_ethtool_set_link_ksettings,
+	.get_wol                = bgmac_get_wol,
+	.set_wol                = bgmac_set_wol,
 };
 
 /**************************************************
@@ -1563,6 +1653,18 @@ int bgmac_enet_probe(struct bgmac *bgmac)
 
 	netif_carrier_off(net_dev);
 
+	if (bgmac->feature_flags & BGMAC_FEAT_WOL) {
+		bgmac->wol_max_ethaddr = 0;
+		bgmac->wol_unicast_only = false;
+		bgmac->wol_udp_enable = true;
+		bgmac->wol_udp_port0 = 0x9;
+		bgmac->wol_udp_port1 = 0x7;
+
+		ether_addr_copy(bgmac->wol_ethaddr[bgmac->wol_max_ethaddr],
+				bgmac->net_dev->dev_addr);
+		bgmac->wol_max_ethaddr++;
+	}
+
 	return 0;
 
 err_phy_disconnect:
@@ -1590,7 +1692,9 @@ int bgmac_enet_suspend(struct bgmac *bgmac)
 	if (!netif_running(bgmac->net_dev))
 		return 0;
 
-	phy_stop(bgmac->net_dev->phydev);
+	if (!((bgmac->feature_flags & BGMAC_FEAT_WOL) &&
+	      (bgmac->wolopts & BGMAC_WAKE_MAGIC)))
+		phy_stop(bgmac->net_dev->phydev);
 
 	netif_stop_queue(bgmac->net_dev);
 
@@ -1600,9 +1704,12 @@ int bgmac_enet_suspend(struct bgmac *bgmac)
 	netif_device_detach(bgmac->net_dev);
 	netif_tx_unlock(bgmac->net_dev);
 
-	bgmac_chip_intrs_off(bgmac);
-	bgmac_chip_reset(bgmac);
-	bgmac_dma_cleanup(bgmac);
+	if (!((bgmac->feature_flags & BGMAC_FEAT_WOL) &&
+	      (bgmac->wolopts & BGMAC_WAKE_MAGIC))) {
+		bgmac_chip_intrs_off(bgmac);
+		bgmac_chip_reset(bgmac);
+		bgmac_dma_cleanup(bgmac);
+	}
 
 	return 0;
 }
@@ -1611,6 +1718,17 @@ EXPORT_SYMBOL_GPL(bgmac_enet_suspend);
 int bgmac_enet_resume(struct bgmac *bgmac)
 {
 	int rc;
+
+	if ((bgmac->feature_flags & BGMAC_FEAT_WOL) &&
+	    (bgmac->wolopts & BGMAC_WAKE_MAGIC)) {
+		/* Disable previous wol settings completely */
+		bgmac_write(bgmac, BGMAC_WOL_CONTROL_REG, 0x0);
+		bgmac->wolopts = 0;
+		phy_stop(bgmac->net_dev->phydev);
+		bgmac_chip_intrs_off(bgmac);
+		bgmac_chip_reset(bgmac);
+		bgmac_dma_cleanup(bgmac);
+	}
 
 	if (!netif_running(bgmac->net_dev))
 		return 0;
