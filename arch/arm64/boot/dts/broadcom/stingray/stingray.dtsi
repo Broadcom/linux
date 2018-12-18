@@ -633,7 +633,7 @@
 			interrupt-names = "spi_l1_intr";
 			clocks = <&hsls_div4_clk>;
 			clock-names = "qspi_clk";
-			clock-frequency = <12500000>;
+			clock-frequency = <17500000>;
 			num-cs = <2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
