@@ -171,8 +171,8 @@ static int ak4385_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
 			    struct snd_soc_dai *dai)
 {
-	struct snd_soc_codec *codec = dai->codec;
-	struct ak4385_priv *ak4385 = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_component *component = dai->component;
+	struct ak4385_priv *ak4385 = snd_soc_component_get_drvdata(component);
 	unsigned int fs = params_rate(params);
 	int i;
 	unsigned int val;
@@ -184,7 +184,7 @@ static int ak4385_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	if (i == ARRAY_SIZE(lrclk_ratios)) {
-		dev_err(codec->dev, "MCLK/fs ratio %d unsupported\n",
+		dev_err(component->dev, "MCLK/fs ratio %d unsupported\n",
 			ak4385->sysclk / fs);
 		return -EINVAL;
 	}
@@ -196,7 +196,7 @@ static int ak4385_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	if (i == ak4385->sysclk_constraints->count) {
-		dev_err(codec->dev, "fs %d unsupported\n", fs);
+		dev_err(component->dev, "fs %d unsupported\n", fs);
 		return -EINVAL;
 	}
 
@@ -207,12 +207,12 @@ static int ak4385_hw_params(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_FORMAT_S32_LE:
 		break;
 	default:
-		dev_err(codec->dev, "ak4385_hw_params: Unsupported bit size param = %d",
+		dev_err(component->dev, "ak4385_hw_params: Unsupported bit size param = %d",
 			params_format(params));
 		return -EINVAL;
 	}
 
-	dev_dbg(codec->dev, "ak4385_hw_params: fs = %d bit size param = %d",
+	dev_dbg(component->dev, "ak4385_hw_params: fs = %d bit size param = %d",
 		fs, params_format(params));
 
 	/* power up */
@@ -253,8 +253,8 @@ static int ak4385_hw_params(struct snd_pcm_substream *substream,
 static int ak4385_hw_free(struct snd_pcm_substream *substream,
 			  struct snd_soc_dai *dai)
 {
-	struct snd_soc_codec *codec = dai->codec;
-	struct ak4385_priv *ak4385 = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_component *component = dai->component;
+	struct ak4385_priv *ak4385 = snd_soc_component_get_drvdata(component);
 
 	regcache_cache_only(ak4385->regmap, true);
 
@@ -268,13 +268,13 @@ static int ak4385_hw_free(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int ak4385_set_dai_sysclk(struct snd_soc_dai *codec_dai,
+static int ak4385_set_dai_sysclk(struct snd_soc_dai *dai,
 		int clk_id, unsigned int freq, int dir)
 {
-	struct snd_soc_codec *codec = codec_dai->codec;
-	struct ak4385_priv *ak4385 = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_component *component = dai->component;
+	struct ak4385_priv *ak4385 = snd_soc_component_get_drvdata(component);
 
-	dev_dbg(codec->dev, "ak4385_set_dai_sysclk info: freq=%dHz\n", freq);
+	dev_dbg(component->dev, "ak4385_set_dai_sysclk info: freq=%dHz\n", freq);
 
 	switch (freq) {
 	case 16384000:
@@ -301,10 +301,10 @@ static int ak4385_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 	return -EINVAL;
 }
 
-static int ak4385_set_dai_fmt(struct snd_soc_dai *codec_dai,
+static int ak4385_set_dai_fmt(struct snd_soc_dai *dai,
 		unsigned int fmt)
 {
-	struct snd_soc_codec *codec = codec_dai->codec;
+	struct snd_soc_component *component = dai->component;
 	unsigned int dif = 0;
 
 	/* check master/slave audio interface */
@@ -327,12 +327,10 @@ static int ak4385_set_dai_fmt(struct snd_soc_dai *codec_dai,
 		return -EINVAL;
 	}
 
-	dev_dbg(codec->dev, "ak4385_set_dai_fmt: %x\n", fmt);
+	dev_dbg(component->dev, "ak4385_set_dai_fmt: %x\n", fmt);
 
-	snd_soc_update_bits(codec,
-			    AK4385_REG_CONTROL1,
-			    AK4385_CONTROL1_DIF,
-			    dif);
+	snd_soc_component_update_bits(component, AK4385_REG_CONTROL1,
+				      AK4385_CONTROL1_DIF, dif);
 	return 0;
 }
 
@@ -364,15 +362,13 @@ static struct snd_soc_dai_driver ak4385_dai = {
 	.ops = &ak4385_dai_ops,
 };
 
-static struct snd_soc_codec_driver soc_codec_dev_ak4385 = {
-	.component_driver = {
-		.controls = ak4385_snd_controls,
-		.num_controls = ARRAY_SIZE(ak4385_snd_controls),
-		.dapm_widgets = ak4385_dapm_widgets,
-		.num_dapm_widgets = ARRAY_SIZE(ak4385_dapm_widgets),
-		.dapm_routes = ak4385_dapm_routes,
-		.num_dapm_routes = ARRAY_SIZE(ak4385_dapm_routes),
-	},
+static const struct snd_soc_component_driver soc_component_dev_ak4385 = {
+	.controls = ak4385_snd_controls,
+	.num_controls = ARRAY_SIZE(ak4385_snd_controls),
+	.dapm_widgets = ak4385_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(ak4385_dapm_widgets),
+	.dapm_routes = ak4385_dapm_routes,
+	.num_dapm_routes = ARRAY_SIZE(ak4385_dapm_routes),
 };
 
 static const struct regmap_config ak4385_regmap = {
@@ -426,15 +422,9 @@ static int ak4385_spi_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, ak4385);
 
-	ret = snd_soc_register_codec(&spi->dev,
-			&soc_codec_dev_ak4385, &ak4385_dai, 1);
+	ret = devm_snd_soc_register_component(&spi->dev,
+			&soc_component_dev_ak4385, &ak4385_dai, 1);
 	return ret;
-}
-
-static int ak4385_spi_remove(struct spi_device *spi)
-{
-	snd_soc_unregister_codec(&spi->dev);
-	return 0;
 }
 
 static const struct of_device_id ak4385_of_match[] = {
@@ -449,7 +439,6 @@ static struct spi_driver ak4385_spi_driver = {
 		.of_match_table = ak4385_of_match,
 	},
 	.probe		= ak4385_spi_probe,
-	.remove		= ak4385_spi_remove,
 };
 
 module_spi_driver(ak4385_spi_driver);

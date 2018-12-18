@@ -807,16 +807,39 @@ static unsigned int b53_get_mib_size(struct b53_device *dev)
 		return B53_MIBS_SIZE;
 }
 
-void b53_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
+static struct phy_device *b53_get_phy_device(struct dsa_switch *ds, int port)
+{
+	/* These ports typically do not have built-in PHYs */
+	switch (port) {
+	case B53_CPU_PORT_25:
+	case 7:
+	case B53_CPU_PORT:
+		return NULL;
+	}
+
+	return mdiobus_get_phy(ds->slave_mii_bus, port);
+}
+
+void b53_get_strings(struct dsa_switch *ds, int port, u32 stringset,
+		     uint8_t *data)
 {
 	struct b53_device *dev = ds->priv;
 	const struct b53_mib_desc *mibs = b53_get_mib(dev);
 	unsigned int mib_size = b53_get_mib_size(dev);
+	struct phy_device *phydev;
 	unsigned int i;
 
-	for (i = 0; i < mib_size; i++)
-		strlcpy(data + i * ETH_GSTRING_LEN,
-			mibs[i].name, ETH_GSTRING_LEN);
+	if (stringset == ETH_SS_STATS) {
+		for (i = 0; i < mib_size; i++)
+			strlcpy(data + i * ETH_GSTRING_LEN,
+				mibs[i].name, ETH_GSTRING_LEN);
+	} else if (stringset == ETH_SS_PHY_STATS) {
+		phydev = b53_get_phy_device(ds, port);
+		if (!phydev)
+			return;
+
+		phy_ethtool_get_strings(phydev, data);
+	}
 }
 EXPORT_SYMBOL(b53_get_strings);
 
@@ -853,11 +876,34 @@ void b53_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t *data)
 }
 EXPORT_SYMBOL(b53_get_ethtool_stats);
 
-int b53_get_sset_count(struct dsa_switch *ds, int port)
+void b53_get_ethtool_phy_stats(struct dsa_switch *ds, int port, uint64_t *data)
+{
+	struct phy_device *phydev;
+
+	phydev = b53_get_phy_device(ds, port);
+	if (!phydev)
+		return;
+
+	phy_ethtool_get_stats(phydev, NULL, data);
+}
+EXPORT_SYMBOL(b53_get_ethtool_phy_stats);
+
+int b53_get_sset_count(struct dsa_switch *ds, int port, int sset)
 {
 	struct b53_device *dev = ds->priv;
+	struct phy_device *phydev;
 
-	return b53_get_mib_size(dev);
+	if (sset == ETH_SS_STATS) {
+		return b53_get_mib_size(dev);
+	} else if (sset == ETH_SS_PHY_STATS) {
+		phydev = b53_get_phy_device(ds, port);
+		if (!phydev)
+			return 0;
+
+		return phy_ethtool_get_sset_count(phydev);
+	}
+
+	return 0;
 }
 EXPORT_SYMBOL(b53_get_sset_count);
 
@@ -1061,7 +1107,7 @@ void b53_vlan_add(struct dsa_switch *ds, int port,
 		b53_get_vlan_entry(dev, vid, vl);
 
 		vl->members |= BIT(port);
-		if (untagged)
+		if (untagged && !dsa_is_cpu_port(ds, port))
 			vl->untag |= BIT(port);
 		else
 			vl->untag &= ~BIT(port);
@@ -1103,7 +1149,7 @@ int b53_vlan_del(struct dsa_switch *ds, int port,
 				pvid = 0;
 		}
 
-		if (untagged)
+		if (untagged && !dsa_is_cpu_port(ds, port))
 			vl->untag &= ~(BIT(port));
 
 		b53_set_vlan_entry(dev, vid, vl);
@@ -1478,7 +1524,7 @@ void b53_br_fast_age(struct dsa_switch *ds, int port)
 }
 EXPORT_SYMBOL(b53_br_fast_age);
 
-static bool b53_can_enable_brcm_tags(struct dsa_switch *ds, int port)
+static bool b53_possible_cpu_port(struct dsa_switch *ds, int port)
 {
 	/* Broadcom switches will accept enabling Broadcom tags on the
 	 * following ports: 5, 7 and 8, any other port is not supported
@@ -1490,8 +1536,17 @@ static bool b53_can_enable_brcm_tags(struct dsa_switch *ds, int port)
 		return true;
 	}
 
-	dev_warn(ds->dev, "Port %d is not Broadcom tag capable\n", port);
 	return false;
+}
+
+static bool b53_can_enable_brcm_tags(struct dsa_switch *ds, int port)
+{
+	bool ret = b53_possible_cpu_port(ds, port);
+
+	if (!ret)
+		dev_warn(ds->dev, "Port %d is not Broadcom tag capable\n",
+			 port);
+	return ret;
 }
 
 enum dsa_tag_protocol b53_get_tag_protocol(struct dsa_switch *ds, int port)
@@ -1666,6 +1721,7 @@ static const struct dsa_switch_ops b53_switch_ops = {
 	.get_strings		= b53_get_strings,
 	.get_ethtool_stats	= b53_get_ethtool_stats,
 	.get_sset_count		= b53_get_sset_count,
+	.get_ethtool_phy_stats	= b53_get_ethtool_phy_stats,
 	.phy_read		= b53_phy_read16,
 	.phy_write		= b53_phy_write16,
 	.adjust_link		= b53_adjust_link,
@@ -1898,7 +1954,7 @@ static const struct b53_chip_data b53_switch_chips[] = {
 	},
 	{
 		.chip_id = BCM583XX_DEVICE_ID,
-		.dev_name = "BCM583xx/1140x",
+		.dev_name = "BCM583xx/11360",
 		.vlans = 4096,
 		.enabled_ports = 0x103,
 		.arl_entries = 4,
@@ -1995,14 +2051,23 @@ static int b53_switch_init(struct b53_device *dev)
 	dev->num_ports = dev->cpu_port + 1;
 	dev->enabled_ports |= BIT(dev->cpu_port);
 
-	dev->ports = devm_kzalloc(dev->dev,
-				  sizeof(struct b53_port) * dev->num_ports,
+	/* Include non standard CPU port built-in PHYs to be probed */
+	if (is539x(dev) || is531x5(dev)) {
+		for (i = 0; i < dev->num_ports; i++) {
+			if (!(dev->ds->phys_mii_mask & BIT(i)) &&
+			    !b53_possible_cpu_port(dev->ds, i))
+				dev->ds->phys_mii_mask |= BIT(i);
+		}
+	}
+
+	dev->ports = devm_kcalloc(dev->dev,
+				  dev->num_ports, sizeof(struct b53_port),
 				  GFP_KERNEL);
 	if (!dev->ports)
 		return -ENOMEM;
 
-	dev->vlans = devm_kzalloc(dev->dev,
-				  sizeof(struct b53_vlan) * dev->num_vlans,
+	dev->vlans = devm_kcalloc(dev->dev,
+				  dev->num_vlans, sizeof(struct b53_vlan),
 				  GFP_KERNEL);
 	if (!dev->vlans)
 		return -ENOMEM;

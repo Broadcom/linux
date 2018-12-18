@@ -1,7 +1,5 @@
 Broadcom Stingray PCIe PHY
 
-* TBD whether to upstream or not based on Stingray A1 and Stingray+ design
-
 Required properties:
 - compatible: must be "brcm,sr-pcie-phy"
 - reg: base address and length of the PCIe SS register space
@@ -9,7 +7,10 @@ Required properties:
 - brcm,sr-mhb: phandle to the MHB syscon node
 - #phy-cells: Must be 1, denotes the PHY index
 
-For PAXB based interfaces, PHY index goes from 0 to 7. PAXC uses index 8
+For PAXB based root complex, one can have a configuration of up to 8 PHYs
+PHY index goes from 0 to 7
+
+For the internal PAXC based root complex, PHY index is always 8
 
 Example:
 	mhb: syscon@60401000 {
@@ -22,7 +23,7 @@ Example:
 		reg = <0 0x6641d000 0 0x400>;
 	};
 
-	pcie_phy: phy {
+	pcie_phy: phy@40000000 {
 		compatible = "brcm,sr-pcie-phy";
 		reg = <0 0x40000000 0 0x800>;
 		brcm,sr-cdru = <&cdru>;

@@ -3,7 +3,6 @@ obj-$(CONFIG_PHY_CYGNUS_PCIE)		+= phy-bcm-cygnus-pcie.o
 obj-$(CONFIG_PHY_NS2_USB2)		+= phy-bcm-ns2-usb2.o
 obj-$(CONFIG_PHY_NS2_USB3)		+= phy-bcm-ns2-usb3.o
 obj-$(CONFIG_PHY_SR_PCIE_DIAG)          += phy-bcm-sr-pcie-diag.o
-obj-$(CONFIG_PHY_STINGRAY_PCIE)		+= phy-bcm-stingray-pcie.o
 obj-$(CONFIG_PHY_STINGRAY_SATA_PRBS)	+= phy-bcm-stingray-sata-prbs.o
 obj-$(CONFIG_PHY_STINGRAY_USB)		+= phy-bcm-stingray-usb.o
 obj-$(CONFIG_BCM_KONA_USB2_PHY)		+= phy-bcm-kona-usb2.o
@@ -18,3 +17,5 @@ obj-$(CONFIG_PHY_BRCM_SATA)		+= phy-brcm-sata.o
 obj-$(CONFIG_PHY_BRCM_USB)		+= phy-brcm-usb-dvr.o
 
 phy-brcm-usb-dvr-objs := phy-brcm-usb.o phy-brcm-usb-init.o
+
+obj-$(CONFIG_PHY_BCM_SR_PCIE)		+= phy-bcm-sr-pcie.o

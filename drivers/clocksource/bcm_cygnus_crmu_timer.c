@@ -136,8 +136,7 @@ static int __init cygnus_crmu_timer_probe(struct platform_device *pdev)
 		return PTR_ERR(cygnus_crmu_timer->mbox_chan);
 	}
 
-	ret = register_persistent_clock(
-		NULL, cygnus_crmu_timer_read_persistent_clock);
+	ret = register_persistent_clock(cygnus_crmu_timer_read_persistent_clock);
 	if (ret) {
 		dev_err(cygnus_crmu_timer->dev,
 			"Failed to register_persistent_clock\n");

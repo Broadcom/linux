@@ -45,8 +45,4 @@ static inline int of_iommu_resv_dma_regions(struct device_node *np,
 
 #endif	/* CONFIG_OF_IOMMU */
 
-extern struct of_device_id __iommu_of_table;
-
-#define IOMMU_OF_DECLARE(name, compat)	OF_DECLARE_1(iommu, name, compat, NULL)
-
 #endif /* __OF_IOMMU_H */

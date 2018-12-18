@@ -27,7 +27,7 @@
 #include <sound/soc.h>
 #include <sound/pcm.h>
 
-static struct snd_soc_codec_driver bcm_dummy_codec;
+static struct snd_soc_component_driver bcm_dummy_codec;
 
 #define DUMMY_FORMATS	(SNDRV_PCM_FMTBIT_S8 | \
 			SNDRV_PCM_FMTBIT_U8 | \
@@ -63,14 +63,8 @@ static struct snd_soc_dai_driver bcm_dummy_dai = {
 
 static int bcm_dummy_probe(struct platform_device *pdev)
 {
-	return snd_soc_register_codec(&pdev->dev, &bcm_dummy_codec,
+	return devm_snd_soc_register_component(&pdev->dev, &bcm_dummy_codec,
 			&bcm_dummy_dai, 1);
-}
-
-static int bcm_dummy_remove(struct platform_device *pdev)
-{
-	snd_soc_unregister_codec(&pdev->dev);
-	return 0;
 }
 
 static const struct of_device_id bcm_dummy_of_match[] = {
@@ -81,7 +75,6 @@ MODULE_DEVICE_TABLE(of, bcm_dummy_of_match);
 
 static struct platform_driver bcm_dummy_codec_driver = {
 	.probe		= bcm_dummy_probe,
-	.remove		= bcm_dummy_remove,
 	.driver		= {
 		.name	= "bcm-dummy-codec",
 		.of_match_table = of_match_ptr(bcm_dummy_of_match),

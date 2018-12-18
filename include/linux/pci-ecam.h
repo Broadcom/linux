@@ -63,5 +63,6 @@ extern struct pci_ecam_ops iproc_pcie_paxcv2_ecam_ops; /* iProc PAXCv2 */
 /* for DT-based PCI controllers that support ECAM */
 int pci_host_common_probe(struct platform_device *pdev,
 			  struct pci_ecam_ops *ops);
+int pci_host_common_remove(struct platform_device *pdev);
 #endif
 #endif

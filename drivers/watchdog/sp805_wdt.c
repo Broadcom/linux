@@ -82,12 +82,9 @@ MODULE_PARM_DESC(nowayout,
 static bool wdt_is_running(struct watchdog_device *wdd)
 {
 	struct sp805_wdt *wdt = watchdog_get_drvdata(wdd);
+	u32 wdtcontrol = readl_relaxed(wdt->base + WDTCONTROL);
 
-	if ((readl_relaxed(wdt->base + WDTCONTROL) & ENABLE_MASK) ==
-	    ENABLE_MASK)
-		return true;
-	else
-		return false;
+	return (wdtcontrol & ENABLE_MASK) == ENABLE_MASK;
 }
 
 /* This routine finds load value that will reset system in required timout */
@@ -133,6 +130,18 @@ static unsigned int wdt_timeleft(struct watchdog_device *wdd)
 	spin_unlock(&wdt->lock);
 
 	return div_u64(load, wdt->rate);
+}
+
+static int
+wdt_restart(struct watchdog_device *wdd, unsigned long mode, void *cmd)
+{
+	struct sp805_wdt *wdt = watchdog_get_drvdata(wdd);
+
+	writel_relaxed(0, wdt->base + WDTCONTROL);
+	writel_relaxed(0, wdt->base + WDTLOAD);
+	writel_relaxed(INT_ENABLE | RESET_ENABLE, wdt->base + WDTCONTROL);
+
+	return 0;
 }
 
 static int wdt_config(struct watchdog_device *wdd, bool ping)
@@ -211,6 +220,7 @@ static const struct watchdog_ops wdt_ops = {
 	.ping		= wdt_ping,
 	.set_timeout	= wdt_setload,
 	.get_timeleft	= wdt_timeleft,
+	.restart	= wdt_restart,
 };
 
 static int
@@ -258,6 +268,7 @@ sp805_wdt_probe(struct amba_device *adev, const struct amba_id *id)
 	spin_lock_init(&wdt->lock);
 	watchdog_set_nowayout(&wdt->wdd, nowayout);
 	watchdog_set_drvdata(&wdt->wdd, wdt);
+	watchdog_set_restart_priority(&wdt->wdd, 128);
 
 	/*
 	 * If 'timeout-sec' devicetree property is specified, use that.

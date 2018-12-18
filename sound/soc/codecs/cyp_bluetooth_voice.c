@@ -38,18 +38,18 @@ static const struct snd_soc_dapm_route bt_routes[] = {
 static int bt_voice_set_dai_fmt(struct snd_soc_dai *codec_dai,
 					unsigned int fmt)
 {
-	struct snd_soc_codec *codec = codec_dai->codec;
-	struct bt_voice_priv *btvoice = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_component *component = codec_dai->component;
+	struct bt_voice_priv *btvoice = snd_soc_component_get_drvdata(component);
 	int ret  = 0;
 
 	/* Only support slave mode */
 	if ((fmt & SND_SOC_DAIFMT_MASTER_MASK) !=  SND_SOC_DAIFMT_CBS_CFS) {
-		dev_err(codec->dev, "Does not support master mode.\n");
+		dev_err(component->dev, "Does not support master mode.\n");
 		return -EINVAL;
 	}
 
 	if ((fmt & SND_SOC_DAIFMT_INV_MASK) != SND_SOC_DAIFMT_NB_NF) {
-		dev_err(codec->dev, "Does not support inverted clocks.\n");
+		dev_err(component->dev, "Does not support inverted clocks.\n");
 		return -EINVAL;
 	}
 
@@ -67,7 +67,7 @@ static int bt_voice_set_dai_fmt(struct snd_soc_dai *codec_dai,
 			ret = -EINVAL;
 		break;
 	default:
-		dev_err(codec->dev, "Use only i2s or dsp_a format.\n");
+		dev_err(component->dev, "Use only i2s or dsp_a format.\n");
 		return -EINVAL;
 	}
 	return 0;
@@ -77,8 +77,8 @@ static int bt_voice_set_dai_fmt(struct snd_soc_dai *codec_dai,
 static int bt_voice_set_dai_tdm_slot(struct snd_soc_dai *codec_dai,
 	unsigned int tx_mask, unsigned int rx_mask, int slots, int slot_width)
 {
-	struct snd_soc_codec *codec = codec_dai->codec;
-	struct bt_voice_priv *btvoice = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_component *component = codec_dai->component;
+	struct bt_voice_priv *btvoice = snd_soc_component_get_drvdata(component);
 
 	btvoice->tdm_bits_per_frame = slots * slot_width;
 
@@ -89,8 +89,9 @@ static int bt_voice_hw_params(struct snd_pcm_substream *substream,
 				 struct snd_pcm_hw_params *params,
 				 struct snd_soc_dai *codec_dai)
 {
-	struct snd_soc_codec *codec = codec_dai->codec;
-	struct bt_voice_priv *btvoice = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_component *component = codec_dai->component;
+	struct bt_voice_priv *btvoice = snd_soc_component_get_drvdata(component);
+
 	unsigned int bps;
 	int rate;
 	int ret = 0;
@@ -104,7 +105,7 @@ static int bt_voice_hw_params(struct snd_pcm_substream *substream,
 	if (btvoice->tdm_bits_per_frame) {
 		bps = (rate * btvoice->tdm_bits_per_frame);
 		if (bps != btvoice->bclk_bps) {
-			dev_err(codec->dev,
+			dev_err(component->dev,
 				"bps %u does not match configred %u\n",
 				bps, btvoice->bclk_bps);
 			ret = -EINVAL;
@@ -141,13 +142,11 @@ static struct snd_soc_dai_driver bt_voice_dai[] = {
 },
 };
 
-static struct snd_soc_codec_driver cyp_bt_voice = {
-	.component_driver = {
-		.dapm_widgets		= bt_widgets,
-		.num_dapm_widgets	= ARRAY_SIZE(bt_widgets),
-		.dapm_routes		= bt_routes,
-		.num_dapm_routes	= ARRAY_SIZE(bt_routes),
-	},
+static const struct snd_soc_component_driver cyp_bt_voice = {
+	.dapm_widgets		= bt_widgets,
+	.num_dapm_widgets	= ARRAY_SIZE(bt_widgets),
+	.dapm_routes		= bt_routes,
+	.num_dapm_routes	= ARRAY_SIZE(bt_routes),
 };
 
 static int cyp_btvoice_probe(struct platform_device *pdev)
@@ -194,16 +193,11 @@ static int cyp_btvoice_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = snd_soc_register_codec(&pdev->dev, &cyp_bt_voice,
-					bt_voice_dai, ARRAY_SIZE(bt_voice_dai));
+	ret = devm_snd_soc_register_component(&pdev->dev, &cyp_bt_voice,
+					      bt_voice_dai,
+					      ARRAY_SIZE(bt_voice_dai));
 err_exit:
 	return ret;
-}
-
-static int cyp_btvoice_remove(struct platform_device *pdev)
-{
-	snd_soc_unregister_codec(&pdev->dev);
-	return 0;
 }
 
 #if defined(CONFIG_OF)
@@ -220,7 +214,6 @@ static struct platform_driver cyp_bt_voice_driver = {
 		.of_match_table = of_match_ptr(bt_voice_of_match),
 	},
 	.probe = cyp_btvoice_probe,
-	.remove = cyp_btvoice_remove,
 };
 
 module_platform_driver(cyp_bt_voice_driver);
