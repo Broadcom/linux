@@ -174,8 +174,12 @@ static void omega_gpio_irq_handler(struct irq_desc *desc)
 			/*
 			 * Clear the interrupt before invoking the
 			 * handler, so we do not leave any window
+			 * Writing a 1 acknowledges the interrupt (interrupt
+			 * status is cleared), but the bit has to be set back to
+			 * 0 to allow another interrupt to be triggered.
 			 */
 			omega_set_bit(pctrl, p.clr_reg, p.clr_bit, true);
+			omega_set_bit(pctrl, p.clr_reg, p.clr_bit, false);
 
 			generic_handle_irq(child_irq);
 		}
@@ -192,7 +196,13 @@ static void omega_gpio_irq_ack(struct irq_data *d)
 	unsigned int gpio = d->hwirq;
 	struct omega_pin p = PIN(gpio);
 
+	/*
+	 * Writing a 1 acknowledges the interrupt (interrupt status is cleared)
+	 * but the bit has to be set back to 0 to allow another interrupt to be
+	 * triggered.
+	 */
 	omega_set_bit(pctrl, p.clr_reg, p.clr_bit, true);
+	omega_set_bit(pctrl, p.clr_reg, p.clr_bit, false);
 }
 
 /**
