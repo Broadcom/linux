@@ -440,8 +440,11 @@ static void sba_process_received_request(struct sba_device *sba,
 		spin_lock_irqsave(&sba->reqs_lock, flags);
 
 		/* Free all requests chained to first request */
-		list_for_each_entry(nreq, &first->next, next)
+		list_for_each_entry(nreq, &first->next, next) {
+			async_tx_ack(&nreq->tx);
 			_sba_free_request(sba, nreq);
+		}
+
 		INIT_LIST_HEAD(&first->next);
 
 		/* Free the first request */
@@ -450,6 +453,12 @@ static void sba_process_received_request(struct sba_device *sba,
 		/* Process pending requests */
 		_sba_process_pending_requests(sba);
 
+		spin_unlock_irqrestore(&sba->reqs_lock, flags);
+	} else {
+		spin_lock_irqsave(&sba->reqs_lock, flags);
+		sba->reqs_fence = false;
+		/* Process pending requests */
+		_sba_process_pending_requests(sba);
 		spin_unlock_irqrestore(&sba->reqs_lock, flags);
 	}
 }
