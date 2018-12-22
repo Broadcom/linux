@@ -31,11 +31,13 @@ static int bcm_vk_dma_alloc(struct device *dev,
 			    int direction,
 			    struct _vk_data *vkdata)
 {
-	dma_addr_t addr;
+	dma_addr_t addr, sg_addr;
 	int err;
 	int i;
 	int offset;
+	uint32_t size;
 	uint32_t remaining_size;
+	uint32_t transfer_size;
 	uint64_t data;
 	unsigned long first, last;
 	struct _vk_data *sgdata;
@@ -87,52 +89,75 @@ static int bcm_vk_dma_alloc(struct device *dev,
 	if (!dma->sglist)
 		return -ENOMEM;
 
-	dma->sglist[SGLIST_NUM_SG] = dma->nr_pages;
+	dma->sglist[SGLIST_NUM_SG] = 0;
 	dma->sglist[SGLIST_TOTALSIZE] = vkdata->size;
 	remaining_size = vkdata->size;
 	sgdata = (struct _vk_data *)&(dma->sglist[SGLIST_VKDATA_START]);
 
 	/* Map all pages into DMA */
 	i = 0;
-	sgdata->size = min_t(size_t, PAGE_SIZE - offset, remaining_size);
-	remaining_size -= sgdata->size;
-	addr = dma_map_page(dev,
-			    dma->pages[0],
-			    offset,
-			    sgdata->size,
-			    dma->direction);
-	if (unlikely(dma_mapping_error(dev, addr))) {
+	size = min_t(size_t, PAGE_SIZE - offset, remaining_size);
+	remaining_size -= size;
+	sg_addr = dma_map_page(dev,
+			       dma->pages[0],
+			       offset,
+			       size,
+			       dma->direction);
+	transfer_size = size;
+	if (unlikely(dma_mapping_error(dev, sg_addr))) {
 		__free_page(dma->pages[0]);
 		return -EIO;
 	}
-	*((uint64_t *)&(sgdata->address)) = addr;
 
 	for (i = 1; i < dma->nr_pages; i++) {
-		sgdata++;
-		sgdata->size = min_t(size_t, PAGE_SIZE, remaining_size);
-		remaining_size -= sgdata->size;
+		size = min_t(size_t, PAGE_SIZE, remaining_size);
+		remaining_size -= size;
 		addr = dma_map_page(dev,
 				    dma->pages[i],
 				    0,
-				    sgdata->size,
+				    size,
 				    dma->direction);
 		if (unlikely(dma_mapping_error(dev, addr))) {
-			__free_page(dma->pages[0]);
+			__free_page(dma->pages[i]);
 			return -EIO;
 		}
-		put_unaligned(addr, (uint64_t *)&(sgdata->address));
-	}
 
-#ifdef BCM_VK_DUMP_SGLIST
-	dev_dbg(dev, "sgl 0x%llx dma_handle 0x%llx, size: 0x%x\n",
-		(uint64_t)dma->sglist, dma->handle, dma->sglen);
-	for (i = 0; i < dma->sglen / sizeof(uint32_t); i++)
-		dev_dbg(dev, "i:0x%x 0x%x\n", i, dma->sglist[i]);
-#endif
+		if (addr == (sg_addr + transfer_size)) {
+			/* pages are contiguous, add to same sg entry */
+			transfer_size += size;
+		} else {
+			/* pages are not contiguous, write sg entry */
+			sgdata->size = transfer_size;
+			put_unaligned(sg_addr, (uint64_t *)&(sgdata->address));
+			dma->sglist[SGLIST_NUM_SG]++;
+
+			/* start new sg entry */
+			sgdata++;
+			sg_addr = addr;
+			transfer_size = size;
+		}
+	}
+	/* Write last sg list entry */
+	sgdata->size = transfer_size;
+	put_unaligned(sg_addr, (uint64_t *)&(sgdata->address));
+	dma->sglist[SGLIST_NUM_SG]++;
 
 	/* Update pointers and size field to point to sglist */
 	put_unaligned((uint64_t)dma->handle, &(vkdata->address));
-	vkdata->size = dma->sglen;
+	vkdata->size = (dma->sglist[SGLIST_NUM_SG] * sizeof(*sgdata)) +
+		       (sizeof(uint32_t) * SGLIST_VKDATA_START);
+
+#ifdef BCM_VK_DUMP_SGLIST
+	dev_dbg(dev,
+		"sgl 0x%llx handle 0x%llx, sglen: 0x%x sgsize: 0x%x\n",
+		(uint64_t)dma->sglist,
+		dma->handle,
+		dma->sglen,
+		vkdata->size);
+	for (i = 0; i < vkdata->size / sizeof(uint32_t); i++)
+		dev_dbg(dev, "i:0x%x 0x%x\n", i, dma->sglist[i]);
+#endif
+
 	return 0;
 }
 
