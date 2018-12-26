@@ -1,0 +1,1 @@
+dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958802a8046i.dtb

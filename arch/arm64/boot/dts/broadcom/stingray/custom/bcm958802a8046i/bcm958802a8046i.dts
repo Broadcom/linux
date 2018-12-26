@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2018 Broadcom
+ */
+
+/dts-v1/;
+
+#define NUM_CRYPTO	32
+#define NUM_RAID	0
+#define ENABLE_ENET	0
+#define ENABLE_MDIO	0
+#define ENABLE_USB1	0
+#define ENABLE_I2C0	1
+#define ENABLE_SSP0	1
+#define ENABLE_SSP1	1
+
+#include "../../stingray-board-base.dtsi"
+
+/ {
+	model = "Stingray PS225N (BCM958802A8046I)";
+
+	chosen {
+		stdout-path = "serial1:115200n8";
+	};
+};
+
+&sdio0 {
+	no-1-8-v;
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&ssp0 {
+	status = "okay";
+	num-cs = <1>;
+
+	spiflash: m25p80@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "m25p80";
+		reg = <0x0>;
+		spi-max-frequency = <12500000>;
+		m25p,fast-read;
+		spi-cpol;
+		spi-cpha;
+
+		partition@0 {
+			label = "boot";
+			reg = <0x00000000 0x100000>;
+		};
+	};
+};
+
+&ssp1 {
+	status = "okay";
+	num-cs = <1>;
+
+	spidev@0 {
+		compatible = "brcm,msr";
+		spi-max-frequency = <20000000>;
+		reg = <0>;
+	};
+};
