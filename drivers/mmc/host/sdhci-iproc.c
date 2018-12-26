@@ -163,19 +163,9 @@ static void sdhci_iproc_writeb(struct sdhci_host *host, u8 val, int reg)
 	sdhci_iproc_writel(host, newval, reg & ~3);
 }
 
-static unsigned int sdhci_iproc_get_max_clock(struct sdhci_host *host)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-
-	if (pltfm_host->clk)
-		return sdhci_pltfm_clk_get_max_clock(host);
-	else
-		return pltfm_host->clock;
-}
-
 static const struct sdhci_ops sdhci_iproc_ops = {
 	.set_clock = sdhci_set_clock,
-	.get_max_clock = sdhci_iproc_get_max_clock,
+	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
 	.set_bus_width = sdhci_set_bus_width,
 	.reset = sdhci_reset,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
@@ -189,7 +179,7 @@ static const struct sdhci_ops sdhci_iproc_32only_ops = {
 	.write_w = sdhci_iproc_writew,
 	.write_b = sdhci_iproc_writeb,
 	.set_clock = sdhci_set_clock,
-	.get_max_clock = sdhci_iproc_get_max_clock,
+	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
 	.set_bus_width = sdhci_set_bus_width,
 	.reset = sdhci_reset,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
@@ -345,18 +335,6 @@ static int sdhci_iproc_probe(struct platform_device *pdev)
 		ret = clk_prepare_enable(pltfm_host->clk);
 		if (ret) {
 			dev_err(dev, "failed to enable host clk\n");
-			goto err;
-		}
-	} else if (has_acpi_companion(dev)) {
-		/*
-		 * When Driver probe with ACPI device, clock devices
-		 * are not available, so sdhci clock get from
-		 * clock-frequency property given in _DSD object.
-		 */
-		device_property_read_u32(dev, "clock-frequency",
-					 &pltfm_host->clock);
-		if (!pltfm_host->clock) {
-			ret = -ENODEV;
 			goto err;
 		}
 	}
