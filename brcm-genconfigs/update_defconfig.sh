@@ -122,6 +122,19 @@ main() {
 	if [ -e defconfig ]; then
 		rm defconfig
 	fi
+	echo "Done QEMU x86_64."
+
+	make ARCH=x86_64 x86_64_defconfig
+	cat brcm-genconfigs/dbg.cfg >> .config
+	cat brcm-genconfigs/v4l2.cfg >> .config
+	make ARCH=x86_64 savedefconfig
+	cp -v defconfig arch/x86/configs/generic_x86_64_defconfig
+
+	#Cleanup x86_64
+	make ARCH=x86_64 mrproper > /dev/null
+	if [ -e defconfig ]; then
+		rm defconfig
+	fi
 	echo "Done x86_64."
 
 	make ARCH=x86 i386_defconfig
@@ -135,7 +148,7 @@ main() {
 	if [ -e defconfig ]; then
 		rm defconfig
 	fi
-	echo "Done x86"
+	echo "Done QEMU x86"
 }
 
 #*****************************************************************************
