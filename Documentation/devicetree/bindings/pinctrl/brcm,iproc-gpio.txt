@@ -50,6 +50,12 @@ Optional properties:
     interrupt forwarding is being used. If this is the case then 'interrupts'
     must be 0 to specify the AON GPIO irq domain.
 
+- #interrupt-cells:
+    Must be two. The first cell is the GPIO pin number (within the controller's
+    pin space) and the second cell is used to specify flags. See also
+    Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
+    for more details.
+
 - gpio-ranges:
     Specifies the mapping between gpio controller and pin-controllers pins.
     This requires 4 fields in cells defined as -
