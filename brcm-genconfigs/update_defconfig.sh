@@ -113,6 +113,7 @@ main() {
 	make ARCH=x86_64 x86_64_defconfig
 	make ARCH=x86_64 kvm_guest.config
 	cat brcm-genconfigs/dbg.cfg >> .config
+	cat brcm-genconfigs/usb.cfg >> .config
 	cat brcm-genconfigs/v4l2.cfg >> .config
 	make ARCH=x86_64 savedefconfig
 	cp -v defconfig arch/x86/configs/qemu_x86_64_defconfig
@@ -126,6 +127,7 @@ main() {
 
 	make ARCH=x86_64 x86_64_defconfig
 	cat brcm-genconfigs/dbg.cfg >> .config
+	cat brcm-genconfigs/usb.cfg >> .config
 	cat brcm-genconfigs/v4l2.cfg >> .config
 	make ARCH=x86_64 savedefconfig
 	cp -v defconfig arch/x86/configs/generic_x86_64_defconfig
