@@ -31,6 +31,12 @@
 #define AUDIOH_DAI_ID_TDM    0
 #define AUDIOH_DAI_ID_FIFO   1
 
+/*
+ * 500 us has tested successully 10/10 times on a system that was
+ * previously failing almost every time.
+ */
+#define NOISE_WORKAROUND_DELAY_US  500
+
 struct audioh_priv {
 	struct device *dev;
 
@@ -333,6 +339,7 @@ static void ep_afe_enable(struct snd_soc_component *component)
 	 * This is used to clear up a loud noise that occasionally occurs
 	 * on the interface.
 	 */
+	udelay(NOISE_WORKAROUND_DELAY_US);
 	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, 0);
 	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, mask);
 }
@@ -418,6 +425,7 @@ static void ihf_afe_enable(struct snd_soc_component *component)
 	 * This is used to clear up a loud noise that occasionally occurs
 	 * on the interface.
 	 */
+	udelay(NOISE_WORKAROUND_DELAY_US);
 	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, 0);
 	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, mask);
 }
@@ -477,6 +485,7 @@ static void headset_afe_enable(struct snd_soc_component *component)
 	 * This is used to clear up a loud noise that occasionally occurs
 	 * on the interface.
 	 */
+	udelay(NOISE_WORKAROUND_DELAY_US);
 	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, 0);
 	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, mask);
 }
