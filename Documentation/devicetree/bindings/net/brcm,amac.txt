@@ -3,6 +3,7 @@ Broadcom AMAC Ethernet Controller Device Tree Bindings
 
 Required properties:
  - compatible:	"brcm,amac"
+		"brcm,amac-v2" - for v2 amac supporting WOL feature
 		"brcm,nsp-amac"
 		"brcm,ns2-amac"
  - reg:		Address and length of the register set for the device. It
