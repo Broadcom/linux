@@ -268,7 +268,7 @@
 		};
 
 		eth0: ethernet@28241000 {
-			compatible = "brcm,omega-amac", "brcm,amac";
+			compatible = "brcm,amac-v2", "brcm,amac";
 			reg = <0x28241000 0x1000>,
 			      <0x28830000 0x1000>;
 			reg-names = "amac_base",
