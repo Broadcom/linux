@@ -370,6 +370,12 @@ int register_nvme_lpm_ops(void *nvme_lpm_drv_ops)
 }
 EXPORT_SYMBOL_GPL(register_nvme_lpm_ops);
 
+void unregister_nvme_lpm_ops(void)
+{
+	nvme_drv_ops = NULL;
+}
+EXPORT_SYMBOL_GPL(unregister_nvme_lpm_ops);
+
 static const struct file_operations nvme_dev_fops = {
 	.owner		= THIS_MODULE,
 	.open		= nvme_dev_open,

@@ -112,5 +112,6 @@ struct nvme_lpm_drv_ops {
 };
 
 int register_nvme_lpm_ops(void *nvme_drv_ops);
+void unregister_nvme_lpm_ops(void);
 
 #endif

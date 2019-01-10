@@ -18,8 +18,10 @@
 
 #include "nvme-lpm.h"
 
-#define ADMIN_CMD_TIMEOUT       50  /* Admin command timeout(ms) */
-#define IO_CMD_TIMEOUT          2   /* IO command timeout(ms) */
+#define ADMIN_CMD_TIMEOUT_MS    50  /* Admin command timeout(ms) */
+#define IO_CMD_TIMEOUT_MS       2   /* IO command timeout(ms) */
+#define SHUTDOWN_TIMEOUT_SEC    5   /* controller shutdown timeout(seconds) */
+#define MIN_PAGE_SHIFT_CTRL     12  /* Minimum page shift supported by NVMe */
 #define MAX_IO_QPAIR            32
 
 struct memory_window {
@@ -185,7 +187,7 @@ static int __nvme_submit_cmd_sync(struct nvme_command *cmd,
 	int cqe_num, ret = 0;
 	u16 tail = q->sq_tail;
 	unsigned int cmd_id = q->cmd_id;
-	unsigned int cmd_timeout = timeout ? timeout : ADMIN_CMD_TIMEOUT;
+	unsigned int cmd_timeout = timeout ? timeout : ADMIN_CMD_TIMEOUT_MS;
 	unsigned int max_cmd_id = (q->qid) ? (q->q_depth)
 					   : NVME_AQ_BLK_MQ_DEPTH;
 
@@ -673,6 +675,16 @@ static void nvme_pci_disable(struct nvme_dev *dev)
 	}
 }
 
+static void nvme_dev_disable(struct nvme_dev *dev, bool shutdown)
+{
+	if (shutdown)
+		nvme_shutdown_ctrl(&dev->ctrl);
+	else
+		nvme_disable_ctrl(&dev->ctrl, dev->ctrl.cap);
+
+	nvme_pci_disable(dev);
+}
+
 static int nvme_pci_reg_read32(struct nvme_ctrl *ctrl, u32 off, u32 *val)
 {
 	*val = readl(to_nvme_dev(ctrl)->bar + off);
@@ -824,7 +836,7 @@ static int nvme_send_flush_cmd(void *ndev_cntxt)
 	struct nvme_command cmnd = { };
 	unsigned int qid = nvme_used_io_queues(dev);
 	struct nvme_queue *q =  dev->queues[qid];
-	unsigned int timeout = dev->num_prp_pages * IO_CMD_TIMEOUT;
+	unsigned int timeout = dev->num_prp_pages * IO_CMD_TIMEOUT_MS;
 
 	memset(&cmnd, 0, sizeof(cmnd));
 
@@ -935,7 +947,7 @@ static int nvme_poll_xfers(void *ndev_cntxt)
 	struct nvme_dev *dev = ndev_cntxt;
 	unsigned int qid, polled_cqs;
 	unsigned int used_queues = nvme_used_io_queues(dev);
-	int timeout = dev->num_prp_pages * IO_CMD_TIMEOUT;
+	int timeout = dev->num_prp_pages * IO_CMD_TIMEOUT_MS;
 	struct nvme_queue *q;
 
 	while (timeout--) {
@@ -1133,6 +1145,7 @@ static int nvme_lpm_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret = -ENOMEM;
 	struct nvme_dev *dev;
+	struct nvme_ctrl *ctrl;
 	struct nvme_lpm_dev *lpm_dev;
 	struct nvme_id_ctrl *id_ctrl;
 	unsigned int nn;
@@ -1157,9 +1170,9 @@ static int nvme_lpm_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto put_pci;
 
 	/* nvme controller regs read-write callbacks */
-	dev->ctrl.dev = dev->dev;
-	dev->ctrl.ops = &nvme_pci_ctrl_ops;
-
+	ctrl = &dev->ctrl;
+	ctrl->dev = dev->dev;
+	ctrl->ops = &nvme_pci_ctrl_ops;
 
 	ret = register_nvme_lpm_ops(&nvme_lpm_driver_ops);
 	if (ret) {
@@ -1177,13 +1190,29 @@ static int nvme_lpm_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto put_pci;
 
 	/* nvme_init_identify: identify controller */
-	ret = nvme_ctrl_init_identify(&dev->ctrl, &id_ctrl);
+	ret = nvme_ctrl_init_identify(ctrl, &id_ctrl);
 	if (ret)
 		goto put_pci;
 
 	dev_info(dev->dev, "pci-lpm function %s\n", dev_name(&pdev->dev));
 
-	min_page_shift = NVME_CAP_MPSMIN(dev->ctrl.cap) + 12;
+	/* Honor RTD3 entry latency if provided */
+	if (id_ctrl->rtd3e) {
+		/* us -> s */
+		u32 transition_time = le32_to_cpu(id_ctrl->rtd3e) / 1000000;
+
+		/* Latency value clamped to a range of 5 to 60 seconds */
+		ctrl->shutdown_timeout = clamp_t(unsigned int, transition_time,
+						 SHUTDOWN_TIMEOUT_SEC, 60);
+
+		if (ctrl->shutdown_timeout != SHUTDOWN_TIMEOUT_SEC)
+			dev_warn(dev->dev,
+				 "Shutdown timeout set to %u seconds\n",
+				 dev->ctrl.shutdown_timeout);
+	} else
+		ctrl->shutdown_timeout = SHUTDOWN_TIMEOUT_SEC;
+
+	min_page_shift = NVME_CAP_MPSMIN(ctrl->cap) + MIN_PAGE_SHIFT_CTRL;
 	if (!id_ctrl->mdts)
 		/**
 		 * Maximum Data Transfer Size (MDTS) field indicates the maximum
@@ -1202,7 +1231,7 @@ static int nvme_lpm_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto put_pci;
 	}
 
-	ret = nvme_alloc_ns(&dev->ctrl, nn);
+	ret = nvme_alloc_ns(ctrl, nn);
 	if (ret) {
 		dev_err(dev->dev, "Invalid namespace");
 		goto put_pci;
@@ -1221,15 +1250,17 @@ static const struct pci_device_id nvme_lpm_id_table[] = {
 	{ PCI_DEVICE(0x126f, 0x2263), },    /* Silicon Motion SSD */
 };
 
-/* FIXME : remove path is not verified */
 static void nvme_lpm_remove(struct pci_dev *pdev)
 {
 	struct nvme_dev *dev = pci_get_drvdata(pdev);
 
+	unregister_nvme_lpm_ops();
 	nvme_destroy_backup_io_queues(dev);
-	nvme_disable_ctrl(&dev->ctrl, dev->ctrl.cap);
-	nvme_shutdown_ctrl(&dev->ctrl);
-	nvme_pci_disable(dev);
+
+	if (!pci_device_is_present(pdev))
+		nvme_dev_disable(dev, false);
+
+	nvme_dev_disable(dev, true);
 	nvme_dev_unmap(dev);
 }
 
