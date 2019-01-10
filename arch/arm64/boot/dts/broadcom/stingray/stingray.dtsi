@@ -56,6 +56,12 @@
 			compatible = "arm,cortex-a72", "arm,armv8";
 			reg = <0x0 0x0>;
 			enable-method = "psci";
+			i-cache-size = <0xc000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&CLUSTER0_L2>;
 		};
 
@@ -64,6 +70,12 @@
 			compatible = "arm,cortex-a72", "arm,armv8";
 			reg = <0x0 0x1>;
 			enable-method = "psci";
+			i-cache-size = <0xc000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&CLUSTER0_L2>;
 		};
 #if (ENABLE_IHOST12_CPUS == 1)
@@ -72,6 +84,12 @@
 			compatible = "arm,cortex-a72", "arm,armv8";
 			reg = <0x0 0x100>;
 			enable-method = "psci";
+			i-cache-size = <0xc000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&CLUSTER1_L2>;
 		};
 
@@ -80,6 +98,12 @@
 			compatible = "arm,cortex-a72", "arm,armv8";
 			reg = <0x0 0x101>;
 			enable-method = "psci";
+			i-cache-size = <0xc000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&CLUSTER1_L2>;
 		};
 
@@ -88,6 +112,12 @@
 			compatible = "arm,cortex-a72", "arm,armv8";
 			reg = <0x0 0x200>;
 			enable-method = "psci";
+			i-cache-size = <0xc000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&CLUSTER2_L2>;
 		};
 
@@ -96,6 +126,12 @@
 			compatible = "arm,cortex-a72", "arm,armv8";
 			reg = <0x0 0x201>;
 			enable-method = "psci";
+			i-cache-size = <0xc000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&CLUSTER2_L2>;
 		};
 #endif
@@ -104,6 +140,12 @@
 			compatible = "arm,cortex-a72", "arm,armv8";
 			reg = <0x0 0x300>;
 			enable-method = "psci";
+			i-cache-size = <0xc000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&CLUSTER3_L2>;
 		};
 
@@ -112,23 +154,41 @@
 			compatible = "arm,cortex-a72", "arm,armv8";
 			reg = <0x0 0x301>;
 			enable-method = "psci";
+			i-cache-size = <0xc000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&CLUSTER3_L2>;
 		};
 
 		CLUSTER0_L2: l2-cache@0 {
 			compatible = "cache";
+			cache-size = <0x200000>;
+			cache-line-size = <64>;
+			cache-sets = <2048>;
 		};
 #if (ENABLE_IHOST12_CPUS == 1)
 		CLUSTER1_L2: l2-cache@100 {
 			compatible = "cache";
+			cache-size = <0x200000>;
+			cache-line-size = <64>;
+			cache-sets = <2048>;
 		};
 
 		CLUSTER2_L2: l2-cache@200 {
 			compatible = "cache";
+			cache-size = <0x200000>;
+			cache-line-size = <64>;
+			cache-sets = <2048>;
 		};
 #endif
 		CLUSTER3_L2: l2-cache@300 {
 			compatible = "cache";
+			cache-size = <0x200000>;
+			cache-line-size = <64>;
+			cache-sets = <2048>;
 		};
 	};
 
