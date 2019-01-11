@@ -20,6 +20,25 @@
 		status = "okay";
 	};
 
+	bt_reg0: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "bt-reg0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio_crmu 3 0>;
+		enable-active-high;
+	};
+
+	wlan_reg0: regulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan-rf-reg0";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio_crmu 2 0>;
+		enable-active-high;
+		regulator-always-on;
+	};
+
 	bluetooth {
 		compatible = "brcm,bt-rfkill";
 		brcm,rfkill-regulator = <&bt_reg0>;
@@ -71,25 +90,6 @@
 			linux,code = <KEY_O>;
 			gpios = <&gpio_west 49 0>;
 		};
-	};
-
-	bt_reg0: regulator@0 {
-		compatible = "regulator-fixed";
-		regulator-name = "bt-reg0";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio_crmu 3 0>;
-		enable-active-high;
-	};
-
-	wlan_reg0: regulator@1 {
-		compatible = "regulator-fixed";
-		regulator-name = "wlan-rf-reg0";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&gpio_crmu 2 0>;
-		enable-active-high;
-		regulator-always-on;
 	};
 };
 
