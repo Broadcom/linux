@@ -782,10 +782,11 @@ static int nvme_pci_setup_prps(struct nvme_dev *dev, phys_addr_t *mem_addr,
 			       u64 *prp2, u16 lbas)
 {
 	struct nvme_lpm_dev *lpm_dev = &dev->lpm_dev;
-	int page_size = dev->ctrl.page_size;
-	int offset = *mem_addr & (page_size - 1);
-	unsigned int xfer_length = lbas << lpm_dev->lba_shift;
-	int nprps, current_memmap, i;
+	unsigned int page_size = dev->ctrl.page_size;
+	unsigned int offset = *mem_addr & (page_size - 1);
+	int xfer_length = lbas << lpm_dev->lba_shift;
+	unsigned int nprps, i;
+	int current_memmap;
 	dma_addr_t *prp_list;
 	dma_addr_t prp_dma_addr;
 
