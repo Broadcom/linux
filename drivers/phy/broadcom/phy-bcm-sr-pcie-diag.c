@@ -91,6 +91,8 @@
 #define DSC_ERR_SHIFT			6
 #define DSC_ERR				BIT(DSC_ERR_SHIFT)
 
+#define DSC_SCRATCH			0xd00e
+
 #define DSC_E_CTRL			0xd040
 #define DSC_P1_THRESH_SEL_SHIFT		3
 #define DSC_P1_THRESH_SEL		BIT(DSC_P1_THRESH_SEL_SHIFT)
@@ -153,6 +155,11 @@
 #define UC_MICRO_MEM_SIZE_MASK		0xff
 #define UC_MICRO_CNT_MASK		0xf
 
+#define UC_DIAG_TIME_CTRL_OFFSET	0x0011
+#define UC_DIAG_ERR_CTRL_OFFSET		0x0012
+
+#define UC_DIAG_STATUS_OFFSET		0x0014
+#define UC_DIAG_RDY_MASK		0x8000
 #define UC_DIAG_RD_PTR_OFFSET		0x0016
 #define UC_DIAG_VAR_MASK		0xff
 #define UC_DIAG_WR_PTR_OFFSET		0x001c
@@ -179,6 +186,26 @@
 
 #define EYE_REF_MODE			11
 
+#define BER_MAX_SAMPLES			64
+#define BER_NR_MODES			4
+
+#define BER_MODE_POS			0
+#define BER_MODE_NEG			1
+#define BER_MODE_VERT			(0 << 1)
+#define BER_MODE_HORZ			(1 << 1)
+
+#define BITS_PER_NIBBLE			4
+#define NIBBLE_MASK			(BIT(BITS_PER_NIBBLE) - 1)
+#define BYTE_MASK			(BIT(BITS_PER_BYTE) - 1)
+
+#define BER_MAX_TIMER_CTRL		0x4
+#define BER_MAX_ERR_CTRL		0x6
+
+/* wait up to 30 seconds for BER extrapolation */
+#define BER_POLL_TIMEOUT_MS		30000
+
+#define BER_SIGNATURE			0x42455253
+
 enum pcie_modes {
 	PCIE_MODE0 = 0,
 	PCIE_MODE1,
@@ -202,6 +229,10 @@ enum uc_cmd {
 	UC_CMD_NULL = 0,
 	UC_CMD_UC_CTRL = 1,
 	UC_CMD_EN_DIAG = 5,
+	UC_CMD_CAPTURE_BER_START = 16,
+	UC_CMD_READ_DIAG_DATA_BYTE = 17,
+	UC_CMD_READ_DIAG_DATA_WORD = 18,
+	UC_CMD_CAPTURE_BER_END = 19,
 };
 
 /* UC control command */
@@ -323,6 +354,16 @@ static unsigned int phy_workaround_table[14] = {
 	/* Mode 13: 2x4(EP), 1x4(RC), 2x2(RC) */
 	0x00
 };
+
+static u32 ber_mode[BER_NR_MODES] = {
+	BER_MODE_HORZ | BER_MODE_NEG,
+	BER_MODE_HORZ | BER_MODE_POS,
+	BER_MODE_VERT | BER_MODE_NEG,
+	BER_MODE_VERT | BER_MODE_POS,
+};
+
+static u32 ber_time[BER_NR_MODES][BER_MAX_SAMPLES];
+static u32 ber_err[BER_NR_MODES][BER_MAX_SAMPLES];
 
 /* for eye scan stripe storage */
 static u32 stripe[MAX_EYE_Y][MAX_EYE_X];
@@ -448,7 +489,7 @@ static int workaround_needed_for_phy(struct pcie_prbs_dev *pd, int phy_num)
 	return 0;
 }
 
-static void uc_ram_write_8(struct pcie_prbs_dev *pd, u32 ram_addr, u8 data)
+static void uc_ram_write8(struct pcie_prbs_dev *pd, u32 ram_addr, u8 data)
 {
 	u32 paddr;
 	u16 val;
@@ -465,7 +506,7 @@ static void uc_ram_write_8(struct pcie_prbs_dev *pd, u32 ram_addr, u8 data)
 	pmi_write(pd, paddr, data);
 }
 
-static u8 uc_ram_read_8(struct pcie_prbs_dev *pd, u32 ram_addr)
+static u8 uc_ram_read8(struct pcie_prbs_dev *pd, u32 ram_addr)
 {
 	u32 paddr;
 	u16 val, lsw = 0;
@@ -482,6 +523,25 @@ static u8 uc_ram_read_8(struct pcie_prbs_dev *pd, u32 ram_addr)
 	pmi_read(pd, paddr, &lsw);
 
 	return (lsw & 0xff);
+}
+
+static u16 uc_ram_read16(struct pcie_prbs_dev *pd, u32 ram_addr)
+{
+	u32 paddr;
+	u16 val, lsw = 0;
+
+	paddr = pmi_addr(UC_A_AHB_CTRL0, pd->lane);
+	val = UC_RSIZE_16 << UC_RSIZE_SHIFT;
+	pmi_write(pd, paddr, val);
+
+	paddr = pmi_addr(UC_A_AHB_RADDR_MSW, pd->lane);
+	pmi_write(pd, paddr, ram_addr >> UC_WORD_SIZE);
+	paddr = pmi_addr(UC_A_AHB_RADDR_LSW, pd->lane);
+	pmi_write(pd, paddr, ram_addr & UC_WORD_MASK);
+	paddr = pmi_addr(UC_A_AHB_RDATA_LSW, pd->lane);
+	pmi_read(pd, paddr, &lsw);
+
+	return lsw;
 }
 
 static int uc_ram_read(struct pcie_prbs_dev *pd, u32 *buf, u32 ram_addr,
@@ -657,7 +717,7 @@ static int uc_get_info(struct pcie_prbs_dev *pd)
 	return 0;
 }
 
-static u8 uc_diag_var_read(struct pcie_prbs_dev *pd, u32 offset)
+static u8 uc_diag_var_read8(struct pcie_prbs_dev *pd, u32 offset)
 {
 	struct uc_info *info = &pd->info;
 	u32 addr;
@@ -665,10 +725,10 @@ static u8 uc_diag_var_read(struct pcie_prbs_dev *pd, u32 offset)
 	addr = info->lane_var_ram_base + (pd->lane * info->lane_var_ram_size) +
 	       offset;
 
-	return uc_ram_read_8(pd, addr);
+	return uc_ram_read8(pd, addr);
 }
 
-static void uc_diag_var_write(struct pcie_prbs_dev *pd, u32 offset, u8 data)
+static u16 uc_diag_var_read16(struct pcie_prbs_dev *pd, u32 offset)
 {
 	struct uc_info *info = &pd->info;
 	u32 addr;
@@ -676,22 +736,121 @@ static void uc_diag_var_write(struct pcie_prbs_dev *pd, u32 offset, u8 data)
 	addr = info->lane_var_ram_base + (pd->lane * info->lane_var_ram_size) +
 	       offset;
 
-	uc_ram_write_8(pd, addr, data);
+	return uc_ram_read16(pd, addr);
+}
+
+static void uc_diag_var_write8(struct pcie_prbs_dev *pd, u32 offset, u8 data)
+{
+	struct uc_info *info = &pd->info;
+	u32 addr;
+
+	addr = info->lane_var_ram_base + (pd->lane * info->lane_var_ram_size) +
+	       offset;
+
+	uc_ram_write8(pd, addr, data);
 }
 
 static u8 uc_diag_rd_ptr_read(struct pcie_prbs_dev *pd)
 {
-	return uc_diag_var_read(pd, UC_DIAG_RD_PTR_OFFSET);
+	return uc_diag_var_read8(pd, UC_DIAG_RD_PTR_OFFSET);
 }
 
 static void uc_diag_rd_ptr_write(struct pcie_prbs_dev *pd, u8 data)
 {
-	uc_diag_var_write(pd, UC_DIAG_RD_PTR_OFFSET, data);
+	uc_diag_var_write8(pd, UC_DIAG_RD_PTR_OFFSET, data);
 }
 
 static u8 uc_diag_wr_ptr_read(struct pcie_prbs_dev *pd)
 {
-	return uc_diag_var_read(pd, UC_DIAG_WR_PTR_OFFSET);
+	return uc_diag_var_read8(pd, UC_DIAG_WR_PTR_OFFSET);
+}
+
+static void uc_diag_core_var_write8(struct pcie_prbs_dev *pd, u32 offset,
+				    u8 data)
+{
+	struct uc_info *info = &pd->info;
+	u32 addr = info->core_var_ram_base + offset;
+
+	uc_ram_write8(pd, addr, data);
+}
+
+static u16 uc_diag_status_read(struct pcie_prbs_dev *pd)
+{
+	return uc_diag_var_read16(pd, UC_DIAG_STATUS_OFFSET);
+}
+
+static int uc_diag_poll_diag_done(struct pcie_prbs_dev *pd,
+				  unsigned long timeout_ms)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
+	u16 status;
+
+	do {
+		status = uc_diag_status_read(pd);
+		status &= UC_DIAG_RDY_MASK;
+		if (time_after(jiffies, timeout))
+			return -ETIMEDOUT;
+
+		cpu_relax();
+		cond_resched();
+	} while (!status);
+
+	return 0;
+}
+
+static u32 float12_to_u32(u8 byte, u8 multi)
+{
+	return ((u32)byte) << multi;
+}
+
+#define BER_NR_SAMPLES_PER_READ     3
+#define BER_NR_SAMPLES_READ_MASK    0xff
+static int uc_ber_read_scan_data(struct pcie_prbs_dev *pd,
+				 unsigned int data_idx)
+{
+	u16 i, sample_cnt, val;
+	u32 paddr;
+	u8 time_byte, time_multi, prbs_byte, prbs_multi;
+	int ret;
+
+	sample_cnt = uc_diag_status_read(pd);
+	if ((sample_cnt & UC_DIAG_RDY_MASK) != UC_DIAG_RDY_MASK) {
+		dev_err(pd->dev, "BER sample is not ready\n");
+		return -EFAULT;
+	}
+
+	memset(ber_time[data_idx], 0, sizeof(u32) * BER_MAX_SAMPLES);
+	memset(ber_err[data_idx], 0, sizeof(u32) * BER_MAX_SAMPLES);
+	sample_cnt = (sample_cnt & BER_NR_SAMPLES_READ_MASK) /
+		     BER_NR_SAMPLES_PER_READ;
+	for (i = 0; i < sample_cnt; i++) {
+		ret = uc_cmd_run(pd, UC_CMD_READ_DIAG_DATA_WORD, 0);
+		paddr = pmi_addr(DSC_SCRATCH, pd->lane);
+		pmi_read(pd, paddr, &val);
+
+		time_byte = (u8)(val >> BITS_PER_BYTE);
+		prbs_multi = (u8)(val & NIBBLE_MASK);
+		time_multi = (u8)val >> BITS_PER_NIBBLE;
+
+		ret = uc_cmd_run(pd, UC_CMD_READ_DIAG_DATA_BYTE, 0);
+		pmi_read(pd, paddr, &val);
+		prbs_byte = val & BYTE_MASK;
+
+		ber_time[data_idx][i] = float12_to_u32(time_byte, time_multi);
+		ber_err[data_idx][i] = float12_to_u32(prbs_byte, prbs_multi);
+	}
+
+	return 0;
+}
+
+static void uc_diag_max_time_ctrl(struct pcie_prbs_dev *pd, u8 time)
+{
+	uc_diag_core_var_write8(pd, UC_DIAG_TIME_CTRL_OFFSET, time);
+}
+
+static void uc_diag_max_err_ctrl(struct pcie_prbs_dev *pd, u8 err)
+{
+	uc_diag_core_var_write8(pd, UC_DIAG_ERR_CTRL_OFFSET, err);
 }
 
 #define UC_DIAG_POLL 1000
@@ -1674,6 +1833,134 @@ err:
 	return ret < 0 ? ret : count;
 }
 
+static ssize_t ber_store(struct device *dev, struct device_attribute *attr,
+			 const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *pd = platform_get_drvdata(pdev);
+	unsigned int i, phy, lane;
+	int ret = 0;
+	u32 pipemux;
+	enum uc_cmd_ctrl ctrl;
+
+	ret = sscanf(buf, "%u %u", &phy, &lane);
+	if (ret != 2)
+		return -EINVAL;
+
+	if (lane >= NR_LANES_PER_PHY)
+		return -EINVAL;
+
+	pipemux = pcie_pipemux_strap_read(pd);
+	if (pd->pcie_mode == PCIE_MODE_DEFAULT) {
+		pipemux = pcie_pipemux_strap_read(pd);
+		dev_info(dev, "PIPEMUX from strap 0x%x\n", pipemux);
+	} else if (pipemux != pd->pcie_mode) {
+		dev_info(dev, "Override PIPEMUX from 0x%x to 0x%x\n",
+			 pipemux, pd->pcie_mode);
+		pipemux = pd->pcie_mode;
+		writel(pipemux, pd->pcie_ss_base + PCIE_PIPEMUX_CFG_OFFSET);
+	}
+
+	if (!((phy_mask[pipemux][pd->slot_num]) & BIT(phy)))
+		return -EINVAL;
+
+	mutex_lock(&pd->test_lock);
+	pd->lane = lane;
+
+	connect_pcie_core_to_phy(pd, phy);
+	iproc_pcie_assert_reset(pd->paxb_base[pd->slot_num]);
+	iproc_pcie_release_reset(pd->paxb_base[pd->slot_num]);
+
+	/* populate uc information */
+	ret = uc_get_info(pd);
+	if (ret) {
+		dev_err(dev, "unable to get uc info\n");
+		goto err;
+	}
+
+	/* check if RX is locked */
+	if (uc_rx_lock(pd))
+		ctrl = UC_CMD_CTRL_STOP_GRACEFULLY;
+	else
+		ctrl = UC_CMD_CTRL_STOP_IMMEDIATE;
+
+	/* stop uc before diag test */
+	ret = uc_cmd_run(pd, UC_CMD_UC_CTRL, ctrl);
+	if (ret) {
+		dev_err(dev, "unable to stop uc\n");
+		goto err;
+	}
+
+	pr_info("\nTrying to extrapolate for BER at 1e-12\n");
+	pr_info("This may take several minutes...\n");
+
+	for (i = 0; i < BER_NR_MODES; i++) {
+		pr_info("BER mode 0x%x\n", ber_mode[i]);
+
+		/* configure BER time and error parameters */
+		uc_diag_max_time_ctrl(pd, BER_MAX_TIMER_CTRL);
+		uc_diag_max_err_ctrl(pd, BER_MAX_ERR_CTRL);
+
+		/* start BER test */
+		ret = uc_cmd_run(pd, UC_CMD_CAPTURE_BER_START, ber_mode[i]);
+		if (ret) {
+			dev_err(dev, "unable to start BER\n");
+			goto err_resume_uc;
+		}
+
+		/* wait until BER test is done */
+		ret = uc_diag_poll_diag_done(pd, BER_POLL_TIMEOUT_MS);
+		if (ret) {
+			dev_err(dev, "diag poll failed\n");
+			goto err_resume_uc;
+		}
+
+		/* read BER results */
+		ret = uc_ber_read_scan_data(pd, i);
+		if (ret) {
+			dev_err(dev, "unable to read BER data\n");
+			goto err_resume_uc;
+		}
+
+		/* stop BER test */
+		ret = uc_cmd_run(pd, UC_CMD_CAPTURE_BER_END, 0x0);
+		if (ret) {
+			dev_err(dev, "unable to start BER\n");
+			goto err_resume_uc;
+		}
+	}
+
+	pr_info("BER extrapolation done\n");
+
+err_resume_uc:
+	uc_cmd_run(pd, UC_CMD_UC_CTRL, UC_CMD_CTRL_RESUME);
+err:
+	mutex_unlock(&pd->test_lock);
+	return ret < 0 ? ret : count;
+}
+
+static ssize_t ber_show(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *pd = platform_get_drvdata(pdev);
+	ssize_t count = 0;
+	unsigned int i, j;
+
+	mutex_lock(&pd->test_lock);
+	for (i = 0; i < BER_NR_MODES; i++) {
+		count += sprintf(&buf[count], "%u ", BER_SIGNATURE);
+		count += sprintf(&buf[count], "%u ", ber_mode[i]);
+		for (j = 0; j < BER_MAX_SAMPLES; j++)
+			count += sprintf(&buf[count], "%u ", ber_time[i][j]);
+		for (j = 0; j < BER_MAX_SAMPLES; j++)
+			count += sprintf(&buf[count], "%u ", ber_err[i][j]);
+	}
+	mutex_unlock(&pd->test_lock);
+
+	return count;
+}
+
 static DEVICE_ATTR(test_retries, 0644,		/* S_IRUGO | S_IWUSR */
 		   pcie_prbs_retries_show, pcie_prbs_retries_store);
 
@@ -1698,6 +1985,7 @@ static DEVICE_ATTR_WO(pmi_write);
 static DEVICE_ATTR_WO(uc_ram);
 static DEVICE_ATTR_WO(reset);
 static DEVICE_ATTR_WO(eye);
+static DEVICE_ATTR_RW(ber);
 
 static int stingray_pcie_phy_probe(struct platform_device *pdev)
 {
@@ -1802,6 +2090,9 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	ret = device_create_file(dev, &dev_attr_eye);
 	if (ret < 0)
 		goto destroy_reset;
+	ret = device_create_file(dev, &dev_attr_ber);
+	if (ret < 0)
+		goto destroy_eye;
 
 	mutex_init(&pd->test_lock);
 	pd->test_retries = 0;
@@ -1812,6 +2103,8 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	dev_info(dev, "%d PCIe PHYs registered\n", pd->phy_count);
 	return 0;
 
+destroy_eye:
+	device_remove_file(dev, &dev_attr_eye);
 destroy_reset:
 	device_remove_file(dev, &dev_attr_reset);
 destroy_uc_ram:
