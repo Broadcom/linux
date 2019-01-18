@@ -314,11 +314,9 @@ static void ep_afe_powerdown(struct snd_soc_component *component)
 	audioh_update_bits(component, AUDIOH_EP_DAC_CTL_1, mask, mask);
 }
 
-static void ep_afe_enable(struct snd_soc_component *component)
+static void ep_afe_init(struct snd_soc_component *component)
 {
 	u32 mask;
-
-	ep_afe_powerup(component);
 
 	/*
 	 * Disable during configuration
@@ -797,6 +795,14 @@ static const struct snd_kcontrol_new micpath3_mux_controls =
 static const struct snd_kcontrol_new micpath4_mux_controls =
 	SOC_DAPM_ENUM("Route", audioh_micpath_enum[3]);
 
+/* Define demux for selecting the EP output path*/
+static const char * const mono_ep_path_texts[] = {
+	"None", "Handset", "Headset"
+};
+static SOC_ENUM_SINGLE_VIRT_DECL(ep_path_enum, mono_ep_path_texts);
+
+static const struct snd_kcontrol_new ep_path_ctrl =
+	SOC_DAPM_ENUM("EP Path Select", ep_path_enum);
 
 /* Sidetone */
 static const char * const audioh_sidetone_src[] = {
@@ -844,6 +850,49 @@ static int dmic_3and4_clk_set(struct snd_soc_dapm_widget *w,
 		DMIC34_CLK_SELECT_MASK,
 		(DMIC_CLK_SELECT_3250 << DMIC34_CLK_SELECT));
 
+	return 0;
+}
+
+static int ep_dac1_ev(struct snd_soc_dapm_widget *w,
+		      struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_component *component;
+
+	component = snd_soc_dapm_to_component(w->dapm);
+
+	/* Handle the two power events we care about, ignore others */
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		ep_afe_powerup(component);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		ep_afe_powerdown(component);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int ep_dac2_ev(struct snd_soc_dapm_widget *w,
+		      struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_component *component;
+
+	component = snd_soc_dapm_to_component(w->dapm);
+
+	/* Handle the two power events we care about, ignore others */
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		mono_voip_headset_powerup(component);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		mono_voip_headset_powerdown(component);
+		break;
+	default:
+		break;
+	}
 	return 0;
 }
 
@@ -935,10 +984,17 @@ static const struct snd_soc_dapm_widget audioh_dapm_widgets[] = {
 	SND_SOC_DAPM_DAC("Headset DAC Left", NULL, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_DAC("Headset DAC Right", NULL, SND_SOC_NOPM, 0, 0),
 
-	SND_SOC_DAPM_DAC("Earpiece DAC1", NULL, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_DAC("Earpiece DAC2", NULL, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_DAC_E("Earpiece DAC1", NULL, SND_SOC_NOPM, 0, 0,
+			   ep_dac1_ev,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_DAC_E("Earpiece DAC2", NULL, SND_SOC_NOPM, 0, 0,
+			   ep_dac2_ev,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_DAC("IHF DAC1", NULL, SND_SOC_NOPM, 0, 0),
+
+	SND_SOC_DAPM_DEMUX("EP Output Select", SND_SOC_NOPM, 0, 0,
+			   &ep_path_ctrl),
 
 	/* Analog outputs */
 	SND_SOC_DAPM_OUTPUT("HS_OUT_L"),
@@ -961,12 +1017,12 @@ static const struct snd_soc_dapm_route audioh_dapm_routes[] = {
 	{"LSPK_OUT", NULL, "IHF DAC1"},
 	{"IHF DAC1", NULL, "TDM_PLAY_Slot2"},
 
-	{"EP_OUT", NULL, "Earpiece DAC1"},
+	{"EP_OUT",  NULL, "Earpiece DAC1"},
 	{"EP_OUT2", NULL, "Earpiece DAC2"},
-	{"Earpiece DAC1", NULL, "TDM_PLAY_Slot3"},
-	{"Earpiece DAC2", NULL, "TDM_PLAY_Slot3"},
-	{"Earpiece DAC1", NULL, "FIFO_PLAY_Slot3"},
-	{"Earpiece DAC2", NULL, "FIFO_PLAY_Slot3"},
+	{"Earpiece DAC1", "Handset", "EP Output Select"},
+	{"Earpiece DAC2", "Headset", "EP Output Select"},
+	{"EP Output Select", NULL, "TDM_PLAY_Slot3"},
+	{"EP Output Select", NULL, "FIFO_PLAY_Slot3"},
 
 	/* -----  Sidetone Path  ------------------------------------------ */
 	{"Sidetone Mux", "Capture1", "Capture1 Mux"},
@@ -1035,66 +1091,6 @@ static const struct snd_soc_dapm_route audioh_dapm_routes[] = {
 	{ "DMIC3", NULL, "DMIC_3_4 Clock" },
 	{ "DMIC4", NULL, "DMIC_3_4 Clock" },
 };
-
-static int mono_headset_enable_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *component;
-	u32 val;
-
-	component = snd_soc_kcontrol_component(kcontrol);
-	val = snd_soc_component_read32(component, AUDIOH_EP_DAC2_CTL_1);
-	if (val & BIT(EP_DAC2_CTL_1_POWERDOWN))
-		ucontrol->value.integer.value[0] = 0;
-	else
-		ucontrol->value.integer.value[0] = 1;
-
-	return 0;
-}
-
-static int mono_headset_enable_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *component;
-
-	component = snd_soc_kcontrol_component(kcontrol);
-	if (ucontrol->value.integer.value[0])
-		mono_voip_headset_powerup(component);
-	else
-		mono_voip_headset_powerdown(component);
-
-	return 0;
-}
-
-static int mono_earpiece_enable_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *component;
-	u32 val;
-
-	component = snd_soc_kcontrol_component(kcontrol);
-	val = snd_soc_component_read32(component, AUDIOH_EP_DAC_CTL_1);
-	if (val & BIT(EP_DAC_CTL_1_POWERDOWN))
-		ucontrol->value.integer.value[0] = 0;
-	else
-		ucontrol->value.integer.value[0] = 1;
-
-	return 0;
-}
-
-static int mono_earpiece_enable_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *component;
-
-	component = snd_soc_kcontrol_component(kcontrol);
-	if (ucontrol->value.integer.value[0])
-		ep_afe_powerup(component);
-	else
-		ep_afe_powerdown(component);
-
-	return 0;
-}
 
 #define TONEGEN_SAMPLE_RATE  48000
 /*
@@ -1277,11 +1273,6 @@ static const struct snd_kcontrol_new audioh_control[] = {
 	SOC_SINGLE("EP Mute Switch",
 			AUDIOH_DAC_CTL, AUDIOH_DAC_CTL_EP_MUTE, 1, 0),
 
-	SOC_SINGLE_EXT("Mono Headset Enable", 0, 0, 1, 0,
-			mono_headset_enable_get, mono_headset_enable_put),
-	SOC_SINGLE_EXT("Mono Earpiece Enable", 0, 0, 1, 0,
-			mono_earpiece_enable_get, mono_earpiece_enable_put),
-
 	SOC_SINGLE("Stereo Headset Sidetone Switch",
 		   AUDIOH_DAC_CTL, AUDIOH_DAC_CTL_HS_SIDETONE_EN, 1, 0),
 	SOC_SINGLE("IHF Sidetone Switch",
@@ -1398,7 +1389,7 @@ static int audioh_codec_probe(struct snd_soc_component *component)
 	analog_global_init(component);
 	ihf_afe_enable(component);
 	headset_afe_enable(component);
-	ep_afe_enable(component);
+	ep_afe_init(component);
 	analog_mic_enable(component);
 
 	return 0;
