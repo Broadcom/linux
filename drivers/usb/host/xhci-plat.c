@@ -14,7 +14,6 @@
 #include <linux/pci.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
-#include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/usb/phy.h>
 #include <linux/slab.h>
@@ -93,53 +92,6 @@ static int xhci_plat_start(struct usb_hcd *hcd)
 	return xhci_run(hcd);
 }
 
-static int xhci_platform_phy_on(struct usb_hcd *hcd)
-{
-	struct xhci_plat_priv *priv = hcd_to_xhci_priv(hcd);
-	int ret, phy_num;
-
-	if (hcd->usb_phy) {
-		ret = usb_phy_init(hcd->usb_phy);
-		if (ret)
-			return ret;
-		hcd->skip_phy_initialization = 1;
-	}
-	for (phy_num = 0; phy_num < priv->num_phys; phy_num++) {
-		ret = phy_init(priv->phys[phy_num]);
-		if (ret)
-			goto err_exit_phy;
-		ret = phy_power_on(priv->phys[phy_num]);
-		if (ret) {
-			phy_exit(priv->phys[phy_num]);
-			goto err_exit_phy;
-		}
-	}
-
-	return 0;
-
-err_exit_phy:
-	while (--phy_num >= 0) {
-		phy_power_off(priv->phys[phy_num]);
-		phy_exit(priv->phys[phy_num]);
-	}
-
-	return ret;
-}
-
-static void xhci_platform_phy_off(struct usb_hcd *hcd)
-{
-	struct xhci_plat_priv *priv = hcd_to_xhci_priv(hcd);
-	int phy_num;
-
-	if (hcd->usb_phy)
-		usb_phy_shutdown(hcd->usb_phy);
-
-	for (phy_num = 0; phy_num < priv->num_phys; phy_num++) {
-		phy_power_off(priv->phys[phy_num]);
-		phy_exit(priv->phys[phy_num]);
-	}
-}
-
 #ifdef CONFIG_OF
 static const struct xhci_plat_priv xhci_plat_marvell_armada = {
 	.init_quirk = xhci_mvebu_mbus_init_quirk,
@@ -208,8 +160,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	struct clk              *clk;
 	struct clk              *reg_clk;
 	int			ret;
-	struct xhci_plat_priv   *priv;
-	int			irq, phy_num;
+	int			irq;
 
 	if (usb_disabled())
 		return -ENODEV;
@@ -301,10 +252,10 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	}
 
 	xhci = hcd_to_xhci(hcd);
-	priv = hcd_to_xhci_priv(hcd);
 	match = of_match_node(usb_xhci_of_match, pdev->dev.of_node);
 	if (match) {
 		const struct xhci_plat_priv *priv_match = match->data;
+		struct xhci_plat_priv *priv = hcd_to_xhci_priv(hcd);
 
 		/* Just copy data for now */
 		if (priv_match)
@@ -351,31 +302,11 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		if (ret == -EPROBE_DEFER)
 			goto put_usb3_hcd;
 		hcd->usb_phy = NULL;
-	}
-
-	priv->num_phys = of_count_phandle_with_args(pdev->dev.of_node,
-			"phys", "#phy-cells");
-
-	if (priv->num_phys > 0) {
-		priv->phys = devm_kcalloc(&pdev->dev, priv->num_phys,
-				sizeof(struct phy *), GFP_KERNEL);
-		if (!priv->phys)
-			return -ENOMEM;
-	} else
-		priv->num_phys = 0;
-
-	for (phy_num = 0; phy_num < priv->num_phys; phy_num++) {
-		priv->phys[phy_num] = devm_of_phy_get_by_index(
-				&pdev->dev, pdev->dev.of_node, phy_num);
-		if (IS_ERR(priv->phys[phy_num])) {
-			ret = PTR_ERR(priv->phys[phy_num]);
+	} else {
+		ret = usb_phy_init(hcd->usb_phy);
+		if (ret)
 			goto put_usb3_hcd;
-		}
 	}
-
-	ret = xhci_platform_phy_on(hcd);
-	if (ret < 0)
-		goto put_usb3_hcd;
 
 	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (ret)
@@ -404,7 +335,7 @@ dealloc_usb2_hcd:
 	usb_remove_hcd(hcd);
 
 disable_usb_phy:
-	xhci_platform_phy_off(hcd);
+	usb_phy_shutdown(hcd->usb_phy);
 
 put_usb3_hcd:
 	usb_put_hcd(xhci->shared_hcd);
@@ -435,7 +366,7 @@ static int xhci_plat_remove(struct platform_device *dev)
 	xhci->xhc_state |= XHCI_STATE_REMOVING;
 
 	usb_remove_hcd(xhci->shared_hcd);
-	xhci_platform_phy_off(hcd);
+	usb_phy_shutdown(hcd->usb_phy);
 
 	usb_remove_hcd(hcd);
 	usb_put_hcd(xhci->shared_hcd);
