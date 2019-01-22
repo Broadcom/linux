@@ -39,16 +39,16 @@
 	spiflash: m25p80@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "m25p80";
-		reg = <0x0>;
-		spi-max-frequency = <12500000>;
+		compatible = "n25q512a";
+		spi-max-frequency = <30000000>;
 		m25p,fast-read;
+		reg = <0>;
 		spi-cpol;
 		spi-cpha;
 
 		partition@0 {
 			label = "boot";
-			reg = <0x00000000 0x100000>;
+			reg = <0x00000000 0x4000000>;
 		};
 	};
 };
