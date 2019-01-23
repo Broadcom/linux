@@ -45,6 +45,7 @@
 		reg = <0>;
 		spi-cpol;
 		spi-cpha;
+		pl022,com-mode = <0>;
 
 		partition@0 {
 			label = "boot";
@@ -61,5 +62,6 @@
 		compatible = "brcm,msr";
 		spi-max-frequency = <20000000>;
 		reg = <0>;
+		pl022,com-mode = <0>;
 	};
 };
