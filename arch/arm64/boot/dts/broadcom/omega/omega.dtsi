@@ -267,6 +267,15 @@
 			reg = <0x00600a00 0x140>;
 		};
 
+		dte: dte@601700 {
+			compatible = "brcm,omega-dte", "brcm,iproc-dte";
+
+			reg = <0x601700 0x100>, <0x601600 0x24>;
+			reg-names = "dte_primary", "dte_nco";
+
+			status = "disabled";
+		};
+
 		eth0: ethernet@28241000 {
 			compatible = "brcm,amac-v2", "brcm,amac";
 			reg = <0x28241000 0x1000>,

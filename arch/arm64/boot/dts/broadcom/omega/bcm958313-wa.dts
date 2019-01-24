@@ -358,3 +358,7 @@
 		brcm,pm-regulator-off-in-off-state;
 	};
 };
+
+&dte {
+	status = "okay";
+};
