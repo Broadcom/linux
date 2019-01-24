@@ -5177,8 +5177,6 @@ void xhci_init_driver(struct hc_driver *drv,
 			drv->reset = over->reset;
 		if (over->start)
 			drv->start = over->start;
-		if (over->port_power)
-			drv->port_power = over->port_power;
 	}
 }
 EXPORT_SYMBOL_GPL(xhci_init_driver);
