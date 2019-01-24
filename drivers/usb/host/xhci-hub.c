@@ -1370,8 +1370,8 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 					ports[wIndex]->addr, temp);
 			if ((wValue == USB_PORT_FEAT_C_CONNECTION) &&
 					!(temp & PORT_CONNECT) &&
-					(hcd->speed < HCD_USB3) &&
-					(hcd->driver->port_power)) {
+					(hcd->speed < HCD_USB3)) {
+
 				hcd->driver->port_power(hcd,
 							wIndex +
 							xhci->usb3_rhub.num_ports,
