@@ -292,11 +292,11 @@ struct pcie_prbs_dev {
  * Following table gives information about PHYs are wired to which
  * core in given pcie RC mode.
  */
-static unsigned int phy_mask[14][8] = {
+static unsigned int phy_mask[][8] = {
 	/* Mode 0: 1x16(EP) */
 	[PCIE_MODE0] = {0x00},
-	/* Mode 1: 2x8 (EP) */
-	[PCIE_MODE1] = {0x00},
+	/* Mode 1: 1x8 (EP), 1x8 (RC) */
+	[PCIE_MODE1] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf0},
 	/* Mode 2: 4x4 (EP) */
 	[PCIE_MODE2] = {0x00},
 	/* Mode 3: 2x8 (RC) */
@@ -324,11 +324,11 @@ static unsigned int phy_mask[14][8] = {
 };
 
 /* Following table indicates the PHYs requiring work-around */
-static unsigned int phy_workaround_table[14] = {
+static unsigned int phy_workaround_table[] = {
 	/* Mode 0: 1x16(EP) */
 	0x00,
-	/* Mode 1: 2x8 (EP) */
-	0x00,
+	/* Mode 1: 1x8 (EP), 1x8 (RC) */
+	0x80,
 	/* Mode 2: 4x4 (EP) */
 	0x00,
 	/* Mode 3: 2x8 (RC) */
