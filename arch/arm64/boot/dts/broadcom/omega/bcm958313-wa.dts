@@ -126,6 +126,7 @@
 		gpio = <&gpio_crmu 0 0>;
 		enable-active-high;
 		regulator-always-on;
+		regulator-boot-on;
 		startup-delay-us = <1000>;
 		status = "okay";
 	};
