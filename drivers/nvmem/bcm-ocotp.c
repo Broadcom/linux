@@ -66,28 +66,22 @@ struct otpc_map {
 	u16 data_w_offset[4];
 };
 
-enum otpc_map_type {
-	OTP_MAP_V1,
-	OTP_MAP_V2,
+static struct otpc_map otp_map = {
+	.otpc_row_size = 1,
+	.data_r_offset = {0x10},
+	.data_w_offset = {0x2c},
 };
 
-static struct otpc_map otp_map[] = {
-	[OTP_MAP_V1] = {
-		.otpc_row_size = 1,
-		.data_r_offset = {0x10},
-		.data_w_offset = {0x2c},
-	},
-	[OTP_MAP_V2] = {
-		.otpc_row_size = 2,
-		.data_r_offset = {0x10, 0x5c},
-		.data_w_offset = {0x2c, 0x64},
-	}
+static struct otpc_map otp_map_v2 = {
+	.otpc_row_size = 2,
+	.data_r_offset = {0x10, 0x5c},
+	.data_w_offset = {0x2c, 0x64},
 };
 
 struct otpc_priv {
-	struct device       *dev;
-	void __iomem        *base;
-	struct otpc_map     *map;
+	struct device *dev;
+	void __iomem *base;
+	const struct otpc_map *map;
 	struct nvmem_config *config;
 };
 
@@ -244,15 +238,15 @@ static struct nvmem_config bcm_otpc_nvmem_config = {
 };
 
 static const struct of_device_id bcm_otpc_dt_ids[] = {
-	{ .compatible = "brcm,ocotp", .data = (void *)OTP_MAP_V1 },
-	{ .compatible = "brcm,ocotp-v2", .data = (void *)OTP_MAP_V2 },
+	{ .compatible = "brcm,ocotp", .data = &otp_map },
+	{ .compatible = "brcm,ocotp-v2", .data = &otp_map_v2 },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, bcm_otpc_dt_ids);
 
 static const struct acpi_device_id bcm_otpc_acpi_ids[] = {
-	{ .id = "BRCM0700", .driver_data = OTP_MAP_V1 },
-	{ .id = "BRCM0701", .driver_data = OTP_MAP_V2 },
+	{ .id = "BRCM0700", .driver_data = (kernel_ulong_t)&otp_map },
+	{ .id = "BRCM0701", .driver_data = (kernel_ulong_t)&otp_map_v2 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(acpi, bcm_otpc_acpi_ids);
@@ -260,35 +254,19 @@ MODULE_DEVICE_TABLE(acpi, bcm_otpc_acpi_ids);
 static int bcm_otpc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	const struct of_device_id *match;
-	const struct acpi_device_id *acpi_id;
 	struct resource *res;
 	struct otpc_priv *priv;
 	struct nvmem_device *nvmem;
 	int err;
 	u32 num_words;
-	enum otpc_map_type map_type;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
-	if (dev->of_node) {
-		match = of_match_device(bcm_otpc_dt_ids, dev);
-		if (match)
-			map_type = (enum otpc_map_type)match->data;
-		else
-			return -ENODEV;
-	} else if (has_acpi_companion(dev)) {
-		acpi_id = acpi_match_device(bcm_otpc_acpi_ids, dev);
-		if (acpi_id)
-			map_type = (enum otpc_map_type)acpi_id->driver_data;
-		else
-			return -ENODEV;
-	} else
+	priv->map = device_get_match_data(dev);
+	if (!priv->map)
 		return -ENODEV;
-
-	priv->map = &otp_map[map_type];
 
 	/* Get OTP base address register. */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -318,7 +296,7 @@ static int bcm_otpc_probe(struct platform_device *pdev)
 	bcm_otpc_nvmem_config.dev = dev;
 	bcm_otpc_nvmem_config.priv = priv;
 
-	if (map_type == OTP_MAP_V2) {
+	if (priv->map == &otp_map_v2) {
 		bcm_otpc_nvmem_config.word_size = 8;
 		bcm_otpc_nvmem_config.stride = 8;
 	}
