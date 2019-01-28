@@ -33,6 +33,11 @@
 #define NICPM_IOMUX_CTRL_SPD_100M	1
 #define NICPM_IOMUX_CTRL_SPD_1000M	2
 
+/* Device specific expandable data structure */
+struct bgmac_data {
+	u32 feature_flags;
+};
+
 static char *ethaddr;
 module_param(ethaddr, charp, 0644);	/* S_IRUGO | S_IWUSR */
 MODULE_PARM_DESC(ethaddr, "MAC address");
@@ -201,6 +206,7 @@ static int bgmac_probe(struct platform_device *pdev)
 	struct bgmac *bgmac;
 	struct resource *regs;
 	const u8 *mac_addr;
+	const struct bgmac_data *data;
 
 	bgmac = bgmac_alloc(&pdev->dev);
 	if (!bgmac)
@@ -208,15 +214,11 @@ static int bgmac_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, bgmac);
 
-	/* Set the features of the 4707 family */
-	bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
-	bgmac->feature_flags |= BGMAC_FEAT_NO_RESET;
-	bgmac->feature_flags |= BGMAC_FEAT_CMDCFG_SR_REV4;
-	bgmac->feature_flags |= BGMAC_FEAT_TX_MASK_SETUP;
-	bgmac->feature_flags |= BGMAC_FEAT_RX_MASK_SETUP;
-	bgmac->feature_flags |= BGMAC_FEAT_IDM_MASK;
-	if (of_device_is_compatible(np, "brcm,amac-v2"))
-		bgmac->feature_flags |= BGMAC_FEAT_WOL;
+	data = device_get_match_data(&pdev->dev);
+	if (data)
+		bgmac->feature_flags =  data->feature_flags;
+	else
+		dev_warn(&pdev->dev, "device specific feature not available\n");
 
 	bgmac->dev = &pdev->dev;
 	bgmac->dma_dev = &pdev->dev;
@@ -316,11 +318,30 @@ static const struct dev_pm_ops bgmac_pm_ops = {
 #define BGMAC_PM_OPS NULL
 #endif /* CONFIG_PM */
 
+static const struct bgmac_data bgmac_amac_default_data = {
+	.feature_flags = BGMAC_FEAT_CLKCTLST |
+			 BGMAC_FEAT_CMDCFG_SR_REV4 |
+			 BGMAC_FEAT_IDM_MASK,
+			 BGMAC_FEAT_NO_RESET |
+			 BGMAC_FEAT_RX_MASK_SETUP |
+			 BGMAC_FEAT_TX_MASK_SETUP,
+};
+
+static const struct bgmac_data bgmac_amac_v2_data = {
+	.feature_flags = BGMAC_FEAT_CLKCTLST |
+			 BGMAC_FEAT_CMDCFG_SR_REV4 |
+			 BGMAC_FEAT_IDM_MASK |
+			 BGMAC_FEAT_NO_RESET |
+			 BGMAC_FEAT_RX_MASK_SETUP |
+			 BGMAC_FEAT_TX_MASK_SETUP |
+			 BGMAC_FEAT_WOL,
+};
+
 static const struct of_device_id bgmac_of_enet_match[] = {
-	{.compatible = "brcm,amac",},
-	{.compatible = "brcm,amac-v2",},
-	{.compatible = "brcm,nsp-amac",},
-	{.compatible = "brcm,ns2-amac",},
+	{.compatible = "brcm,amac", .data = &bgmac_amac_default_data},
+	{.compatible = "brcm,amac-v2", .data = &bgmac_amac_v2_data},
+	{.compatible = "brcm,nsp-amac", .data = &bgmac_amac_default_data},
+	{.compatible = "brcm,ns2-amac", .data = &bgmac_amac_default_data},
 	{},
 };
 
