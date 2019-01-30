@@ -83,19 +83,7 @@
 			reg = <0x0 0x8f101000 0x0 0x1000>;
 			no-map;
 		};
-#if (ENABLE_PAXB_IOMMU == 1)
-		cmem_region: cmem_region@90000000 {
-			reg = <0x0 0x90000000 0x0 0x1000000>;
-			no-map;
-		};
-#endif
 	};
-#if (ENABLE_PAXB_IOMMU == 1)
-	cmem: cmem@0 {
-		compatible = "mmap-cmem";
-		memory-region = <&cmem_region>;
-	};
-#endif
 
 	nvme_lpm: nvme_lpm {
 		compatible = "simple-bus";
