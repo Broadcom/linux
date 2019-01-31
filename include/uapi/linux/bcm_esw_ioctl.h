@@ -14,7 +14,7 @@ struct esw_reg_data {
 	/* Switch access using 64-bit only */
 	uint64_t data;
 	/* Actually register length, in bits */
-	size_t len;
+	uint8_t len;
 	uint8_t page;
 	uint8_t offset;
 };
