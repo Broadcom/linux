@@ -36,6 +36,14 @@ config BCM2835_TIMER
 	help
 	  Enables the support for the BCM2835 timer driver.
 
+config BCM_CYGNUS_CRMU_TIMER
+	bool "Broadcom Cygnus CRMU Timer support"
+	depends on (ARCH_BCM_CYGNUS && BCM_IPROC_MBOX) || COMPILE_TEST
+	default ARCH_BCM_CYGNUS
+	help
+	  Persistent timer support for Cygnus. This driver requires the iProc
+	  mailbox controller to communicate with the Cortex-M0 MCU processor.
+
 config BCM_KONA_TIMER
 	bool "BCM mobile timer driver" if COMPILE_TEST
 	select CLKSRC_MMIO
@@ -619,13 +627,5 @@ config RISCV_TIMER
 	  This enables the per-hart timer built into all RISC-V systems, which
 	  is accessed via both the SBI and the rdcycle instruction.  This is
 	  required for all RISC-V systems.
-
-config BCM_CYGNUS_CRMU_TIMER
-	bool "Broadcom Cygnus CRMU Timer support"
-	depends on (ARCH_BCM_CYGNUS && BCM_IPROC_MBOX) || COMPILE_TEST
-	default ARCH_BCM_CYGNUS
-	help
-	  Persistent timer support for Cygnus. This driver requires the iProc
-	  mailbox controller to communicate with the Cortex-M0 MCU processor.
 
 endmenu
