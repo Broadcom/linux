@@ -344,12 +344,6 @@
 
 		#include "stingray-clock.dtsi"
 
-		swreg: swreg@1c028 {
-			compatible = "brcm,swreg";
-			reg = <0x0001c028 0x8>;
-			status = "disabled";
-		};
-
 		otp: otp@1c400 {
 			compatible = "brcm,ocotp-v2";
 			reg = <0x0001c400 0x68>;
