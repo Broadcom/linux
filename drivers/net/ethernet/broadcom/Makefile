@@ -15,5 +15,4 @@ obj-$(CONFIG_BGMAC) += bgmac.o
 obj-$(CONFIG_BGMAC_BCMA) += bgmac-bcma.o bgmac-bcma-mdio.o
 obj-$(CONFIG_BGMAC_PLATFORM) += bgmac-platform.o
 obj-$(CONFIG_SYSTEMPORT) += bcmsysport.o
-obj-$(CONFIG_NET_BCM_AMAC) += amac/
 obj-$(CONFIG_BNXT) += bnxt/
