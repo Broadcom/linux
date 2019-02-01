@@ -174,8 +174,15 @@
 	status = "okay";
 };
 
-&enet {
+&mdio {
 	status = "okay";
+};
+
+&eth0 {
+	status = "okay";
+	brcm,amac-switch-bypass;
+	phy-handle = <&gphy0>;
+	phy-mode = "gmii";
 };
 
 &nand {
