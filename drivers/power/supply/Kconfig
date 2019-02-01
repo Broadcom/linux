@@ -645,14 +645,4 @@ config CHARGER_CROS_USBPD
 	  what is connected to USB PD ports from the EC and converts
 	  that into power_supply properties.
 
-config BCM_SWREG
-	tristate "BCM SWREG support"
-	depends on ARCH_BCM_IPROC || COMPILE_TEST
-	default ARCH_BCM_IPROC
-	help
-	  Enable support for configure dynamic voltages in iHost and VDDC
-	  using switching regulators.
-
-	  If unsure, say N.
-
 endif # POWER_SUPPLY
