@@ -59,7 +59,7 @@
 	num-cs = <1>;
 
 	spidev@0 {
-		compatible = "brcm,msr";
+		compatible = "spidev";
 		spi-max-frequency = <20000000>;
 		reg = <0>;
 		pl022,com-mode = <0>;
