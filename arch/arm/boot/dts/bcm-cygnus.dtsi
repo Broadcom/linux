@@ -233,19 +233,6 @@
 				function = "spi2";
 				groups = "spi2_grp";
 			};
-
-			smartcard_0: smartcard_0 {
-				function = "smart_card0";
-				groups = "smart_card0_grp",
-				"smart_card0_fcb_grp";
-			};
-
-			smartcard_1: smartcard_1 {
-				function = "smart_card1";
-				groups = "smart_card1_grp",
-				"smart_card1_fcb_grp";
-			};
-
 		};
 
 		mailbox: mailbox@3024024 {
@@ -659,45 +646,6 @@
 				<&asiu_clks BCM_CYGNUS_ASIU_CAM_CLK>;
 			clock-names = "cam-clock","cam-gate-clk";
 			clock-frequency = <24576000>;
-			status = "disabled";
-		};
-
-		smartcard_syscon: smartcard_syscon@180a3200 {
-			compatible = "brcm,smart-card-syscon", "syscon";
-			reg = <0x180a3200 0x28>;
-		};
-
-		smartcard0: smartcard@180a3000 {
-			compatible = "brcm,smart-card";
-			reg = <0x180a3000 0x100>;
-			reg-names = "sc-uart-cmd1";
-			sc_syscon = <&smartcard_syscon>;
-			interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "sci-irq";
-			clocks = <&lcpll0 BCM_CYGNUS_LCPLL0_SMART_CARD_CLK>,
-				<&asiu_clks BCM_CYGNUS_ASIU_SMARTCARD_CLK>;
-			clock-names = "smartcard_clk", "smartcard_gate_clk";
-			pinctrl-0 = <&smartcard_0>;
-			sci-id = <0>;
-			/*nxp-coupler 0 for NXP8024, 1 for NXP8026(with i2c1) */
-			nxp-coupler = <0>;
-			status = "disabled";
-		};
-
-		smartcard1: smartcard@180a3100 {
-			compatible = "brcm,smart-card";
-			reg = <0x180a3100 0x100>;
-			reg-names = "sc-uart-cmd1";
-			sc_syscon = <&smartcard_syscon>;
-			interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "sci-irq";
-			clocks = <&lcpll0 BCM_CYGNUS_LCPLL0_SMART_CARD_CLK>,
-				<&asiu_clks BCM_CYGNUS_ASIU_SMARTCARD_CLK>;
-			clock-names = "smartcard_clk", "smartcard_gate_clk";
-			pinctrl-0 = <&smartcard_1>;
-			sci-id = <1>;
-			/*nxp-coupler 0 for NXP8024, 1 for NXP8026(with i2c1) */
-			nxp-coupler = <0>;
 			status = "disabled";
 		};
 
