@@ -61,5 +61,4 @@ obj-$(CONFIG_BCM_VK)		+= bcm-vk/
 obj-$(CONFIG_MISC_RTSX)		+= cardreader/
 obj-$(CONFIG_BCM_IPROC_DTE)     += bcm_iproc_dte.o
 obj-y				+= bcm-iproc-ftm/
-obj-$(CONFIG_BRCM_SMARTCARD)	+= smartcard/
 obj-$(CONFIG_NVME_LPM_SSR)	+= nvme-lpm-ssr.o

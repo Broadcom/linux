@@ -529,7 +529,6 @@ source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/bcm-vk/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/bcm-iproc-ftm/Kconfig"
-source "drivers/misc/smartcard/Kconfig"
 
 config BCM_IPROC_DTE
         tristate "DTE support"
