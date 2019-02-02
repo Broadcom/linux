@@ -22,26 +22,44 @@
 
 static DEFINE_IDA(bcm_vk_ida);
 
+/*
+ * Load Image is completed in two stages:
+ *
+ * 1) When the VK device boot-up, M7 CPU runs and executes the BootROM.
+ * The Secure Boot Loader (SBL) as part of the BootROM will run
+ * fastboot to open up ITCM for host to push BOOT1 image.
+ * SBL will authenticate the image before jumping to BOOT1 image.
+ *
+ * 2) Because BOOT1 image is a secured image, we also called it the
+ * Secure Boot Image (SBI). At second stage, SBI will initialize DDR
+ * and run fastboot for host to push BOOT2 image to DDR.
+ * SBI will authenticate the image before jumping to BOOT2 image.
+ *
+ */
 /* Location of registers of interest in BAR0 */
-#define BAR_CODEPUSH		0x400
-#define CODEPUSH_FASTBOOT_ENTRY 0x00400000
-#define CODEPUSH_FIRMWARE_ENTRY 0x60000000
-#define CODEPUSH_FASTBOOT	BIT(0)
-#define CODEPUSH_FIRMWARE	BIT(1)
-#define BAR_FB_RAM_OPEN		0x404
-#define RAM_OPEN_SRAM		BIT(16)
-#define RAM_OPEN_DDR		BIT(17)
+/* Fastboot request for Secure Boot Loader (SBL) */
+#define BAR_CODEPUSH_SBL	0x400
+/* Fastboot progress for Secure Boot Loader (SBL) */
+#define BAR_FB_SBL_OPEN		0x404
+/* Fastboot request for Secure Boot Image (SBI) */
+#define BAR_CODEPUSH_SBI	0x408
+/* Fastboot progress for Secure Boot Image (SBI) */
+#define BAR_FB_SBI_OPEN		0x40C
 #define BAR_CARD_STATUS		0x410
 #define BAR_FW_STATUS		0x41C
-
 #define BAR_METADATA_VERSION	0x440
 #define BAR_FIRMWARE_VERSION	0x444
 
+#define CODEPUSH_BOOT1_ENTRY	0x00400000
+#define CODEPUSH_BOOT2_ENTRY	0x60000000
+#define CODEPUSH_FASTBOOT	BIT(0)
+#define RAM_OPEN		BIT(16)
+
 /* Location of memory base addresses of interest in BAR1 */
 /* Load Boot1 to start of ITCM */
-#define BAR1_CODEPUSH_BASE_FASTBOOT	0x100000
+#define BAR1_CODEPUSH_BASE_BOOT1	0x100000
 /* Load Boot2 to start of DDR0 */
-#define BAR1_CODEPUSH_BASE_FIRMWARE	0x300000
+#define BAR1_CODEPUSH_BASE_BOOT2	0x300000
 
 #define VK_MSIX_IRQ_MAX			3
 
@@ -76,6 +94,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	long ret = 0;
 	unsigned long i;
 	uint64_t offset;
+	uint64_t offset_codepush;
 	u32 codepush;
 	u32 ram_open;
 	int timeout_ms = 100; /* Allow minimum 100ms for timeout responses */
@@ -96,25 +115,26 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	dev_dbg(dev, "size=0x%zx\n", fw->size);
 
 	if (image.type == VK_IMAGE_TYPE_BOOT1) {
-		offset = BAR1_CODEPUSH_BASE_FASTBOOT;
-		codepush = CODEPUSH_FASTBOOT + CODEPUSH_FASTBOOT_ENTRY;
+		offset = BAR1_CODEPUSH_BASE_BOOT1;
+		codepush = CODEPUSH_FASTBOOT + CODEPUSH_BOOT1_ENTRY;
+		offset_codepush = BAR_CODEPUSH_SBL;
 		if (fw->size > SZ_256K) {
 			dev_err(dev, "Error size 0x%zx > 256K\n", fw->size);
 			ret = -EINVAL;
 			goto err_firmware_out;
 		}
 
-		ram_open = vkread32(vk, BAR_0, BAR_FB_RAM_OPEN);
+		ram_open = vkread32(vk, BAR_0, BAR_FB_SBL_OPEN);
 		dev_dbg(dev, "ram_open=0x%x\n", ram_open);
 
 		/* Write a 1 to request SRAM open bit */
-		vkwrite32(vk, CODEPUSH_FASTBOOT, BAR_0, BAR_CODEPUSH);
+		vkwrite32(vk, CODEPUSH_FASTBOOT, BAR_0, offset_codepush);
 
 		/* Wait for SRAM to open */
 		do {
-			ram_open = vkread32(vk, BAR_0, BAR_FB_RAM_OPEN);
+			ram_open = vkread32(vk, BAR_0, BAR_FB_SBL_OPEN);
 			dev_dbg(dev, "ram_open=0x%x\n", ram_open);
-			if (ram_open & RAM_OPEN_SRAM)
+			if (ram_open & RAM_OPEN)
 				break;
 
 			/* Sleep minimum of 1ms per loop */
@@ -122,8 +142,9 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 			timeout_ms--;
 		} while (timeout_ms);
 	} else if (image.type == VK_IMAGE_TYPE_BOOT2) {
-		offset = BAR1_CODEPUSH_BASE_FIRMWARE;
-		codepush = CODEPUSH_FIRMWARE + CODEPUSH_FIRMWARE_ENTRY;
+		offset = BAR1_CODEPUSH_BASE_BOOT2;
+		codepush = CODEPUSH_FASTBOOT + CODEPUSH_BOOT2_ENTRY;
+		offset_codepush = BAR_CODEPUSH_SBI;
 		if (fw->size > SZ_2M) {
 			dev_err(dev, "Error size 0x%zx > 2M\n", fw->size);
 			ret = -EINVAL;
@@ -131,9 +152,9 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		}
 
 		do {
-			ram_open = vkread32(vk, BAR_0, BAR_FB_RAM_OPEN);
+			ram_open = vkread32(vk, BAR_0, BAR_FB_SBI_OPEN);
 			dev_dbg(dev, "ram_open=0x%x\n", ram_open);
-			if (ram_open & RAM_OPEN_DDR)
+			if (ram_open & RAM_OPEN)
 				break;
 
 			/* Sleep minimum of 1ms per loop */
@@ -155,8 +176,8 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	for (i = 0; i < fw->size; i += sizeof(u8))
 		vkwrite8(vk, fw->data[i], BAR_1, offset + i);
 
-	dev_dbg(dev, "Signaling 0x%x\n", codepush);
-	vkwrite32(vk, codepush, BAR_0, BAR_CODEPUSH);
+	dev_dbg(dev, "Signaling 0x%x to 0x%llx\n", codepush, offset_codepush);
+	vkwrite32(vk, codepush, BAR_0, offset_codepush);
 
 err_firmware_out:
 	release_firmware(fw);
