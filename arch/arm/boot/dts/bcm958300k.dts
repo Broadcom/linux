@@ -200,18 +200,6 @@
 	};
 };
 
-&unicam {
-	status = "okay";
-	port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		unicam_0: endpoint {
-			remote-endpoint = <&ov5640_0>;
-			bus-width = <8>;
-		};
-	};
-};
-
 &iproc_dsi {
 	dsi_panel = <&panel_innolux>;
 };
@@ -226,17 +214,6 @@
 		#sound-dai-cells = <0>;
 		compatible = "wlf,wm8750";
 		reg = <0x1a>;
-	};
-
-	ov5640: camera@3c {
-		compatible = "ovti,ov5640";
-		reg = <0x3c>;
-		port {
-			ov5640_0: endpoint {
-				remote-endpoint = <&unicam_0>;
-				bus-width = <8>;
-			};
-		};
 	};
 };
 
