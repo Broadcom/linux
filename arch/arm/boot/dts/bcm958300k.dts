@@ -381,14 +381,6 @@
 	};
 };
 
-&smartcard0 {
-		status = "okay";
-};
-
-&smartcard1 {
-		status = "okay";
-};
-
 &sdhci0 {
 	status = "okay";
 	no-1-8-v;
