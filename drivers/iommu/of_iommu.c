@@ -133,8 +133,8 @@ static int of_pci_iommu_init(struct pci_dev *pdev, u16 alias, void *data)
 	int err;
 
 	err = of_pci_map_rid(info->np, alias, "iommu-map",
-			     "iommu-map-mask", "iommu-map-drop-mask",
-			     &iommu_spec.np, iommu_spec.args);
+			     "iommu-map-mask", &iommu_spec.np,
+			     iommu_spec.args);
 	if (err)
 		return err == -ENODEV ? NO_IOMMU : err;
 
