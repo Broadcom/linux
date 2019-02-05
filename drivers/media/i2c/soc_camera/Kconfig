@@ -29,7 +29,6 @@ config SOC_CAMERA_MT9V022
 	help
 	  This driver supports MT9V022 cameras from Micron
 
-
 config SOC_CAMERA_OV5642
 	tristate "ov5642 camera support"
 	depends on SOC_CAMERA && I2C
