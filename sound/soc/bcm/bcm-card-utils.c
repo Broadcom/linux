@@ -15,6 +15,11 @@
 #include <sound/simple_card_utils.h>
 #include <sound/soc.h>
 
+struct bcm_link_data {
+	struct snd_soc_dai_link_component codecs;
+	struct snd_soc_dai_link_component platform;
+};
+
 int bcm_card_util_parse_link_node(struct platform_device *pdev,
 		struct device_node *link_np,
 		struct snd_soc_dai_link *dai_link)
@@ -22,8 +27,17 @@ int bcm_card_util_parse_link_node(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct device_node *codec_np;
 	struct device_node *cpu_np;
+	struct bcm_link_data *link_data;
 	int ret = 0;
 	int single_cpu_link;
+
+	link_data = devm_kzalloc(dev, sizeof(*link_data), GFP_KERNEL);
+	if (!link_data)
+		return -ENOMEM;
+
+	dai_link->codecs     = &link_data->codecs;
+	dai_link->num_codecs = 1;
+	dai_link->platform   = &link_data->platform;
 
 	codec_np = of_get_child_by_name(link_np, "codec");
 	if (!codec_np) {

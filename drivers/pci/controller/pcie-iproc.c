@@ -796,7 +796,8 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct iproc_pcie *pcie,
 }
 
 void __iomem *iproc_pcie_bus_map_cfg_bus(struct pci_bus *bus,
-					 unsigned int devfn, int where)
+					 unsigned int devfn,
+					 int where)
 {
 	return iproc_pcie_map_cfg_bus(iproc_data(bus), bus->number, devfn,
 				      where);

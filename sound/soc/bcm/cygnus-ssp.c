@@ -1546,6 +1546,7 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	}
 
 	active_port_count = 0;
+
 	for_each_available_child_of_node(pdev->dev.of_node, child_node) {
 		err = parse_ssp_child_node(pdev, child_node, cygaud,
 					&cygnus_ssp_dai[active_port_count],
@@ -1564,7 +1565,7 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	cygaud->dev = dev;
 
 	dev_dbg(dev, "Registering %d DAIs\n", active_port_count);
-	err = snd_soc_register_component(dev, &cygnus_ssp_component,
+	err = devm_snd_soc_register_component(dev, &cygnus_ssp_component,
 				cygnus_ssp_dai, active_port_count);
 	if (err) {
 		dev_err(dev, "snd_soc_register_dai failed\n");
@@ -1575,7 +1576,7 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	if (irq_num <= 0) {
 		dev_err(dev, "platform_get_irq failed\n");
 		err = irq_num;
-		goto err_irq;
+		return err;
 	}
 
 	cygaud->rb_info.dev = dev;
@@ -1591,20 +1592,15 @@ static int cygnus_ssp_probe(struct platform_device *pdev)
 	err = iproc_pcm_platform_register(dev, &cygaud->rb_info);
 	if (err) {
 		dev_err(dev, "platform reg error %d\n", err);
-		goto err_irq;
+		return err;
 	}
 
 	return 0;
-
-err_irq:
-	snd_soc_unregister_component(dev);
-	return err;
 }
 
 static int cygnus_ssp_remove(struct platform_device *pdev)
 {
 	iproc_pcm_platform_unregister(&pdev->dev);
-	snd_soc_unregister_component(&pdev->dev);
 
 	return 0;
 }
