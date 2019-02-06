@@ -219,16 +219,16 @@ static int bcm_vk_sync_msgq(struct bcm_vk *vk)
 
 			p_chan->msgq[j] = p_msgq;
 
-			dev_dbg(dev,
-				"MsgQ[%d] info - type %d num %d, @ 0x%x, rd_idx %d wr_idx %d, size %d, off 0x%x\n",
-				j,
-				p_chan->msgq[j]->q_type,
-				p_chan->msgq[j]->q_num,
-				p_chan->msgq[j]->q_start_loc,
-				p_chan->msgq[j]->rd_idx,
-				p_chan->msgq[j]->wr_idx,
-				p_chan->msgq[j]->size,
-				p_chan->msgq[j]->next_off);
+			dev_info(dev,
+				 "MsgQ[%d] info - type %d num %d, @ 0x%x, rd_idx %d wr_idx %d, size %d, off 0x%x\n",
+				 j,
+				 p_chan->msgq[j]->q_type,
+				 p_chan->msgq[j]->q_num,
+				 p_chan->msgq[j]->q_start_loc,
+				 p_chan->msgq[j]->rd_idx,
+				 p_chan->msgq[j]->wr_idx,
+				 p_chan->msgq[j]->size,
+				 p_chan->msgq[j]->next_off);
 
 			p_msgq = (struct bcm_vk_msgq *)
 				 ((char *)p_msgq + sizeof(*p_msgq) +
