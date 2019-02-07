@@ -97,6 +97,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	uint64_t offset_codepush;
 	u32 codepush;
 	u32 ram_open;
+	int remainder;
 	int timeout_ms = 100; /* Allow minimum 100ms for timeout responses */
 
 	if (copy_from_user(&image, arg, sizeof(image))) {
@@ -173,8 +174,15 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		goto err_firmware_out;
 	}
 
-	for (i = 0; i < fw->size; i += sizeof(u8))
+	remainder = fw->size % sizeof(u32);
+	for (i = 0; i < (fw->size - remainder); i += sizeof(u32))
+		vkwrite32(vk, *((u32 *)&fw->data[i]), BAR_1, offset + i);
+
+	/* for image that has sizes not divisible by 4 */
+	while (i < fw->size) {
 		vkwrite8(vk, fw->data[i], BAR_1, offset + i);
+		i++;
+	}
 
 	dev_dbg(dev, "Signaling 0x%x to 0x%llx\n", codepush, offset_codepush);
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
