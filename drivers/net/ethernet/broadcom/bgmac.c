@@ -1279,6 +1279,7 @@ static int bgmac_change_mtu(struct net_device *net_dev, int mtu)
 	struct bgmac *bgmac = netdev_priv(net_dev);
 
 	bgmac_write(bgmac, BGMAC_RXMAX_LENGTH, 32 + mtu);
+	net_dev->mtu = mtu;
 	return 0;
 }
 
