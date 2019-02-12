@@ -274,3 +274,15 @@
 	};
 
 };
+
+&pwm0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm0_mfio035_pins>;
+};
+
+&pwm1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm1_mfio105_pins>;
+};
