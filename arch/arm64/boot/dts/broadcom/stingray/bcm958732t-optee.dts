@@ -6,3 +6,7 @@
 #define ENABLE_OPTEE 1
 
 #include "bcm958732t.dts"
+
+&qspi {
+	status = "okay";
+};
