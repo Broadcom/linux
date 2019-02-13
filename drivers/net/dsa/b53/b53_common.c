@@ -342,6 +342,13 @@ static void b53_set_forwarding(struct b53_device *dev, int enable)
 	b53_read8(dev, B53_CTRL_PAGE, B53_SWITCH_CTRL, &mgmt);
 	mgmt |= B53_MII_DUMB_FWDG_EN;
 	b53_write8(dev, B53_CTRL_PAGE, B53_SWITCH_CTRL, mgmt);
+
+	if (!(is5325(dev) || is5365(dev))) {
+		/* Forward LLDP packets */
+		b53_read8(dev, B53_CTRL_PAGE, B53_RSV_MCAST_CTRL, &mgmt);
+		mgmt &= ~B53_EN_MUL_1;
+		b53_write8(dev, B53_CTRL_PAGE, B53_RSV_MCAST_CTRL, mgmt);
+	}
 }
 
 static void b53_enable_vlan(struct b53_device *dev, bool enable)

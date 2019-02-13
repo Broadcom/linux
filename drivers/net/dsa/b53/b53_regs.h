@@ -111,6 +111,10 @@
 #define B53_SWITCH_CTRL			0x22
 #define  B53_MII_DUMB_FWDG_EN		BIT(6)
 
+/* Reserved Multicast control (8 bit) */
+#define B53_RSV_MCAST_CTRL		0x2f
+#define  B53_EN_MUL_1			BIT(1) /* 0 = LLDP forward enable */
+
 /* (16 bit) */
 #define B53_UC_FLOOD_MASK		0x32
 #define B53_MC_FLOOD_MASK		0x34
