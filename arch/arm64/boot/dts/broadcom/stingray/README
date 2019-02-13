@@ -1,5 +1,6 @@
 bcm957604k.dtb                         - SmartIO SVK
 bcm957604k-diag.dtb                    - SmartIO SVK for userspace diag
+bcm957604k-optee.dtb                   - SmartIO SVK with optee enable
 bcm957604k-fs4.dtb                     - SmartIO SVK w/FS4
 
 bcm958732t.dtb                         - COMX
