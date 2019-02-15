@@ -193,10 +193,8 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 
 /*
  * Function to sync up the messages queue info that is provided by BAR0 and BAR1
- * TO_DO: This function is based on the current valkyrie-emu definition and imp,
- *	  which properly need final adjustments.
  */
-static int bcm_vk_sync_msgq(struct bcm_vk *vk)
+int bcm_vk_sync_msgq(struct bcm_vk *vk)
 {
 	struct bcm_vk_msgq *p_msgq = NULL;
 	struct device *dev = &vk->pdev->dev;

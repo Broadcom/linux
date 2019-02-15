@@ -54,11 +54,37 @@ static DEFINE_IDA(bcm_vk_ida);
 #define SRAM_OPEN		BIT(16)
 #define DDR_OPEN		BIT(17)
 
+/* FW_STATUS definitions */
+#define FW_STATUS_RELOCATION_ENTRY		BIT(0)
+#define FW_STATUS_RELOCATION_EXIT		BIT(1)
+#define FW_STATUS_ZEPHYR_INIT_START		BIT(2)
+#define FW_STATUS_ZEPHYR_ARCH_INIT_DONE		BIT(3)
+#define FW_STATUS_ZEPHYR_PRE_KERNEL1_INIT_DONE	BIT(4)
+#define FW_STATUS_ZEPHYR_PRE_KERNEL2_INIT_DONE	BIT(5)
+#define FW_STATUS_ZEPHYR_POST_KERNEL_INIT_DONE	BIT(6)
+#define FW_STATUS_ZEPHYR_INIT_DONE		BIT(7)
+#define FW_STATUS_ZEPHYR_APP_INIT_START		BIT(8)
+#define FW_STATUS_ZEPHYR_APP_INIT_DONE		BIT(9)
+#define FW_STATUS_MASK				0xFFFFFFFF
+#define FW_STATUS_ZEPHYR_READY	(FW_STATUS_RELOCATION_ENTRY | \
+				 FW_STATUS_RELOCATION_EXIT | \
+				 FW_STATUS_ZEPHYR_INIT_START | \
+				 FW_STATUS_ZEPHYR_ARCH_INIT_DONE | \
+				 FW_STATUS_ZEPHYR_PRE_KERNEL1_INIT_DONE | \
+				 FW_STATUS_ZEPHYR_PRE_KERNEL2_INIT_DONE | \
+				 FW_STATUS_ZEPHYR_POST_KERNEL_INIT_DONE | \
+				 FW_STATUS_ZEPHYR_INIT_DONE | \
+				 FW_STATUS_ZEPHYR_APP_INIT_START | \
+				 FW_STATUS_ZEPHYR_APP_INIT_DONE)
+
+
 /* Location of memory base addresses of interest in BAR1 */
 /* Load Boot1 to start of ITCM */
 #define BAR1_CODEPUSH_BASE_BOOT1	0x100000
 /* Load Boot2 to start of DDR0 */
 #define BAR1_CODEPUSH_BASE_BOOT2	0x300000
+/* Allow minimum 1s for Load Image timeout responses */
+#define LOAD_IMAGE_TIMEOUT_MS		1000
 
 #define VK_MSIX_IRQ_MAX			3
 
@@ -85,6 +111,31 @@ static long bcm_vk_get_metadata(struct bcm_vk *vk, struct vk_metadata *arg)
 	return ret;
 }
 
+static inline int bcm_vk_wait(struct bcm_vk *vk, enum pci_barno bar,
+			      uint64_t offset, u32 mask, u32 value,
+			      unsigned long timeout_ms)
+{
+	struct device *dev = &vk->pdev->dev;
+	unsigned long timeout = jiffies + timeout_ms;
+	u32 rd_val;
+
+	do {
+		rd_val = vkread32(vk, bar, offset);
+		dev_dbg(dev, "BAR%d Offset=0x%llx: 0x%x\n",
+			bar, offset, rd_val);
+
+		if (time_after(jiffies, timeout)) {
+			timeout_ms = 0;
+			break;
+		}
+
+		cpu_relax();
+		cond_resched();
+	} while ((rd_val & mask) != value);
+
+	return timeout_ms;
+}
+
 static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 {
 	struct device *dev = &vk->pdev->dev;
@@ -97,7 +148,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	u32 codepush;
 	u32 ram_open;
 	int remainder;
-	int timeout_ms = 100; /* Allow minimum 100ms for timeout responses */
+	unsigned long time_left = msecs_to_jiffies(LOAD_IMAGE_TIMEOUT_MS);
 
 	if (copy_from_user(&image, arg, sizeof(image))) {
 		ret = -EACCES;
@@ -120,7 +171,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		offset_codepush = BAR_CODEPUSH_SBL;
 		if (fw->size > SZ_256K) {
 			dev_err(dev, "Error size 0x%zx > 256K\n", fw->size);
-			ret = -EINVAL;
+			ret = -EFBIG;
 			goto err_firmware_out;
 		}
 
@@ -130,44 +181,29 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		/* Write a 1 to request SRAM open bit */
 		vkwrite32(vk, CODEPUSH_FASTBOOT, BAR_0, offset_codepush);
 
-		/* Wait for SRAM to open */
-		do {
-			ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
-			dev_dbg(dev, "ram_open=0x%x\n", ram_open);
-			if (ram_open & SRAM_OPEN)
-				break;
-
-			/* Sleep minimum of 1ms per loop */
-			usleep_range(1000, 10000);
-			timeout_ms--;
-		} while (timeout_ms);
+		/* Wait for VK to respond */
+		time_left = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN, SRAM_OPEN,
+					SRAM_OPEN, time_left);
 	} else if (image.type == VK_IMAGE_TYPE_BOOT2) {
 		offset = BAR1_CODEPUSH_BASE_BOOT2;
 		codepush = CODEPUSH_FASTBOOT + CODEPUSH_BOOT2_ENTRY;
 		offset_codepush = BAR_CODEPUSH_SBI;
 		if (fw->size > SZ_2M) {
 			dev_err(dev, "Error size 0x%zx > 2M\n", fw->size);
-			ret = -EINVAL;
+			ret = -EFBIG;
 			goto err_firmware_out;
 		}
 
-		do {
-			ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
-			dev_dbg(dev, "ram_open=0x%x\n", ram_open);
-			if (ram_open & DDR_OPEN)
-				break;
-
-			/* Sleep minimum of 1ms per loop */
-			usleep_range(1000, 10000);
-			timeout_ms--;
-		} while (timeout_ms);
+		/* Wait for VK to respond */
+		time_left = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN, DDR_OPEN,
+					DDR_OPEN, time_left);
 	} else {
 		dev_err(dev, "Error invalid image type 0x%x\n", image.type);
 		ret = -EINVAL;
 		goto err_firmware_out;
 	}
 
-	if (timeout_ms <= 0) {
+	if (time_left <= 0) {
 		dev_err(dev, "timeout\n");
 		ret = -ETIMEDOUT;
 		goto err_firmware_out;
@@ -185,6 +221,26 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 
 	dev_dbg(dev, "Signaling 0x%x to 0x%llx\n", codepush, offset_codepush);
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
+
+	/* wait for fw status bits to initialize the queues */
+	if (image.type == VK_IMAGE_TYPE_BOOT2) {
+		time_left = msecs_to_jiffies(LOAD_IMAGE_TIMEOUT_MS);
+		time_left = bcm_vk_wait(vk, BAR_0, BAR_FW_STATUS,
+					FW_STATUS_MASK, FW_STATUS_ZEPHYR_READY,
+					time_left);
+		if (time_left <= 0) {
+			dev_err(dev, "Boot2 MSG Q not ready - timeout\n");
+			ret = -ETIMEDOUT;
+			goto err_firmware_out;
+		}
+
+		/* sync queues when zephyr is up */
+		if (bcm_vk_sync_msgq(vk)) {
+			dev_err(dev, "Error reading comm msg Q info\n");
+			ret = -EIO;
+			goto err_firmware_out;
+		}
+	}
 
 err_firmware_out:
 	release_firmware(fw);
