@@ -39,12 +39,10 @@ static DEFINE_IDA(bcm_vk_ida);
 /* Location of registers of interest in BAR0 */
 /* Fastboot request for Secure Boot Loader (SBL) */
 #define BAR_CODEPUSH_SBL	0x400
-/* Fastboot progress for Secure Boot Loader (SBL) */
-#define BAR_FB_SBL_OPEN		0x404
+/* Fastboot progress */
+#define BAR_FB_OPEN		0x404
 /* Fastboot request for Secure Boot Image (SBI) */
 #define BAR_CODEPUSH_SBI	0x408
-/* Fastboot progress for Secure Boot Image (SBI) */
-#define BAR_FB_SBI_OPEN		0x40C
 #define BAR_CARD_STATUS		0x410
 #define BAR_FW_STATUS		0x41C
 #define BAR_METADATA_VERSION	0x440
@@ -53,7 +51,8 @@ static DEFINE_IDA(bcm_vk_ida);
 #define CODEPUSH_BOOT1_ENTRY	0x00400000
 #define CODEPUSH_BOOT2_ENTRY	0x60000000
 #define CODEPUSH_FASTBOOT	BIT(0)
-#define RAM_OPEN		BIT(16)
+#define SRAM_OPEN		BIT(16)
+#define DDR_OPEN		BIT(17)
 
 /* Location of memory base addresses of interest in BAR1 */
 /* Load Boot1 to start of ITCM */
@@ -125,7 +124,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 			goto err_firmware_out;
 		}
 
-		ram_open = vkread32(vk, BAR_0, BAR_FB_SBL_OPEN);
+		ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
 		dev_dbg(dev, "ram_open=0x%x\n", ram_open);
 
 		/* Write a 1 to request SRAM open bit */
@@ -133,9 +132,9 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 
 		/* Wait for SRAM to open */
 		do {
-			ram_open = vkread32(vk, BAR_0, BAR_FB_SBL_OPEN);
+			ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
 			dev_dbg(dev, "ram_open=0x%x\n", ram_open);
-			if (ram_open & RAM_OPEN)
+			if (ram_open & SRAM_OPEN)
 				break;
 
 			/* Sleep minimum of 1ms per loop */
@@ -153,9 +152,9 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		}
 
 		do {
-			ram_open = vkread32(vk, BAR_0, BAR_FB_SBI_OPEN);
+			ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
 			dev_dbg(dev, "ram_open=0x%x\n", ram_open);
-			if (ram_open & RAM_OPEN)
+			if (ram_open & DDR_OPEN)
 				break;
 
 			/* Sleep minimum of 1ms per loop */
