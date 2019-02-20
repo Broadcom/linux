@@ -41,7 +41,6 @@
 		#size-cells = <1>;
 		compatible = "n25q512a";
 		spi-max-frequency = <30000000>;
-		m25p,fast-read;
 		reg = <0>;
 		spi-cpol;
 		spi-cpha;
