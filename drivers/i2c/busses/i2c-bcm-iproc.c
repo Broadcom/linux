@@ -228,7 +228,8 @@ struct bcm_iproc_i2c_dev {
 		| BIT(IS_M_RX_THLD_SHIFT))
 
 #define ISR_MASK_SLAVE (BIT(IS_S_START_BUSY_SHIFT)\
-		| BIT(IS_S_RX_EVENT_SHIFT) | BIT(IS_S_RD_EVENT_SHIFT))
+		| BIT(IS_S_RX_EVENT_SHIFT) | BIT(IS_S_RD_EVENT_SHIFT)\
+		| BIT(IS_S_TX_UNDERRUN_SHIFT))
 
 static int bcm_iproc_i2c_reg_slave(struct i2c_client *slave);
 static int bcm_iproc_i2c_unreg_slave(struct i2c_client *slave);
@@ -312,6 +313,11 @@ static void bcm_iproc_i2c_slave_init(
 	val |= BIT(IE_S_RX_EVENT_SHIFT);
 	/* Enable interrupt register for the Slave BUSY command */
 	val |= BIT(IE_S_START_BUSY_SHIFT);
+	/*
+	 * Enable interrupt register for TX FIFO becomes empty and
+	 * less than PKT_LENGTH bytes were output on the SMBUS
+	 */
+	val |= BIT(IE_S_TX_UNDERRUN_SHIFT);
 	iproc_i2c_wr_reg(iproc_i2c, IE_OFFSET, val);
 
 	iproc_i2c->read_transaction = I2C_MASTER_SLAVE_NO_TRANSACTION;
@@ -323,8 +329,11 @@ static void bcm_iproc_i2c_check_slave_status(
 	u32 val;
 
 	val = iproc_i2c_rd_reg(iproc_i2c, S_CMD_OFFSET);
-	val = (val >> S_CMD_STATUS_SHIFT) & S_CMD_STATUS_MASK;
+	/* status is valid only when START_BUSY is cleared after it was set */
+	if (val & BIT(S_CMD_START_BUSY_SHIFT))
+		return;
 
+	val = (val >> S_CMD_STATUS_SHIFT) & S_CMD_STATUS_MASK;
 	if (val == S_CMD_STATUS_TIMEOUT) {
 		dev_err(iproc_i2c->device, "slave random stretch time timeout\n");
 
@@ -369,9 +378,9 @@ static bool bcm_iproc_i2c_slave_isr(struct bcm_iproc_i2c_dev *iproc_i2c,
 	}
 
 	/* READ request */
-	if ((status & BIT(IS_S_RD_EVENT_SHIFT)) &&
-		(iproc_i2c->read_transaction ==
-			I2C_MASTER_READ_SLAVE_WRITE)) {
+	if ((status & BIT(IS_S_RD_EVENT_SHIFT) ||
+		status & BIT(IS_S_TX_UNDERRUN_SHIFT)) &&
+		(iproc_i2c->read_transaction == I2C_MASTER_READ_SLAVE_WRITE)) {
 		i2c_slave_event(iproc_i2c->slave,
 			I2C_SLAVE_READ_PROCESSED, &value);
 		iproc_i2c_wr_reg(iproc_i2c, S_TX_OFFSET, value);
