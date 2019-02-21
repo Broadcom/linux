@@ -1,0 +1,14 @@
+Broadcom Omega M7 Audio
+- ASoC driver for interfacing to Omega's internal AudioH codec via the M7
+
+Required properties:
+	- compatible : "brcm,omega-m7audio"
+	- mboxes : A mailbox is need for communicating to the M7
+
+Example:
+	omega_m7_audio: m7_audio@0 {
+		compatible = "brcm,omega-m7audio";
+		mboxes = <&mailbox 2>;
+		status = "okay";
+	};
+
