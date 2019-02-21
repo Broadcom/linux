@@ -11,7 +11,7 @@ obj-$(CONFIG_SND_SOC_CYGNUS_SVK_MACHINE) += cygnus_svk-machine.o
 obj-$(CONFIG_SND_SOC_CYGNUS_VOIPPHONE_MACHINE) += bcm911360_entphn-machine.o bcm-card-utils.o
 
 # Omega Platform Support
-obj-$(CONFIG_SND_SOC_OMEGA) += cygnus-pcm.o omega-ssp.o
+obj-$(CONFIG_SND_SOC_OMEGA) += cygnus-pcm.o omega-ssp.o omega-m7audio.o
 
 obj-$(CONFIG_SND_SOC_OMEGA_BCM91140X15_ENTPHN_MACHINE) += bcm91140x15-entphn-machine.o bcm-card-utils.o
 obj-$(CONFIG_SND_SOC_OMEGA_BCM958313_WA_MACHINE) += bcm958313_wa-machine.o bcm-card-utils.o cygnus-clk-utils.o
