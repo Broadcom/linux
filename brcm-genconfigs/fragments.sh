@@ -54,4 +54,4 @@ iproc_defconfig="base-arm64 ns2 stingray \
     tc                                   \
     tmon                                 \
     uio usb usbd                         \
-    vfio watchdog"
+    vfio watchdog virtio"
