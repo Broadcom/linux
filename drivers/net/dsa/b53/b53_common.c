@@ -27,6 +27,7 @@
 #include <linux/platform_data/b53.h>
 #include <linux/phy.h>
 #include <linux/phylink.h>
+#include <linux/reboot.h>
 #include <linux/etherdevice.h>
 #include <linux/if_bridge.h>
 #include <net/dsa.h>
@@ -223,6 +224,21 @@ static const struct b53_mib_desc b53_mibs_58xx[] = {
 	{ 4, 0xe0, "TxPkts512to1023Ocets" },
 	{ 4, 0xe4, "TxPkts1024toMaxPktOcets" },
 };
+
+static int b53_reboot_handler(struct notifier_block *nb,
+			      unsigned long event, void *ptr)
+{
+	struct b53_device *dev = container_of(nb, struct b53_device,
+					      b53_reboot_notifier);
+
+	/* Write unique sequence into spare switch register before shutdown.
+	 * As the register content is preserved only during warm reboot,
+	 * reading same sequence on boot up indicates warm reboot.
+	 */
+	b53_write32(dev, B53_BPM_PAGE, B53_BPM_REG_SPARE0, B53_WARM_RESET_SEQ);
+
+	return NOTIFY_OK;
+}
 
 #define B53_MIBS_58XX_SIZE	ARRAY_SIZE(b53_mibs_58xx)
 
@@ -2412,7 +2428,15 @@ int b53_switch_register(struct b53_device *dev)
 
 	pr_info("found switch: %s, rev %i\n", dev->name, dev->core_rev);
 
-	return dsa_register_switch(dev->ds);
+	ret = dsa_register_switch(dev->ds);
+	if (ret)
+		return ret;
+
+	if (dev->chip_id == BCM583XX_DEVICE_ID) {
+		dev->b53_reboot_notifier.notifier_call = b53_reboot_handler;
+		register_reboot_notifier(&dev->b53_reboot_notifier);
+	}
+	return ret;
 }
 EXPORT_SYMBOL(b53_switch_register);
 
