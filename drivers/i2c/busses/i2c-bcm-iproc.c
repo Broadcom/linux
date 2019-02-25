@@ -166,12 +166,6 @@ enum i2c_slave_read_status {
 	I2C_SLAVE_RX_END,
 };
 
-enum i2c_transaction_direction {
-	I2C_MASTER_WRITE_SLAVE_READ = 0,
-	I2C_MASTER_READ_SLAVE_WRITE = 1,
-	I2C_MASTER_SLAVE_NO_TRANSACTION = 2,
-};
-
 enum i2c_slave_re_init {
 	REINIT_SLAVE = 0,
 	INIT_SLAVE,
@@ -212,7 +206,6 @@ struct bcm_iproc_i2c_dev {
 	struct i2c_msg *msg;
 
 	struct i2c_client *slave;
-	int read_transaction;
 
 	/* bytes that have been transferred */
 	unsigned int tx_bytes;
@@ -307,10 +300,8 @@ static void bcm_iproc_i2c_slave_init(
 	/* clear all pending slave interrupts */
 	iproc_i2c_wr_reg(iproc_i2c, IS_OFFSET, ISR_MASK_SLAVE);
 
-	/* Enable interrupt register for any READ event */
-	val = BIT(IE_S_RD_EVENT_SHIFT);
 	/* Enable interrupt register to indicate a valid byte in receive fifo */
-	val |= BIT(IE_S_RX_EVENT_SHIFT);
+	val = BIT(IE_S_RX_EVENT_SHIFT);
 	/* Enable interrupt register for the Slave BUSY command */
 	val |= BIT(IE_S_START_BUSY_SHIFT);
 	/*
@@ -319,8 +310,6 @@ static void bcm_iproc_i2c_slave_init(
 	 */
 	val |= BIT(IE_S_TX_UNDERRUN_SHIFT);
 	iproc_i2c_wr_reg(iproc_i2c, IE_OFFSET, val);
-
-	iproc_i2c->read_transaction = I2C_MASTER_SLAVE_NO_TRANSACTION;
 }
 
 static void bcm_iproc_i2c_check_slave_status(
@@ -345,80 +334,55 @@ static void bcm_iproc_i2c_check_slave_status(
 }
 
 static bool bcm_iproc_i2c_slave_isr(struct bcm_iproc_i2c_dev *iproc_i2c,
-				u32 status)
+				    u32 status)
 {
-	u8 value;
 	u32 val;
-	u32 rd_status;
-	u32 tmp;
+	u8 value, rd_status;
 
-	/* Start of transaction. check address and populate the direction */
-	if (iproc_i2c->read_transaction == I2C_MASTER_SLAVE_NO_TRANSACTION) {
-		tmp = iproc_i2c_rd_reg(iproc_i2c, S_RX_OFFSET);
-		rd_status = (tmp >> S_RX_STATUS_SHIFT) & S_RX_STATUS_MASK;
-		/* This condition checks whether the request is a new request */
-		if (((rd_status == I2C_SLAVE_RX_START) &&
-			(status & BIT(IS_S_RX_EVENT_SHIFT))) ||
-			((rd_status == I2C_SLAVE_RX_END) &&
-			(status & BIT(IS_S_RD_EVENT_SHIFT)))) {
-
-			/* Last bit is W/R bit.
-			 * If 1 then its a read request(by master).
-			 */
-			iproc_i2c->read_transaction =
-				tmp & SLAVE_READ_WRITE_BIT_MASK;
-			if (iproc_i2c->read_transaction ==
-				I2C_MASTER_READ_SLAVE_WRITE)
-				i2c_slave_event(iproc_i2c->slave,
-					I2C_SLAVE_READ_REQUESTED, &value);
-			else
-				i2c_slave_event(iproc_i2c->slave,
+	/* Slave RX byte receive */
+	if (status & BIT(IS_S_RX_EVENT_SHIFT)) {
+		val = iproc_i2c_rd_reg(iproc_i2c, S_RX_OFFSET);
+		rd_status = (val >> S_RX_STATUS_SHIFT) & S_RX_STATUS_MASK;
+		if (rd_status == I2C_SLAVE_RX_START) {
+			/* Start of SMBUS for Master write */
+			i2c_slave_event(iproc_i2c->slave,
 					I2C_SLAVE_WRITE_REQUESTED, &value);
+			val = iproc_i2c_rd_reg(iproc_i2c, S_RX_OFFSET);
+			value = (u8)((val >> S_RX_DATA_SHIFT) & S_RX_DATA_MASK);
+			i2c_slave_event(iproc_i2c->slave,
+					I2C_SLAVE_WRITE_RECEIVED, &value);
+		} else if (status & BIT(IS_S_RD_EVENT_SHIFT)) {
+			/* Start of SMBUS for Master Read */
+			i2c_slave_event(iproc_i2c->slave,
+					I2C_SLAVE_READ_REQUESTED, &value);
+			iproc_i2c_wr_reg(iproc_i2c, S_TX_OFFSET, value);
+			val = BIT(S_CMD_START_BUSY_SHIFT);
+			iproc_i2c_wr_reg(iproc_i2c, S_CMD_OFFSET, val);
+		} else {
+			/* Master write other than start */
+			value = (u8)((val >> S_RX_DATA_SHIFT) & S_RX_DATA_MASK);
+			i2c_slave_event(iproc_i2c->slave,
+					I2C_SLAVE_WRITE_RECEIVED, &value);
 		}
-	}
-
-	/* READ request */
-	if ((status & BIT(IS_S_RD_EVENT_SHIFT) ||
-		status & BIT(IS_S_TX_UNDERRUN_SHIFT)) &&
-		(iproc_i2c->read_transaction == I2C_MASTER_READ_SLAVE_WRITE)) {
+	} else if (status & BIT(IS_S_TX_UNDERRUN_SHIFT)) {
+		/* Master read other than start */
 		i2c_slave_event(iproc_i2c->slave,
-			I2C_SLAVE_READ_PROCESSED, &value);
-		iproc_i2c_wr_reg(iproc_i2c, S_TX_OFFSET, value);
+				I2C_SLAVE_READ_PROCESSED, &value);
 
+		iproc_i2c_wr_reg(iproc_i2c, S_TX_OFFSET, value);
 		val = BIT(S_CMD_START_BUSY_SHIFT);
 		iproc_i2c_wr_reg(iproc_i2c, S_CMD_OFFSET, val);
-	}
-
-	/* WRITE request */
-	if ((status & BIT(IS_S_RX_EVENT_SHIFT)) &&
-		(iproc_i2c->read_transaction == I2C_MASTER_WRITE_SLAVE_READ)) {
-		val = iproc_i2c_rd_reg(iproc_i2c, S_RX_OFFSET);
-		/* Its a write request by Master to Slave.
-		 * We read data present in receive FIFO
-		 */
-		value = (u8)((val >> S_RX_DATA_SHIFT) & S_RX_DATA_MASK);
-		i2c_slave_event(iproc_i2c->slave,
-			I2C_SLAVE_WRITE_RECEIVED, &value);
-
-		/* check the status for the last byte of the transaction */
-		rd_status = (val >> S_RX_STATUS_SHIFT) & S_RX_STATUS_MASK;
-		if (rd_status == I2C_SLAVE_RX_END)
-			iproc_i2c->read_transaction =
-				I2C_MASTER_SLAVE_NO_TRANSACTION;
-
-		dev_dbg(iproc_i2c->device, "\nread value = 0x%x\n", value);
 	}
 
 	/* Stop */
 	if (status & BIT(IS_S_START_BUSY_SHIFT)) {
 		i2c_slave_event(iproc_i2c->slave, I2C_SLAVE_STOP, &value);
-		iproc_i2c->read_transaction = I2C_MASTER_SLAVE_NO_TRANSACTION;
 	}
 
 	/* clear interrupt status */
 	iproc_i2c_wr_reg(iproc_i2c, IS_OFFSET, status);
-
 	bcm_iproc_i2c_check_slave_status(iproc_i2c);
+
 	return true;
 }
 
