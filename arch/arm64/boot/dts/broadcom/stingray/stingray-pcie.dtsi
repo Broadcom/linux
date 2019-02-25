@@ -15,7 +15,7 @@
 #endif
 
 #if (NUM_PAXB == 1)
-#define ENABLE_PCIE1	1
+#define ENABLE_PCIE0	1
 #endif
 
 	pcie0: pcie@48000000 {
