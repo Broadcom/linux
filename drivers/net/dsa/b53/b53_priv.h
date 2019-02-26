@@ -137,6 +137,7 @@ struct b53_device {
 
 	/* run time configuration */
 	bool enable_jumbo;
+	u8 cold_boot;
 
 	unsigned int num_vlans;
 	struct b53_vlan *vlans;

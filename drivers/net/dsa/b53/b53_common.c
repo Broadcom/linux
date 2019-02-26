@@ -225,6 +225,16 @@ static const struct b53_mib_desc b53_mibs_58xx[] = {
 	{ 4, 0xe4, "TxPkts1024toMaxPktOcets" },
 };
 
+static bool b53_cold_boot_check(struct b53_device *dev)
+{
+	u32 rst_seq = 0;
+
+	if (dev->chip_id == BCM583XX_DEVICE_ID)
+		b53_read32(dev, B53_BPM_PAGE, B53_BPM_REG_SPARE0, &rst_seq);
+
+	return (rst_seq != B53_WARM_RESET_SEQ);
+}
+
 static int b53_reboot_handler(struct notifier_block *nb,
 			      unsigned long event, void *ptr)
 {
@@ -2432,6 +2442,8 @@ int b53_switch_register(struct b53_device *dev)
 		return ret;
 
 	pr_info("found switch: %s, rev %i\n", dev->name, dev->core_rev);
+
+	dev->cold_boot = b53_cold_boot_check(dev);
 
 	ret = dsa_register_switch(dev->ds);
 	if (ret)
