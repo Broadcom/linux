@@ -11,6 +11,7 @@
 #define ENABLE_MDIO	0
 #define ENABLE_USB1	0
 #define ENABLE_I2C0	1
+#define ENABLE_I2C1	1
 #define ENABLE_SSP0	1
 #define ENABLE_SSP1	1
 
@@ -64,3 +65,13 @@
 		pl022,com-mode = <0>;
 	};
 };
+
+&i2c1 {
+	bmc@40000035 {
+		compatible = "i2c-slave-bmc";
+		reg = <0x40000035>;
+		/* name of thermal zone */
+		bmc-thermal-zone = "ihost0-thermal";
+	};
+};
+
