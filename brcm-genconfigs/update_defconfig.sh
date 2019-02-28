@@ -113,6 +113,9 @@ main() {
 	make ARCH=x86_64 x86_64_defconfig
 	make ARCH=x86_64 kvm_guest.config
 	cat brcm-genconfigs/dbg.cfg >> .config
+	cat brcm-genconfigs/i2c.cfg >> .config
+	cat brcm-genconfigs/i2c-slave.cfg >> .config
+	cat brcm-genconfigs/pci.cfg >> .config
 	cat brcm-genconfigs/usb.cfg >> .config
 	cat brcm-genconfigs/v4l2.cfg >> .config
 	make ARCH=x86_64 savedefconfig
@@ -127,6 +130,9 @@ main() {
 
 	make ARCH=x86_64 x86_64_defconfig
 	cat brcm-genconfigs/dbg.cfg >> .config
+	cat brcm-genconfigs/i2c.cfg >> .config
+	cat brcm-genconfigs/i2c-slave.cfg >> .config
+	cat brcm-genconfigs/pci.cfg >> .config
 	cat brcm-genconfigs/usb.cfg >> .config
 	cat brcm-genconfigs/v4l2.cfg >> .config
 	make ARCH=x86_64 savedefconfig
