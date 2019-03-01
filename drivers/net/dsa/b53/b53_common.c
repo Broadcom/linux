@@ -537,15 +537,20 @@ int b53_enable_port(struct dsa_switch *ds, int port, struct phy_device *phy)
 	/* Clear the Rx and Tx disable bits and set to no spanning tree */
 	b53_write8(dev, B53_CTRL_PAGE, B53_PORT_CTRL(port), 0);
 
-	/* Set this port, and only this one to be in the default VLAN,
-	 * if member of a bridge, restore its membership prior to
-	 * bringing down this port.
-	 */
-	b53_read16(dev, B53_PVLAN_PAGE, B53_PVLAN_PORT_MASK(port), &pvlan);
-	pvlan &= ~0x1ff;
-	pvlan |= BIT(port);
-	pvlan |= dev->ports[port].vlan_ctl_mask;
-	b53_write16(dev, B53_PVLAN_PAGE, B53_PVLAN_PORT_MASK(port), pvlan);
+	if (dev->cold_boot) {
+		/* Set this port, and only this one to be in the default VLAN,
+		 * if member of a bridge, restore its membership prior to
+		 * bringing down this port.
+		 */
+
+		b53_read16(dev, B53_PVLAN_PAGE,
+			   B53_PVLAN_PORT_MASK(port), &pvlan);
+		pvlan &= ~0x1ff;
+		pvlan |= BIT(port);
+		pvlan |= dev->ports[port].vlan_ctl_mask;
+		b53_write16(dev, B53_PVLAN_PAGE,
+			    B53_PVLAN_PORT_MASK(port), pvlan);
+	}
 
 	b53_imp_vlan_setup(ds, cpu_port);
 
