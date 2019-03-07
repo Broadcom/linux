@@ -69,6 +69,7 @@ struct vk_reset {
 struct vk_msg_blk {
 	__u8 function_id;
 #define VK_FID_TRANS_BUF 5
+#define VK_FID_SHUTDOWN  8
 	__u8 size;
 	__u16 queue_id:4;
 	__u16 msg_id:12;

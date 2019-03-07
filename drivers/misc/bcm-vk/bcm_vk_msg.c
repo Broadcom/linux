@@ -79,10 +79,11 @@ static inline void bcm_vk_h2vk_verify_blk(struct device *dev,
 /*
  * allocate a ctx per file struct
  */
-static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk)
+static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk, const pid_t pid)
 {
 	struct bcm_vk_ctx *p_ctx = NULL;
 	uint32_t i;
+	uint32_t hash_idx = hash_32(pid, VK_PID_HT_SHIFT_BIT);
 
 	spin_lock(&vk->ctx_lock);
 
@@ -93,6 +94,11 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk)
 			break;
 		}
 	}
+
+	/* set the pid and insert it to hash table */
+	p_ctx->pid = pid;
+	p_ctx->hash_idx = hash_idx;
+	list_add_tail(&p_ctx->list_node, &vk->pid_ht[hash_idx].fd_head);
 
 	spin_unlock(&vk->ctx_lock);
 
@@ -112,15 +118,20 @@ static uint16_t bcm_vk_get_msg_id(struct bcm_vk *vk)
 	return rc;
 }
 
-static void bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *p_ctx)
+static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *p_ctx)
 {
 	uint32_t idx;
+	uint32_t hash_idx;
+	pid_t pid;
+	struct bcm_vk_ctx *p_ent;
+	int count = 0;
 
 	if (p_ctx == NULL) {
 		dev_err(&vk->pdev->dev, "NULL context detected\n");
-		return;
+		return -EINVAL;
 	}
 	idx = p_ctx->idx;
+	pid = p_ctx->pid;
 
 	spin_lock(&vk->ctx_lock);
 
@@ -130,9 +141,23 @@ static void bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *p_ctx)
 	} else {
 		vk->op_ctx[idx].in_use = false;
 		vk->op_ctx[idx].p_miscdev = NULL;
+
+		/*
+		 * remove it from hash list, and do a search to see if it is
+		 * the last one
+		 */
+		list_del(&p_ctx->list_node);
+		hash_idx = p_ctx->hash_idx;
+		list_for_each_entry(p_ent,
+				    &vk->pid_ht[hash_idx].fd_head,
+				    list_node)
+			if (p_ent->pid == pid)
+				count++;
 	}
 
 	spin_unlock(&vk->ctx_lock);
+
+	return count;
 }
 
 static void bcm_vk_free_wkent(struct device *dev, struct bcm_vk_wkent *p_ent)
@@ -359,6 +384,34 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
 	return 0;
 }
 
+int bcm_vk_send_pid_shut(struct bcm_vk *vk, const pid_t pid)
+{
+	int rc;
+	struct bcm_vk_wkent *p_ent;
+
+	p_ent = kzalloc(sizeof(struct bcm_vk_wkent) +
+			sizeof(struct vk_msg_blk), GFP_KERNEL);
+	if (!p_ent)
+		return -ENOMEM;
+
+	/* just fill up non-zero data */
+	p_ent->p_h2vk_msg[0].function_id = VK_FID_SHUTDOWN;
+	p_ent->p_h2vk_msg[0].args[0] = 1; /* 1 is shutdown ctxs with pid */
+	p_ent->p_h2vk_msg[0].args[1] = pid;
+	p_ent->p_h2vk_msg[0].queue_id = 2; /* use queue 2 */
+	p_ent->h2vk_blks = 1; /* always 1 block */
+
+	rc = bcm_h2vk_msg_enqueue(vk, p_ent);
+	if (rc)
+		dev_err(&vk->pdev->dev,
+			"Sending shutdown message to q %d for pid %d fails.\n",
+			p_ent->p_h2vk_msg[0].queue_id, pid);
+
+	kfree(p_ent);
+
+	return rc;
+}
+
 static struct bcm_vk_wkent *bcm_vk_find_pending(struct bcm_vk_msg_chan *p_chan,
 						uint16_t q_num,
 						uint16_t msg_id)
@@ -523,6 +576,10 @@ static int bcm_vk_data_init(struct bcm_vk *vk)
 	spin_lock_init(&vk->msg_id_lock);
 	vk->msg_id = 0;
 
+	/* initialize hash table */
+	for (i = 0; i < VK_PID_HT_SZ; i++)
+		INIT_LIST_HEAD(&vk->pid_ht[i].fd_head);
+
 	INIT_WORK(&vk->vk2h_wq, bcm_vk2h_wq_handler);
 	return rc;
 }
@@ -552,7 +609,7 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 	int    rc = 0;
 
 	/* get a context and set it up for file */
-	p_ctx = bcm_vk_get_ctx(vk);
+	p_ctx = bcm_vk_get_ctx(vk, task_pid_nr(current));
 	if (!p_ctx) {
 		dev_err(dev, "Error allocating context\n");
 		rc = -ENOMEM;
@@ -568,7 +625,8 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 		 */
 		p_ctx->p_miscdev = p_miscdev;
 		p_file->private_data = p_ctx;
-		dev_dbg(dev, "ctx_returned with idx %d\n", p_ctx->idx);
+		dev_dbg(dev, "ctx_returned with idx %d, pid %d\n",
+			p_ctx->idx, p_ctx->pid);
 	}
 	return rc;
 }
@@ -760,17 +818,26 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 
 int bcm_vk_release(struct inode *inode, struct file *p_file)
 {
+	int ret;
 	struct bcm_vk_ctx *p_ctx = p_file->private_data;
 	struct bcm_vk *vk = container_of(p_ctx->p_miscdev, struct bcm_vk,
 					 miscdev);
 	struct device *dev = &vk->pdev->dev;
+	pid_t pid = p_ctx->pid;
 
-	dev_dbg(dev, "Draining with context idx %d\n", p_ctx->idx);
+	dev_dbg(dev, "Draining with context idx %d pid %d\n",
+		p_ctx->idx, pid);
 
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, p_ctx);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, p_ctx);
 
-	bcm_vk_free_ctx(vk, p_ctx);
+	ret = bcm_vk_free_ctx(vk, p_ctx);
+	if (ret < 0) {
+		return ret;
+	} else if (ret == 0) {
+		dev_dbg(dev, "No more sessions, shut down pid %d\n", pid);
+		return bcm_vk_send_pid_shut(vk, pid);
+	}
 	return 0;
 }
 

@@ -43,6 +43,7 @@ struct bcm_vk {
 	uint16_t msg_id;
 	spinlock_t ctx_lock;
 	struct bcm_vk_ctx op_ctx[VK_CMPT_CTX_MAX];
+	struct bcm_vk_ht_entry pid_ht[VK_PID_HT_SZ];
 
 	bool msgq_inited; /* indicate if info has been synced with vk */
 	struct bcm_vk_msg_chan h2vk_msg_chan;

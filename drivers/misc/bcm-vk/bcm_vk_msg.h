@@ -61,9 +61,17 @@ struct bcm_vk_msgq {
 
 /* context per session opening of sysfs */
 struct bcm_vk_ctx {
+	struct list_head list_node; /* use for linkage in HT */
 	uint idx;
 	bool in_use;
+	pid_t pid;
+	uint32_t hash_idx;
 	struct miscdevice *p_miscdev;
+};
+
+/* pid hash table entry */
+struct bcm_vk_ht_entry {
+	struct list_head fd_head;
 };
 
 #define VK_DMA_MAX_ADDRS 4 /* Max 4 DMA Addresses */
@@ -105,6 +113,10 @@ struct bcm_vk_msg_chan {
 
 /* TO_DO: some of the following defines may need to be adjusted */
 #define VK_CMPT_CTX_MAX		    (32 * 5)
+
+/* hash table defines to store the opened FDs */
+#define VK_PID_HT_SHIFT_BIT         7 /* 128 */
+#define VK_PID_HT_SZ                (1 << VK_PID_HT_SHIFT_BIT)
 
 /* The following are offsets of DDR info provided by the vk card */
 #define VK_BAR0_SEG_SIZE	    (4 * SZ_1K)	/* segment size for BAR0 */
