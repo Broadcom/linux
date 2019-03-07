@@ -224,3 +224,29 @@ int thermal_zone_get_offset(struct thermal_zone_device *tz)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(thermal_zone_get_offset);
+
+/**
+ * thermal_zone_get_crit_temp() - returns the critical temperature limit of a
+ * thermal zone
+ * @tz: a valid pointer to a struct thermal_zone_device
+ * @temp: a valid pointer to where to store the critical temperature limit.
+ *
+ * When a valid thermal zone reference is passed, it will fetch its
+ * critical temperature limit and fill @temp.
+ *
+ * Return: On success returns 0, an error code otherwise
+ */
+int thermal_zone_get_crit_temp(struct thermal_zone_device *tz, int *temp)
+{
+	int ret = -EINVAL;
+
+	if (!tz || IS_ERR(tz) || !tz->ops->get_crit_temp)
+		goto exit;
+
+	mutex_lock(&tz->lock);
+	ret = tz->ops->get_crit_temp(tz, temp);
+	mutex_unlock(&tz->lock);
+exit:
+	return ret;
+}
+EXPORT_SYMBOL_GPL(thermal_zone_get_crit_temp);
