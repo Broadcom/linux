@@ -1408,6 +1408,8 @@ static int parse_ssp_child_node(struct platform_device *pdev,
 }
 
 static struct regmap_config audio_primary_regmap_cfg = {
+	.name = "ssp_main",
+
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
@@ -1416,6 +1418,8 @@ static struct regmap_config audio_primary_regmap_cfg = {
 };
 
 static struct regmap_config i2s_in_regmap_cfg = {
+	.name = "ssp_secondary",
+
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
