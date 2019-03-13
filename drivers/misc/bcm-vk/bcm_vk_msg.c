@@ -389,6 +389,9 @@ int bcm_vk_send_pid_shut(struct bcm_vk *vk, const pid_t pid)
 	int rc;
 	struct bcm_vk_wkent *p_ent;
 
+	if (!vk->msgq_inited)
+		return -EPERM;
+
 	p_ent = kzalloc(sizeof(struct bcm_vk_wkent) +
 			sizeof(struct vk_msg_blk), GFP_KERNEL);
 	if (!p_ent)
