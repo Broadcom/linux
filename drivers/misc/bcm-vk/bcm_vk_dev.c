@@ -116,7 +116,7 @@ static inline int bcm_vk_wait(struct bcm_vk *vk, enum pci_barno bar,
 			      unsigned long timeout_ms)
 {
 	struct device *dev = &vk->pdev->dev;
-	unsigned long timeout = jiffies + timeout_ms;
+	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
 	u32 rd_val;
 
 	do {
@@ -124,16 +124,14 @@ static inline int bcm_vk_wait(struct bcm_vk *vk, enum pci_barno bar,
 		dev_dbg(dev, "BAR%d Offset=0x%llx: 0x%x\n",
 			bar, offset, rd_val);
 
-		if (time_after(jiffies, timeout)) {
-			timeout_ms = 0;
-			break;
-		}
+		if (time_after(jiffies, timeout))
+			return -ETIMEDOUT;
 
 		cpu_relax();
 		cond_resched();
 	} while ((rd_val & mask) != value);
 
-	return timeout_ms;
+	return 0;
 }
 
 static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
@@ -141,14 +139,13 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	struct device *dev = &vk->pdev->dev;
 	const struct firmware  *fw;
 	struct vk_image image;
-	long ret = 0;
+	int ret;
 	unsigned long i;
 	uint64_t offset;
 	uint64_t offset_codepush;
 	u32 codepush;
 	u32 ram_open;
 	int remainder;
-	unsigned long time_left = msecs_to_jiffies(LOAD_IMAGE_TIMEOUT_MS);
 
 	if (copy_from_user(&image, arg, sizeof(image))) {
 		ret = -EACCES;
@@ -159,7 +156,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 
 	ret = request_firmware(&fw, image.filename, dev);
 	if (ret) {
-		dev_err(dev, "Error %ld requesting firmware file: %s\n",
+		dev_err(dev, "Error %d requesting firmware file: %s\n",
 			ret, image.filename);
 		goto err_out;
 	}
@@ -182,8 +179,8 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		vkwrite32(vk, CODEPUSH_FASTBOOT, BAR_0, offset_codepush);
 
 		/* Wait for VK to respond */
-		time_left = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN, SRAM_OPEN,
-					SRAM_OPEN, time_left);
+		ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN, SRAM_OPEN, SRAM_OPEN,
+				  LOAD_IMAGE_TIMEOUT_MS);
 	} else if (image.type == VK_IMAGE_TYPE_BOOT2) {
 		offset = BAR1_CODEPUSH_BASE_BOOT2;
 		codepush = CODEPUSH_FASTBOOT + CODEPUSH_BOOT2_ENTRY;
@@ -195,17 +192,16 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		}
 
 		/* Wait for VK to respond */
-		time_left = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN, DDR_OPEN,
-					DDR_OPEN, time_left);
+		ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN, DDR_OPEN, DDR_OPEN,
+				  LOAD_IMAGE_TIMEOUT_MS);
 	} else {
 		dev_err(dev, "Error invalid image type 0x%x\n", image.type);
 		ret = -EINVAL;
 		goto err_firmware_out;
 	}
 
-	if (time_left <= 0) {
+	if (ret < 0) {
 		dev_err(dev, "timeout\n");
-		ret = -ETIMEDOUT;
 		goto err_firmware_out;
 	}
 
@@ -222,15 +218,14 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	dev_dbg(dev, "Signaling 0x%x to 0x%llx\n", codepush, offset_codepush);
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
 
-	/* wait for fw status bits to initialize the queues */
+	/* Initialize Message Q if we are loading boot2 */
 	if (image.type == VK_IMAGE_TYPE_BOOT2) {
-		time_left = msecs_to_jiffies(LOAD_IMAGE_TIMEOUT_MS);
-		time_left = bcm_vk_wait(vk, BAR_0, BAR_FW_STATUS,
-					FW_STATUS_MASK, FW_STATUS_ZEPHYR_READY,
-					time_left);
-		if (time_left <= 0) {
+		/* wait for fw status bits to indicate Zephyr app ready */
+		ret = bcm_vk_wait(vk, BAR_0, BAR_FW_STATUS, FW_STATUS_MASK,
+				  FW_STATUS_ZEPHYR_READY,
+				  LOAD_IMAGE_TIMEOUT_MS);
+		if (ret < 0) {
 			dev_err(dev, "Boot2 MSG Q not ready - timeout\n");
-			ret = -ETIMEDOUT;
 			goto err_firmware_out;
 		}
 
