@@ -6,6 +6,7 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -537,26 +538,18 @@ static void audio_ssp_in_enable(struct aio_port *aio)
 	aio->streams_on |= CAPTURE_STREAM_MASK;
 }
 
-#define RX_STATUS_DONE_TIMEOUT  20000  /* 20 ms */
+#define RX_STATUS_DONE_TIMEOUT_US  200  /* 200 us */
 static int wait_for_rx_done(struct aio_port *aio)
 {
-	struct reg_desc desc;
-	unsigned int temp = 0;
-	u32 mask, val;
+	u32 mask, val, done_val;
 	int ret;
 
 	mask = BIT(0);
-	val = 0;
+	done_val = 0x0;
 
-	ret = audio_get_iomap(aio->io, aio->regs.i2s_cap_status, &desc);
-	if (ret) {
-		dev_err(aio->dev, "Failed io lookup.\n");
-		return ret;
-	}
-
-	ret = regmap_read_poll_timeout(desc.iomap, desc.io_offset,
-					temp, ((temp & mask) == val),
-					10, RX_STATUS_DONE_TIMEOUT);
+	ret = readl_poll_timeout_atomic(aio->io + aio->regs.i2s_cap_status,
+					val, ((val & mask) == done_val),
+					10, RX_STATUS_DONE_TIMEOUT_US);
 	if (ret)
 		dev_err(aio->dev, "Timeout polling Rx status done. Port %u\n",
 			aio->portnum);
