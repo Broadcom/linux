@@ -209,6 +209,12 @@
 			status = "disabled";
 		};
 
+		m7_audio: audio@0 {
+			#sound-dai-cells = <0>;
+			compatible = "brcm,omega-m7audio";
+			status = "disabled";
+		};
+
 		omega_audio: audio@600000 {
 			compatible = "brcm,omega-audio";
 			#address-cells = <1>;
