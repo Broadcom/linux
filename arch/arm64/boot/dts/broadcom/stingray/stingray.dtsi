@@ -744,7 +744,6 @@
 				};
 			};
 		};
-
 		ihost1_thermal: ihost1-thermal {
 			polling-delay-passive = <0>;
 			polling-delay = <1000>;
@@ -757,7 +756,6 @@
 				};
 			};
 		};
-
 		ihost2_thermal: ihost2-thermal {
 			polling-delay-passive = <0>;
 			polling-delay = <1000>;
@@ -770,7 +768,6 @@
 				};
 			};
 		};
-
 		ihost3_thermal: ihost3-thermal {
 			polling-delay-passive = <0>;
 			polling-delay = <1000>;
@@ -783,7 +780,6 @@
 				};
 			};
 		};
-
 		crmu_thermal: crmu-thermal {
 			polling-delay-passive = <0>;
 			polling-delay = <1000>;
@@ -796,7 +792,6 @@
 				};
 			};
 		};
-
 		nitro_thermal: nitro-thermal {
 			polling-delay-passive = <0>;
 			polling-delay = <1000>;

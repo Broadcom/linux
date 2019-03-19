@@ -1,35 +1,7 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
 /*
- *  BSD LICENSE
- *
- *  Copyright(c) 2016-2017 Broadcom.  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *    * Redistributions of source code must retain the above copyright
- *      notice, this list of conditions and the following disclaimer.
- *    * Redistributions in binary form must reproduce the above copyright
- *      notice, this list of conditions and the following disclaimer in
- *      the documentation and/or other materials provided with the
- *      distribution.
- *    * Neither the name of Broadcom nor the names of its
- *      contributors may be used to endorse or promote products derived
- *      from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *Copyright(c) 2018 Broadcom
  */
-
 	usb {
 		compatible = "simple-bus";
 		dma-ranges;
@@ -49,7 +21,7 @@
 #endif
 		};
 
-		xhci0: usb@00001000 {
+		xhci0: usb@1000 {
 			compatible = "generic-xhci";
 			reg = <0x00001000 0x1000>;
 			interrupts = <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH>;
@@ -66,7 +38,7 @@
 #endif
 		};
 
-		bdc0: usb@00002000 {
+		bdc0: usb@2000 {
 			compatible = "brcm,bdc-v0.16";
 			reg = <0x00002000 0x1000>;
 			interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
@@ -105,7 +77,7 @@
 #endif
 		};
 
-		xhci1: usb@00011000 {
+		xhci1: usb@11000 {
 			compatible = "generic-xhci";
 			reg = <0x00011000 0x1000>;
 			interrupts = <GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>;
@@ -122,7 +94,7 @@
 #endif
 		};
 
-		bdc1: usb@00021000 {
+		bdc1: usb@21000 {
 			compatible = "brcm,bdc-v0.16";
 			reg = <0x00021000 0x1000>;
 			interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
