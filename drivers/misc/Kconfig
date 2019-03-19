@@ -533,7 +533,6 @@ source "drivers/misc/bcm-iproc-ftm/Kconfig"
 config BCM_IPROC_DTE
         tristate "DTE support"
         depends on ARCH_BCM_IPROC || COMPILE_TEST
-        default ARCH_BCM_IPROC
         help
           Enable support for a Digital Timing Engine (DTE) that allows for hardware
           time stamping of network packets, audio/video samples and/or GPIO inputs
