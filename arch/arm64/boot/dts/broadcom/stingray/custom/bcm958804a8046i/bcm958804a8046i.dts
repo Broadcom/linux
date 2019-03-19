@@ -17,7 +17,7 @@
 #include "../../stingray-board-base.dtsi"
 
 / {
-	model = "Stingray PS225N (BCM958802A8046I)";
+	model = "Stingray PS225N (BCM958804A8046I)";
 
 	chosen {
 		stdout-path = "serial1:115200n8";

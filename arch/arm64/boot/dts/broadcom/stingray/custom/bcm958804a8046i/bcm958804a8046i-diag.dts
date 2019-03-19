@@ -5,7 +5,7 @@
 
 #define NUM_PAXB 0
 
-#include "bcm958802a8046i.dts"
+#include "bcm958804a8046i.dts"
 
 #include "../../stingray-diag.dtsi"
 
