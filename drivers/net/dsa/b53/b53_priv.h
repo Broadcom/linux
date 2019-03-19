@@ -359,8 +359,6 @@ void b53_eee_enable_set(struct dsa_switch *ds, int port, bool enable);
 int b53_eee_init(struct dsa_switch *ds, int port, struct phy_device *phy);
 int b53_get_mac_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e);
 int b53_set_mac_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e);
-int b53_set_pauseparam(struct dsa_switch *ds, struct phy_device *phydev,
-		       struct ethtool_pauseparam *pause);
 int b53_change_mtu(struct dsa_switch *ds, int port, int mtu);
 
 #endif

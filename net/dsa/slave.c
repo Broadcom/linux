@@ -982,43 +982,6 @@ static int dsa_slave_get_ts_info(struct net_device *dev,
 	return ds->ops->get_ts_info(ds, p->dp->index, ts);
 }
 
-static int dsa_slave_set_pauseparam(struct net_device *dev,
-				    struct ethtool_pauseparam *pause)
-{
-	struct dsa_port *dp = dsa_slave_to_port(dev);
-	struct phy_device *phydev = dev->phydev;
-	struct dsa_switch *ds = dp->ds;
-	int ret;
-	u32 old_adv, new_adv;
-
-	if (!phydev)
-		return -ENODEV;
-
-	if (!ds->ops->set_pauseparam)
-		return -EOPNOTSUPP;
-
-	old_adv = phydev->advertising &
-			(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
-
-	ret = ds->ops->set_pauseparam(ds, phydev, pause);
-	if (ret)
-		return ret;
-
-	new_adv = phydev->advertising &
-			(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
-
-	if (pause->autoneg && old_adv != new_adv) {
-		if (netif_running(dev)) {
-			ret = phy_start_aneg(phydev);
-			if (ret < 0)
-				netdev_err(dev, "phy_start_aneg() = %d\n",
-					   ret);
-				return ret;
-		}
-	}
-	return ret;
-}
-
 static void dsa_slave_get_pauseparam(struct net_device *dev,
 				     struct ethtool_pauseparam *pause)
 {
@@ -1086,7 +1049,6 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
 	.set_rxnfc		= dsa_slave_set_rxnfc,
 	.get_ts_info		= dsa_slave_get_ts_info,
 	.get_pauseparam		= dsa_slave_get_pauseparam,
-	.set_pauseparam		= dsa_slave_set_pauseparam,
 };
 
 /* legacy way, bypassing the bridge *****************************************/

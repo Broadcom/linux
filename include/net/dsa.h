@@ -521,12 +521,6 @@ struct dsa_switch_ops {
 	bool	(*port_rxtstamp)(struct dsa_switch *ds, int port,
 				 struct sk_buff *skb, unsigned int type);
 	/*
-	 * ethtool pause parameter
-	 */
-	int	(*set_pauseparam)(struct dsa_switch *ds,
-				  struct phy_device *phydev,
-				  struct ethtool_pauseparam *pause);
-	/*
 	 * MTU change functionality
 	 */
 	int	(*change_mtu)(struct dsa_switch *ds, int port,

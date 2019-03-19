@@ -1900,21 +1900,6 @@ int b53_set_mac_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e)
 }
 EXPORT_SYMBOL(b53_set_mac_eee);
 
-int b53_set_pauseparam(struct dsa_switch *ds, struct phy_device *phydev,
-		       struct ethtool_pauseparam *pause)
-{
-	phydev->advertising &= ~(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
-
-	if (pause->rx_pause)
-		phydev->advertising |= ADVERTISED_Pause | ADVERTISED_Asym_Pause;
-
-	if (pause->tx_pause)
-		phydev->advertising ^= ADVERTISED_Asym_Pause;
-
-	return 0;
-}
-EXPORT_SYMBOL(b53_set_pauseparam);
-
 int b53_change_mtu(struct dsa_switch *ds, int port, int mtu)
 {
 	struct b53_device *dev = ds->priv;
@@ -1973,7 +1958,6 @@ static const struct dsa_switch_ops b53_switch_ops = {
 	.port_fdb_del		= b53_fdb_del,
 	.port_mirror_add	= b53_mirror_add,
 	.port_mirror_del	= b53_mirror_del,
-	.set_pauseparam		= b53_set_pauseparam,
 	.change_mtu		= b53_change_mtu,
 };
 
