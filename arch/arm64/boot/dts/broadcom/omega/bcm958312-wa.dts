@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include "omega-base-board.dtsi"
+#include "bcm58312.dtsi"
 #include "dt-bindings/input/input.h"
 
 / {

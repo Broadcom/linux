@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include "omega-base-board.dtsi"
+#include "bcm11407.dtsi"
 #include "bcm95831x-svk-common.dtsi"
 
 / {
