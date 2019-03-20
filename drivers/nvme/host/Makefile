@@ -7,6 +7,7 @@ obj-$(CONFIG_BLK_DEV_NVME)		+= nvme.o
 obj-$(CONFIG_NVME_FABRICS)		+= nvme-fabrics.o
 obj-$(CONFIG_NVME_RDMA)			+= nvme-rdma.o
 obj-$(CONFIG_NVME_FC)			+= nvme-fc.o
+obj-$(CONFIG_NVME_TCP)			+= nvme-tcp.o
 obj-$(CONFIG_NVME_LPM_BACKUP)		+= nvme-lpm.o
 
 nvme-core-y				:= core.o
@@ -22,5 +23,7 @@ nvme-fabrics-y				+= fabrics.o
 nvme-rdma-y				+= rdma.o
 
 nvme-fc-y				+= fc.o
+
+nvme-tcp-y				+= tcp.o
 
 nvme-lpm-y				+= pci-lpm.o
