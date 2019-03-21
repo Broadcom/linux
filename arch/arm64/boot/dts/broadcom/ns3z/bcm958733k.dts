@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2019 Broadcom
+ */
+
+/dts-v1/;
+
+#include "ns3z.dtsi"
+
+/ {
+	model = "NS3z Combo SVK (BCM958733k)";
+
+	aliases {
+		serial0 = &uart1;
+		serial1 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&uart1 {
+	status = "okay";
+};
