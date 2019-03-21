@@ -304,11 +304,6 @@ static void bcm_iproc_i2c_slave_init(
 	val = BIT(IE_S_RX_EVENT_SHIFT);
 	/* Enable interrupt register for the Slave BUSY command */
 	val |= BIT(IE_S_START_BUSY_SHIFT);
-	/*
-	 * Enable interrupt register for TX FIFO becomes empty and
-	 * less than PKT_LENGTH bytes were output on the SMBUS
-	 */
-	val |= BIT(IE_S_TX_UNDERRUN_SHIFT);
 	iproc_i2c_wr_reg(iproc_i2c, IE_OFFSET, val);
 }
 
@@ -343,6 +338,7 @@ static bool bcm_iproc_i2c_slave_isr(struct bcm_iproc_i2c_dev *iproc_i2c,
 	if (status & BIT(IS_S_RX_EVENT_SHIFT)) {
 		val = iproc_i2c_rd_reg(iproc_i2c, S_RX_OFFSET);
 		rd_status = (val >> S_RX_STATUS_SHIFT) & S_RX_STATUS_MASK;
+		dev_dbg(iproc_i2c->device, "rd_status %x\n", rd_status);
 		if (rd_status == I2C_SLAVE_RX_START) {
 			/* Start of SMBUS for Master write */
 			i2c_slave_event(iproc_i2c->slave,
@@ -358,6 +354,13 @@ static bool bcm_iproc_i2c_slave_isr(struct bcm_iproc_i2c_dev *iproc_i2c,
 			iproc_i2c_wr_reg(iproc_i2c, S_TX_OFFSET, value);
 			val = BIT(S_CMD_START_BUSY_SHIFT);
 			iproc_i2c_wr_reg(iproc_i2c, S_CMD_OFFSET, val);
+			val = iproc_i2c_rd_reg(iproc_i2c, IE_OFFSET);
+			/*
+			 * Enable interrupt for TX FIFO becomes empty and
+			 * less than PKT_LENGTH bytes were output on the SMBUS
+			 */
+			val |= BIT(IE_S_TX_UNDERRUN_SHIFT);
+			iproc_i2c_wr_reg(iproc_i2c, IE_OFFSET, val);
 		} else {
 			/* Master write other than start */
 			value = (u8)((val >> S_RX_DATA_SHIFT) & S_RX_DATA_MASK);
@@ -377,6 +380,10 @@ static bool bcm_iproc_i2c_slave_isr(struct bcm_iproc_i2c_dev *iproc_i2c,
 	/* Stop */
 	if (status & BIT(IS_S_START_BUSY_SHIFT)) {
 		i2c_slave_event(iproc_i2c->slave, I2C_SLAVE_STOP, &value);
+		val = iproc_i2c_rd_reg(iproc_i2c, IE_OFFSET);
+		/* Disable TX UNDERRUN interrupt */
+		val &= ~BIT(IE_S_TX_UNDERRUN_SHIFT);
+		iproc_i2c_wr_reg(iproc_i2c, IE_OFFSET, val);
 	}
 
 	/* clear interrupt status */
@@ -501,6 +508,7 @@ static irqreturn_t bcm_iproc_i2c_isr(int irq, void *data)
 	bool ret;
 	u32 sl_status = status & ISR_MASK_SLAVE;
 
+	dev_dbg(iproc_i2c->device, "IS %x\n", status);
 	if (sl_status) {
 		ret = bcm_iproc_i2c_slave_isr(iproc_i2c, sl_status);
 		if (ret)
