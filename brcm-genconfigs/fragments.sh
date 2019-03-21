@@ -45,6 +45,7 @@ iproc_defconfig="base-arm64 ns2 stingray \
     dbg dma                              \
     efi fs hba hwmon                     \
     i2c infiniband iomux                 \
+    iscsi                                \
     mailbox md misc mmc mtd mtd-spi      \
     net nvme                             \
     optee                                \
