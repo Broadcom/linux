@@ -322,6 +322,8 @@ struct omega_audio {
 
 	struct audio_io io;
 	struct device *dev;
+
+	u32 oe_reg_context;
 };
 
 /* List of valid frame sizes for tdm mode */
@@ -400,6 +402,32 @@ static int sspreg_clr_bits(struct audio_io *io, unsigned int offset, u32 mask)
 static int sspreg_set_bits(struct audio_io *io, unsigned int offset, u32 mask)
 {
 	return sspreg_update(io, offset, mask, mask);
+}
+
+static int sspreg_read(struct audio_io *io, unsigned int offset, u32 *val)
+{
+	struct reg_desc desc;
+	int ret;
+
+	ret = audio_get_iomap(io, offset, &desc);
+	if (ret)
+		return ret;
+
+	regmap_read(desc.iomap, desc.io_offset, val);
+	return 0;
+}
+
+static int sspreg_write(struct audio_io *io, unsigned int offset, u32 val)
+{
+	struct reg_desc desc;
+	int ret;
+
+	ret = audio_get_iomap(io, offset, &desc);
+	if (ret)
+		return ret;
+
+	regmap_write(desc.iomap, desc.io_offset, val);
+	return 0;
 }
 
 static struct aio_port *aio_dai_get_portinfo(struct snd_soc_dai *dai)
@@ -897,6 +925,8 @@ static int aio_ssp_startup(struct snd_pcm_substream *substream,
 	struct iproc_pcm_dma_info *dma_info;
 
 	dev_dbg(aio->dev, "Enter %s\n", __func__);
+
+	audio_ssp_init_portregs(aio);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		dma_info = &aiotop->dma_info_play[aio->portnum];
@@ -1554,6 +1584,29 @@ static int omega_ssp_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int omega_ssp_suspend(struct device *dev)
+{
+	struct omega_audio *aiotop = dev_get_drvdata(dev);
+
+	sspreg_read(&aiotop->io, AUD_MISC_SEROUT_OE_REG_BASE,
+		    &aiotop->oe_reg_context);
+	return 0;
+}
+
+static int omega_ssp_resume(struct device *dev)
+{
+	struct omega_audio *aiotop = dev_get_drvdata(dev);
+
+	sspreg_write(&aiotop->io, AUD_MISC_SEROUT_OE_REG_BASE,
+		     aiotop->oe_reg_context);
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(omega_ssp_pm_ops,
+			 omega_ssp_suspend, omega_ssp_resume);
+#endif
+
 static const struct of_device_id omega_ssp_of_match[] = {
 	{ .compatible = "brcm,omega-audio" },
 	{},
@@ -1564,8 +1617,9 @@ static struct platform_driver omega_ssp_driver = {
 	.probe		= omega_ssp_probe,
 	.remove		= omega_ssp_remove,
 	.driver		= {
-		.name	= "omega-ssp",
-		.of_match_table = omega_ssp_of_match,
+		.name		= "omega-ssp",
+		.of_match_table	= omega_ssp_of_match,
+		.pm		= &omega_ssp_pm_ops,
 	},
 };
 
