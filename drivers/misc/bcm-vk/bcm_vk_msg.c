@@ -79,13 +79,22 @@ static inline void bcm_vk_h2vk_verify_blk(struct device *dev,
 /*
  * allocate a ctx per file struct
  */
-static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk, const pid_t pid)
+static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk,
+					 struct task_struct *p_pid)
 {
 	struct bcm_vk_ctx *p_ctx = NULL;
 	uint32_t i;
+	const pid_t pid = task_pid_nr(p_pid);
 	uint32_t hash_idx = hash_32(pid, VK_PID_HT_SHIFT_BIT);
 
 	spin_lock(&vk->ctx_lock);
+
+	/* check if it is in reset, if so, don't allow */
+	if (vk->reset_ppid) {
+		dev_err(&vk->pdev->dev, "No context allowed during reset by pid %d\n",
+			task_pid_nr(vk->reset_ppid));
+		goto in_reset_exit;
+	}
 
 	for (i = 0; i < VK_CMPT_CTX_MAX; i++) {
 		if (!vk->op_ctx[i].in_use) {
@@ -96,10 +105,11 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk, const pid_t pid)
 	}
 
 	/* set the pid and insert it to hash table */
-	p_ctx->pid = pid;
+	p_ctx->p_pid = p_pid;
 	p_ctx->hash_idx = hash_idx;
 	list_add_tail(&p_ctx->list_node, &vk->pid_ht[hash_idx].fd_head);
 
+in_reset_exit:
 	spin_unlock(&vk->ctx_lock);
 
 	return p_ctx;
@@ -131,7 +141,7 @@ static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *p_ctx)
 		return -EINVAL;
 	}
 	idx = p_ctx->idx;
-	pid = p_ctx->pid;
+	pid = task_pid_nr(p_ctx->p_pid);
 
 	spin_lock(&vk->ctx_lock);
 
@@ -151,7 +161,7 @@ static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *p_ctx)
 		list_for_each_entry(p_ent,
 				    &vk->pid_ht[hash_idx].fd_head,
 				    list_node)
-			if (p_ent->pid == pid)
+			if (task_pid_nr(p_ent->p_pid) == pid)
 				count++;
 	}
 
@@ -191,6 +201,14 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 	spin_unlock(&p_chan->pendq_lock);
 }
 
+bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
+{
+	uint32_t rdy_marker;
+
+	rdy_marker = vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
+	return (rdy_marker == VK_BAR1_MSGQ_RDY_MARKER);
+}
+
 /*
  * Function to sync up the messages queue info that is provided by BAR0 and BAR1
  */
@@ -200,7 +218,6 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 	struct device *dev = &vk->pdev->dev;
 	uint32_t msgq_off;
 	uint32_t num_q;
-	uint32_t rdy_marker;
 	struct bcm_vk_msg_chan *chan_list[] = {&vk->h2vk_msg_chan,
 					       &vk->vk2h_msg_chan};
 	struct bcm_vk_msg_chan *p_chan = NULL;
@@ -221,8 +238,7 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 	 * this case, we skip and the sync function is supposed to be
 	 * called again.
 	 */
-	rdy_marker = vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
-	if (rdy_marker != VK_BAR1_MSGQ_RDY_MARKER) {
+	if (!bcm_vk_msgq_marker_valid(vk)) {
 		dev_info(dev, "BAR1 msgq marker not initialized.\n");
 		return 0;
 	}
@@ -382,14 +398,39 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
 	return 0;
 }
 
-int bcm_vk_send_pid_shut(struct bcm_vk *vk, const pid_t pid)
+int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *p_pid)
 {
-	int rc;
+	int rc = 0;
 	struct bcm_vk_wkent *p_ent;
+	pid_t pid = task_pid_nr(p_pid);
+	struct device *dev = &vk->pdev->dev;
 
-	if (!vk->msgq_inited)
+	/* shutdown type */
+#define VK_SHUTDOWN_PID	     1
+#define VK_SHUTDOWN_GRACEFUL 2
+
+	/*
+	 * don't send down or do anything if message queue is not initialized
+	 * and if it is the reset session, clear it.
+	 */
+	if (!vk->msgq_inited) {
+
+		if (vk->reset_ppid == p_pid)
+			vk->reset_ppid = NULL;
 		return -EPERM;
+	}
 
+	/*
+	 * check if the marker is still good.  Sometimes, the PCIe interface may
+	 * have gone done, and if so and we ship down thing based on broken
+	 * values, kernel may panic.
+	 */
+	if (!bcm_vk_msgq_marker_valid(vk)) {
+		dev_err(dev, "Marker invalid - PCIe interface potentially done!\n");
+		return -EINVAL;
+	}
+
+	dev_info(dev, "No more sessions, shut down pid %d\n", pid);
 	p_ent = kzalloc(sizeof(struct bcm_vk_wkent) +
 			sizeof(struct vk_msg_blk), GFP_KERNEL);
 	if (!p_ent)
@@ -397,18 +438,31 @@ int bcm_vk_send_pid_shut(struct bcm_vk *vk, const pid_t pid)
 
 	/* just fill up non-zero data */
 	p_ent->p_h2vk_msg[0].function_id = VK_FID_SHUTDOWN;
-	p_ent->p_h2vk_msg[0].args[0] = 1; /* 1 is shutdown ctxs with pid */
-	p_ent->p_h2vk_msg[0].args[1] = pid;
 	p_ent->p_h2vk_msg[0].queue_id = 2; /* use queue 2 */
 	p_ent->h2vk_blks = 1; /* always 1 block */
 
+	/*
+	 * The reset process would have allowed some time for killing the
+	 * associated processes.  However, that may not be guaranteed and
+	 * if we have hit here that the reset process has to exit,
+	 * send down a card level shut anyway.
+	 */
+	if (vk->reset_ppid != p_pid) {
+		p_ent->p_h2vk_msg[0].args[0] = VK_SHUTDOWN_PID;
+		p_ent->p_h2vk_msg[0].args[1] = pid;
+	} else {
+		p_ent->p_h2vk_msg[0].args[0] = VK_SHUTDOWN_GRACEFUL;
+		p_ent->p_h2vk_msg[0].args[1] = 0;
+	}
 	rc = bcm_h2vk_msg_enqueue(vk, p_ent);
 	if (rc)
-		dev_err(&vk->pdev->dev,
+		dev_err(dev,
 			"Sending shutdown message to q %d for pid %d fails.\n",
 			p_ent->p_h2vk_msg[0].queue_id, pid);
 
 	kfree(p_ent);
+	if (vk->reset_ppid == p_pid)
+		vk->reset_ppid = NULL;
 
 	return rc;
 }
@@ -610,7 +664,7 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 	int    rc = 0;
 
 	/* get a context and set it up for file */
-	p_ctx = bcm_vk_get_ctx(vk, task_pid_nr(current));
+	p_ctx = bcm_vk_get_ctx(vk, current);
 	if (!p_ctx) {
 		dev_err(dev, "Error allocating context\n");
 		rc = -ENOMEM;
@@ -627,7 +681,7 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 		p_ctx->p_miscdev = p_miscdev;
 		p_file->private_data = p_ctx;
 		dev_dbg(dev, "ctx_returned with idx %d, pid %d\n",
-			p_ctx->idx, p_ctx->pid);
+			p_ctx->idx, task_pid_nr(p_ctx->p_pid));
 	}
 	return rc;
 }
@@ -824,7 +878,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	struct bcm_vk *vk = container_of(p_ctx->p_miscdev, struct bcm_vk,
 					 miscdev);
 	struct device *dev = &vk->pdev->dev;
-	pid_t pid = p_ctx->pid;
+	pid_t pid = task_pid_nr(p_ctx->p_pid);
 
 	dev_dbg(dev, "Draining with context idx %d pid %d\n",
 		p_ctx->idx, pid);
@@ -833,12 +887,11 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, p_ctx);
 
 	ret = bcm_vk_free_ctx(vk, p_ctx);
-	if (ret < 0) {
+	if (ret < 0)
 		return ret;
-	} else if (ret == 0) {
-		dev_dbg(dev, "No more sessions, shut down pid %d\n", pid);
-		return bcm_vk_send_pid_shut(vk, pid);
-	}
+	else if (ret == 0)
+		return bcm_vk_handle_last_sess(vk, p_ctx->p_pid);
+
 	return 0;
 }
 

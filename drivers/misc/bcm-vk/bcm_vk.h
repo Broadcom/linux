@@ -44,6 +44,7 @@ struct bcm_vk {
 	spinlock_t ctx_lock;
 	struct bcm_vk_ctx op_ctx[VK_CMPT_CTX_MAX];
 	struct bcm_vk_ht_entry pid_ht[VK_PID_HT_SZ];
+	struct task_struct *reset_ppid; /* process that issue reset */
 
 	bool msgq_inited; /* indicate if info has been synced with vk */
 	struct bcm_vk_msg_chan h2vk_msg_chan;

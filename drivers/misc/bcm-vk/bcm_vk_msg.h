@@ -64,7 +64,7 @@ struct bcm_vk_ctx {
 	struct list_head list_node; /* use for linkage in HT */
 	uint idx;
 	bool in_use;
-	pid_t pid;
+	struct task_struct *p_pid;
 	uint32_t hash_idx;
 	struct miscdevice *p_miscdev;
 };

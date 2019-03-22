@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/pci_regs.h>
+#include <linux/sched/signal.h>
 #include <linux/sizes.h>
 #include <uapi/linux/misc/bcm_vk.h>
 
@@ -89,6 +90,8 @@ static DEFINE_IDA(bcm_vk_ida);
 #define VK_MSIX_IRQ_MAX			3
 
 #define BCM_VK_DMA_BITS			64
+
+#define BCM_VK_MIN_RESET_TIME_SEC	2
 
 static long bcm_vk_get_metadata(struct bcm_vk *vk, struct vk_metadata *arg)
 {
@@ -299,12 +302,64 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	struct device *dev = &vk->pdev->dev;
 	struct vk_reset reset;
 	long ret = 0;
+	int i;
+	u32 ram_open;
 
 	if (copy_from_user(&reset, arg, sizeof(struct vk_reset))) {
 		ret = -EACCES;
 		goto err_out;
 	}
-	dev_err(dev, "TODO: Issue Reset 0x%x, 0x%x\n", reset.arg1, reset.arg2);
+	dev_info(dev, "Issue Reset 0x%x, 0x%x\n", reset.arg1, reset.arg2);
+	if (reset.arg2 < BCM_VK_MIN_RESET_TIME_SEC)
+		reset.arg2 = BCM_VK_MIN_RESET_TIME_SEC;
+
+	spin_lock(&vk->ctx_lock);
+
+	/*
+	 * check if someone has already issued the reset, and if so, return
+	 * error
+	 */
+	if (!vk->reset_ppid) {
+
+		vk->reset_ppid = current;
+		for (i = 0; i < VK_PID_HT_SZ; i++) {
+
+			struct bcm_vk_ctx *p_ctx;
+
+			list_for_each_entry(p_ctx,
+					    &vk->pid_ht[i].fd_head,
+					    list_node) {
+
+				if (p_ctx->p_pid != vk->reset_ppid) {
+					dev_info(dev,
+						 "Send kill signal to pid %d\n",
+						 task_pid_nr(p_ctx->p_pid));
+					kill_pid(task_pid(p_ctx->p_pid),
+						 SIGKILL, 1);
+				}
+			}
+		}
+
+	} else {
+		dev_err(dev, "Reset already launched by process pid %d\n",
+			task_pid_nr(vk->reset_ppid));
+		ret = -EACCES;
+	}
+	spin_unlock(&vk->ctx_lock);
+
+	if (ret)
+		goto err_out;
+
+	/* sleep for time specified by arg2 in seconds */
+	msleep(reset.arg2 * 1000);
+
+	/* read BAR0 BAR_FB_OPEN register and dump out the value */
+	ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
+	if (!(ram_open & SRAM_OPEN))
+		ret = -EINVAL;
+
+	dev_info(dev, "Reset completed - RB_OPEN = 0x%x SRAM_OPEN %s\n",
+		 ram_open, ret ? "false" : "true");
 
 err_out:
 	return ret;
