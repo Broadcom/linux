@@ -13,8 +13,6 @@
 #define ENABLE_SSP1	0
 #define ENABLE_SDCARD	0
 #define ENABLE_PWM	0
-#define ENABLE_ENET	0
-#define ENABLE_MDIO	0
 #define ENABLE_USB1	0
 #define ENABLE_UART2	0
 #define ENABLE_UART3	0
@@ -23,6 +21,8 @@
 #define ENABLE_I2C1	1
 #define ENABLE_EMMC	1
 #define ENABLE_OPTEE	1
+#define ENABLE_MDIO	1
+#define ENABLE_ENET	1
 
 #define NUM_PAXB	1
 
