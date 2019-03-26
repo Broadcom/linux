@@ -37,6 +37,15 @@
  */
 #define NOISE_WORKAROUND_DELAY_US  500
 
+struct audioh_context {
+	u32 mic_sel;
+	u32 dac_ctl;
+	u32 adc_ctl;
+	u32 adc1_cfg;
+	u32 adc2_cfg;
+	u32 sdt_ctrl;
+};
+
 struct audioh_priv {
 	struct device *dev;
 
@@ -48,6 +57,8 @@ struct audioh_priv {
 	int tonegen_common_enabled_flag;
 	int tonegen_freqA;
 	int tonegen_freqB;
+
+	struct audioh_context context;
 };
 
 #define CRMU_POLL_TIMEOUT   20000  /* timeout after 20ms */
@@ -83,6 +94,14 @@ static void audioh_update_bits(struct snd_soc_component *component,
 	struct audioh_priv *audioh = snd_soc_component_get_drvdata(component);
 
 	regmap_update_bits(audioh->regmap, offset, mask, new_val);
+}
+
+static void audioh_read_reg(struct snd_soc_component *component,
+			    unsigned int offset, u32 *new_val)
+{
+	struct audioh_priv *audioh = snd_soc_component_get_drvdata(component);
+
+	regmap_read(audioh->regmap, offset, new_val);
 }
 
 static void tdm_mode_enable(struct snd_soc_component *component)
@@ -1451,8 +1470,76 @@ static int audioh_codec_probe(struct snd_soc_component *component)
 	return 0;
 }
 
+static int audioh_component_suspend(struct snd_soc_component *component)
+{
+	struct audioh_priv *audioh = snd_soc_component_get_drvdata(component);
+	struct audioh_context *cntxt = &audioh->context;
+
+	audioh_read_reg(component, AUDIOH_MIC_SELECT, &cntxt->mic_sel);
+	audioh_read_reg(component, AUDIOH_DAC_CTL, &cntxt->dac_ctl);
+	audioh_read_reg(component, AUDIOH_SDT_CTRL, &cntxt->sdt_ctrl);
+	audioh_read_reg(component, AUDIOH_ADC1_CFG, &cntxt->adc1_cfg);
+	audioh_read_reg(component, AUDIOH_ADC2_CFG, &cntxt->adc2_cfg);
+
+	return 0;
+}
+
+/*
+ * The audioH block gets reset during suspend. We need to go through
+ * a full initialization sequence to restore the codec.
+ * Run the probe routine and then restore bit fields that are modifiable by
+ * the driver. Other bit fields in the saved reg would be likely fine to
+ * restore, but this method highlights exactly which information we are
+ * intending to restore.
+ */
+static int audioh_component_resume(struct snd_soc_component *component)
+{
+	struct audioh_priv *audioh = snd_soc_component_get_drvdata(component);
+	struct audioh_context *cntxt = &audioh->context;
+	u32 mask;
+
+	audioh->analog_init_once = false;
+	audioh_codec_probe(component);
+
+	mask = (0xF < AUDIOH_MIC_SELECT_FIFO1) |
+	       (0xF < AUDIOH_MIC_SELECT_FIFO2) |
+	       (0xF < AUDIOH_MIC_SELECT_FIFO3) |
+	       (0xF < AUDIOH_MIC_SELECT_FIFO4) |
+	       (0xF < AUDIOH_MIC_SELECT_SDT);
+	audioh_update_bits(component, AUDIOH_MIC_SELECT, mask, cntxt->mic_sel);
+
+	/*
+	 * Do not apply the channel enable bits, for ADC_CTL and DAC_CTL .
+	 * These should not need to be restored, because they need to set
+	 * as part of a sequence when initiating a transfer.
+	 * They values should always be store as zero, but to be safe avoid
+	 * writing them here.
+	 */
+	mask = BIT(AUDIOH_DAC_CTL_HS_MUTE) |
+	       BIT(AUDIOH_DAC_CTL_IHF_MUTE) |
+	       BIT(AUDIOH_DAC_CTL_EP_MUTE) |
+	       BIT(AUDIOH_DAC_CTL_HS_SIDETONE_EN) |
+	       BIT(AUDIOH_DAC_CTL_IHF_SIDETONE_EN) |
+	       BIT(AUDIOH_DAC_CTL_EP_SIDETONE_EN);
+	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, cntxt->dac_ctl);
+
+	mask = BIT(AUDIOH_ADC_CTL_SIDETONE_EN);
+	audioh_update_bits(component, AUDIOH_ADC_CTL, mask, cntxt->adc_ctl);
+
+	mask = ADC_CFG_PGA_GAIN_MASK | BIT(ADC_CFG_MIC_SEL);
+	audioh_update_bits(component, AUDIOH_ADC1_CFG, mask, cntxt->adc1_cfg);
+	audioh_update_bits(component, AUDIOH_ADC2_CFG, mask, cntxt->adc2_cfg);
+
+	mask = AUDIOH_SDT_CTRL_TARGET_GAIN_MASK;
+	audioh_update_bits(component, AUDIOH_SDT_CTRL, mask, cntxt->sdt_ctrl);
+
+	return 0;
+}
+
 static const struct snd_soc_component_driver soc_codec_audioh = {
 	.probe			= audioh_codec_probe,
+	.suspend		= audioh_component_suspend,
+	.resume			= audioh_component_resume,
 
 	.controls		= audioh_control,
 	.num_controls		= ARRAY_SIZE(audioh_control),
