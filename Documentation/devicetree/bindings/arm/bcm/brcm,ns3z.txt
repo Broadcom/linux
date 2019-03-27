@@ -1,0 +1,9 @@
+Broadcom NS3z device tree bindings
+------------------------------------------------
+
+Boards with NS3z shall have the following properties:
+
+Required root node property:
+
+NS3z SoC
+compatible = "brcm,ns3z";
