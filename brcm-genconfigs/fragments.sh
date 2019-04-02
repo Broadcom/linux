@@ -33,7 +33,7 @@ bcm_omega_defconfig="base-arm64 omega    \
     lcd mailbox media misc mmc mtd       \
     net                                  \
     optee                                \
-    pci pwm                              \
+    pci perf pwm                         \
     regulator rng                        \
     sound spi stmpe switch trace         \
     usb usbd                             \
