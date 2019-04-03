@@ -5,6 +5,7 @@
 
 #include <linux/delay.h>
 #include <linux/fs.h>
+#include <linux/hash.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>
 #include <linux/sizes.h>

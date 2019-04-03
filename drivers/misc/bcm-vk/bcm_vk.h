@@ -18,7 +18,7 @@
 /*
  * Use legacy way of implementation with older version
  */
-#define BCM_VK_MISC_API  (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0))
+#define BCM_VK_MISC_API  (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
 
 #define MAX_BAR 3
 enum pci_barno {
