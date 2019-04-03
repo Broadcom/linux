@@ -215,6 +215,29 @@
 
 		#include "ns3z-pinctrl.dtsi"
 
+		gpio_hsls: gpio@d0000 {
+			compatible = "brcm,iproc-gpio";
+			reg = <0x000d0000 0x864>;
+			ngpios = <151>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupts = <GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>;
+			gpio-ranges = <&pinmux 0 0 16>,
+				      <&pinmux 16 44 2>,
+				      <&pinmux 18 66 8>,
+				      <&pinmux 26 46 6>,
+				      <&pinmux 32 58 4>,
+				      <&pinmux 36 16 24>,
+				      <&pinmux 60 52 2>,
+				      <&pinmux 94 62 4>,
+				      <&pinmux 102 74 4>,
+				      <&pinmux 141 40 4>,
+				      <&pinmux 145 78 6>,
+				      <&pinmux 151 54 4>;
+		};
+
 		uart0: uart@100000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
