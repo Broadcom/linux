@@ -27,7 +27,8 @@ Optional properties:
     to polling mode
 
 - brcm,ape-hsls-addr-mask:
-    Required for "brcm,iproc-nic-i2c". Host view of address mask into APE
+    Required for "brcm,iproc-nic-i2c". Host view of address mask into the
+    'APE' co-processor. Value must be unsigned, 32-bit
 
 Example:
 	i2c0: i2c@18008000 {
