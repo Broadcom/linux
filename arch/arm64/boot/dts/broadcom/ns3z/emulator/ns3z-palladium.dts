@@ -39,6 +39,11 @@
 		linux,initrd-start = <0x0 0x81000000>;
 		linux,initrd-end = <0x0 0x81800000>;
 	};
+
+	memory: memory@80000000 {
+		device_type = "memory";
+		reg = <0x00000000 0x80000000 0 0x40000000>;
+	};
 };
 
 &uart1 {
