@@ -477,6 +477,9 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_disable_pdev;
 	}
 
+	vk->tdma_vaddr = dma_alloc_coherent(dev, PAGE_SIZE, &vk->tdma_addr,
+					    GFP_KERNEL);
+
 	pci_set_master(pdev);
 	pci_set_drvdata(pdev, vk);
 
@@ -583,6 +586,10 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 
 	cancel_work_sync(&vk->vk2h_wq);
 	bcm_vk_msg_remove(vk);
+
+	if (vk->tdma_vaddr)
+		dma_free_coherent(&pdev->dev, PAGE_SIZE, vk->tdma_vaddr,
+				  vk->tdma_addr);
 
 	/* remove if name is set which means misc dev registered */
 	if (misc_device->name) {

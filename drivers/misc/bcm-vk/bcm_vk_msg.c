@@ -277,6 +277,13 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 		}
 	}
 
+	/* at the end, pass down scratch mem info */
+	vkwrite32(vk, vk->tdma_addr >> 32, BAR_1,
+		  VK_BAR1_SCRATCH_OFF);
+	vkwrite32(vk, (uint32_t)vk->tdma_addr, BAR_1,
+		  VK_BAR1_SCRATCH_OFF + 4);
+	vkwrite32(vk, PAGE_SIZE, BAR_1, VK_BAR1_SCRATCH_OFF + 8);
+
 	vk->msgq_inited = true;
 
 	return 0;

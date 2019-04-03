@@ -52,6 +52,8 @@ struct bcm_vk {
 
 	struct workqueue_struct *vk2h_wq_thread;
 	struct work_struct vk2h_wq; /* work queue for deferred job */
+	void *tdma_vaddr; /* test dma segment virtual addr */
+	dma_addr_t tdma_addr; /* test dma segment bus addr */
 };
 
 static inline u32 vkread32(struct bcm_vk *vk,
