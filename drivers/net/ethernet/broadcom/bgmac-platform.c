@@ -321,7 +321,7 @@ static const struct dev_pm_ops bgmac_pm_ops = {
 static const struct bgmac_data bgmac_amac_default_data = {
 	.feature_flags = BGMAC_FEAT_CLKCTLST |
 			 BGMAC_FEAT_CMDCFG_SR_REV4 |
-			 BGMAC_FEAT_IDM_MASK,
+			 BGMAC_FEAT_IDM_MASK |
 			 BGMAC_FEAT_NO_RESET |
 			 BGMAC_FEAT_RX_MASK_SETUP |
 			 BGMAC_FEAT_TX_MASK_SETUP,
