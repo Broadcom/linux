@@ -21,8 +21,10 @@ Required properties:
 Optional properties:
 
 - interrupts:
-    Should contain the I2C interrupt. If unspecified, driver will fall back to
-    polling mode
+    Should contain the I2C interrupt. For certain revisions of the I2C
+    controller, I2C interrupt is unwired to the interrupt controller. In such
+    case, this property should be left unspecified, and driver will fall back
+    to polling mode
 
 - brcm,ape-hsls-addr-mask:
     Required for "brcm,iproc-nic-i2c". Host view of address mask into APE
