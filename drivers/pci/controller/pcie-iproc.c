@@ -66,9 +66,6 @@
 #define CFG_RC_LTSSM_STATE_MASK      0xff
 #define CFG_RC_LTSSM_STATE_L1        0x1
 
-#define MPS_MRRS_CFG_MPS_SHIFT       0
-#define MPS_MRRS_CFG_MRRS_SHIFT      16
-
 #define CFG_RC_CLR_LTSSM_HIST_SHIFT  29
 #define CFG_RC_CLR_LTSSM_HIST_MASK   BIT(CFG_RC_CLR_LTSSM_HIST_SHIFT)
 #define CFG_RC_CLR_RECOV_HIST_SHIFT  31
@@ -368,7 +365,6 @@ enum iproc_pcie_reg {
 
 	/* Ordering Mode configuration registers */
 	IPROC_PCIE_ORDERING_CFG,
-	IPROC_PCIE_MPS_MRRS_CFG,
 	IPROC_PCIE_IMAP0_RO_CONTROL,
 	IPROC_PCIE_IMAP1_RO_CONTROL,
 	IPROC_PCIE_IMAP2_RO_CONTROL,
@@ -443,7 +439,6 @@ static const u16 iproc_pcie_reg_paxb_v2[] = {
 	[IPROC_PCIE_LINK_STATUS]	= 0xf0c,
 	[IPROC_PCIE_APB_ERR_EN]		= 0xf40,
 	[IPROC_PCIE_ORDERING_CFG]	= 0x2000,
-	[IPROC_PCIE_MPS_MRRS_CFG]	= 0x2008,
 	[IPROC_PCIE_IMAP0_RO_CONTROL]	= 0x201c,
 	[IPROC_PCIE_IMAP1_RO_CONTROL]	= 0x2020,
 	[IPROC_PCIE_IMAP2_RO_CONTROL]	= 0x2024,
@@ -1796,8 +1791,6 @@ ssize_t pcie_iproc_order_mode_show(struct device *dev,
 
 static void pcie_iproc_set_dynamic_oder(struct iproc_pcie *pcie)
 {
-	u32 val = 0, mps;
-
 	/* Set all IMAPs to relaxed order in dynamic order mode */
 	iproc_pcie_write_reg(pcie, IPROC_PCIE_ORDERING_CFG,
 			     DYNAMIC_ORDER_MODE);
@@ -1811,16 +1804,6 @@ static void pcie_iproc_set_dynamic_oder(struct iproc_pcie *pcie)
 			     RO_ALL_WINDOW);
 	iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP4_RO_CONTROL,
 			     RO_ALL_WINDOW);
-
-	/* PAXB MPS/MRRS settings configuration */
-	iproc_pci_raw_config_read32(pcie, 0, IPROC_PCI_EXP_CAP + PCI_EXP_DEVCTL,
-				    2, &mps);
-	mps = (mps & PCI_EXP_DEVCTL_PAYLOAD) >> 5;
-	/* set MRRS to match system MPS */
-	val |= (mps << MPS_MRRS_CFG_MRRS_SHIFT);
-	/* set MPS to 4096 bytes */
-	val |= (0x5 << MPS_MRRS_CFG_MPS_SHIFT);
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_MPS_MRRS_CFG, val);
 }
 
 static
