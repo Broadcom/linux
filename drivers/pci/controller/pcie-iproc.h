@@ -27,18 +27,6 @@ enum iproc_pcie_type {
 };
 
 /**
- * PAXB Dynamic ordering modes
- * PAXB_ORDER_EVERYTHING: Everything in strict order
- * PAXB_ORDER_IMAP2_ONLY: Only IMAP2 memory window strict order
- * PAXB_ORDER_DEV_MEM_ONLY: Only device memory (MSI/MSIX) is strict order
- */
-enum paxb_order_cfg {
-	PAXB_ORDER_EVERYTHING,
-	PAXB_ORDER_IMAP2_ONLY,
-	PAXB_ORDER_DEV_MEM_ONLY,
-};
-
-/**
  * iProc PCIe outbound mapping
  * @axi_offset: offset from the AXI address to the internal address used by
  * the iProc PCIe core
@@ -91,9 +79,6 @@ struct iproc_msi;
  * @ib: inbound mapping related parameters
  * @ib_map: outbound mapping region related parameters
  *
- * @attr_order_mode: Device attributes to "order_mode" file in sysfs
- * @order_cfg: indicates current value of the order mode.
- *
  * @irq: interrupt line wired to the generic GIC for INTx
  * @irq_domain: IRQ domain for INTx
  *
@@ -130,9 +115,6 @@ struct iproc_pcie {
 	bool need_ib_cfg;
 	struct iproc_pcie_ib ib;
 	const struct iproc_pcie_ib_map *ib_map;
-
-	struct device_attribute attr_order_mode;
-	enum paxb_order_cfg order_cfg;
 
 	int irq;
 	struct irq_domain *irq_domain;

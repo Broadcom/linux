@@ -113,14 +113,6 @@
 
 #define HOTPLUG_DEBOUNCE             100
 
-#define RO_FIELD(window)             BIT((window) << 1)
-#define RO_VALUE(window)             BIT(((window) << 1) + 1)
-/* All Windows are allowed */
-#define RO_ALL_WINDOW                0x33333333
-/* Wait on All Windows */
-#define RO_FIELD_ALL_WINDOW          0x11111111
-#define DYNAMIC_ORDER_MODE           0x5
-
 /**
  * iProc PCIe outbound mapping controller specific parameters
  *
@@ -363,14 +355,6 @@ enum iproc_pcie_reg {
 	/* enable APB error for unsupported requests */
 	IPROC_PCIE_APB_ERR_EN,
 
-	/* Ordering Mode configuration registers */
-	IPROC_PCIE_ORDERING_CFG,
-	IPROC_PCIE_IMAP0_RO_CONTROL,
-	IPROC_PCIE_IMAP1_RO_CONTROL,
-	IPROC_PCIE_IMAP2_RO_CONTROL,
-	IPROC_PCIE_IMAP3_RO_CONTROL,
-	IPROC_PCIE_IMAP4_RO_CONTROL,
-
 	/* total number of core registers */
 	IPROC_PCIE_MAX_NUM_REG,
 };
@@ -438,12 +422,6 @@ static const u16 iproc_pcie_reg_paxb_v2[] = {
 	[IPROC_PCIE_CFG_RD_STATUS]	= 0xee0,
 	[IPROC_PCIE_LINK_STATUS]	= 0xf0c,
 	[IPROC_PCIE_APB_ERR_EN]		= 0xf40,
-	[IPROC_PCIE_ORDERING_CFG]	= 0x2000,
-	[IPROC_PCIE_IMAP0_RO_CONTROL]	= 0x201c,
-	[IPROC_PCIE_IMAP1_RO_CONTROL]	= 0x2020,
-	[IPROC_PCIE_IMAP2_RO_CONTROL]	= 0x2024,
-	[IPROC_PCIE_IMAP3_RO_CONTROL]	= 0x2028,
-	[IPROC_PCIE_IMAP4_RO_CONTROL]	= 0x202c,
 };
 
 /* iProc PCIe PAXC v1 registers */
@@ -1769,91 +1747,6 @@ int iproc_pcie_detect_enable(struct iproc_pcie *pcie)
 	return 0;
 }
 
-ssize_t pcie_iproc_order_mode_show(struct device *dev,
-				   struct device_attribute *attr,
-				   char *buff)
-{
-	uint32_t len;
-	struct iproc_pcie *pcie = container_of(attr, struct iproc_pcie,
-					       attr_order_mode);
-	if (!pcie->srp_check)
-		return sprintf(buff, "Not supported\n");
-
-	len = sprintf(buff, "0. Everything in strict order\n");
-	len += sprintf(buff + len, "1. Only IMAP2 in strict order\n");
-	len += sprintf(buff + len,
-		       "2. Only device memory in strict order (MSI/MSIX)\n");
-	len += sprintf(buff + len, "Current PAXB order configuration %d\n",
-		       pcie->order_cfg);
-
-	return len;
-}
-
-static void pcie_iproc_set_dynamic_oder(struct iproc_pcie *pcie)
-{
-	/* Set all IMAPs to relaxed order in dynamic order mode */
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_ORDERING_CFG,
-			     DYNAMIC_ORDER_MODE);
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP0_RO_CONTROL,
-			     RO_ALL_WINDOW);
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP1_RO_CONTROL,
-			     RO_ALL_WINDOW);
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP2_RO_CONTROL,
-			     RO_ALL_WINDOW);
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP3_RO_CONTROL,
-			     RO_ALL_WINDOW);
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP4_RO_CONTROL,
-			     RO_ALL_WINDOW);
-}
-
-static
-ssize_t pcie_iproc_order_mode_store(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf,
-				    size_t count)
-{
-	struct iproc_pcie *pcie = container_of(attr, struct iproc_pcie,
-					       attr_order_mode);
-	unsigned long  val, regval;
-
-	if (!pcie->srp_check) {
-		dev_err(dev, "Not supported\n");
-		return -EINVAL;
-	}
-
-	if (kstrtoul(buf, 0, &val) < 0)
-		return -EINVAL;
-	if (val > PAXB_ORDER_DEV_MEM_ONLY) {
-		dev_err(dev, "Invalid Value passed %lu\n", val);
-		dev_err(dev, "0: Everything in strict order\n");
-		dev_err(dev, "1: Only IMAP2 in strict order\n");
-		dev_err(dev, "2: Only device memory in strict order (MSI/MSIX)\n");
-		return -EINVAL;
-	}
-
-	if (val == pcie->order_cfg)
-		return count;
-
-	if (val == PAXB_ORDER_IMAP2_ONLY) {
-		pcie_iproc_set_dynamic_oder(pcie);
-		regval = RO_ALL_WINDOW;
-		regval &= ~(RO_VALUE(0));
-		/* Set IMAP2 to strict order */
-		iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP2_RO_CONTROL, regval);
-		dev_info(dev, "RO_IMAP2 set to %#lx\n", regval);
-	} else if (val == PAXB_ORDER_DEV_MEM_ONLY) {
-		pcie_iproc_set_dynamic_oder(pcie);
-		/* Set IMAP0 to strict order */
-		iproc_pcie_write_reg(pcie, IPROC_PCIE_IMAP0_RO_CONTROL,
-				     RO_FIELD_ALL_WINDOW);
-		dev_info(dev, "RO_IMAP0 set to %#x\n", RO_FIELD_ALL_WINDOW);
-	} else
-		iproc_pcie_write_reg(pcie, IPROC_PCIE_ORDERING_CFG, 0);
-
-	pcie->order_cfg = val;
-	return count;
-}
-
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 {
 	struct device *dev;
@@ -1937,14 +1830,6 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 		goto err_power_off_phy;
 	}
 
-	if (pcie->type == IPROC_PCIE_PAXB_V2) {
-		pcie->attr_order_mode.store = pcie_iproc_order_mode_store;
-		pcie->attr_order_mode.show = pcie_iproc_order_mode_show;
-		pcie->attr_order_mode.attr.mode = 0644; /* S_IRUGO | S_IWUSR */
-		pcie->attr_order_mode.attr.name = "order_mode";
-		sysfs_attr_init(&pcie->attr_order_mode.attr);
-		device_create_file(pcie->dev, &pcie->attr_order_mode);
-	}
 	return 0;
 
 err_power_off_phy:
@@ -1957,9 +1842,6 @@ EXPORT_SYMBOL(iproc_pcie_setup);
 
 int iproc_pcie_remove(struct iproc_pcie *pcie)
 {
-	if (pcie->type == IPROC_PCIE_PAXB_V2)
-		device_remove_file(pcie->dev, &pcie->attr_order_mode);
-
 	pci_stop_root_bus(pcie->root_bus);
 	pci_remove_root_bus(pcie->root_bus);
 
