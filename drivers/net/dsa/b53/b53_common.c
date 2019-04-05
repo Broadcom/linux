@@ -2449,7 +2449,8 @@ int b53_switch_register(struct b53_device *dev)
 	if (ret)
 		return ret;
 
-	if (dev->chip_id == BCM583XX_DEVICE_ID) {
+	if (dev->chip_id == BCM583XX_DEVICE_ID &&
+	    !(dev->b53_reboot_notifier.notifier_call)) {
 		dev->b53_reboot_notifier.notifier_call = b53_reboot_handler;
 		register_reboot_notifier(&dev->b53_reboot_notifier);
 	}
