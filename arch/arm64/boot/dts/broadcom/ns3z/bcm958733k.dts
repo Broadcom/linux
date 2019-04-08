@@ -23,3 +23,14 @@
 &uart1 {
 	status = "okay";
 };
+
+&sdio0 {
+	non-removable;
+	full-pwr-cycle;
+	status = "okay";
+};
+
+&sdio1 {
+	full-pwr-cycle;
+	status = "okay";
+};

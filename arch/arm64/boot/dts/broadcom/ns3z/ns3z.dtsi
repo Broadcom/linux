@@ -179,6 +179,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x61000000 0x05000000>;
+		#include "ns3z-clock.dtsi"
 
 		ccn: ccn@0 {
 			compatible = "arm,ccn-502";
@@ -259,6 +260,25 @@
 			interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
+
+		sdio0: sdhci@3f1000 {
+			compatible = "brcm,sdhci-iproc";
+			reg = <0x003f1000 0x100>;
+			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
+			bus-width = <8>;
+			clocks = <&sdio0_clk>;
+			status = "disabled";
+		};
+
+		sdio1: sdhci@3f2000 {
+			compatible = "brcm,sdhci-iproc";
+			reg = <0x003f2000 0x100>;
+			interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
+			bus-width = <8>;
+			clocks = <&sdio1_clk>;
+			status = "disabled";
+		};
+
 	};
 
 };
