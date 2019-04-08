@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2019 Broadcom
+ */
+
+#include <dt-bindings/clock/bcm-sr.h>
+
+osc: oscillator {
+	#clock-cells = <0>;
+	compatible = "fixed-clock";
+	clock-frequency = <50000000>;
+};
+
+sdio0_clk: sdio0_clk {
+	#clock-cells = <0>;
+	compatible = "fixed-clock";
+	clock-frequency = <200000000>;
+};
+
+sdio1_clk: sdio1_clk {
+	#clock-cells = <0>;
+	compatible = "fixed-clock";
+	clock-frequency = <200000000>;
+};
