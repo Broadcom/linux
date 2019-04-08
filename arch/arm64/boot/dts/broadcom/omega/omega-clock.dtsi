@@ -33,6 +33,12 @@
 		clock-frequency = <100000000>;
 	};
 
+	clk_cdru_sys: clk_cdru_sys {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <500000000>;
+	};
+
 	cdru_video_axi_clock: cdru_video_axi_clock {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";

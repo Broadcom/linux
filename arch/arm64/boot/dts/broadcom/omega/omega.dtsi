@@ -88,6 +88,7 @@
 
 	soc {
 		compatible = "simple-bus";
+		dma-ranges;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0 0 0 0xffffffff>;
@@ -280,6 +281,25 @@
 			reg-names = "dte_primary", "dte_nco";
 
 			status = "disabled";
+		};
+
+		dma0: dma@28110000 {
+			compatible = "arm,pl330", "arm,primecell";
+			reg = <0x28110000 0x1000>;
+			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			#dma-channels = <8>;
+			#dma-requests = <32>;
+			clocks = <&clk_cdru_sys>;
+			clock-names = "apb_pclk";
 		};
 
 		eth0: ethernet@28241000 {
