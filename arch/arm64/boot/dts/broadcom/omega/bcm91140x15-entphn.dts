@@ -186,11 +186,14 @@
 	num-cs = <1>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi4_mfio066_pins>;
+	dmas = <&dma0 17>, <&dma0 16>;
+	dma-names = "tx", "rx";
 
 	lcd_panel_spi@0 {
 		compatible = "brcm,wintek,wdf6448x";
 		reg = <0>;
 		spi-max-frequency = <500000>;
+		pl022,com-mode = <0x2>;
 		lcd-pwr-en-gpio = <&gpio_east 16 0>;
 		lcd-reset-gpio = <&gpio_east 25 0>;
 		lcd-init-sequence = /bits/ 16
