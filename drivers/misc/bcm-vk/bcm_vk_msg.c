@@ -110,6 +110,9 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk,
 	p_ctx->hash_idx = hash_idx;
 	list_add_tail(&p_ctx->list_node, &vk->pid_ht[hash_idx].fd_head);
 
+	/* increase kref */
+	kref_get(&vk->kref);
+
 in_reset_exit:
 	spin_unlock(&vk->ctx_lock);
 
@@ -886,7 +889,8 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	struct bcm_vk *vk = container_of(p_ctx->p_miscdev, struct bcm_vk,
 					 miscdev);
 	struct device *dev = &vk->pdev->dev;
-	pid_t pid = task_pid_nr(p_ctx->p_pid);
+	struct task_struct *p_pid = p_ctx->p_pid;
+	pid_t pid = task_pid_nr(p_pid);
 
 	dev_dbg(dev, "Draining with context idx %d pid %d\n",
 		p_ctx->idx, pid);
@@ -895,12 +899,13 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, p_ctx);
 
 	ret = bcm_vk_free_ctx(vk, p_ctx);
-	if (ret < 0)
-		return ret;
-	else if (ret == 0)
-		return bcm_vk_handle_last_sess(vk, p_ctx->p_pid);
+	if (ret == 0)
+		ret = bcm_vk_handle_last_sess(vk, p_pid);
 
-	return 0;
+	/* free memory if it is the last reference */
+	kref_put(&vk->kref, bcm_vk_release_data);
+
+	return ret;
 }
 
 int bcm_vk_msg_init(struct bcm_vk *vk)

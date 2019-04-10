@@ -449,12 +449,13 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct device *dev = &pdev->dev;
 	struct miscdevice *misc_device;
 
-	vk = devm_kzalloc(dev, sizeof(*vk), GFP_KERNEL);
+	/* allocate vk structure which is tied to kref for freeing */
+	vk = kzalloc(sizeof(*vk), GFP_KERNEL);
 	if (!vk)
 		return -ENOMEM;
 
+	kref_init(&vk->kref);
 	vk->pdev = pdev;
-
 	mutex_init(&vk->mutex);
 
 	err = pci_enable_device(pdev);
@@ -524,6 +525,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_irq;
 	}
 
+	vk->misc_devid = id;
 	snprintf(name, sizeof(name), DRV_MODULE_NAME ".%d", id);
 	misc_device = &vk->miscdev;
 	misc_device->minor = MISC_DYNAMIC_MINOR;
@@ -546,7 +548,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_kfree_name;
 	}
 
-	dev_info(dev, "BCM-VK:%u created\n", id);
+	dev_info(dev, "BCM-VK:%u created, 0x%p\n", id, vk);
 
 	return 0;
 
@@ -577,10 +579,18 @@ err_disable_pdev:
 	return err;
 }
 
+void bcm_vk_release_data(struct kref *kref)
+{
+	struct bcm_vk *vk = container_of(kref, struct bcm_vk, kref);
+
+	/* use raw print, as dev is gone */
+	pr_info("BCM-VK:%d release data 0x%p\n", vk->misc_devid, vk);
+	kfree(vk);
+}
+
 static void bcm_vk_remove(struct pci_dev *pdev)
 {
 	int i;
-	int id = -1;
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &vk->miscdev;
 
@@ -593,14 +603,9 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 
 	/* remove if name is set which means misc dev registered */
 	if (misc_device->name) {
-		if (sscanf(misc_device->name, DRV_MODULE_NAME ".%d", &id) != 1)
-			return;
-		if (id < 0)
-			return;
-
 		misc_deregister(&vk->miscdev);
 		kfree(misc_device->name);
-		ida_simple_remove(&bcm_vk_ida, id);
+		ida_simple_remove(&bcm_vk_ida, vk->misc_devid);
 	}
 	for (i = 0; i < vk->num_irqs; i++)
 		devm_free_irq(&pdev->dev, pci_irq_vector(pdev, i), vk);
@@ -613,9 +618,12 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 			pci_iounmap(pdev, vk->bar[i]);
 	}
 
-	dev_info(&pdev->dev, "BCM-VK:%d released\n", id);
+	dev_info(&pdev->dev, "BCM-VK:%d released\n", vk->misc_devid);
+
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);
+
+	kref_put(&vk->kref, bcm_vk_release_data);
 }
 
 static const struct pci_device_id bcm_vk_ids[] = {

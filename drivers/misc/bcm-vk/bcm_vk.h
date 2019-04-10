@@ -38,6 +38,10 @@ struct bcm_vk {
 	/* mutex to protect the ioctls */
 	struct mutex mutex;
 	struct miscdevice miscdev;
+	int misc_devid; /* dev id allocated */
+
+	/* Reference-counting to handle file operations */
+	struct kref kref;
 
 	spinlock_t msg_id_lock;
 	uint16_t msg_id;
@@ -88,6 +92,7 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		     size_t count, loff_t *f_pos);
 int bcm_vk_release(struct inode *inode, struct file *p_file);
+void bcm_vk_release_data(struct kref *kref);
 irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id);
 int bcm_vk_msg_init(struct bcm_vk *vk);
 void bcm_vk_msg_remove(struct bcm_vk *vk);
