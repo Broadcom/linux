@@ -186,7 +186,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 				  LOAD_IMAGE_TIMEOUT_MS);
 	} else if (image.type == VK_IMAGE_TYPE_BOOT2) {
 		offset = BAR1_CODEPUSH_BASE_BOOT2;
-		codepush = CODEPUSH_FASTBOOT + CODEPUSH_BOOT2_ENTRY;
+		codepush = CODEPUSH_BOOT2_ENTRY;
 		offset_codepush = BAR_CODEPUSH_SBI;
 		if (fw->size > SZ_64M) {
 			dev_err(dev, "Error size 0x%zx > 64M\n", fw->size);
