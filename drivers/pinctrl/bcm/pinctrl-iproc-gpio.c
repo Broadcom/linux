@@ -129,6 +129,7 @@ struct iproc_gpio {
 
 	raw_spinlock_t lock;
 
+	struct irq_chip irqchip;
 	struct gpio_chip gc;
 	unsigned num_banks;
 
@@ -372,17 +373,6 @@ static int iproc_gpio_irq_set_wake(struct irq_data *d, unsigned int on)
 
 	return ret;
 }
-
-static struct irq_chip iproc_gpio_irq_chip = {
-	.name = "bcm-iproc-gpio",
-	.irq_ack = iproc_gpio_irq_ack,
-	.irq_mask = iproc_gpio_irq_mask,
-	.irq_unmask = iproc_gpio_irq_unmask,
-	.irq_set_type = iproc_gpio_irq_set_type,
-	.irq_enable = iproc_gpio_irq_unmask,
-	.irq_disable = iproc_gpio_irq_mask,
-	.irq_set_wake = iproc_gpio_irq_set_wake,
-};
 
 /*
  * Request the Iproc IOMUX pinmux controller to mux individual pins to GPIO
@@ -1037,14 +1027,23 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 	/* optional GPIO interrupt support */
 	irq = platform_get_irq(pdev, 0);
 	if (irq) {
-		ret = gpiochip_irqchip_add(gc, &iproc_gpio_irq_chip, 0,
+		chip->irqchip.name = "bcm-iproc-gpio";
+		chip->irqchip.irq_ack = iproc_gpio_irq_ack;
+		chip->irqchip.irq_mask = iproc_gpio_irq_mask;
+		chip->irqchip.irq_unmask = iproc_gpio_irq_unmask;
+		chip->irqchip.irq_set_type = iproc_gpio_irq_set_type;
+		chip->irqchip.irq_enable = iproc_gpio_irq_unmask;
+		chip->irqchip.irq_disable = iproc_gpio_irq_mask;
+		chip->irqchip.irq_set_wake = iproc_gpio_irq_set_wake;
+
+		ret = gpiochip_irqchip_add(gc, &chip->irqchip, 0,
 					   handle_simple_irq, IRQ_TYPE_NONE);
 		if (ret) {
 			dev_err(dev, "no GPIO irqchip\n");
 			goto err_mbox;
 		}
 
-		gpiochip_set_chained_irqchip(gc, &iproc_gpio_irq_chip, irq,
+		gpiochip_set_chained_irqchip(gc, &chip->irqchip, irq,
 					     iproc_gpio_irq_handler);
 	}
 
