@@ -54,3 +54,23 @@
 	clock-frequency = <153600>;
 	status = "okay";
 };
+
+&ssp0 {
+	status = "okay";
+
+	spidev@0 {
+		compatible = "spidev";
+		spi-max-frequency = <8000000>;
+		reg = <0>;
+	};
+};
+
+&ssp1 {
+	status = "okay";
+
+	spidev@0 {
+		compatible = "spidev";
+		spi-max-frequency = <8000000>;
+		reg = <0>;
+	};
+};
