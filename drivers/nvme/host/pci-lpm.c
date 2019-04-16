@@ -416,8 +416,8 @@ static struct nvme_queue *nvme_alloc_queue(struct nvme_dev *dev, int qid,
 		return NULL;
 
 	/* Admin/IO completion queue allocation */
-	nvmeq->cqes = dma_zalloc_coherent(dev->dev, CQ_SIZE(depth),
-					  &nvmeq->cq_dma_addr, GFP_KERNEL);
+	nvmeq->cqes = dma_alloc_coherent(dev->dev, CQ_SIZE(depth),
+					 &nvmeq->cq_dma_addr, GFP_KERNEL);
 	dev_dbg(dev->dev, "CQ%d @ 0x%llx\n", qid, nvmeq->cq_dma_addr);
 	if (!nvmeq->cqes)
 		goto free_nvmeq;
