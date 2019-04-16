@@ -24,6 +24,14 @@
 	status = "okay";
 };
 
+&ssp0 {
+	status = "okay";
+};
+
+&ssp1 {
+	status = "okay";
+};
+
 &sdio0 {
 	non-removable;
 	full-pwr-cycle;

@@ -11,6 +11,18 @@ osc: oscillator {
 	clock-frequency = <50000000>;
 };
 
+spi0_clk: spi0_clk {
+	#clock-cells = <0>;
+	compatible = "fixed-clock";
+	clock-frequency = <175000000>;
+};
+
+spi1_clk: spi1_clk {
+	#clock-cells = <0>;
+	compatible = "fixed-clock";
+	clock-frequency = <175000000>;
+};
+
 sdio0_clk: sdio0_clk {
 	#clock-cells = <0>;
 	compatible = "fixed-clock";
