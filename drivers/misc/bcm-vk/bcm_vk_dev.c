@@ -313,6 +313,16 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	if (reset.arg2 < BCM_VK_MIN_RESET_TIME_SEC)
 		reset.arg2 = BCM_VK_MIN_RESET_TIME_SEC;
 
+	/*
+	 * The following is the sequence of reset:
+	 * - send card level graceful shut down
+	 * - wait enough time for VK to handle its business, stopping DMA etc
+	 * - kill host apps
+	 * - Trigger interrupt with DB
+	 */
+	bcm_vk_send_shutdown_msg(vk, VK_SHUTDOWN_GRACEFUL, 0);
+	msleep(reset.arg2 * 1000);
+
 	spin_lock(&vk->ctx_lock);
 
 	/*
@@ -350,16 +360,16 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	if (ret)
 		goto err_out;
 
-	/* sleep for time specified by arg2 in seconds */
-	msleep(reset.arg2 * 1000);
+	bcm_vk_trigger_reset(vk);
+	msleep(100); /* just wait arbitrarily long enough for reset to happen */
 
 	/* read BAR0 BAR_FB_OPEN register and dump out the value */
 	ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
-	if (!(ram_open & SRAM_OPEN))
-		ret = -EINVAL;
-
-	dev_info(dev, "Reset completed - RB_OPEN = 0x%x SRAM_OPEN %s\n",
-		 ram_open, ret ? "false" : "true");
+	dev_info(dev,
+		 "Reset completed - RB_OPEN = 0x%x SRAM_OPEN %s DDR_OPEN %s\n",
+		 ram_open,
+		 ram_open & SRAM_OPEN ? "true" : "false",
+		 ram_open & DDR_OPEN ? "true" : "false");
 
 err_out:
 	return ret;

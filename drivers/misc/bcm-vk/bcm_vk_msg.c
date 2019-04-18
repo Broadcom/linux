@@ -409,16 +409,52 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
 	return 0;
 }
 
-int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *p_pid)
+int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
+			     pid_t pid)
 {
 	int rc = 0;
 	struct bcm_vk_wkent *p_ent;
-	pid_t pid = task_pid_nr(p_pid);
 	struct device *dev = &vk->pdev->dev;
 
-	/* shutdown type */
-#define VK_SHUTDOWN_PID	     1
-#define VK_SHUTDOWN_GRACEFUL 2
+	/*
+	 * check if the marker is still good.  Sometimes, the PCIe interface may
+	 * have gone done, and if so and we ship down thing based on broken
+	 * values, kernel may panic.
+	 */
+	if (!bcm_vk_msgq_marker_valid(vk)) {
+		dev_err(dev, "Marker invalid - PCIe interface potentially done!\n");
+		return -EINVAL;
+	}
+
+	p_ent = kzalloc(sizeof(struct bcm_vk_wkent) +
+			sizeof(struct vk_msg_blk), GFP_KERNEL);
+	if (!p_ent)
+		return -ENOMEM;
+
+	/* just fill up non-zero data */
+	p_ent->p_h2vk_msg[0].function_id = VK_FID_SHUTDOWN;
+	p_ent->p_h2vk_msg[0].queue_id = 2; /* use queue 2 */
+	p_ent->h2vk_blks = 1; /* always 1 block */
+
+	p_ent->p_h2vk_msg[0].args[0] = shut_type;
+	p_ent->p_h2vk_msg[0].args[1] = pid;
+
+	rc = bcm_h2vk_msg_enqueue(vk, p_ent);
+	if (rc)
+		dev_err(dev,
+			"Sending shutdown message to q %d for pid %d fails.\n",
+			p_ent->p_h2vk_msg[0].queue_id, pid);
+
+	kfree(p_ent);
+
+	return rc;
+}
+
+int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *p_pid)
+{
+	int rc = 0;
+	pid_t pid = task_pid_nr(p_pid);
+	struct device *dev = &vk->pdev->dev;
 
 	/*
 	 * don't send down or do anything if message queue is not initialized
@@ -431,48 +467,13 @@ int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *p_pid)
 		return -EPERM;
 	}
 
-	/*
-	 * check if the marker is still good.  Sometimes, the PCIe interface may
-	 * have gone done, and if so and we ship down thing based on broken
-	 * values, kernel may panic.
-	 */
-	if (!bcm_vk_msgq_marker_valid(vk)) {
-		dev_err(dev, "Marker invalid - PCIe interface potentially done!\n");
-		return -EINVAL;
-	}
-
 	dev_info(dev, "No more sessions, shut down pid %d\n", pid);
-	p_ent = kzalloc(sizeof(struct bcm_vk_wkent) +
-			sizeof(struct vk_msg_blk), GFP_KERNEL);
-	if (!p_ent)
-		return -ENOMEM;
 
-	/* just fill up non-zero data */
-	p_ent->p_h2vk_msg[0].function_id = VK_FID_SHUTDOWN;
-	p_ent->p_h2vk_msg[0].queue_id = 2; /* use queue 2 */
-	p_ent->h2vk_blks = 1; /* always 1 block */
-
-	/*
-	 * The reset process would have allowed some time for killing the
-	 * associated processes.  However, that may not be guaranteed and
-	 * if we have hit here that the reset process has to exit,
-	 * send down a card level shut anyway.
-	 */
-	if (vk->reset_ppid != p_pid) {
-		p_ent->p_h2vk_msg[0].args[0] = VK_SHUTDOWN_PID;
-		p_ent->p_h2vk_msg[0].args[1] = pid;
-	} else {
-		p_ent->p_h2vk_msg[0].args[0] = VK_SHUTDOWN_GRACEFUL;
-		p_ent->p_h2vk_msg[0].args[1] = 0;
-	}
-	rc = bcm_h2vk_msg_enqueue(vk, p_ent);
-	if (rc)
-		dev_err(dev,
-			"Sending shutdown message to q %d for pid %d fails.\n",
-			p_ent->p_h2vk_msg[0].queue_id, pid);
-
-	kfree(p_ent);
-	if (vk->reset_ppid == p_pid)
+	/* only need to do it if it is not the reset process */
+	if (vk->reset_ppid != p_pid)
+		rc = bcm_vk_send_shutdown_msg(vk, VK_SHUTDOWN_PID, pid);
+	else
+		/* reset the pointer if it is exiting last session */
 		vk->reset_ppid = NULL;
 
 	return rc;
@@ -953,4 +954,15 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, NULL);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, NULL);
 	vk->msgq_inited = false;
+}
+
+void bcm_vk_trigger_reset(struct bcm_vk *vk)
+{
+	/* clean up before pressing the door bell */
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, NULL);
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, NULL);
+	vk->msgq_inited = false;
+	vkwrite32(vk, 0, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
+
+	bcm_h2vk_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_VAL);
 }

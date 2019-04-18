@@ -121,6 +121,10 @@ struct bcm_vk_msg_chan {
 /* The following are offsets of DDR info provided by the vk card */
 #define VK_BAR0_SEG_SIZE	    (4 * SZ_1K)	/* segment size for BAR0 */
 
+/* shutdown types supported */
+#define VK_SHUTDOWN_PID		    1
+#define VK_SHUTDOWN_GRACEFUL	    2
+
 /*
  * first door bell reg, ie for queue = 0.  Only need the first one, as
  * we will use the queue number to derive the others
@@ -129,6 +133,10 @@ struct bcm_vk_msg_chan {
 #define VK_BAR0_REGSEG_DB_REG_GAP	8 /* DB register gap,
 					   * DB1 at 0x48c and DB2 at 0x494
 					   */
+
+/* reset register and specici values */
+#define VK_BAR0_RESET_DB_NUM		3
+#define VK_BAR0_RESET_DB_VAL		0xFFFFFFFF
 
 /* BAR1 message q definition */
 
