@@ -25,10 +25,12 @@
 };
 
 &ssp0 {
+	cs-gpios = <&gpio_hsls 34 0>;
 	status = "okay";
 };
 
 &ssp1 {
+	cs-gpios = <&gpio_hsls 96 0>;
 	status = "okay";
 };
 
