@@ -16,6 +16,59 @@
 #include "bcm_vk_msg.h"
 
 /*
+ * Load Image is completed in two stages:
+ *
+ * 1) When the VK device boot-up, M7 CPU runs and executes the BootROM.
+ * The Secure Boot Loader (SBL) as part of the BootROM will run
+ * fastboot to open up ITCM for host to push BOOT1 image.
+ * SBL will authenticate the image before jumping to BOOT1 image.
+ *
+ * 2) Because BOOT1 image is a secured image, we also called it the
+ * Secure Boot Image (SBI). At second stage, SBI will initialize DDR
+ * and run fastboot for host to push BOOT2 image to DDR.
+ * SBI will authenticate the image before jumping to BOOT2 image.
+ *
+ */
+/* Location of registers of interest in BAR0 */
+/* Fastboot request for Secure Boot Loader (SBL) */
+#define BAR_CODEPUSH_SBL	0x400
+/* Fastboot progress */
+#define BAR_FB_OPEN		0x404
+/* Fastboot request for Secure Boot Image (SBI) */
+#define BAR_CODEPUSH_SBI	0x408
+#define BAR_CARD_STATUS		0x410
+#define BAR_FW_STATUS		0x41C
+#define BAR_METADATA_VERSION	0x440
+#define BAR_FIRMWARE_VERSION	0x444
+
+#define CODEPUSH_BOOT1_ENTRY	0x00400000
+#define CODEPUSH_BOOT2_ENTRY	0x60000000
+#define CODEPUSH_FASTBOOT	BIT(0)
+#define SRAM_OPEN		BIT(16)
+#define DDR_OPEN		BIT(17)
+
+/* FW_STATUS definitions */
+#define FW_STATUS_RELOCATION_ENTRY		BIT(0)
+#define FW_STATUS_RELOCATION_EXIT		BIT(1)
+#define FW_STATUS_ZEPHYR_INIT_START		BIT(2)
+#define FW_STATUS_ZEPHYR_ARCH_INIT_DONE		BIT(3)
+#define FW_STATUS_ZEPHYR_PRE_KERNEL1_INIT_DONE	BIT(4)
+#define FW_STATUS_ZEPHYR_PRE_KERNEL2_INIT_DONE	BIT(5)
+#define FW_STATUS_ZEPHYR_POST_KERNEL_INIT_DONE	BIT(6)
+#define FW_STATUS_ZEPHYR_INIT_DONE		BIT(7)
+#define FW_STATUS_ZEPHYR_APP_INIT_START		BIT(8)
+#define FW_STATUS_ZEPHYR_APP_INIT_DONE		BIT(9)
+#define FW_STATUS_MASK				0xFFFFFFFF
+#define FW_STATUS_ZEPHYR_READY	(FW_STATUS_ZEPHYR_INIT_START | \
+				 FW_STATUS_ZEPHYR_ARCH_INIT_DONE | \
+				 FW_STATUS_ZEPHYR_PRE_KERNEL1_INIT_DONE | \
+				 FW_STATUS_ZEPHYR_PRE_KERNEL2_INIT_DONE | \
+				 FW_STATUS_ZEPHYR_POST_KERNEL_INIT_DONE | \
+				 FW_STATUS_ZEPHYR_INIT_DONE | \
+				 FW_STATUS_ZEPHYR_APP_INIT_START | \
+				 FW_STATUS_ZEPHYR_APP_INIT_DONE)
+
+/*
  * Use legacy way of implementation with older version
  */
 #define BCM_VK_MISC_API  (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))

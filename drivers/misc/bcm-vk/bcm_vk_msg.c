@@ -207,9 +207,14 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 
 bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
 {
-	uint32_t rdy_marker;
+	uint32_t rdy_marker = 0;
+	uint32_t fw_status;
 
-	rdy_marker = vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
+	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+
+	if ((fw_status & FW_STATUS_ZEPHYR_READY) == FW_STATUS_ZEPHYR_READY)
+		rdy_marker = vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
+
 	return (rdy_marker == VK_BAR1_MSGQ_RDY_MARKER);
 }
 

@@ -23,62 +23,6 @@
 
 static DEFINE_IDA(bcm_vk_ida);
 
-/*
- * Load Image is completed in two stages:
- *
- * 1) When the VK device boot-up, M7 CPU runs and executes the BootROM.
- * The Secure Boot Loader (SBL) as part of the BootROM will run
- * fastboot to open up ITCM for host to push BOOT1 image.
- * SBL will authenticate the image before jumping to BOOT1 image.
- *
- * 2) Because BOOT1 image is a secured image, we also called it the
- * Secure Boot Image (SBI). At second stage, SBI will initialize DDR
- * and run fastboot for host to push BOOT2 image to DDR.
- * SBI will authenticate the image before jumping to BOOT2 image.
- *
- */
-/* Location of registers of interest in BAR0 */
-/* Fastboot request for Secure Boot Loader (SBL) */
-#define BAR_CODEPUSH_SBL	0x400
-/* Fastboot progress */
-#define BAR_FB_OPEN		0x404
-/* Fastboot request for Secure Boot Image (SBI) */
-#define BAR_CODEPUSH_SBI	0x408
-#define BAR_CARD_STATUS		0x410
-#define BAR_FW_STATUS		0x41C
-#define BAR_METADATA_VERSION	0x440
-#define BAR_FIRMWARE_VERSION	0x444
-
-#define CODEPUSH_BOOT1_ENTRY	0x00400000
-#define CODEPUSH_BOOT2_ENTRY	0x60000000
-#define CODEPUSH_FASTBOOT	BIT(0)
-#define SRAM_OPEN		BIT(16)
-#define DDR_OPEN		BIT(17)
-
-/* FW_STATUS definitions */
-#define FW_STATUS_RELOCATION_ENTRY		BIT(0)
-#define FW_STATUS_RELOCATION_EXIT		BIT(1)
-#define FW_STATUS_ZEPHYR_INIT_START		BIT(2)
-#define FW_STATUS_ZEPHYR_ARCH_INIT_DONE		BIT(3)
-#define FW_STATUS_ZEPHYR_PRE_KERNEL1_INIT_DONE	BIT(4)
-#define FW_STATUS_ZEPHYR_PRE_KERNEL2_INIT_DONE	BIT(5)
-#define FW_STATUS_ZEPHYR_POST_KERNEL_INIT_DONE	BIT(6)
-#define FW_STATUS_ZEPHYR_INIT_DONE		BIT(7)
-#define FW_STATUS_ZEPHYR_APP_INIT_START		BIT(8)
-#define FW_STATUS_ZEPHYR_APP_INIT_DONE		BIT(9)
-#define FW_STATUS_MASK				0xFFFFFFFF
-#define FW_STATUS_ZEPHYR_READY	(FW_STATUS_RELOCATION_ENTRY | \
-				 FW_STATUS_RELOCATION_EXIT | \
-				 FW_STATUS_ZEPHYR_INIT_START | \
-				 FW_STATUS_ZEPHYR_ARCH_INIT_DONE | \
-				 FW_STATUS_ZEPHYR_PRE_KERNEL1_INIT_DONE | \
-				 FW_STATUS_ZEPHYR_PRE_KERNEL2_INIT_DONE | \
-				 FW_STATUS_ZEPHYR_POST_KERNEL_INIT_DONE | \
-				 FW_STATUS_ZEPHYR_INIT_DONE | \
-				 FW_STATUS_ZEPHYR_APP_INIT_START | \
-				 FW_STATUS_ZEPHYR_APP_INIT_DONE)
-
-
 /* Location of memory base addresses of interest in BAR1 */
 /* Load Boot1 to start of ITCM */
 #define BAR1_CODEPUSH_BASE_BOOT1	0x100000
@@ -224,17 +168,18 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	/* Initialize Message Q if we are loading boot2 */
 	if (image.type == VK_IMAGE_TYPE_BOOT2) {
 		/* wait for fw status bits to indicate Zephyr app ready */
-		ret = bcm_vk_wait(vk, BAR_0, BAR_FW_STATUS, FW_STATUS_MASK,
+		ret = bcm_vk_wait(vk, BAR_0, BAR_FW_STATUS,
+				  FW_STATUS_ZEPHYR_READY,
 				  FW_STATUS_ZEPHYR_READY,
 				  LOAD_IMAGE_TIMEOUT_MS);
 		if (ret < 0) {
-			dev_err(dev, "Boot2 MSG Q not ready - timeout\n");
+			dev_err(dev, "Boot2 not ready - timeout\n");
 			goto err_firmware_out;
 		}
 
 		/* sync queues when zephyr is up */
 		if (bcm_vk_sync_msgq(vk)) {
-			dev_err(dev, "Error reading comm msg Q info\n");
+			dev_err(dev, "Boot2 Error reading comm msg Q info\n");
 			ret = -EIO;
 			goto err_firmware_out;
 		}
