@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2019 Broadcom
+ */
+ /*
+  * This DTS file describes everything that is common to the 15x15 SVK
+  * The 17x17 SVK is very similar except for a some minor differences.
+  */
+#include "bcm95831x-svk-common.dtsi"
+
+/ {
+	sound {
+		/* Use gpio 110 to control amp */
+		brcm,ext-headset-amp-en-gpio = <&gpio_east 59 0>;
+	};
+};

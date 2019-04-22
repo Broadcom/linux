@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2019 Broadcom
+ */
+ /*
+  * This DTS file is meant to describe an SVK board which is populated with
+  * a bcm11404 chip variant
+  */
+
+/dts-v1/;
+
+#include "omega-base-board.dtsi"
+#include "bcm11404.dtsi"
+#include "bcm91140x15k-common.dtsi"
+
+/ {
+	model = "Broadcom Omega bcm91140415k SVK";
+};

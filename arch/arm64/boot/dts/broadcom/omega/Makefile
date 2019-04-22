@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
+dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm91140415k.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm91140x15-entphn.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm91140x15-entphn-optee.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958312-wa.dtb
