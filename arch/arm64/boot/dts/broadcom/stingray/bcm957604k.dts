@@ -46,6 +46,9 @@
 #ifndef NUM_SATA
 #define NUM_SATA	2
 #endif
+#define NUM_PAXB	1
+#define ENABLE_PAXB_IOMMU	1
+#define ENABLE_PAXC_IOMMU	1
 
 / {
 	model = "Stingray SmartIO SVK (BCM957604K)";
