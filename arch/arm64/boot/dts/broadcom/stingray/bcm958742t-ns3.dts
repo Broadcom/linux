@@ -55,6 +55,10 @@
 
 &qspi {
 	status = "okay";
+	flash: w25q64@0 {
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+	};
 };
 
 &pci_lpm_region {
