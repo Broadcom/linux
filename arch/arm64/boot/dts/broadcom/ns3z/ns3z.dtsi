@@ -216,6 +216,15 @@
 
 		#include "ns3z-pinctrl.dtsi"
 
+		wdt0: watchdog@c0000 {
+			compatible = "arm,sp805", "arm,primecell";
+			reg = <0x000c0000 0x1000>;
+			interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hsls_25m_div2_clk>, <&hsls_div4_clk>;
+			clock-names = "wdogclk", "apb_pclk";
+			timeout-sec = <60>;
+		};
+
 		gpio_hsls: gpio@d0000 {
 			compatible = "brcm,iproc-gpio";
 			reg = <0x000d0000 0x864>;
