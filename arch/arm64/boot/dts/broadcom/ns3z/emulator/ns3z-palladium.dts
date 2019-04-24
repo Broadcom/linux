@@ -46,6 +46,10 @@
 	};
 };
 
+&pwm {
+	status = "okay";
+};
+
 &uart1 {
 	/* Hack: For palladium we force DLL=1 and DLM=0.
 	 * To achieve this, we set:
