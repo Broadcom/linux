@@ -383,6 +383,73 @@ static long bcm_vk_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
+static ssize_t temperature_show(struct device *dev,
+				struct device_attribute *devattr, char *buf)
+{
+	unsigned int temperature;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	temperature = vkread32(vk, BAR_0, BAR_CARD_TEMPERATURE);
+	dev_dbg(dev, "Temperature:%d\n", temperature);
+	return sprintf(buf, "%d\n", temperature);
+}
+
+static ssize_t voltage_show(struct device *dev,
+			    struct device_attribute *devattr, char *buf)
+{
+	unsigned int voltage;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	voltage = vkread32(vk, BAR_0, BAR_CARD_VOLTAGE);
+	dev_dbg(dev, "Voltage:%d\n", voltage);
+	return sprintf(buf, "%d\n", voltage);
+}
+
+static ssize_t firmware_version_show(struct device *dev,
+				     struct device_attribute *devattr,
+				     char *buf)
+{
+	unsigned int fw_ver;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	fw_ver = vkread32(vk, BAR_0, BAR_FIRMWARE_VERSION);
+	dev_dbg(dev, "FW version:%d\n", fw_ver);
+	return sprintf(buf, "%d\n", fw_ver);
+}
+
+static ssize_t firmware_status_show(struct device *dev,
+				    struct device_attribute *devattr, char *buf)
+{
+	unsigned int fw_status;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	dev_dbg(dev, "FW status:%d\n", fw_status);
+	return sprintf(buf, "%d\n", fw_status);
+}
+
+static DEVICE_ATTR_RO(temperature);
+static DEVICE_ATTR_RO(voltage);
+static DEVICE_ATTR_RO(firmware_status);
+static DEVICE_ATTR_RO(firmware_version);
+
+static struct attribute *bcm_vk_attributes[] = {
+	&dev_attr_temperature.attr,
+	&dev_attr_voltage.attr,
+	&dev_attr_firmware_status.attr,
+	&dev_attr_firmware_version.attr,
+	NULL,
+};
+
+static const struct attribute_group bcm_vk_attribute_group = {
+	.name = "vk-card-status",
+	.attrs = bcm_vk_attributes,
+};
+
 static const struct file_operations bcm_vk_fops = {
 	.owner = THIS_MODULE,
 	.open = bcm_vk_open,
@@ -503,6 +570,13 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_kfree_name;
 	}
 
+	dev_info(dev, "create sysfs group for bcm-vk.%d\n", id);
+	err = sysfs_create_group(&pdev->dev.kobj, &bcm_vk_attribute_group);
+	if (err < 0) {
+		dev_err(dev, "failed to create sysfs attr for bcm.vk.%d\n", id);
+		goto err_kfree_name;
+	}
+
 	dev_info(dev, "BCM-VK:%u created, 0x%p\n", id, vk);
 
 	return 0;
@@ -548,6 +622,9 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	int i;
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &vk->miscdev;
+
+	/* remove the sysfs entry amd kobject associated with card status */
+	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_attribute_group);
 
 	cancel_work_sync(&vk->vk2h_wq);
 	bcm_vk_msg_remove(vk);

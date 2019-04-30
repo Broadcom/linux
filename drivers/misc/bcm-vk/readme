@@ -1,0 +1,29 @@
+Valkyrie Card Status using SysFS
+================================
+
+The bcm-vk driver supports the query of the Valkyrie card status using the
+SysFs entry.
+
+A Group attribute is created to report the valkyrie card status
+(vk-card-status) and different status values are consolidated under the
+card status group.
+
+The organization of the card status is given below.
+
+The group is created under the following : /sysfs/devices/<pci device number>/
+
+vk-card-status/
+	firmware-status
+	firmware-version
+	voltage		---> reports the 1.8v and 3.3v voltage rail readings
+	temperature	---> reports the current temperature of the soc
+
+The sysfs entry supports only the read operation.
+
+Example:
+To read the temperature from a PCIe device at 65:00.0:
+cat /sys/devices/pci0000:64/0000:64:00.0/0000:65:00.0/vk-card-status/voltage
+
+where
+	/sys/devices/pci0000:64/0000:64:00.0/0000:65:00.0/ --> path of bcm-vk device
+	vk-card-status/voltage --> current voltage reading from the card
