@@ -84,15 +84,14 @@ static inline int bcm_vk_wait(struct bcm_vk *vk, enum pci_barno bar,
 static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 {
 	struct device *dev = &vk->pdev->dev;
-	const struct firmware  *fw;
+	const struct firmware *fw;
+	void *bufp;
+	size_t max_buf;
 	struct vk_image image;
 	int ret;
-	unsigned long i;
-	uint64_t offset;
 	uint64_t offset_codepush;
 	u32 codepush;
 	u32 ram_open;
-	int remainder;
 
 	if (copy_from_user(&image, arg, sizeof(image))) {
 		ret = -EACCES;
@@ -101,23 +100,9 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	dev_dbg(dev, "image type: 0x%x name: %s\n",
 		image.type, image.filename);
 
-	ret = request_firmware(&fw, image.filename, dev);
-	if (ret) {
-		dev_err(dev, "Error %d requesting firmware file: %s\n",
-			ret, image.filename);
-		goto err_out;
-	}
-	dev_dbg(dev, "size=0x%zx\n", fw->size);
-
 	if (image.type == VK_IMAGE_TYPE_BOOT1) {
-		offset = BAR1_CODEPUSH_BASE_BOOT1;
 		codepush = CODEPUSH_FASTBOOT + CODEPUSH_BOOT1_ENTRY;
 		offset_codepush = BAR_CODEPUSH_SBL;
-		if (fw->size > SZ_256K) {
-			dev_err(dev, "Error size 0x%zx > 256K\n", fw->size);
-			ret = -EFBIG;
-			goto err_firmware_out;
-		}
 
 		ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
 		dev_dbg(dev, "ram_open=0x%x\n", ram_open);
@@ -128,39 +113,42 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		/* Wait for VK to respond */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN, SRAM_OPEN, SRAM_OPEN,
 				  LOAD_IMAGE_TIMEOUT_MS);
+		if (ret < 0) {
+			dev_err(dev, "boot1 timeout\n");
+			goto err_out;
+		}
+
+		bufp = vk->bar[BAR_1] + BAR1_CODEPUSH_BASE_BOOT1;
+		max_buf = SZ_256K;
 	} else if (image.type == VK_IMAGE_TYPE_BOOT2) {
-		offset = BAR1_CODEPUSH_BASE_BOOT2;
 		codepush = CODEPUSH_BOOT2_ENTRY;
 		offset_codepush = BAR_CODEPUSH_SBI;
-		if (fw->size > SZ_64M) {
-			dev_err(dev, "Error size 0x%zx > 64M\n", fw->size);
-			ret = -EFBIG;
-			goto err_firmware_out;
-		}
 
 		/* Wait for VK to respond */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN, DDR_OPEN, DDR_OPEN,
 				  LOAD_IMAGE_TIMEOUT_MS);
+		if (ret < 0) {
+			dev_err(dev, "boot2 timeout\n");
+			goto err_out;
+		}
+
+		bufp = vk->bar[BAR_2];
+		max_buf = SZ_64M;
 	} else {
 		dev_err(dev, "Error invalid image type 0x%x\n", image.type);
 		ret = -EINVAL;
-		goto err_firmware_out;
+		goto err_out;
 	}
 
-	if (ret < 0) {
-		dev_err(dev, "timeout\n");
-		goto err_firmware_out;
+	ret = request_firmware_into_buf(&fw, image.filename, dev,
+					bufp,
+					max_buf);
+	if (ret) {
+		dev_err(dev, "Error %d requesting firmware file: %s\n",
+			ret, image.filename);
+		goto err_out;
 	}
-
-	remainder = fw->size % sizeof(u32);
-	for (i = 0; i < (fw->size - remainder); i += sizeof(u32))
-		vkwrite32(vk, *((u32 *)&fw->data[i]), BAR_1, offset + i);
-
-	/* for image that has sizes not divisible by 4 */
-	while (i < fw->size) {
-		vkwrite8(vk, fw->data[i], BAR_1, offset + i);
-		i++;
-	}
+	dev_dbg(dev, "size=0x%zx\n", fw->size);
 
 	dev_dbg(dev, "Signaling 0x%x to 0x%llx\n", codepush, offset_codepush);
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
