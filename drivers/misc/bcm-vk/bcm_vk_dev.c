@@ -37,6 +37,28 @@ static DEFINE_IDA(bcm_vk_ida);
 
 #define BCM_VK_MIN_RESET_TIME_SEC	2
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+static int request_firmware_into_buf(const struct firmware **firmware_p,
+				     const char *name, struct device *device,
+				     void *buf, size_t size)
+{
+	int ret;
+
+	ret = request_firmware(firmware_p, name, device);
+	if (ret)
+		return ret;
+
+	if ((*firmware_p)->size > size) {
+		release_firmware(*firmware_p);
+		ret = -EFBIG;
+	} else {
+		memcpy(buf, (*firmware_p)->data, (*firmware_p)->size);
+	}
+
+	return ret;
+}
+#endif
+
 static long bcm_vk_get_metadata(struct bcm_vk *vk, struct vk_metadata *arg)
 {
 	struct device *dev = &vk->pdev->dev;
