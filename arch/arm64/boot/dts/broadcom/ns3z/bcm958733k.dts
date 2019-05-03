@@ -38,6 +38,21 @@
 	status = "okay";
 };
 
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&qspi_pins>;
+	bspi-sel = <0>;
+	status = "okay";
+
+	flash: w25q64@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		reg = <0x0>;
+		spi-max-frequency = <12500000>;
+	};
+};
+
 &sdio0 {
 	non-removable;
 	full-pwr-cycle;
