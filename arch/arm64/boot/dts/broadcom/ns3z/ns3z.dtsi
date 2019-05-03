@@ -278,6 +278,11 @@
 			status = "disabled";
 		};
 
+		hwrng: hwrng@220000 {
+			compatible = "brcm,iproc-rng200";
+			reg = <0x00220000 0x28>;
+		};
+
 		dma0: dma@310000 {
 			compatible = "arm,pl330", "arm,primecell";
 			reg = <0x00310000 0x1000>;
