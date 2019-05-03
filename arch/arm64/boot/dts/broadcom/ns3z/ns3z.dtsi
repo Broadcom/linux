@@ -207,6 +207,20 @@
 		};
 	};
 
+	crmu: crmu {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x66400000 0x100000>;
+
+		otp: otp@1c400 {
+			compatible = "brcm,ocotp-v2";
+			reg = <0x0001c400 0x68>;
+			brcm,ocotp-size = <2048>;
+			status = "okay";
+		};
+	};
+
 	hsls {
 		compatible = "simple-bus";
 		dma-ranges;
