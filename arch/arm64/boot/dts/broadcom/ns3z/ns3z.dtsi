@@ -321,6 +321,25 @@
 			status = "disabled";
 		};
 
+		qspi: spi@370200 {
+			compatible = "brcm,spi-iproc-qspi-v1",
+				     "brcm,spi-bcm-qspi";
+			reg = <0x00370200 0x184>,
+			      <0x00370000 0x124>,
+			      <0x0050c408 0x004>,
+			      <0x003703a0 0x01c>;
+			reg-names = "mspi", "bspi", "intr_regs",
+				    "intr_status_reg";
+			interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "spi_l1_intr";
+			clocks = <&hsls_div2_clk>;
+			clock-names = "qspi_axi_clk";
+			num-cs = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		sdio0: sdhci@3f1000 {
 			compatible = "brcm,sdhci-iproc";
 			reg = <0x003f1000 0x100>;
