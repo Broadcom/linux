@@ -78,3 +78,36 @@
 		reg = <0>;
 	};
 };
+
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&qspi_pins>;
+	bspi-sel = <0>;
+	status = "okay";
+
+	flash: m25p80@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		reg = <0x0>;
+		spi-max-frequency = <12500000>;
+		m25p,fast-read;
+		spi-cpol;
+		spi-cpha;
+
+		partition@0 {
+			label = "sf-boot";		/* 2 MiB */
+			reg = <0x00000000 0x00200000>;
+		};
+
+		partition@400000 {			/* 1 MiB */
+			label = "sf-user";
+			reg = <0x00200000 0x00100000>;
+		};
+
+		partition@600000 {			/* 1 MiB */
+			label = "sf-test";
+			reg = <0x00300000 0x00100000>;
+		};
+	};
+};
