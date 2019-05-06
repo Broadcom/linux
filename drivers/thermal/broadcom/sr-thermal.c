@@ -1,14 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2017 Broadcom
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation version 2.
- *
- * This program is distributed "as is" WITHOUT ANY WARRANTY of any
- * kind, whether express or implied; without even the implied warranty
- * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (C) 2018 Broadcom
  */
 
 #include <linux/acpi.h>
@@ -60,7 +52,7 @@ static int sr_thermal_probe(struct platform_device *pdev)
 	struct sr_thermal *sr_thermal;
 	struct sr_tmon *tmon;
 	struct resource *res;
-	uint32_t sr_tmon_list = 0;
+	u32 sr_tmon_list = 0;
 	unsigned int i;
 	int ret;
 
@@ -83,7 +75,6 @@ static int sr_thermal_probe(struct platform_device *pdev)
 
 	tmon = sr_thermal->tmon;
 	for (i = 0; i < SR_TMON_MAX_LIST; i++, tmon++) {
-
 		if (!(sr_tmon_list & BIT(i)))
 			continue;
 
@@ -96,24 +87,9 @@ static int sr_thermal_probe(struct platform_device *pdev)
 		if (IS_ERR(tmon->tz))
 			return PTR_ERR(tmon->tz);
 
-		dev_info(dev, "thermal sensor %d registered\n", i);
+		dev_dbg(dev, "thermal sensor %d registered\n", i);
 	}
 	platform_set_drvdata(pdev, sr_thermal);
-
-	return 0;
-}
-
-static int sr_thermal_remove(struct platform_device *pdev)
-{
-	struct sr_thermal *sr_thermal = platform_get_drvdata(pdev);
-	unsigned int i;
-	struct sr_tmon *tmon;
-
-	tmon = sr_thermal->tmon;
-	for (i = 0; i < SR_TMON_MAX_LIST; i++, tmon++)
-		if (tmon->tz)
-			devm_thermal_zone_of_sensor_unregister(&pdev->dev,
-							       tmon->tz);
 
 	return 0;
 }
@@ -132,7 +108,6 @@ MODULE_DEVICE_TABLE(acpi, sr_thermal_acpi_ids);
 
 static struct platform_driver sr_thermal_driver = {
 	.probe		= sr_thermal_probe,
-	.remove		= sr_thermal_remove,
 	.driver = {
 		.name = "sr-thermal",
 		.of_match_table = sr_thermal_of_match,

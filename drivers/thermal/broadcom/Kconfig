@@ -26,7 +26,7 @@ config BCM_NS_THERMAL
 config BCM_SR_THERMAL
 	tristate "Stingray thermal driver"
 	depends on ARCH_BCM_IPROC || COMPILE_TEST
-	default y if ARCH_BCM_IPROC
+	default ARCH_BCM_IPROC
 	help
 	  Support for the Stingray family of SoCs. Its different blocks like
 	  iHost, CRMU and NITRO has thermal sensor that allows checking its
