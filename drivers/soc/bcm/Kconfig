@@ -1,14 +1,5 @@
 menu "Broadcom SoC drivers"
 
-config SOC_BCMOMEGA
-	bool "Omega ICFG driver"
-	depends on ARCH_BCM_IPROC || COMPILE_TEST
-	default ARCH_BCM_IPROC
-	help
-	  Enables drivers for the Broadcom Omega chipset.
-	  This option alone enables initialization only, while the drivers
-	  can be enabled individually.
-
 config RASPBERRYPI_POWER
 	bool "Raspberry Pi power domain driver"
 	depends on ARCH_BCM2835 || (COMPILE_TEST && OF)
@@ -17,6 +8,15 @@ config RASPBERRYPI_POWER
 	help
 	  This enables support for the RPi power domains which can be enabled
 	  or disabled via the RPi firmware.
+
+config SOC_BCMOMEGA
+	bool "Omega ICFG driver"
+	depends on ARCH_BCM_IPROC || COMPILE_TEST
+	default ARCH_BCM_IPROC
+	help
+	  Enables drivers for the Broadcom Omega chipset.
+	  This option alone enables initialization only, while the drivers
+	  can be enabled individually.
 
 config SOC_BRCMSTB
 	bool "Broadcom STB SoC drivers"
