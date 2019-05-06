@@ -535,7 +535,6 @@ source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/bcm-vk/Kconfig"
-source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/bcm-iproc-ftm/Kconfig"
 
 config BCM_IPROC_DTE
@@ -568,4 +567,5 @@ config LPM_SSR_DISABLE_NVME
           low power mode and debugging SSR(SPI access) related issues,
           without involving NVMe.
 
+source "drivers/misc/cardreader/Kconfig"
 endmenu
