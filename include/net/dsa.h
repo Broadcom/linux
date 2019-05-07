@@ -521,11 +521,7 @@ struct dsa_switch_ops {
 				 struct sk_buff *clone, unsigned int type);
 	bool	(*port_rxtstamp)(struct dsa_switch *ds, int port,
 				 struct sk_buff *skb, unsigned int type);
-	/*
-	 * MTU change functionality
-	 */
-	int	(*change_mtu)(struct dsa_switch *ds, int port,
-			      int new_mtu);
+
 };
 
 struct dsa_switch_driver {

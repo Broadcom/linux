@@ -985,18 +985,6 @@ static int dsa_slave_get_ts_info(struct net_device *dev,
 	return ds->ops->get_ts_info(ds, p->dp->index, ts);
 }
 
-static int dsa_slave_change_mtu(struct net_device *dev,
-				int new_mtu)
-{
-	struct dsa_port *dp = dsa_slave_to_port(dev);
-	struct dsa_switch *ds = dp->ds;
-
-	if (!ds->ops->change_mtu)
-		return -EOPNOTSUPP;
-
-	return ds->ops->change_mtu(ds, dp->index, new_mtu);
-}
-
 static const struct ethtool_ops dsa_slave_ethtool_ops = {
 	.get_drvinfo		= dsa_slave_get_drvinfo,
 	.get_regs_len		= dsa_slave_get_regs_len,
@@ -1060,7 +1048,6 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
 	.ndo_get_phys_port_name	= dsa_slave_get_phys_port_name,
 	.ndo_setup_tc		= dsa_slave_setup_tc,
 	.ndo_get_stats64	= dsa_slave_get_stats64,
-	.ndo_change_mtu		= dsa_slave_change_mtu,
 };
 
 static const struct switchdev_ops dsa_slave_switchdev_ops = {
