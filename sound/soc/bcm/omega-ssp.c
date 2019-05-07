@@ -1152,7 +1152,7 @@ static int aio_ssp_set_pll(struct snd_soc_dai *cpu_dai, int pll_id,
 				 unsigned int freq_out)
 {
 	struct aio_port *aio = aio_dai_get_portinfo(cpu_dai);
-	struct clk *clk_pll;
+	struct clk *clk_pll, *clk_post_div;
 	int ret = 0;
 
 	if (!aio->clk_info.audio_clk) {
@@ -1162,7 +1162,14 @@ static int aio_ssp_set_pll(struct snd_soc_dai *cpu_dai, int pll_id,
 		return -ENODEV;
 	}
 
-	clk_pll = clk_get_parent(aio->clk_info.audio_clk);
+	clk_post_div = clk_get_parent(aio->clk_info.audio_clk);
+	if (IS_ERR(clk_post_div)) {
+		dev_err(aio->dev,
+			"%s: could not get post div clock.\n", __func__);
+		return -ENODEV;
+	}
+
+	clk_pll = clk_get_parent(clk_post_div);
 	if (IS_ERR(clk_pll)) {
 		dev_err(aio->dev,
 			"%s: could not get audiopll clock.\n", __func__);
