@@ -990,16 +990,11 @@ static int dsa_slave_change_mtu(struct net_device *dev,
 {
 	struct dsa_port *dp = dsa_slave_to_port(dev);
 	struct dsa_switch *ds = dp->ds;
-	int ret;
 
 	if (!ds->ops->change_mtu)
 		return -EOPNOTSUPP;
 
-	ret = ds->ops->change_mtu(ds, dp->index, new_mtu);
-	if (!ret)
-		dev->mtu = new_mtu;
-
-	return ret;
+	return ds->ops->change_mtu(ds, dp->index, new_mtu);
 }
 
 static const struct ethtool_ops dsa_slave_ethtool_ops = {
