@@ -657,7 +657,6 @@ EXPORT_SYMBOL(b53_brcm_hdr_setup);
 static void b53_enable_cpu_port(struct b53_device *dev, int port)
 {
 	u8 port_ctrl;
-	u32 port_mask;
 
 	/* BCM5325 CPU port is at 8 */
 	if ((is5325(dev) || is5365(dev)) && port == B53_CPU_PORT_25)
@@ -669,14 +668,6 @@ static void b53_enable_cpu_port(struct b53_device *dev, int port)
 	b53_write8(dev, B53_CTRL_PAGE, B53_PORT_CTRL(port), port_ctrl);
 
 	b53_brcm_hdr_setup(dev->ds, port);
-
-	b53_read32(dev, B53_JUMBO_PAGE, dev->jumbo_pm_reg, &port_mask);
-
-	if (dev->chip_id == BCM583XX_DEVICE_ID)
-		port_mask |= JPM_10_100_JUMBO_EN;
-
-	port_mask |= BIT(port);
-	b53_write32(dev, B53_JUMBO_PAGE, dev->jumbo_pm_reg, port_mask);
 }
 
 static void b53_enable_mib(struct b53_device *dev)
@@ -1983,31 +1974,6 @@ int b53_set_mac_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e)
 }
 EXPORT_SYMBOL(b53_set_mac_eee);
 
-int b53_change_mtu(struct dsa_switch *ds, int port, int mtu)
-{
-	struct b53_device *dev = ds->priv;
-	u32 port_mask;
-
-	if (dev->chip_id == BCM58XX_DEVICE_ID ||
-	    is5325(dev) || is5365(dev) || is63xx(dev))
-		return -EINVAL;
-
-	if (mtu > JMS_MAX_SIZE)
-		return -EINVAL;
-
-	b53_read32(dev, B53_JUMBO_PAGE, dev->jumbo_pm_reg, &port_mask);
-
-	if (mtu >= JMS_MIN_SIZE)
-		port_mask |= BIT(port);
-	else
-		port_mask &= ~BIT(port);
-
-	b53_write32(dev, B53_JUMBO_PAGE, dev->jumbo_pm_reg, port_mask);
-
-	return 0;
-}
-EXPORT_SYMBOL(b53_change_mtu);
-
 static const struct dsa_switch_ops b53_switch_ops = {
 	.get_tag_protocol	= b53_get_tag_protocol,
 	.setup			= b53_setup,
@@ -2041,7 +2007,6 @@ static const struct dsa_switch_ops b53_switch_ops = {
 	.port_fdb_del		= b53_fdb_del,
 	.port_mirror_add	= b53_mirror_add,
 	.port_mirror_del	= b53_mirror_del,
-	.change_mtu		= b53_change_mtu,
 };
 
 struct b53_chip_data {
