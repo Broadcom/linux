@@ -448,33 +448,6 @@ void bcm_phy_get_stats(struct phy_device *phydev, u64 *shadow,
 }
 EXPORT_SYMBOL_GPL(bcm_phy_get_stats);
 
-int bcm_phy_enable_jumbo(struct phy_device *phydev)
-{
-	int val = 0, ret = 0;
-
-	ret = phy_write(phydev, MII_BCM54XX_AUX_CTL,
-			MII_BCM54XX_AUXCTL_SHDWSEL_MISC);
-	if (ret < 0)
-		return ret;
-
-	val = phy_read(phydev, MII_BCM54XX_AUX_CTL);
-
-	/* Enable extended length packet reception */
-	val |= MII_BCM54XX_AUXCTL_ACTL_EXT_PKT_LEN;
-	ret = phy_write(phydev, MII_BCM54XX_AUX_CTL, val);
-
-	if (ret < 0)
-		return ret;
-
-	val = phy_read(phydev, MII_BCM54XX_ECR);
-
-	/* Enable 10K byte packet length reception */
-	val |= BIT(0);
-	ret =  phy_write(phydev, MII_BCM54XX_ECR, val);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(bcm_phy_enable_jumbo);
 MODULE_DESCRIPTION("Broadcom PHY Library");
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Broadcom Corporation");
