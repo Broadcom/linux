@@ -37,6 +37,8 @@ static DEFINE_IDA(bcm_vk_ida);
 
 #define BCM_VK_MIN_RESET_TIME_SEC	2
 
+#define BCM_VK_BUS_SYMLINK_NAME		"pci"
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
 static int request_firmware_into_buf(const struct firmware **firmware_p,
 				     const char *name, struct device *device,
@@ -586,6 +588,14 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		dev_err(dev, "failed to create sysfs attr for bcm.vk.%d\n", id);
 		goto err_kfree_name;
 	}
+	/* create symbolic link from misc device to bus directory */
+	err = sysfs_create_link(&misc_device->this_device->kobj,
+				&pdev->dev.kobj, BCM_VK_BUS_SYMLINK_NAME);
+	if (err < 0) {
+		dev_err(dev, "failed to create symlink for bcm.vk.%d\n", id);
+		sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_attribute_group);
+		goto err_kfree_name;
+	}
 
 	dev_info(dev, "BCM-VK:%u created, 0x%p\n", id, vk);
 
@@ -633,7 +643,9 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &vk->miscdev;
 
-	/* remove the sysfs entry amd kobject associated with card status */
+	/* remove the sysfs entry and symlink associated */
+	sysfs_remove_link(&misc_device->this_device->kobj,
+			  BCM_VK_BUS_SYMLINK_NAME);
 	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_attribute_group);
 
 	cancel_work_sync(&vk->vk2h_wq);
