@@ -43,7 +43,6 @@ static int omega_hw_params_ak4458(struct snd_pcm_substream *substream,
 	unsigned int mask = 0x0;
 	int slots = 8;
 	int i;
-
 	int ret;
 
 	channels = params_channels(params);
@@ -76,6 +75,11 @@ static int omega_hw_params_ak4458(struct snd_pcm_substream *substream,
 
 #define MAX_PREFIX  40
 
+/* This frequency (3612672000 Hz) will only be good for the 48 kHz
+ * range of frame rates.
+ */
+#define PLL_TWEAKING_FREQ  3612672000UL
+
 static int bcm_omega_wa_init_ak4458(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_card *card = rtd->card;
@@ -96,7 +100,19 @@ static int bcm_omega_wa_init_ak4458(struct snd_soc_pcm_runtime *rtd)
 		dev_err(card->dev, "Could not init Tweak control\n");
 		return ret;
 	}
-	return 0;
+
+	/*
+	 * The mixer tweaking interface will control the ppb adjustment.  We
+	 * need to first set the base rate which the adjustment will be applied
+	 * to. This frequency should be carefully chosen so the vco will have
+	 * enough glitch free tweaking range. Consult the SoCs audio clock
+	 * specifics to make this decision.
+	 */
+	card_data = snd_soc_card_get_drvdata(rtd->card);
+	ret = cygnus_ssp_pll_tweak_update(&card_data->tweak_info,
+					  PLL_TWEAKING_FREQ);
+
+	return ret;
 }
 
 static struct snd_soc_ops bcm_omega_wa_ops_ak4458 = {
