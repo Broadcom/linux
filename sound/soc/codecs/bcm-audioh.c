@@ -1265,6 +1265,61 @@ static int tonegen_scale_get(struct snd_kcontrol *kcontrol,
 
 static const DECLARE_TLV_DB_SCALE(adcpga_tlv, 0, 300, 0);
 
+/*
+ * The AudioH ADC PGA gain control is unusual.
+ * Value of 6 and 7 are not used.
+ *    0x0 : 0dB
+ *    0x1 : 3dB
+ *    0x2 : 6dB
+ *    0x3 : 9dB
+ *    0x4 : 12dB
+ *    0x5 : 15dB
+ *    0x6 : Undef
+ *    0x7 : Undef
+ *    0x8 : 18dB
+ *    0x9 : 21dB
+ *    0xA : 24dB
+ *    0xB : 27dB
+ *    0xC : 30dB
+ *    0xD : 33dB
+ *    0xE : 36dB
+ *    0xF : 39dB
+ * Use the normal soc volume macros and function, except put a wrapper around
+ * the controls to handle the discontinuity in the range.
+ */
+static int custom_put_volsw(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	if (ucontrol->value.integer.value[0] >= 6)
+		ucontrol->value.integer.value[0] += 2;
+
+	return snd_soc_put_volsw(kcontrol, ucontrol);
+}
+
+static int custom_get_volsw(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	int ret;
+
+	ret = snd_soc_get_volsw(kcontrol, ucontrol);
+	if (ret)
+		return ret;
+
+	if (ucontrol->value.integer.value[0] >= 8)
+		ucontrol->value.integer.value[0] -= 2;
+
+	return 0;
+}
+
+#define AUDIOH_SINGLE_TLV(xname, reg, shift, max, invert, tlv_array) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
+	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |\
+		 SNDRV_CTL_ELEM_ACCESS_READWRITE,\
+	.tlv.p = (tlv_array), \
+	.info = snd_soc_info_volsw, .get = custom_get_volsw,\
+	.put = custom_put_volsw, \
+	.private_value = SOC_SINGLE_VALUE(reg, shift, max, invert, 0) }
+
 static const struct snd_kcontrol_new audioh_control[] = {
 	SOC_SINGLE("Stereo Headset Mute Switch",
 			AUDIOH_DAC_CTL, AUDIOH_DAC_CTL_HS_MUTE, 1, 0),
@@ -1307,10 +1362,11 @@ static const struct snd_kcontrol_new audioh_control[] = {
 			AUDIOH_IHF_TONEGEN_CTRL, TONEGEN_CTRL_SCALE, 0xFFFF, 0,
 			tonegen_scale_get, tonegen_scale_put),
 
-	SOC_SINGLE_TLV("ADC1 PGA",
-			AUDIOH_ADC1_CFG, ADC_CFG_PGA_GAIN, 0xF, 0, adcpga_tlv),
-	SOC_SINGLE_TLV("ADC2 PGA",
-			AUDIOH_ADC2_CFG, ADC_CFG_PGA_GAIN, 0xF, 0, adcpga_tlv),
+	/* Ranges from 0 to 39 dB, step of 3 dB */
+	AUDIOH_SINGLE_TLV("ADC1 PGA",
+			AUDIOH_ADC1_CFG, ADC_CFG_PGA_GAIN, 13, 0, adcpga_tlv),
+	AUDIOH_SINGLE_TLV("ADC2 PGA",
+			AUDIOH_ADC2_CFG, ADC_CFG_PGA_GAIN, 13, 0, adcpga_tlv),
 
 	SOC_SINGLE_RANGE("Sidetone Gain", AUDIOH_SDT_CTRL,
 			AUDIOH_SDT_CTRL_TARGET_GAIN, 0, 0x7FFF, 1),
