@@ -444,16 +444,32 @@ static ssize_t firmware_status_show(struct device *dev,
 	return sprintf(buf, "%d\n", fw_status);
 }
 
+static ssize_t bus_show(struct device *dev,
+			struct device_attribute *devattr, char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+
+#define _BUS_NUM_FMT "[pci_bus] %04d:%02d:%02d.%1d\n"
+	dev_dbg(dev, _BUS_NUM_FMT,
+		pci_domain_nr(pdev->bus), pdev->bus->number,
+		PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+	return sprintf(buf, _BUS_NUM_FMT,
+		       pci_domain_nr(pdev->bus), pdev->bus->number,
+		       PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+}
+
 static DEVICE_ATTR_RO(temperature);
 static DEVICE_ATTR_RO(voltage);
 static DEVICE_ATTR_RO(firmware_status);
 static DEVICE_ATTR_RO(firmware_version);
+static DEVICE_ATTR_RO(bus);
 
 static struct attribute *bcm_vk_attributes[] = {
 	&dev_attr_temperature.attr,
 	&dev_attr_voltage.attr,
 	&dev_attr_firmware_status.attr,
 	&dev_attr_firmware_version.attr,
+	&dev_attr_bus.attr,
 	NULL,
 };
 
