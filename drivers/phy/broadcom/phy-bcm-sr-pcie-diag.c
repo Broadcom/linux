@@ -198,11 +198,25 @@
 #define NIBBLE_MASK			(BIT(BITS_PER_NIBBLE) - 1)
 #define BYTE_MASK			(BIT(BITS_PER_BYTE) - 1)
 
-#define BER_MAX_TIMER_CTRL		0x4
-#define BER_MAX_ERR_CTRL		0x6
+/* default BER sampling time */
+#define BER_DFT_SAMPLING_TIME		96
 
-/* wait up to 30 seconds for BER extrapolation */
-#define BER_POLL_TIMEOUT_MS		30000
+/* default BER error number */
+#define BER_MAX_ERR_CTRL		100
+
+/*
+ * Scale actual time down with a factor of 1.33 before sending command to
+ * serdes microcode
+ */
+#define BER_TIME_SCALING(time)		((time) * 3 / 4)
+
+/*
+ * Scale actual error number down with a factor of 16 before sending command to
+ * serdes microcode
+ */
+#define BER_ERR_SCALING(err)		((err) / 16)
+
+#define MAX_BER_SAMPLING_TIME		256
 
 #define BER_SIGNATURE			0x42455253
 
@@ -282,6 +296,7 @@ struct pcie_prbs_dev {
 	unsigned int test_start;
 	unsigned int phy_count;
 	unsigned int lane;
+	unsigned int ber_sampling_time;
 	enum pcie_modes pcie_mode;
 	struct mutex test_lock;
 
@@ -1624,6 +1639,44 @@ static ssize_t lane_show(struct device *dev, struct device_attribute *attr,
 	return ret;
 }
 
+static ssize_t ber_sampling_time_show(struct device *dev,
+				    struct device_attribute *attr,
+				    char *buf)
+{
+	ssize_t ret;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *pd = platform_get_drvdata(pdev);
+
+	mutex_lock(&pd->test_lock);
+	ret = sprintf(buf, "%u\n", pd->ber_sampling_time);
+	mutex_unlock(&pd->test_lock);
+
+	return ret;
+}
+
+static ssize_t ber_sampling_time_store(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t count)
+{
+	ssize_t ret;
+	unsigned int ber_sampling_time;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pcie_prbs_dev *pd = platform_get_drvdata(pdev);
+
+	ret = kstrtoint(buf, 0, &ber_sampling_time);
+	if (ret)
+		return ret;
+
+	if (ber_sampling_time > MAX_BER_SAMPLING_TIME)
+		return -EINVAL;
+
+	mutex_lock(&pd->test_lock);
+	pd->ber_sampling_time = ber_sampling_time;
+	mutex_unlock(&pd->test_lock);
+
+	return strnlen(buf, count);
+}
+
 static ssize_t pmi_read_store(struct device *dev,
 			      struct device_attribute *attr,
 			      const char *buf, size_t count)
@@ -1898,8 +1951,10 @@ static ssize_t ber_store(struct device *dev, struct device_attribute *attr,
 		pr_info("BER mode 0x%x\n", ber_mode[i]);
 
 		/* configure BER time and error parameters */
-		uc_diag_max_time_ctrl(pd, BER_MAX_TIMER_CTRL);
-		uc_diag_max_err_ctrl(pd, BER_MAX_ERR_CTRL);
+		uc_diag_max_time_ctrl(pd,
+				      BER_TIME_SCALING(pd->ber_sampling_time));
+		uc_diag_max_err_ctrl(pd,
+				     BER_ERR_SCALING(BER_MAX_ERR_CTRL));
 
 		/* start BER test */
 		ret = uc_cmd_run(pd, UC_CMD_CAPTURE_BER_START, ber_mode[i]);
@@ -1908,8 +1963,13 @@ static ssize_t ber_store(struct device *dev, struct device_attribute *attr,
 			goto err_resume_uc;
 		}
 
-		/* wait until BER test is done */
-		ret = uc_diag_poll_diag_done(pd, BER_POLL_TIMEOUT_MS);
+		/*
+		 * Wait up to 8 times of BER sampling time for BER
+		 * extrapolation
+		 */
+		ret = uc_diag_poll_diag_done(pd,
+					     8 * MSEC_PER_SEC *
+					     pd->ber_sampling_time);
 		if (ret) {
 			dev_err(dev, "diag poll failed\n");
 			goto err_resume_uc;
@@ -1980,6 +2040,7 @@ static DEVICE_ATTR(err_count, 0444,		/* S_IRUGO */
 		   pcie_phy_err_count_show, NULL);
 
 static DEVICE_ATTR_RW(lane);
+static DEVICE_ATTR_RW(ber_sampling_time);
 static DEVICE_ATTR_WO(pmi_read);
 static DEVICE_ATTR_WO(pmi_write);
 static DEVICE_ATTR_WO(uc_ram);
@@ -2075,9 +2136,12 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	ret = device_create_file(dev, &dev_attr_lane);
 	if (ret < 0)
 		goto destroy_test_start;
-	ret = device_create_file(dev, &dev_attr_pmi_read);
+	ret = device_create_file(dev, &dev_attr_ber_sampling_time);
 	if (ret < 0)
 		goto destroy_lane;
+	ret = device_create_file(dev, &dev_attr_pmi_read);
+	if (ret < 0)
+		goto destroy_ber_sampling_time;
 	ret = device_create_file(dev, &dev_attr_pmi_write);
 	if (ret < 0)
 		goto destroy_pmi_read;
@@ -2099,6 +2163,7 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	pd->test_start = 0;
 	pd->pcie_mode = PCIE_MODE_DEFAULT;
 	pd->slot_num = 0;
+	pd->ber_sampling_time = BER_DFT_SAMPLING_TIME;
 	strncpy(pd->test_gen, "gen2", GEN_STR_LEN);
 	dev_info(dev, "%d PCIe PHYs registered\n", pd->phy_count);
 	return 0;
@@ -2113,6 +2178,8 @@ destroy_pmi_write:
 	device_remove_file(dev, &dev_attr_pmi_write);
 destroy_pmi_read:
 	device_remove_file(dev, &dev_attr_pmi_read);
+destroy_ber_sampling_time:
+	device_remove_file(dev, &dev_attr_ber_sampling_time);
 destroy_lane:
 	device_remove_file(dev, &dev_attr_lane);
 destroy_test_start:
