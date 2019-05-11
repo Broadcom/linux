@@ -37,7 +37,7 @@ int bcm_card_util_parse_link_node(struct platform_device *pdev,
 
 	dai_link->codecs     = &link_data->codecs;
 	dai_link->num_codecs = 1;
-	dai_link->platform   = &link_data->platform;
+	dai_link->platforms  = &link_data->platform;
 
 	codec_np = of_get_child_by_name(link_np, "codec");
 	if (!codec_np) {
@@ -77,9 +77,7 @@ int bcm_card_util_parse_link_node(struct platform_device *pdev,
 		goto err_exit;
 	}
 
-	ret = asoc_simple_card_canonicalize_dailink(dai_link);
-	if (ret < 0)
-		goto err_exit;
+	asoc_simple_card_canonicalize_platform(dai_link);
 
 	ret = asoc_simple_card_set_dailink_name(dev, dai_link,
 						"%s-%s",

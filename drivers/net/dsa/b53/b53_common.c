@@ -581,7 +581,7 @@ int b53_enable_port(struct dsa_switch *ds, int port, struct phy_device *phy)
 }
 EXPORT_SYMBOL(b53_enable_port);
 
-void b53_disable_port(struct dsa_switch *ds, int port, struct phy_device *phy)
+void b53_disable_port(struct dsa_switch *ds, int port)
 {
 	struct b53_device *dev = ds->priv;
 	u8 reg;
@@ -1001,7 +1001,7 @@ static int b53_setup(struct dsa_switch *ds)
 		if (dsa_is_cpu_port(ds, port))
 			b53_enable_cpu_port(dev, port);
 		else if (dsa_is_unused_port(ds, port))
-			b53_disable_port(ds, port, NULL);
+			b53_disable_port(ds, port);
 	}
 
 	return ret;
