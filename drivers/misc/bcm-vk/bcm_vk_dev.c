@@ -42,9 +42,13 @@ static DEFINE_IDA(bcm_vk_ida);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
 static int request_firmware_into_buf(const struct firmware **firmware_p,
 				     const char *name, struct device *device,
-				     void *buf, size_t size)
+				     void *buf, size_t size,
+				     size_t offset, bool partial)
 {
 	int ret;
+
+	if (offset != 0)
+		return -EINVAL;
 
 	ret = request_firmware(firmware_p, name, device);
 	if (ret)
@@ -165,8 +169,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	}
 
 	ret = request_firmware_into_buf(&fw, image.filename, dev,
-					bufp,
-					max_buf);
+					bufp, max_buf, 0, true);
 	if (ret) {
 		dev_err(dev, "Error %d requesting firmware file: %s\n",
 			ret, image.filename);
