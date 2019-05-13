@@ -238,6 +238,16 @@
 			status = "disabled";
 		};
 
+		i2c0: i2c@b0000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x000b0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <100000>;
+			status = "disabled";
+		};
+
 		wdt0: watchdog@c0000 {
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x000c0000 0x1000>;
@@ -268,6 +278,16 @@
 				      <&pinmux 141 40 4>,
 				      <&pinmux 145 78 6>,
 				      <&pinmux 151 54 4>;
+		};
+
+		i2c1: i2c@e0000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x000e0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 178 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <100000>;
+			status = "disabled";
 		};
 
 		uart0: uart@100000 {
