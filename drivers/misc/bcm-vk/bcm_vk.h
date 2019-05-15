@@ -70,6 +70,9 @@
 				 FW_STATUS_ZEPHYR_APP_INIT_START | \
 				 FW_STATUS_ZEPHYR_APP_INIT_DONE)
 
+/* VK MSG_ID Bitmap Size */
+#define VK_MSG_ID_BITMAP_SIZE 4096
+
 /*
  * Use legacy way of implementation with older version
  */
@@ -100,6 +103,7 @@ struct bcm_vk {
 
 	spinlock_t msg_id_lock;
 	uint16_t msg_id;
+	DECLARE_BITMAP(bmap, VK_MSG_ID_BITMAP_SIZE);
 	spinlock_t ctx_lock;
 	struct bcm_vk_ctx op_ctx[VK_CMPT_CTX_MAX];
 	struct bcm_vk_ht_entry pid_ht[VK_PID_HT_SZ];

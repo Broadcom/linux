@@ -121,12 +121,21 @@ in_reset_exit:
 
 static uint16_t bcm_vk_get_msg_id(struct bcm_vk *vk)
 {
-	uint16_t rc;
+	uint16_t rc = VK_MSG_ID_OVERFLOW;
+	uint16_t test_bit_count = 0;
 
 	spin_lock(&vk->msg_id_lock);
-	vk->msg_id++;
-	vk->msg_id = (vk->msg_id & 0x0FFF);
-	rc = vk->msg_id;
+	while (test_bit_count < VK_MSG_ID_BITMAP_SIZE) {
+		vk->msg_id++;
+		vk->msg_id = (vk->msg_id & 0x0FFF);
+		if (test_bit(vk->msg_id, vk->bmap)) {
+			test_bit_count++;
+			continue;
+		}
+		rc = vk->msg_id;
+		bitmap_set(vk->bmap, vk->msg_id, 1);
+		break;
+	}
 	spin_unlock(&vk->msg_id_lock);
 
 	return rc;
@@ -486,7 +495,8 @@ int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *p_pid)
 
 static struct bcm_vk_wkent *bcm_vk_find_pending(struct bcm_vk_msg_chan *p_chan,
 						uint16_t q_num,
-						uint16_t msg_id)
+						uint16_t msg_id,
+						unsigned long *map)
 {
 	bool found = false;
 	struct bcm_vk_wkent *p_ent;
@@ -497,6 +507,7 @@ static struct bcm_vk_wkent *bcm_vk_find_pending(struct bcm_vk_msg_chan *p_chan,
 		if (p_ent->p_h2vk_msg[0].msg_id == msg_id) {
 			list_del(&p_ent->list_node);
 			found = true;
+			bitmap_clear(map, msg_id, 1);
 			break;
 		}
 	}
@@ -589,7 +600,8 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 
 			/* lookup original message in h2vk direction */
 			p_ent = bcm_vk_find_pending(&vk->h2vk_msg_chan, q_num,
-						    p_data->msg_id);
+						    p_data->msg_id,
+						    vk->bmap);
 
 			/*
 			 * if there is message to does not have prior send,
@@ -826,7 +838,13 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 
 	/* Use internal message id */
 	p_ent->usr_msg_id = p_ent->p_h2vk_msg[0].msg_id;
-	p_ent->p_h2vk_msg[0].msg_id = bcm_vk_get_msg_id(vk);
+	rc = bcm_vk_get_msg_id(vk);
+	if (rc == VK_MSG_ID_OVERFLOW) {
+		dev_err(dev, "msg_id overflow\n");
+		rc = -EOVERFLOW;
+		goto bcm_vk_write_free_ent;
+	}
+	p_ent->p_h2vk_msg[0].msg_id = rc;
 
 	dev_dbg(dev,
 		"Message ctx id %d, usr_msg_id 0x%x sent msg_id 0x%x\n",
@@ -876,7 +894,8 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		/* remove message from pending list */
 		p_ent = bcm_vk_find_pending(&vk->h2vk_msg_chan,
 					    p_ent->p_h2vk_msg[0].queue_id,
-					    p_ent->p_h2vk_msg[0].msg_id);
+					    p_ent->p_h2vk_msg[0].msg_id,
+					    vk->bmap);
 		goto bcm_vk_write_free_ent;
 	}
 
@@ -970,4 +989,7 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	vkwrite32(vk, 0, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
 
 	bcm_h2vk_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_VAL);
+
+	/* clear 4096 bits of bitmap */
+	bitmap_clear(vk->bmap, 0, VK_MSG_ID_BITMAP_SIZE);
 }

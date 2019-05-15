@@ -59,6 +59,8 @@ struct bcm_vk_msgq {
 
 #define VK_MSGQ_MAX_NR (4)  /* we should not need more than 4 for now */
 
+#define VK_MSG_ID_OVERFLOW (0xFFFF)  /* msg_id overflow value */
+
 /* context per session opening of sysfs */
 struct bcm_vk_ctx {
 	struct list_head list_node; /* use for linkage in HT */
