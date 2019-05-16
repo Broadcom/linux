@@ -30,6 +30,8 @@ static DEFINE_IDA(bcm_vk_ida);
 #define BAR1_CODEPUSH_BASE_BOOT2	0x300000
 /* Allow minimum 1s for Load Image timeout responses */
 #define LOAD_IMAGE_TIMEOUT_MS		1000
+/* Allow extended time for maximum Load Image timeout responses */
+#define LOAD_IMAGE_EXT_TIMEOUT_MS	30000
 
 #define VK_MSIX_IRQ_MAX			3
 
@@ -225,8 +227,63 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	dev_dbg(dev, "Signaling 0x%x to 0x%llx\n", codepush, offset_codepush);
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
 
-	/* Initialize Message Q if we are loading boot2 */
 	if (image.type == VK_IMAGE_TYPE_BOOT2) {
+		/* To send more data to VK than max_buf allowed at a time */
+		do {
+			/* Wait for VK to move data from BAR space */
+			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
+					  FW_LOADER_ACK_IN_PROGRESS,
+					  FW_LOADER_ACK_IN_PROGRESS,
+					  LOAD_IMAGE_EXT_TIMEOUT_MS);
+			if (ret < 0)
+				dev_dbg(dev, "boot2 timeout - transfer in progress\n");
+
+			/* Wait for VK to acknowledge if it received all data */
+			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
+					  FW_LOADER_ACK_RCVD_ALL_DATA,
+					  FW_LOADER_ACK_RCVD_ALL_DATA,
+					  LOAD_IMAGE_EXT_TIMEOUT_MS);
+			if (ret < 0)
+				dev_dbg(dev, "boot2 timeout - received all data\n");
+			else
+				break; /* VK received all data, break out */
+
+			/* Wait for VK to request to send more data */
+			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
+					  FW_LOADER_ACK_SEND_MORE_DATA,
+					  FW_LOADER_ACK_SEND_MORE_DATA,
+					  LOAD_IMAGE_EXT_TIMEOUT_MS);
+			if (ret < 0) {
+				dev_err(dev, "boot2 timeout - data send\n");
+				break;
+			}
+
+			/* Wait for VK to open BAR space to copy new data */
+			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
+					  DDR_OPEN, DDR_OPEN,
+					  LOAD_IMAGE_EXT_TIMEOUT_MS);
+			if (ret == 0) {
+				ret = request_firmware_into_buf(
+							&fw,
+							image.filename,
+							dev, bufp,
+							max_buf,
+							fw->size,
+							KERNEL_PREAD_FLAG_PART);
+				if (ret) {
+					dev_err(dev, "Error %d requesting firmware file: %s offset: 0x%zx\n",
+						ret, image.filename,
+						fw->size);
+					goto err_firmware_out;
+				}
+				dev_dbg(dev, "size=0x%zx\n", fw->size);
+				dev_dbg(dev, "Signaling 0x%x to 0x%llx\n",
+					codepush, offset_codepush);
+				vkwrite32(vk, codepush, BAR_0, offset_codepush);
+			}
+		} while (1);
+
+		/* Initialize Message Q if we are loading boot2 */
 		/* wait for fw status bits to indicate Zephyr app ready */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_FW_STATUS,
 				  FW_STATUS_ZEPHYR_READY,

@@ -72,6 +72,12 @@
 				 FW_STATUS_ZEPHYR_APP_INIT_START | \
 				 FW_STATUS_ZEPHYR_APP_INIT_DONE)
 
+/* Fastboot firmware loader status definitions */
+#define FW_LOADER_ACK_SEND_MORE_DATA		BIT(18)
+#define FW_LOADER_ACK_IN_PROGRESS		BIT(19)
+#define FW_LOADER_ACK_RCVD_ALL_DATA		BIT(20)
+
+
 /* VK MSG_ID Bitmap Size */
 #define VK_MSG_ID_BITMAP_SIZE 4096
 
