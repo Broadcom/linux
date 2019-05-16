@@ -2930,19 +2930,24 @@ static inline const char *kernel_read_file_id_str(enum kernel_read_file_id id)
 	return kernel_read_file_str[id];
 }
 
+/* Flags used by kernel_pread_file functions */
+#define KERNEL_PREAD_FLAG_WHOLE	0x0000 /* Only Allow reading of whole file */
+#define KERNEL_PREAD_FLAG_PART	0x0001 /* Allow reading part of file */
+
 extern int kernel_pread_file(struct file *file, void **buf, loff_t *size,
-			     loff_t pos, loff_t max_size, bool partial,
+			     loff_t pos, loff_t max_size, unsigned int flags,
 			     enum kernel_read_file_id id);
 extern int kernel_read_file(struct file *, void **, loff_t *, loff_t,
 			    enum kernel_read_file_id);
 extern int kernel_pread_file_from_path(const char *path, void **buf,
 				       loff_t *size, loff_t pos,
-				       loff_t max_size, bool partial,
+				       loff_t max_size, unsigned int flags,
 				       enum kernel_read_file_id id);
 extern int kernel_read_file_from_path(const char *, void **, loff_t *, loff_t,
 				      enum kernel_read_file_id);
 extern int kernel_pread_file_from_fd(int fd, void **buf, loff_t *size,
-				    loff_t pos, loff_t max_size, bool partial,
+				    loff_t pos, loff_t max_size,
+				    unsigned int flags,
 				    enum kernel_read_file_id id);
 extern int kernel_read_file_from_fd(int, void **, loff_t *, loff_t,
 				    enum kernel_read_file_id);

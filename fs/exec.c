@@ -893,7 +893,7 @@ struct file *open_exec(const char *name)
 EXPORT_SYMBOL(open_exec);
 
 int kernel_pread_file(struct file *file, void **buf, loff_t *size,
-		      loff_t pos, loff_t max_size, bool partial,
+		      loff_t pos, loff_t max_size, unsigned int flags,
 		      enum kernel_read_file_id id)
 {
 	loff_t alloc_size;
@@ -924,7 +924,7 @@ int kernel_pread_file(struct file *file, void **buf, loff_t *size,
 	read_end = i_size;
 
 	/* Allow reading partial portion of file */
-	if (partial &&
+	if ((flags & KERNEL_PREAD_FLAG_PART) &&
 	    (i_size > (pos + max_size)))
 		read_end = pos + max_size;
 
@@ -981,13 +981,14 @@ EXPORT_SYMBOL_GPL(kernel_pread_file);
 int kernel_read_file(struct file *file, void **buf, loff_t *size,
 		     loff_t max_size, enum kernel_read_file_id id)
 {
-	return kernel_pread_file(file, buf, size, 0, max_size, false, id);
+	return kernel_pread_file(file, buf, size, 0, max_size,
+				 KERNEL_PREAD_FLAG_WHOLE, id);
 }
 EXPORT_SYMBOL_GPL(kernel_read_file);
 
 int kernel_pread_file_from_path(const char *path, void **buf,
 				loff_t *size, loff_t pos,
-				loff_t max_size, bool partial,
+				loff_t max_size, unsigned int flags,
 				enum kernel_read_file_id id)
 {
 	struct file *file;
@@ -1000,7 +1001,7 @@ int kernel_pread_file_from_path(const char *path, void **buf,
 	if (IS_ERR(file))
 		return PTR_ERR(file);
 
-	ret = kernel_pread_file(file, buf, size, pos, max_size, partial, id);
+	ret = kernel_pread_file(file, buf, size, pos, max_size, flags, id);
 	fput(file);
 	return ret;
 }
@@ -1009,13 +1010,13 @@ EXPORT_SYMBOL_GPL(kernel_pread_file_from_path);
 int kernel_read_file_from_path(const char *path, void **buf, loff_t *size,
 			       loff_t max_size, enum kernel_read_file_id id)
 {
-	return kernel_pread_file_from_path(path, buf, size, 0,
-					   max_size, false, id);
+	return kernel_pread_file_from_path(path, buf, size, 0, max_size,
+					   KERNEL_PREAD_FLAG_WHOLE, id);
 }
 EXPORT_SYMBOL_GPL(kernel_read_file_from_path);
 
 int kernel_pread_file_from_fd(int fd, void **buf, loff_t *size, loff_t pos,
-			      loff_t max_size, bool partial,
+			      loff_t max_size, unsigned int flags,
 			      enum kernel_read_file_id id)
 {
 	struct fd f = fdget(fd);
@@ -1024,7 +1025,7 @@ int kernel_pread_file_from_fd(int fd, void **buf, loff_t *size, loff_t pos,
 	if (!f.file)
 		goto out;
 
-	ret = kernel_pread_file(f.file, buf, size, pos, max_size, partial, id);
+	ret = kernel_pread_file(f.file, buf, size, pos, max_size, flags, id);
 out:
 	fdput(f);
 	return ret;
@@ -1034,7 +1035,8 @@ EXPORT_SYMBOL_GPL(kernel_pread_file_from_fd);
 int kernel_read_file_from_fd(int fd, void **buf, loff_t *size, loff_t max_size,
 			     enum kernel_read_file_id id)
 {
-	return kernel_pread_file_from_fd(fd, buf, size, 0, max_size, false, id);
+	return kernel_pread_file_from_fd(fd, buf, size, 0, max_size,
+					 KERNEL_PREAD_FLAG_WHOLE, id);
 }
 EXPORT_SYMBOL_GPL(kernel_read_file_from_fd);
 
