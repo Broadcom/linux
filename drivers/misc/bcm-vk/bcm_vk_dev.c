@@ -43,7 +43,7 @@ static DEFINE_IDA(bcm_vk_ida);
 static int request_firmware_into_buf(const struct firmware **firmware_p,
 				     const char *name, struct device *device,
 				     void *buf, size_t size,
-				     size_t offset, bool partial)
+				     size_t offset, unsigned int pread_flags)
 {
 	int ret;
 
@@ -169,7 +169,8 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	}
 
 	ret = request_firmware_into_buf(&fw, image.filename, dev,
-					bufp, max_buf, 0, true);
+					bufp, max_buf, 0,
+					KERNEL_PREAD_FLAG_PART);
 	if (ret) {
 		dev_err(dev, "Error %d requesting firmware file: %s\n",
 			ret, image.filename);
