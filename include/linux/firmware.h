@@ -54,7 +54,7 @@ int request_firmware_direct(const struct firmware **fw, const char *name,
 int request_firmware_into_buf(const struct firmware **firmware_p,
 			      const char *name, struct device *device,
 			      void *buf, size_t size,
-			      size_t offset, bool partial);
+			      size_t offset, unsigned int pread_flags);
 
 void release_firmware(const struct firmware *fw);
 #else
@@ -92,7 +92,8 @@ static inline int request_firmware_direct(const struct firmware **fw,
 }
 
 static inline int request_firmware_into_buf(const struct firmware **firmware_p,
-	const char *name, struct device *device, void *buf, size_t size)
+	const char *name, struct device *device, void *buf, size_t size,
+	size_t offset, unsigned int pread_flags);
 {
 	return -EINVAL;
 }
