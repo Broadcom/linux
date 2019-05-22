@@ -4439,7 +4439,11 @@ static int pci_dev_wait(struct pci_dev *dev, char *reset_type, int timeout)
 
 		msleep(delay);
 		delay *= 2;
-		pci_read_config_dword(dev, PCI_COMMAND, &id);
+		if (pci_read_config_dword(dev, PCI_COMMAND, &id) ==
+		    PCIBIOS_DEVICE_NOT_FOUND) {
+			pci_info(dev, "device disconnected\n");
+			return -ENODEV;
+		}
 	}
 
 	if (delay > 1000)
