@@ -40,6 +40,7 @@ static DEFINE_IDA(bcm_vk_ida);
 #define BCM_VK_BUS_SYMLINK_NAME		"pci"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+#define KERNEL_PREAD_FLAG_PART	0x0001 /* Allow reading part of file */
 static int request_firmware_into_buf(const struct firmware **firmware_p,
 				     const char *name, struct device *device,
 				     void *buf, size_t size,
