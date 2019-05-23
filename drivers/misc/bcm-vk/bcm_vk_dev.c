@@ -613,13 +613,29 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 				&pdev->dev.kobj, BCM_VK_BUS_SYMLINK_NAME);
 	if (err < 0) {
 		dev_err(dev, "failed to create symlink for bcm.vk.%d\n", id);
-		sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_attribute_group);
-		goto err_kfree_name;
+		goto err_free_sysfs_group;
+	}
+	/* create symbolic link from bus to misc device also */
+	err = sysfs_create_link(&pdev->dev.kobj,
+				&misc_device->this_device->kobj,
+				misc_device->name);
+	if (err < 0) {
+		dev_err(dev,
+			"failed to create reverse symlink for bcm.vk.%d\n",
+			id);
+		goto err_free_sysfs_entry;
 	}
 
 	dev_info(dev, "BCM-VK:%u created, 0x%p\n", id, vk);
 
 	return 0;
+
+err_free_sysfs_entry:
+	sysfs_remove_link(&misc_device->this_device->kobj,
+			  BCM_VK_BUS_SYMLINK_NAME);
+
+err_free_sysfs_group:
+	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_attribute_group);
 
 err_kfree_name:
 	kfree(misc_device->name);
@@ -663,7 +679,8 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &vk->miscdev;
 
-	/* remove the sysfs entry and symlink associated */
+	/* remove the sysfs entry and symlinks associated */
+	sysfs_remove_link(&pdev->dev.kobj, misc_device->name);
 	sysfs_remove_link(&misc_device->this_device->kobj,
 			  BCM_VK_BUS_SYMLINK_NAME);
 	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_attribute_group);
