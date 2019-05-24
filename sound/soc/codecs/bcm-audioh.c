@@ -1467,11 +1467,88 @@ static const struct snd_soc_component_driver soc_codec_audioh = {
 	.non_legacy_dai_naming	= 1,
 };
 
+/*
+ * The address range of audioh regs is massive. Implement these
+ * optional callbacks to inform regmap of the actual reg we use.
+ */
+static bool audioh_rw_reg(struct device *dev, unsigned int reg)
+{
+	switch (reg) {
+	case AUDIOH_DAC_CTL:
+	case AUDIOH_ADC_CTL:
+	case AUDIOH_STEREO_FIFO_CTRL:
+	case AUDIOH_IHF_FIFO_CTRL:
+	case AUDIOH_VOUT_FIFO_CTRL:
+	case AUDIOH_MIC_SELECT:
+	case AUDIOH_MIC12_FIFO_CTRL:
+	case AUDIOH_MIC34_FIFO_CTRL:
+	case AUDIOH_MIC_CLOCK_SELECT:
+	case AUDIOH_ADCPATH_GLOBAL_CTRL:
+	case AUDIOH_LOOPBACK_CTRL:
+	case AUDIOH_GLOBAL_CLK_EN_ALIGN:
+	case AUDIOH_IHF_TONEGEN_CTRL:
+	case AUDIOH_DAC_TONEGEN_X_INITIAL_0:
+	case AUDIOH_DAC_TONEGEN_Y_INITIAL_0:
+	case AUDIOH_DAC_TONEGEN_INIT_PHA0:
+	case AUDIOH_DAC_TONEGEN_PHASE_STEP_0:
+	case AUDIOH_DAC_TONEGEN_X_INITIAL_1:
+	case AUDIOH_DAC_TONEGEN_Y_INITIAL_1:
+	case AUDIOH_DAC_TONEGEN_INIT_PHA1:
+	case AUDIOH_DAC_TONEGEN_PHASE_STEP_1:
+	case AUDIOH_HS_TONEGEN_CTRL:
+	case AUDIOH_DAC_TONEGEN_CTRL:
+	case AUDIOH_DAC_TONEGEN_PHASE_OFFSET_0:
+	case AUDIOH_DAC_TONEGEN_PHASE_OFFSET_1:
+	case AUDIOH_EP_TONEGEN_CTRL:
+	case AUDIOH_AUDIO_ANA_CTL:
+	case AUDIOH_EP_DAC_CTL_0:
+	case AUDIOH_EP_DAC_CTL_1:
+	case AUDIOH_HS_DRV_PUP1:
+	case AUDIOH_HS_DRV_TRIM:
+	case AUDIOH_HS_CP_CTRL:
+	case AUDIOH_HS_DAC_CTL:
+	case AUDIOH_SDT_CTRL:
+	case AUDIOH_SDT_CTRL_3:
+	case AUDIOH_SDT_CTRL_4:
+	case AUDIOH_IHF_CTL:
+	case AUDIOH_ADC1_CFG:
+	case AUDIOH_ADC1_CFG2:
+	case AUDIOH_ADC2_CFG:
+	case AUDIOH_ADC2_CFG2:
+	case AUDIOH_CAPTURE_FILT_MIC1_CFG:
+	case AUDIOH_CAPTURE_FILT_MIC2_CFG:
+	case AUDIOH_CAPTURE_FILT_MIC3_CFG:
+	case AUDIOH_CAPTURE_FILT_MIC4_CFG:
+	case AUDIOH_EP_DAC2_CTL_0:
+	case AUDIOH_EP_DAC2_CTL_1:
+	case AUDIOH_DVED_CTL1:
+	case AUDIOH_DMIC_CLK_GATE:
+	case CODEC_IOP_IN_I2S_STREAM_CFG:
+	case CODEC_IOP_IN_I2S_CFG:
+	case CODEC_IOP_OUT_I2S_STREAM_CFG:
+	case CODEC_IOP_OUT_I2S_CFG:
+	case CODEC_TDM_MODE_SELECT:
+	case CODEC_TDM_PLAYOUT_PATH_ENABLE:
+	case CODEC_TDM_PLAYOUT_SLOT_FIFO_MAPPING:
+	case CODEC_TDM_CAPTURE_PATH_ENABLE:
+	case CODEC_TDM_CAPTURE_SLOT_FIFO_MAPPING:
+	case CODEC_TDM_CAPTURE_SLOT_FIFO_RATE:
+	case CODEC_TDM_PLAYOUT_PATH_SW_RESET:
+	case CODEC_TDM_CAPTURE_PATH_SW_RESET:
+	case CODEC_TDM_CAPTURE_SLOTS_ACTIVE:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static const struct regmap_config audioh_codec_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
 
+	.readable_reg = audioh_rw_reg,
+	.writeable_reg = audioh_rw_reg,
 	.max_register = AUDIOH_MAX_REGMAP_REG,
 	.cache_type = REGCACHE_NONE,
 };
