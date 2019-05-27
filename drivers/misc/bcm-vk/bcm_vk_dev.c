@@ -43,6 +43,45 @@ static DEFINE_IDA(bcm_vk_ida);
 #define BCM_VK_VOLT_RAIL_MASK		0xFFFF
 #define BCM_VK_3P3_VOLT_REG_SHIFT	16
 
+/* structure that is used to faciliate displaying of register content */
+struct bcm_vk_sysfs_reg_entry {
+	const uint32_t mask;
+	const uint32_t exp_val;
+	const char *str;
+};
+
+struct bcm_vk_sysfs_reg_list {
+	const uint64_t offset;
+	struct bcm_vk_sysfs_reg_entry const *tab;
+	const uint32_t size;
+	const char *hdr;
+};
+
+static int bcm_vk_sysfs_dump_reg(uint32_t reg_val,
+				 struct bcm_vk_sysfs_reg_entry const *entry_tab,
+				 const uint32_t table_size, char *buf)
+{
+	uint32_t i, masked_val;
+	struct bcm_vk_sysfs_reg_entry const *p_entry;
+	char *p_buf = buf;
+	int ret;
+
+	for (i = 0; i < table_size; i++) {
+		p_entry = &entry_tab[i];
+		masked_val = p_entry->mask & reg_val;
+		if (masked_val == p_entry->exp_val) {
+			ret = sprintf(p_buf, "  [0x%08x]    : %s\n",
+				      masked_val, p_entry->str);
+			if (ret < 0)
+				return ret;
+
+			p_buf += ret;
+		}
+	}
+
+	return (p_buf - buf);
+}
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
 #define KERNEL_PREAD_FLAG_PART	0x0001 /* Allow reading part of file */
 static int request_firmware_into_buf(const struct firmware **firmware_p,
@@ -462,13 +501,75 @@ static ssize_t firmware_version_show(struct device *dev,
 static ssize_t firmware_status_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
-	unsigned int fw_status;
+	int ret, i;
+	uint32_t reg_status;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	char *p_buf = buf;
+	/*
+	 * for firmware status register, they are bit definitions,
+	 * so mask == exp_val
+	 */
+	static struct bcm_vk_sysfs_reg_entry const fw_status_reg_tab[] = {
+		{FW_STATUS_RELOCATION_ENTRY,
+		 FW_STATUS_RELOCATION_ENTRY,                "relo_entry"},
+		{FW_STATUS_RELOCATION_EXIT,
+		 FW_STATUS_RELOCATION_EXIT,                 "relo_exit"},
+		{FW_STATUS_ZEPHYR_INIT_START,
+		 FW_STATUS_ZEPHYR_INIT_START,               "init_st"},
+		{FW_STATUS_ZEPHYR_ARCH_INIT_DONE,
+		 FW_STATUS_ZEPHYR_ARCH_INIT_DONE,           "arch_inited"},
+		{FW_STATUS_ZEPHYR_PRE_KERNEL1_INIT_DONE,
+		 FW_STATUS_ZEPHYR_PRE_KERNEL1_INIT_DONE,    "pre_kern1_inited"},
+		{FW_STATUS_ZEPHYR_PRE_KERNEL2_INIT_DONE,
+		 FW_STATUS_ZEPHYR_PRE_KERNEL2_INIT_DONE,    "pre_kern2_inited"},
+		{FW_STATUS_ZEPHYR_POST_KERNEL_INIT_DONE,
+		 FW_STATUS_ZEPHYR_POST_KERNEL_INIT_DONE,    "kern_inited"},
+		{FW_STATUS_ZEPHYR_INIT_DONE,
+		 FW_STATUS_ZEPHYR_INIT_DONE,                "zephyr_inited"},
+		{FW_STATUS_ZEPHYR_APP_INIT_START,
+		 FW_STATUS_ZEPHYR_APP_INIT_START,           "app_init_st"},
+		{FW_STATUS_ZEPHYR_APP_INIT_DONE,
+		 FW_STATUS_ZEPHYR_APP_INIT_DONE,            "app_inited"},
+	};
+	/* for FB register, mask is all ones */
+	static struct bcm_vk_sysfs_reg_entry const fb_open_reg_tab[] = {
+		{0xFFFFFFFF, SRAM_OPEN | FB_STATE_WAIT_BOOT1,  "wait_boot1"},
+		{0xFFFFFFFF, DDR_OPEN  | FB_STATE_WAIT_BOOT2,  "wait_boot2"},
+		{0xFFFFFFFF, FB_STATE_WAIT_BOOT2,              "boot2_running"},
+	};
+	/* list of registers */
+	static struct bcm_vk_sysfs_reg_list const fw_status_reg_list[] = {
+		{BAR_FW_STATUS, fw_status_reg_tab,
+		 ARRAY_SIZE(fw_status_reg_tab), "FW status"},
+		{BAR_FB_OPEN, fb_open_reg_tab,
+		 ARRAY_SIZE(fb_open_reg_tab), "FastBoot status"},
+	};
 
-	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
-	dev_dbg(dev, "FW status:%d\n", fw_status);
-	return sprintf(buf, "%d\n", fw_status);
+	for (i = 0; i < ARRAY_SIZE(fw_status_reg_list); i++) {
+		reg_status = vkread32(vk, BAR_0, fw_status_reg_list[i].offset);
+		dev_dbg(dev, "%s: 0x%08x\n", fw_status_reg_list[i].hdr,
+			reg_status);
+		ret = sprintf(p_buf, "%s: 0x%08x\n",
+			      fw_status_reg_list[i].hdr, reg_status);
+		if (ret < 0)
+			goto fw_status_show_fail;
+		p_buf += ret;
+
+		ret = bcm_vk_sysfs_dump_reg(reg_status,
+					    fw_status_reg_list[i].tab,
+					    fw_status_reg_list[i].size,
+					    p_buf);
+		if (ret < 0)
+			goto fw_status_show_fail;
+		p_buf += ret;
+	}
+
+	/* return total length written */
+	return (p_buf - buf);
+
+fw_status_show_fail:
+	return ret;
 }
 
 static ssize_t bus_show(struct device *dev,

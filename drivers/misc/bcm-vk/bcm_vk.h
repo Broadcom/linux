@@ -48,6 +48,8 @@
 #define CODEPUSH_FASTBOOT	BIT(0)
 #define SRAM_OPEN		BIT(16)
 #define DDR_OPEN		BIT(17)
+#define FB_STATE_WAIT_BOOT1	0x2
+#define FB_STATE_WAIT_BOOT2	0x6
 
 /* FW_STATUS definitions */
 #define FW_STATUS_RELOCATION_ENTRY		BIT(0)
