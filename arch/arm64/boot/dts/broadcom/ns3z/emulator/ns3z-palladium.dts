@@ -111,3 +111,11 @@
 		};
 	};
 };
+
+&sdio0 {
+	status = "okay";
+	non-removable;
+	no-sdio;
+	no-sd;
+	no-1-8-v;
+};
