@@ -546,13 +546,30 @@ static ssize_t firmware_version_show(struct device *dev,
 				     struct device_attribute *devattr,
 				     char *buf)
 {
-	unsigned int fw_ver;
+	unsigned int count = 0;
+	unsigned long offset = BAR_FIRMWARE_TAG;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	fw_ver = vkread32(vk, BAR_0, BAR_FIRMWARE_VERSION);
-	dev_dbg(dev, "FW version:%d\n", fw_ver);
-	return sprintf(buf, "%d\n", fw_ver);
+	/* Check if ZEPHYR_PRE_KERNEL1_INIT_DONE */
+	if (!(vkread32(vk, BAR_0, BAR_FW_STATUS)
+		& FIRMWARE_STATUS_PRE_INIT_DONE))
+		return -EACCES;
+
+	do {
+		buf[count] = vkread8(vk, BAR_1, offset);
+		if (buf[count] == '\0')
+			break;
+		offset++;
+		count++;
+	} while (count != BAR_FIRMWARE_TAG_SIZE);
+
+	if (count == BAR_FIRMWARE_TAG_SIZE)
+		buf[--count] = '\0';
+
+	dev_dbg(dev, "FW version:%s\n", buf);
+	return count;
+
 }
 
 static ssize_t firmware_status_show(struct device *dev,

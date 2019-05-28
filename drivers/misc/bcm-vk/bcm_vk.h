@@ -42,6 +42,7 @@
 #define BAR_FIRMWARE_VERSION	0x444
 #define BAR_CARD_TEMPERATURE	0x45C
 #define BAR_CARD_VOLTAGE	0x460
+#define BAR_FIRMWARE_TAG	0x220000
 
 #define CODEPUSH_BOOT1_ENTRY	0x00400000
 #define CODEPUSH_BOOT2_ENTRY	0x60000000
@@ -71,6 +72,10 @@
 				 FW_STATUS_ZEPHYR_INIT_DONE | \
 				 FW_STATUS_ZEPHYR_APP_INIT_START | \
 				 FW_STATUS_ZEPHYR_APP_INIT_DONE)
+
+/* Zephyr Firmware version size */
+#define BAR_FIRMWARE_TAG_SIZE            50
+#define FIRMWARE_STATUS_PRE_INIT_DONE    0x1F
 
 /* Fastboot firmware loader status definitions */
 #define FW_LOADER_ACK_SEND_MORE_DATA		BIT(18)
@@ -143,6 +148,16 @@ static inline void vkwrite32(struct bcm_vk *vk,
 			     uint64_t offset)
 {
 	iowrite32(value, vk->bar[bar] + offset);
+}
+
+static inline u8 vkread8(struct bcm_vk *vk,
+			 enum pci_barno bar,
+			 uint64_t offset)
+{
+	u8 value;
+
+	value = ioread8(vk->bar[bar] + offset);
+	return value;
 }
 
 static inline void vkwrite8(struct bcm_vk *vk,
