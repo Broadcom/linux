@@ -39,6 +39,10 @@ static DEFINE_IDA(bcm_vk_ida);
 
 #define BCM_VK_BUS_SYMLINK_NAME		"pci"
 
+/* defines for voltage rail conversion */
+#define BCM_VK_VOLT_RAIL_MASK		0xFFFF
+#define BCM_VK_3P3_VOLT_REG_SHIFT	16
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
 #define KERNEL_PREAD_FLAG_PART	0x0001 /* Allow reading part of file */
 static int request_firmware_into_buf(const struct firmware **firmware_p,
@@ -406,22 +410,40 @@ static ssize_t temperature_show(struct device *dev,
 	unsigned int temperature;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t fw_status;
 
+	/* if ZEPHYR is not running, no one will update the value */
+	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	if ((fw_status & FW_STATUS_ZEPHYR_READY) != FW_STATUS_ZEPHYR_READY)
+		return sprintf(buf, "Temperature: n/a (fw not running)\n");
+
+#define _TEMP_FMT "Temperature : %u Celsius\n"
 	temperature = vkread32(vk, BAR_0, BAR_CARD_TEMPERATURE);
-	dev_dbg(dev, "Temperature:%d\n", temperature);
-	return sprintf(buf, "%d\n", temperature);
+	dev_dbg(dev, _TEMP_FMT, temperature);
+	return sprintf(buf, _TEMP_FMT, temperature);
 }
 
 static ssize_t voltage_show(struct device *dev,
 			    struct device_attribute *devattr, char *buf)
 {
 	unsigned int voltage;
+	unsigned int volt_1p8, volt_3p3;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t fw_status;
 
+	/* if ZEPHYR is not running, no one will update the value */
+	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	if ((fw_status & FW_STATUS_ZEPHYR_READY) != FW_STATUS_ZEPHYR_READY)
+		return sprintf(buf, "Voltage: n/a (fw not running)\n");
+
+#define _VOLTAGE_FMT "[1.8v] : %u mV\n[3.3v] : %u mV\n"
 	voltage = vkread32(vk, BAR_0, BAR_CARD_VOLTAGE);
-	dev_dbg(dev, "Voltage:%d\n", voltage);
-	return sprintf(buf, "%d\n", voltage);
+	volt_1p8 = voltage & BCM_VK_VOLT_RAIL_MASK;
+	volt_3p3 = (voltage >> BCM_VK_3P3_VOLT_REG_SHIFT)
+		    & BCM_VK_VOLT_RAIL_MASK;
+	dev_dbg(dev, _VOLTAGE_FMT, volt_1p8, volt_3p3);
+	return sprintf(buf, _VOLTAGE_FMT, volt_1p8, volt_3p3);
 }
 
 static ssize_t firmware_version_show(struct device *dev,
