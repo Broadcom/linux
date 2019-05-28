@@ -296,7 +296,7 @@ static void analog_mic_enable(struct snd_soc_component *component)
 	audioh_update_bits(component, AUDIOH_ADC2_CFG2, mask, 0);
 }
 
-static void ep_afe_powerup(struct snd_soc_component *component)
+static void ep_mono_handset_powerup(struct snd_soc_component *component)
 {
 	u32 mask, val;
 
@@ -324,7 +324,7 @@ static void ep_afe_powerup(struct snd_soc_component *component)
 	udelay(50);
 }
 
-static void ep_afe_powerdown(struct snd_soc_component *component)
+static void ep_mono_handset_powerdown(struct snd_soc_component *component)
 {
 	u32 mask;
 
@@ -361,9 +361,17 @@ static void ep_afe_init(struct snd_soc_component *component)
 	audioh_update_bits(component, AUDIOH_DAC_CTL, mask, mask);
 }
 
-static void mono_voip_headset_powerup(struct snd_soc_component *component)
+static void ep_mono_headset_powerup(struct snd_soc_component *component)
 {
 	u32 mask, val;
+
+	/* Taggle DAC reset */
+	mask = BIT(EP_DAC_CTL_1_RESET);
+	audioh_update_bits(component, AUDIOH_EP_DAC_CTL_1, mask, 0);
+	udelay(10);
+	audioh_update_bits(component, AUDIOH_EP_DAC_CTL_1, mask, mask);
+	udelay(10);
+	audioh_update_bits(component, AUDIOH_EP_DAC_CTL_1, mask, 0);
 
 	/* Enable pop-click enable */
 	mask = BIT(EP_DAC2_CTL_1_POPCLICK_CTRL_EN);
@@ -386,7 +394,7 @@ static void mono_voip_headset_powerup(struct snd_soc_component *component)
 	udelay(50);
 }
 
-static void mono_voip_headset_powerdown(struct snd_soc_component *component)
+static void ep_mono_headset_powerdown(struct snd_soc_component *component)
 {
 	u32 mask;
 
@@ -882,10 +890,10 @@ static int ep_dac1_ev(struct snd_soc_dapm_widget *w,
 	/* Handle the two power events we care about, ignore others */
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		ep_afe_powerup(component);
+		ep_mono_handset_powerup(component);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
-		ep_afe_powerdown(component);
+		ep_mono_handset_powerdown(component);
 		break;
 	default:
 		break;
@@ -904,10 +912,10 @@ static int ep_dac2_ev(struct snd_soc_dapm_widget *w,
 	/* Handle the two power events we care about, ignore others */
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		mono_voip_headset_powerup(component);
+		ep_mono_headset_powerup(component);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
-		mono_voip_headset_powerdown(component);
+		ep_mono_headset_powerdown(component);
 		break;
 	default:
 		break;
