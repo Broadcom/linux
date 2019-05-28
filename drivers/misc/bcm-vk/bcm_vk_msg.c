@@ -350,11 +350,6 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
 	uint32_t wr_idx; /* local copy */
 	uint32_t i;
 
-	/*
-	 * NOTE: DMA portion will be added later.  For now, simply enqueue what
-	 * is passed down
-	 */
-
 	if (p_ent->h2vk_blks != p_src_blk->size + 1) {
 		dev_err(dev, "ent number of blks %d not matching data's %d MsgId[0x%x]: func %d ctx 0x%x\n",
 			p_ent->h2vk_blks,
@@ -447,7 +442,7 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 
 	/* just fill up non-zero data */
 	p_ent->p_h2vk_msg[0].function_id = VK_FID_SHUTDOWN;
-	p_ent->p_h2vk_msg[0].queue_id = 2; /* use queue 2 */
+	p_ent->p_h2vk_msg[0].queue_id = 0; /* use highest queue */
 	p_ent->h2vk_blks = 1; /* always 1 block */
 
 	p_ent->p_h2vk_msg[0].args[0] = shut_type;
@@ -598,6 +593,17 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 				VK_MSGQ_AVAIL_SPACE(p_msgq),
 				p_msgq->size);
 
+			/*
+			 * No need to search if it is an autonomous one-way
+			 * message from driver, as these messages do not bear
+			 * a h2vk pending item. Currently, only the shutdown
+			 * message falls into this category.
+			 */
+			if (p_data->function_id == VK_FID_SHUTDOWN) {
+				kfree(p_data);
+				continue;
+			}
+
 			/* lookup original message in h2vk direction */
 			p_ent = bcm_vk_find_pending(&vk->h2vk_msg_chan, q_num,
 						    p_data->msg_id,
@@ -640,7 +646,7 @@ static void bcm_vk2h_wq_handler(struct work_struct *work)
 	tot = bcm_vk2h_msg_dequeue(vk);
 
 	if (tot == 0)
-		dev_err(dev, "Spurious trigger for workqueue\n");
+		dev_dbg(dev, "Spurious trigger for workqueue\n");
 }
 
 /*
