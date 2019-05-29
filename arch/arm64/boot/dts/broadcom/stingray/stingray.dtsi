@@ -261,10 +261,6 @@
 			compatible = "arm,mmu-500";
 			reg = <0x03000000 0x80000>;
 			#global-interrupts = <1>;
-			/* reserve gic-its (@63c20000 + its translater) */
-			#region-address-cells = <1>;
-			#region-size-cells = <1>;
-			reserved-msi-region = <0x0 0x1a 0x63c30000 0x8000>;
 #if (ENABLE_PAXC_IOMMU == 0)
 			reserved-context-banks = <1>;
 			reserved-mapping-groups = <8>;
