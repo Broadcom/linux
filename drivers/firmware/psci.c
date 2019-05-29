@@ -16,6 +16,7 @@
 #include <linux/acpi.h>
 #include <linux/arm-smccc.h>
 #include <linux/cpuidle.h>
+#include <linux/crash_dump.h>
 #include <linux/errno.h>
 #include <linux/linkage.h>
 #include <linux/of.h>
@@ -153,7 +154,8 @@ static int psci_to_linux_errno(int errno)
 
 static u32 psci_get_version(void)
 {
-	return invoke_psci_fn(PSCI_0_2_FN_PSCI_VERSION, 0, 0, 0);
+	return invoke_psci_fn(PSCI_0_2_FN_PSCI_VERSION,
+			      is_kdump_kernel(), 0, 0);
 }
 
 static int psci_cpu_suspend(u32 state, unsigned long entry_point)
