@@ -383,42 +383,39 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	 * - Trigger interrupt with DB
 	 */
 	bcm_vk_send_shutdown_msg(vk, VK_SHUTDOWN_GRACEFUL, 0);
-	msleep(reset.arg2 * 1000);
 
 	spin_lock(&vk->ctx_lock);
-
-	/*
-	 * check if someone has already issued the reset, and if so, return
-	 * error
-	 */
 	if (!vk->reset_ppid) {
-
 		vk->reset_ppid = current;
-		for (i = 0; i < VK_PID_HT_SZ; i++) {
-
-			struct bcm_vk_ctx *p_ctx;
-
-			list_for_each_entry(p_ctx,
-					    &vk->pid_ht[i].fd_head,
-					    list_node) {
-
-				if (p_ctx->p_pid != vk->reset_ppid) {
-					dev_info(dev,
-						 "Send kill signal to pid %d\n",
-						 task_pid_nr(p_ctx->p_pid));
-					kill_pid(task_pid(p_ctx->p_pid),
-						 SIGKILL, 1);
-				}
-			}
-		}
-
 	} else {
 		dev_err(dev, "Reset already launched by process pid %d\n",
 			task_pid_nr(vk->reset_ppid));
 		ret = -EACCES;
 	}
 	spin_unlock(&vk->ctx_lock);
+	if (ret)
+		goto err_out;
 
+	/* sleep time as specified by user in seconds, which is arg2 */
+	msleep(reset.arg2 * MSEC_PER_SEC);
+
+	spin_lock(&vk->ctx_lock);
+	for (i = 0; i < VK_PID_HT_SZ; i++) {
+
+		struct bcm_vk_ctx *p_ctx;
+
+		list_for_each_entry(p_ctx,
+				    &vk->pid_ht[i].fd_head,
+				    list_node) {
+
+			if (p_ctx->p_pid != vk->reset_ppid) {
+				dev_dbg(dev, "Send kill signal to pid %d\n",
+					task_pid_nr(p_ctx->p_pid));
+				kill_pid(task_pid(p_ctx->p_pid), SIGKILL, 1);
+			}
+		}
+	}
+	spin_unlock(&vk->ctx_lock);
 	if (ret)
 		goto err_out;
 

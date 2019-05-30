@@ -863,6 +863,17 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		int dir;
 		struct _vk_data *data;
 
+		/*
+		 * check if we are in reset, if so, no buffer transfer is
+		 * allowed and return error.
+		 */
+		if (vk->reset_ppid) {
+			dev_dbg(dev, "No Transfer allowed during reset, pid %d.\n",
+				task_pid_nr(p_ctx->p_pid));
+			rc = -EACCES;
+			goto bcm_vk_write_free_msgid;
+		}
+
 		num_planes = p_ent->p_h2vk_msg[0].args[0] & VK_CMD_PLANES_MASK;
 		if ((p_ent->p_h2vk_msg[0].args[0] & VK_CMD_MASK) ==
 		    VK_CMD_DOWNLOAD) {
@@ -883,7 +894,7 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		/* Convert user addresses to DMA SG List */
 		rc = bcm_vk_sg_alloc(dev, p_ent->dma, dir, data, num_planes);
 		if (rc)
-			goto bcm_vk_write_free_ent;
+			goto bcm_vk_write_free_msgid;
 	}
 
 	/*
@@ -902,14 +913,16 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 					    p_ent->p_h2vk_msg[0].queue_id,
 					    p_ent->p_h2vk_msg[0].msg_id,
 					    vk->bmap);
-		goto bcm_vk_write_free_ent;
+		goto bcm_vk_write_free_msgid;
 	}
 
 	return count;
 
- bcm_vk_write_free_ent:
+bcm_vk_write_free_msgid:
+	bitmap_clear(vk->bmap, p_ent->p_h2vk_msg[0].msg_id, 1);
+bcm_vk_write_free_ent:
 	kfree(p_ent);
- bcm_vk_write_err:
+bcm_vk_write_err:
 	return rc;
 }
 
