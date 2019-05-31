@@ -200,25 +200,7 @@
 };
 
 &eth0 {
-	brcm,amac-switch-bypass;
-	phy-handle = <&gphy0>;
-	phy-mode = "gmii";
 	status = "okay";
-};
-
-&switch {
-	compatible = "brcm,bcm58313-srab", "brcm,omega-srab";
-	status = "disabled";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			reg = <0>;
-			label = "lan";
-			phy-handle = <&gphy0>;
-			phy-mode = "gmii";
-		};
-	};
 };
 
 &esw_ctl {

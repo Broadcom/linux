@@ -3,3 +3,19 @@
  *  Copyright(c) 2018 Broadcom
  */
 #include "omega.dtsi"
+
+/*
+ * The 58312 does not have a switch.  These are the required values
+ * if the networking is enabled.
+ */
+&eth0 {
+	brcm,amac-switch-bypass;
+
+	phy-handle = <&gphy0>;
+	phy-mode = "gmii";
+};
+
+/* There is no switch on this variant.
+ * Get rid of node so driver is not accidentally enabled.
+ */
+/delete-node/ &switch;
