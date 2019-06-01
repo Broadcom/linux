@@ -603,11 +603,52 @@ static ssize_t firmware_status_show(struct device *dev,
 		{FW_STATUS_ZEPHYR_APP_INIT_DONE,
 		 FW_STATUS_ZEPHYR_APP_INIT_DONE,            "app_inited"},
 	};
-	/* for FB register, mask is all ones */
+	/* for FB register */
 	static struct bcm_vk_sysfs_reg_entry const fb_open_reg_tab[] = {
-		{0xFFFFFFFF, SRAM_OPEN | FB_STATE_WAIT_BOOT1,  "wait_boot1"},
-		{0xFFFFFFFF, DDR_OPEN  | FB_STATE_WAIT_BOOT2,  "wait_boot2"},
-		{0xFFFFFFFF, FB_STATE_WAIT_BOOT2,              "boot2_running"},
+		{FW_LOADER_ACK_SEND_MORE_DATA,
+		 FW_LOADER_ACK_SEND_MORE_DATA,                "bt1_needs_data"},
+		{FW_LOADER_ACK_IN_PROGRESS,
+		 FW_LOADER_ACK_IN_PROGRESS,                   "bt1_inprog"},
+		{FW_LOADER_ACK_RCVD_ALL_DATA,
+		 FW_LOADER_ACK_RCVD_ALL_DATA,                 "bt2_dload_done"},
+		{0xFFE3FFFF, SRAM_OPEN | FB_STATE_WAIT_BOOT1, "wait_boot1"},
+		{0xFFE3FFFF, DDR_OPEN  | FB_STATE_WAIT_BOOT2, "wait_boot2"},
+		{0xFFE3FFFF, FB_STATE_WAIT_BOOT2,             "boot2_running"},
+	};
+	/*
+	 * shut down is lumped with fw-status register, but we use a different
+	 * table to isolate it out.
+	 */
+	static struct bcm_vk_sysfs_reg_entry const fw_shutdown_reg_tab[] = {
+		{FW_STATUS_ZEPHYR_APP_DEINIT_START,
+		 FW_STATUS_ZEPHYR_APP_DEINIT_START,        "app_deinit_st"},
+		{FW_STATUS_ZEPHYR_APP_DEINIT_DONE,
+		 FW_STATUS_ZEPHYR_APP_DEINIT_DONE,         "app_deinited"},
+		{FW_STATUS_ZEPHYR_DRV_DEINIT_START,
+		 FW_STATUS_ZEPHYR_DRV_DEINIT_START,        "drv_deinit_st"},
+		{FW_STATUS_ZEPHYR_DRV_DEINIT_DONE,
+		 FW_STATUS_ZEPHYR_DRV_DEINIT_DONE,         "drv_deinited"},
+		{FW_STATUS_ZEPHYR_RESET_DONE,
+		 FW_STATUS_ZEPHYR_RESET_DONE,              "reset_done"},
+		/* reboot reason */
+		{FW_STATUS_ZEPHYR_RESET_REASON_MASK, 0,    "R-sys_pwrup"},
+		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
+		 FW_STATUS_ZEPHYR_RESET_MBOX_DB,	   "R-reset_doorbell"},
+		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
+		 FW_STATUS_ZEPHYR_RESET_M7_WDOG,	   "R-wdog"},
+		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
+		 FW_STATUS_ZEPHYR_RESET_TEMP,	           "R-overheat"},
+		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
+		 FW_STATUS_ZEPHYR_RESET_PCI_FLR,           "R-pci_flr"},
+		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
+		 FW_STATUS_ZEPHYR_RESET_PCI_HOT,	   "R-pci_hot"},
+		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
+		 FW_STATUS_ZEPHYR_RESET_PCI_WARM,	   "R-pci_warm" },
+		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
+		 FW_STATUS_ZEPHYR_RESET_PCI_COLD,          "R-pci_cold" },
+		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
+		 FW_STATUS_ZEPHYR_RESET_UNKNOWN,           "R-unknown" },
+
 	};
 	/* list of registers */
 	static struct bcm_vk_sysfs_reg_list const fw_status_reg_list[] = {
@@ -615,6 +656,8 @@ static ssize_t firmware_status_show(struct device *dev,
 		 ARRAY_SIZE(fw_status_reg_tab), "FW status"},
 		{BAR_FB_OPEN, fb_open_reg_tab,
 		 ARRAY_SIZE(fb_open_reg_tab), "FastBoot status"},
+		{BAR_FW_STATUS, fw_shutdown_reg_tab,
+		 ARRAY_SIZE(fw_shutdown_reg_tab), "Last Reboot status"},
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fw_status_reg_list); i++) {
