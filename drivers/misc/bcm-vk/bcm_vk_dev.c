@@ -68,6 +68,12 @@ static DEFINE_IDA(bcm_vk_ida);
 #define BCM_VK_BITS_NOT_SET(_val, _bitmask) \
 	(((_val) & (_bitmask)) != (_bitmask))
 
+/*
+ * deinit time for the zephyr os after receiving doorbell,
+ * 2 seconds should be enough
+ */
+#define BCM_VK_ZEPHYR_DEINIT_TIME_MS    (2 * MSEC_PER_SEC)
+
 /* structure that is used to faciliate displaying of register content */
 struct bcm_vk_sysfs_reg_entry {
 	const uint32_t mask;
@@ -391,13 +397,56 @@ err_out:
 	return ret;
 }
 
+static int bcm_vk_reset_successful(struct bcm_vk *vk)
+{
+	struct device *dev = &vk->pdev->dev;
+	u32 fw_status, reset_reason;
+	int ret = -EAGAIN;
+
+	/*
+	 * Reset could be triggered when the card in several state:
+	 *   i)   in bootROM
+	 *   ii)  after boot1
+	 *   iii) boot2 running
+	 *
+	 * i) & ii) - no status bits will be updated.  If vkboot1
+	 * runs automatically after reset, it  will update the reason
+	 * to be unknown reason
+	 * iii) - reboot reason match + deinit done.
+	 */
+	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	/* immediate exit if interface goes down */
+	if (BCM_VK_INTF_IS_DOWN(fw_status)) {
+		dev_err(dev, "PCIe Intf Down!\n");
+		goto bcm_vk_reset_exit;
+	}
+
+	/* initial check on reset reason */
+	reset_reason = (fw_status & FW_STATUS_ZEPHYR_RESET_REASON_MASK);
+	if ((reset_reason == FW_STATUS_ZEPHYR_RESET_MBOX_DB)
+	     || (reset_reason == FW_STATUS_ZEPHYR_RESET_UNKNOWN))
+		ret = 0;
+
+	/*
+	 * if some of the deinit bits are set, but done
+	 * bit is not, this is a failure if triggered while boot2 is running
+	 */
+	if ((fw_status & FW_STATUS_ZEPHYR_DEINIT_TRIGGERED)
+	    && !(fw_status & FW_STATUS_ZEPHYR_RESET_DONE))
+		ret = -EAGAIN;
+
+bcm_vk_reset_exit:
+	dev_dbg(dev, "FW status = 0x%x ret %d\n", fw_status, ret);
+
+	return ret;
+}
+
 static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 {
 	struct device *dev = &vk->pdev->dev;
 	struct vk_reset reset;
-	long ret = 0;
+	int ret = 0;
 	int i;
-	u32 ram_open;
 
 	if (copy_from_user(&reset, arg, sizeof(struct vk_reset))) {
 		ret = -EACCES;
@@ -452,15 +501,14 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 		goto err_out;
 
 	bcm_vk_trigger_reset(vk);
-	msleep(100); /* just wait arbitrarily long enough for reset to happen */
 
-	/* read BAR0 BAR_FB_OPEN register and dump out the value */
-	ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
-	dev_info(dev,
-		 "Reset completed - RB_OPEN = 0x%x SRAM_OPEN %s DDR_OPEN %s\n",
-		 ram_open,
-		 ram_open & SRAM_OPEN ? "true" : "false",
-		 ram_open & DDR_OPEN ? "true" : "false");
+	/*
+	 * Wait enough time for zephyr to deinit + populate the reset
+	 * reason.
+	 */
+	msleep(BCM_VK_ZEPHYR_DEINIT_TIME_MS);
+
+	ret = bcm_vk_reset_successful(vk);
 
 err_out:
 	return ret;

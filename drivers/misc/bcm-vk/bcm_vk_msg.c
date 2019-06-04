@@ -1007,6 +1007,8 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	vk->msgq_inited = false;
 	vkwrite32(vk, 0, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
 
+	/* reset fw_status with proper reason, and press db */
+	vkwrite32(vk, FW_STATUS_ZEPHYR_RESET_MBOX_DB, BAR_0, BAR_FW_STATUS);
 	bcm_h2vk_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_VAL);
 
 	/* clear 4096 bits of bitmap */
