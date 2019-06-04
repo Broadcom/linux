@@ -98,6 +98,19 @@
 			};
 		};
 
+		link2 {
+			format = "dsp_a";
+			bitclock-master = <&dailink2_master>;
+			frame-master = <&dailink2_master>;
+
+			cpu {
+				sound-dai = <&m7_audio>;
+			};
+
+			dailink2_master: codec {
+				sound-dai = <&omega_codec 1>;
+			};
+		};
 	};
 
 	bt_reg0: regulator@1 {
@@ -155,6 +168,11 @@
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&digmic0_pins &digmic1_pins>;
+};
+
+&m7_audio {
+	mboxes = <&mailbox 2>;
+	status = "okay";
 };
 
 &omega_audio {
