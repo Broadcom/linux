@@ -18,9 +18,10 @@
 #include "bcm-card-utils.h"
 #include "cygnus-clk-utils.h"
 
-#define AUDIOH_LINK	0
+#define AUDIOH_TDM_LINK	0
 #define AK4458_LINK	1
-#define MAX_LINKS	2
+#define AUDIOH_M7_LINK	2
+#define MAX_LINKS	3
 
 #define PROP_LEN_MAX  80
 
@@ -307,7 +308,7 @@ static int bcm_omega_wa_probe(struct platform_device *pdev)
 		if (linknum == AK4458_LINK) {
 			card->dai_link[linknum].ops = &bcm_omega_wa_ops_ak4458;
 			card->dai_link[linknum].init = bcm_omega_wa_init_ak4458;
-		} else if (linknum == AUDIOH_LINK) {
+		} else if (linknum == AUDIOH_TDM_LINK) {
 			card->dai_link[linknum].init = bcm_omega_wa_audioh_init;
 		}
 	}
