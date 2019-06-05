@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2019 Broadcom
+ */
+
+/dts-v1/;
+
+#include "arm/innolux-lcd-panel.dtsi"
+#include "omega-base-board.dtsi"
+#include "bcm58312.dtsi"
+#include "bcm95831x-svk-common.dtsi"
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	model = "Broadcom Omega bcm95831217k";
+};
+

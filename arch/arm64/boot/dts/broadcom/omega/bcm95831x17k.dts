@@ -3,21 +3,9 @@
  *  Copyright(c) 2018 Broadcom
  */
 
-/dts-v1/;
-
-#include "arm/innolux-lcd-panel.dtsi"
-#include "omega-base-board.dtsi"
-#include "bcm58313.dtsi"
-#include "bcm95831x-svk-common.dtsi"
-
-#include <dt-bindings/gpio/gpio.h>
-
-/ {
-	model = "Broadcom Omega bcm95831x17k";
-};
-
-&iproc_dsi {
-	dsi_panel = <&panel_innolux>;
-	reset-gpio = <&gpio_west 36 GPIO_ACTIVE_LOW>;
-	status = "okay";
-};
+ /*
+  * Historically, despite its generic name the bcm95831x17k DT has always been
+  * associated with the 58313.  We now have variant specific DT for the SVK,
+  * but keep this older DT around because many people are used to the name.
+  */
+#include "bcm95831317k.dts"
