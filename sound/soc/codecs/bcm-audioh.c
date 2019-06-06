@@ -58,6 +58,8 @@ struct audioh_priv {
 	int tonegen_freqA;
 	int tonegen_freqB;
 
+	void __iomem *iomem;
+
 	struct audioh_context context;
 };
 
@@ -1562,6 +1564,77 @@ static const struct snd_soc_component_driver soc_codec_audioh = {
 	.non_legacy_dai_naming	= 1,
 };
 
+#define NUM_CONSECTUTIVE  2
+#define MAX_EXTRA_READS   10
+
+static bool all_match(unsigned int *read_vals, unsigned int num)
+{
+	unsigned int i;
+
+	for (i = 1; i < num; i++) {
+		if (read_vals[0] != read_vals[i])
+			return false;
+	}
+	return true;
+}
+
+/*
+ * The is a possibilty that a register read will get corrupted if the read
+ * occurs at same time as the TDM framesync.
+ * Read io reg multiple times until all values match.
+ */
+static int audioh_multi_read(struct audioh_priv *audioh, unsigned int reg,
+			     unsigned int *value)
+{
+	int i = 0;
+	unsigned int read_vals[NUM_CONSECTUTIVE];
+
+	/* fill buffer */
+	for (i = 0; i < ARRAY_SIZE(read_vals); i++)
+		read_vals[i] = ioread32(audioh->iomem + reg);
+
+	if (all_match(read_vals, ARRAY_SIZE(read_vals))) {
+		*value = read_vals[0];
+		return 0;
+	}
+
+	dev_dbg(audioh->dev,
+		"\nError found. Reg 0x%x. Start multiread.\n", reg);
+
+	for (i = 0; i < MAX_EXTRA_READS; i++) {
+		read_vals[i % ARRAY_SIZE(read_vals)] =
+						ioread32(audioh->iomem + reg);
+		if (all_match(read_vals, ARRAY_SIZE(read_vals))) {
+			*value = read_vals[0];
+			return 0;
+		}
+	}
+
+	return -EIO;
+}
+
+static int audioh_codec_read_reg(void *context, unsigned int reg,
+				 unsigned int *value)
+{
+	struct audioh_priv *audioh = context;
+	int ret;
+
+	ret = audioh_multi_read(audioh, reg, value);
+	if (ret)
+		dev_err(audioh->dev, "AudioH major reg read error\n");
+
+	return ret;
+}
+
+static int audioh_codec_write_reg(void *context, unsigned int reg,
+				  unsigned int value)
+{
+	struct audioh_priv *audioh = context;
+
+	iowrite32(value, audioh->iomem + reg);
+	return 0;
+}
+
 /*
  * The address range of audioh regs is massive. Implement these
  * optional callbacks to inform regmap of the actual reg we use.
@@ -1646,6 +1719,10 @@ static const struct regmap_config audioh_codec_regmap_config = {
 	.writeable_reg = audioh_rw_reg,
 	.max_register = AUDIOH_MAX_REGMAP_REG,
 	.cache_type = REGCACHE_NONE,
+
+	/* Custom reg rw handlers */
+	.reg_read = audioh_codec_read_reg,
+	.reg_write = audioh_codec_write_reg,
 };
 
 static int audioh_probe(struct platform_device *pdev)
@@ -1671,7 +1748,8 @@ static int audioh_probe(struct platform_device *pdev)
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
-	audioh->regmap = devm_regmap_init_mmio(&pdev->dev, base,
+	audioh->iomem = base;
+	audioh->regmap = devm_regmap_init(&pdev->dev, NULL, audioh,
 					    &audioh_codec_regmap_config);
 	if (IS_ERR(audioh->regmap))
 		return PTR_ERR(audioh->regmap);
