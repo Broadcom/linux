@@ -60,17 +60,6 @@
 #define PCIE_DL_ACTIVE_SHIFT		2
 #define PCIE_DL_ACTIVE			BIT(PCIE_DL_ACTIVE_SHIFT)
 
-#define CFG_RC_LTSSM                 0x1cf8
-#define CFG_RC_PHY_CTL               0x1804
-#define CFG_RC_LTSSM_TIMEOUT         1000
-#define CFG_RC_LTSSM_STATE_MASK      0xff
-#define CFG_RC_LTSSM_STATE_L1        0x1
-
-#define CFG_RC_CLR_LTSSM_HIST_SHIFT  29
-#define CFG_RC_CLR_LTSSM_HIST_MASK   BIT(CFG_RC_CLR_LTSSM_HIST_SHIFT)
-#define CFG_RC_CLR_RECOV_HIST_SHIFT  31
-#define CFG_RC_CLR_RECOV_HIST_MASK   BIT(CFG_RC_CLR_RECOV_HIST_SHIFT)
-
 #define APB_ERR_EN_SHIFT		0
 #define APB_ERR_EN			BIT(APB_ERR_EN_SHIFT)
 
@@ -110,8 +99,6 @@
 #define IPROC_PCIE_REG_INVALID		0xffff
 
 #define NUM_INTX                     4
-
-#define HOTPLUG_DEBOUNCE             100
 
 /**
  * iProc PCIe outbound mapping controller specific parameters
@@ -513,14 +500,6 @@ static inline void iproc_pcie_write_reg(struct iproc_pcie *pcie,
 	writel(val, pcie->base + offset);
 }
 
-static inline bool iproc_pcie_link_is_active(struct iproc_pcie *pcie)
-{
-	u32 val;
-
-	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_LINK_STATUS);
-	return !!((val & PCIE_PHYLINKUP) && (val & PCIE_DL_ACTIVE));
-}
-
 /**
  * APB error forwarding can be disabled during access of configuration
  * registers of the endpoint device, to prevent unsupported requests
@@ -616,25 +595,6 @@ static unsigned int iproc_pcie_cfg_retry(struct iproc_pcie *pcie,
 	return data;
 }
 
-static void iproc_pcie_cmd_fix(struct iproc_pcie *pcie, int where)
-
-{
-	u32 cmd;
-
-	if (pcie->ep_is_internal || !iproc_pcie_link_is_active(pcie))
-		return;
-
-	/*
-	 * When link is active, upon the first config read for vendor ID,
-	 * one needs to enable the memory access and bus master explicitly
-	 */
-	if ((where & ~0x3) == PCI_VENDOR_ID) {
-		iproc_pci_raw_config_read32(pcie, 0, PCI_COMMAND, 2, &cmd);
-		cmd |= PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER;
-		iproc_pci_raw_config_write32(pcie, 0, PCI_COMMAND, 2, cmd);
-	}
-}
-
 static void iproc_pcie_fix_cap(struct iproc_pcie *pcie, int where, u32 *val)
 {
 	u32 i, dev_id;
@@ -691,8 +651,6 @@ static int iproc_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 
 	/* root complex access */
 	if (busno == 0) {
-		iproc_pcie_cmd_fix(pcie, where);
-
 		ret = pci_generic_config_read32(bus, devfn, where, size, val);
 		if (ret == PCIBIOS_SUCCESSFUL)
 			iproc_pcie_fix_cap(pcie, where, val);
@@ -826,16 +784,6 @@ int iproc_pcie_config_read32(struct pci_bus *bus, unsigned int devfn,
 	int ret;
 	struct iproc_pcie *pcie = iproc_data(bus);
 
-	if (!pcie->ep_is_internal) {
-		if (bus->number && ((where & ~0x3) == PCI_VENDOR_ID)) {
-			if (!iproc_pcie_link_is_active(pcie)) {
-				dev_dbg(pcie->dev,
-					"LinkDown so skipping downstream read req\n");
-				return PCIBIOS_DEVICE_NOT_FOUND;
-			}
-		}
-	}
-
 	iproc_pcie_apb_err_disable(bus, true);
 	if (pcie->iproc_cfg_read)
 		ret = iproc_pcie_config_read(bus, devfn, where, size, val);
@@ -890,37 +838,10 @@ static void iproc_pcie_perst_ctrl(struct iproc_pcie *pcie, bool assert)
 	}
 }
 
-static bool iproc_pci_hp_check_ltssm(struct iproc_pcie *pcie)
-{
-	u32 val, timeout = CFG_RC_LTSSM_TIMEOUT;
-
-	/* Clear LTSSM history. */
-	iproc_pci_raw_config_read32(pcie, 0,
-				  CFG_RC_PHY_CTL, 4, &val);
-	iproc_pci_raw_config_write32(pcie, 0, CFG_RC_PHY_CTL, 4,
-				     val | CFG_RC_CLR_RECOV_HIST_MASK |
-				     CFG_RC_CLR_LTSSM_HIST_MASK);
-	/* write back the origional value. */
-	iproc_pci_raw_config_write32(pcie, 0, CFG_RC_PHY_CTL, 4, val);
-
-	do {
-		usleep_range(500, 1000);
-		iproc_pci_raw_config_read32(pcie, 0,
-					    CFG_RC_LTSSM, 4, &val);
-		/* check link state to see if link moved to L1 state. */
-		if ((val & CFG_RC_LTSSM_STATE_MASK) ==
-		     CFG_RC_LTSSM_STATE_L1)
-			return true;
-		timeout--;
-	} while (timeout);
-
-	return false;
-}
-
 static int iproc_pcie_check_link(struct iproc_pcie *pcie)
 {
 	struct device *dev = pcie->dev;
-	u32 hdr_type, link_ctrl, link_status, class;
+	u32 hdr_type, link_ctrl, link_status, class, val;
 	bool link_is_active = false;
 
 	/*
@@ -929,6 +850,12 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie)
 	 */
 	if (pcie->ep_is_internal)
 		return 0;
+
+	val = iproc_pcie_read_reg(pcie, IPROC_PCIE_LINK_STATUS);
+	if (!(val & PCIE_PHYLINKUP) || !(val & PCIE_DL_ACTIVE)) {
+		dev_err(dev, "PHY or data link is INACTIVE!\n");
+		return -ENODEV;
+	}
 
 	/* make sure we are not in EP mode */
 	iproc_pci_raw_config_read32(pcie, 0, PCI_HEADER_TYPE, 1, &hdr_type);
@@ -947,13 +874,6 @@ static int iproc_pcie_check_link(struct iproc_pcie *pcie)
 	class |= (PCI_CLASS_BRIDGE_PCI << PCI_CLASS_BRIDGE_SHIFT);
 	iproc_pci_raw_config_write32(pcie, 0, PCI_BRIDGE_CTRL_REG_OFFSET,
 				     4, class);
-
-	if (!iproc_pcie_link_is_active(pcie)) {
-		if (!iproc_pci_hp_check_ltssm(pcie)) {
-			dev_err(dev, "PHY or data link is INACTIVE!\n");
-			return -ENODEV;
-		}
-	}
 
 	/* check link status to see if link is active */
 	iproc_pci_raw_config_read32(pcie, 0, IPROC_PCI_EXP_CAP + PCI_EXP_LNKSTA,
@@ -1722,37 +1642,12 @@ int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 	return 0;
 }
 
-int iproc_pcie_detect_enable(struct iproc_pcie *pcie)
-{
-	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
-	struct pci_bus *child;
-	int ret;
-
-	host->dev.parent = pcie->dev;
-	ret = pci_scan_root_bus_bridge(host);
-	if (ret < 0) {
-		dev_err(pcie->dev, "failed to scan host: %d\n", ret);
-		return ret;
-	}
-
-	pci_assign_unassigned_bus_resources(host->bus);
-
-	pcie->root_bus = host->bus;
-
-	list_for_each_entry(child, &host->bus->children, node)
-		pcie_bus_configure_settings(child);
-
-	pci_bus_add_devices(host->bus);
-
-	return 0;
-}
-
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 {
 	struct device *dev;
 	int ret;
+	struct pci_bus *child;
 	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
-	bool is_link_active;
 
 	dev = pcie->dev;
 
@@ -1803,9 +1698,11 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 			goto err_power_off_phy;
 	}
 
-	is_link_active = iproc_pcie_check_link(pcie);
-	if (is_link_active)
-		dev_info(dev, "no PCIe EP device detected\n");
+	ret = iproc_pcie_check_link(pcie);
+	if (ret) {
+		dev_err(dev, "no PCIe EP device detected\n");
+		goto err_power_off_phy;
+	}
 
 	ret = iproc_pcie_intx_enable(pcie);
 	if (ret) {
@@ -1819,16 +1716,26 @@ int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res)
 
 	list_splice_init(res, &host->windows);
 	host->busnr = 0;
+	host->dev.parent = dev;
 	host->ops = &iproc_pcie_ops;
 	host->sysdata = pcie;
 	host->map_irq = pcie->map_irq;
 	host->swizzle_irq = pci_common_swizzle;
 
-	ret = iproc_pcie_detect_enable(pcie);
+	ret = pci_scan_root_bus_bridge(host);
 	if (ret < 0) {
-		dev_err(dev, "failed to enable: %d\n", ret);
+		dev_err(dev, "failed to scan host: %d\n", ret);
 		goto err_power_off_phy;
 	}
+
+	pci_assign_unassigned_bus_resources(host->bus);
+
+	pcie->root_bus = host->bus;
+
+	list_for_each_entry(child, &host->bus->children, node)
+		pcie_bus_configure_settings(child);
+
+	pci_bus_add_devices(host->bus);
 
 	return 0;
 
