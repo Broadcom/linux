@@ -45,6 +45,21 @@ static DEFINE_IDA(bcm_vk_ida);
 #define BCM_VK_VOLT_RAIL_MASK		0xFFFF
 #define BCM_VK_3P3_VOLT_REG_SHIFT	16
 
+/* defines for power and temp threshold, all fields have same width */
+#define BCM_VK_PWR_AND_THRE_FIELD_MASK	0xFF
+#define BCM_VK_LOW_TEMP_THRE_SHIFT	0
+#define BCM_VK_HIGH_TEMP_THRE_SHIFT	8
+#define BCM_VK_PWR_STATE_SHIFT		16
+
+/* defines for mem err, all fields have same width */
+#define BCM_VK_MEM_ERR_FIELD_MASK	0xFF
+#define BCM_VK_INT_MEM_ERR_SHIFT	0
+#define BCM_VK_EXT_MEM_ERR_SHIFT	8
+
+/* a macro to get an individual field with mask and shift */
+#define BCM_VK_EXTRACT_FIELD(_field, _reg, _mask, _shift) \
+	(_field = (((_reg) >> (_shift)) & (_mask)))
+
 /* structure that is used to faciliate displaying of register content */
 struct bcm_vk_sysfs_reg_entry {
 	const uint32_t mask;
@@ -564,7 +579,8 @@ static ssize_t firmware_version_show(struct device *dev,
 	if (count == BAR_FIRMWARE_TAG_SIZE)
 		buf[--count] = '\0';
 
-	dev_dbg(dev, "FW version:%s\n", buf);
+	buf[count++] = '\n'; /* append a CR */
+	dev_dbg(dev, "FW version:%s", buf);
 	return count;
 
 }
@@ -700,11 +716,112 @@ static ssize_t bus_show(struct device *dev,
 		       PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
 }
 
+static ssize_t card_state_show(struct device *dev,
+			       struct device_attribute *devattr, char *buf)
+{
+	int ret;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg, fw_status;
+	uint32_t low_temp_thre, high_temp_thre, pwr_state;
+	uint32_t int_mem_err, ext_mem_err;
+	char *p_buf = buf;
+	static struct bcm_vk_sysfs_reg_entry const err_log_reg_tab[] = {
+		{ERR_LOG_ALERT_ECC, ERR_LOG_ALERT_ECC,
+		 "ecc"},
+		{ERR_LOG_ALERT_SSIM_BUSY, ERR_LOG_ALERT_SSIM_BUSY,
+		 "ssim_busy"},
+		{ERR_LOG_ALERT_AFBC_BUSY, ERR_LOG_ALERT_AFBC_BUSY,
+		 "afbc_busy"},
+		{ERR_LOG_HIGH_TEMP_ERR, ERR_LOG_HIGH_TEMP_ERR,
+		 "high_temp"},
+		{ERR_LOG_MEM_ALLOC_FAIL, ERR_LOG_MEM_ALLOC_FAIL,
+		 "malloc_fail warn"},
+		{ERR_LOG_LOW_TEMP_WARN, ERR_LOG_LOW_TEMP_WARN,
+		 "low_temp warn"}
+	};
+	static const char * const pwr_state_tab[] = {
+		"Full", "Reduced", "Lowest"};
+	char *pwr_state_str;
+
+	/* if ZEPHYR is not running, no one will update the value */
+	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	if ((fw_status & FW_STATUS_ZEPHYR_READY) != FW_STATUS_ZEPHYR_READY)
+		return sprintf(buf, "card_state: n/a (fw not running)\n");
+
+	/* First, get power state and the threshold */
+	reg = vkread32(vk, BAR_0, BAR_CARD_PWR_AND_THRE);
+	BCM_VK_EXTRACT_FIELD(low_temp_thre, reg,
+			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
+			     BCM_VK_LOW_TEMP_THRE_SHIFT);
+	BCM_VK_EXTRACT_FIELD(high_temp_thre, reg,
+			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
+			     BCM_VK_HIGH_TEMP_THRE_SHIFT);
+	BCM_VK_EXTRACT_FIELD(pwr_state, reg,
+			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
+			     BCM_VK_PWR_STATE_SHIFT);
+
+#define _PWR_AND_THRE_FMT "Pwr&Thre: 0x%08x\n"       \
+		"  [Pwr_state]     : %d (%s)\n"      \
+		"  [Low_thre]      : %d Celsius\n"   \
+		"  [High_thre]     : %d Celsius\n"
+
+	pwr_state_str = (pwr_state < ARRAY_SIZE(pwr_state_tab)) ?
+			 (char *) pwr_state_tab[pwr_state] : "n/a";
+	ret = sprintf(buf, _PWR_AND_THRE_FMT, reg, pwr_state, pwr_state_str,
+		      low_temp_thre, high_temp_thre);
+	if (ret < 0)
+		goto card_state_show_fail;
+	p_buf += ret;
+	dev_dbg(dev, _PWR_AND_THRE_FMT, reg, pwr_state, pwr_state_str,
+		low_temp_thre, high_temp_thre);
+
+	/* next, see if there is any alert, also display them */
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
+	ret = sprintf(p_buf, "Alerts: 0x%08x\n", reg);
+	if (ret < 0)
+		goto card_state_show_fail;
+	p_buf += ret;
+
+	dev_dbg(dev, "Alerts: 0x%08x\n", reg);
+	ret = bcm_vk_sysfs_dump_reg(reg,
+				    err_log_reg_tab,
+				    ARRAY_SIZE(err_log_reg_tab),
+				    p_buf);
+	if (ret < 0)
+		goto card_state_show_fail;
+	p_buf += ret;
+
+	/* display memory error */
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_MEM);
+	BCM_VK_EXTRACT_FIELD(int_mem_err, reg,
+			     BCM_VK_MEM_ERR_FIELD_MASK,
+			     BCM_VK_INT_MEM_ERR_SHIFT);
+	BCM_VK_EXTRACT_FIELD(ext_mem_err, reg,
+			     BCM_VK_MEM_ERR_FIELD_MASK,
+			     BCM_VK_EXT_MEM_ERR_SHIFT);
+
+#define _MEM_ERR_FMT "MemErr: 0x%08x\n"    \
+		"  [internal]      : %d\n" \
+		"  [external]      : %d\n"
+	ret = sprintf(p_buf, _MEM_ERR_FMT, reg, int_mem_err, ext_mem_err);
+	if (ret < 0)
+		goto card_state_show_fail;
+	p_buf += ret;
+	dev_dbg(dev, _MEM_ERR_FMT, reg, int_mem_err, ext_mem_err);
+
+	return (p_buf - buf);
+
+card_state_show_fail:
+	return ret;
+}
+
 static DEVICE_ATTR_RO(temperature);
 static DEVICE_ATTR_RO(voltage);
 static DEVICE_ATTR_RO(firmware_status);
 static DEVICE_ATTR_RO(firmware_version);
 static DEVICE_ATTR_RO(bus);
+static DEVICE_ATTR_RO(card_state);
 
 static struct attribute *bcm_vk_attributes[] = {
 	&dev_attr_temperature.attr,
@@ -712,6 +829,7 @@ static struct attribute *bcm_vk_attributes[] = {
 	&dev_attr_firmware_status.attr,
 	&dev_attr_firmware_version.attr,
 	&dev_attr_bus.attr,
+	&dev_attr_card_state.attr,
 	NULL,
 };
 

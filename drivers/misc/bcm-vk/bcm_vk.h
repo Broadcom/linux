@@ -42,6 +42,9 @@
 #define BAR_FIRMWARE_VERSION	0x444
 #define BAR_CARD_TEMPERATURE	0x45C
 #define BAR_CARD_VOLTAGE	0x460
+#define BAR_CARD_ERR_LOG        0x464
+#define BAR_CARD_ERR_MEM	0x468
+#define BAR_CARD_PWR_AND_THRE   0x46c
 #define BAR_FIRMWARE_TAG	0x220000
 
 #define CODEPUSH_BOOT1_ENTRY	0x00400000
@@ -116,6 +119,14 @@
 #define FW_LOADER_ACK_SEND_MORE_DATA		BIT(18)
 #define FW_LOADER_ACK_IN_PROGRESS		BIT(19)
 #define FW_LOADER_ACK_RCVD_ALL_DATA		BIT(20)
+
+/* Error log register bit definition - register for error alerts */
+#define ERR_LOG_ALERT_ECC			BIT(0)
+#define ERR_LOG_ALERT_SSIM_BUSY			BIT(1)
+#define ERR_LOG_ALERT_AFBC_BUSY			BIT(2)
+#define ERR_LOG_HIGH_TEMP_ERR			BIT(3)
+#define ERR_LOG_MEM_ALLOC_FAIL			BIT(8)
+#define ERR_LOG_LOW_TEMP_WARN			BIT(9)
 
 /* VK MSG_ID Bitmap Size */
 #define VK_MSG_ID_BITMAP_SIZE 4096
