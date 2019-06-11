@@ -1052,6 +1052,38 @@ static int dsa_slave_vlan_rx_kill_vid(struct net_device *dev, __be16 proto,
 	return ret;
 }
 
+static void dsa_slave_get_pauseparam(struct net_device *dev,
+				     struct ethtool_pauseparam *pause)
+{
+	struct phy_device *phydev = dev->phydev;
+	u16 lcl_adv = 0, rmt_adv = 0;
+	u8 flowctrl;
+
+	if (!phydev)
+		return;
+
+	genphy_read_status(phydev);
+
+	if (phydev->pause)
+		rmt_adv |= LPA_PAUSE_CAP;
+	if (phydev->asym_pause)
+		rmt_adv |= LPA_PAUSE_ASYM;
+
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT,
+			      phydev->advertising))
+		lcl_adv |= ADVERTISE_PAUSE_CAP;
+
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
+			      phydev->advertising))
+		lcl_adv |= ADVERTISE_PAUSE_ASYM;
+
+	flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
+
+	pause->autoneg = phydev->autoneg;
+	pause->rx_pause = (flowctrl & FLOW_CTRL_RX) ? 1 : 0;
+	pause->tx_pause = (flowctrl & FLOW_CTRL_TX) ? 1 : 0;
+}
+
 static const struct ethtool_ops dsa_slave_ethtool_ops = {
 	.get_drvinfo		= dsa_slave_get_drvinfo,
 	.get_regs_len		= dsa_slave_get_regs_len,
@@ -1073,6 +1105,7 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
 	.get_rxnfc		= dsa_slave_get_rxnfc,
 	.set_rxnfc		= dsa_slave_set_rxnfc,
 	.get_ts_info		= dsa_slave_get_ts_info,
+	.get_pauseparam		= dsa_slave_get_pauseparam,
 };
 
 /* legacy way, bypassing the bridge *****************************************/
