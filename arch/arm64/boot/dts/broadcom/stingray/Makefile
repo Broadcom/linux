@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm957604k.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm957604k-diag.dtb
+dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm957604k-ns3.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm957604k-optee.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm957604k-paxb-iommu.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm957604k-pcie-iommu.dtb
