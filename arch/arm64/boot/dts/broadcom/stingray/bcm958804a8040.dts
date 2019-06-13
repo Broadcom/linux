@@ -42,6 +42,7 @@
 };
 
 #include "stingray-board-base.dtsi"
+#include "stingray-pcie-msi-map.dtsi"
 
 &sdio0 {
 	no-1-8-v;

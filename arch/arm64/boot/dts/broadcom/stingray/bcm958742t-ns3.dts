@@ -64,10 +64,3 @@
 &pci_lpm_region {
 	status = "disabled";
 };
-
-&pcie0 {
-	msi-map = <0x0000 &gic_its 0x0000 0x3ff>;
-#if (ENABLE_PAXB_IOMMU == 1)
-	iommu-map = <0x0000 &smmu 0x0000 0x3ff>;
-#endif
-};

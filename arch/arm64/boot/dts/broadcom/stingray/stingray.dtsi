@@ -831,5 +831,3 @@
 		};
 	};
 };
-
-#include "stingray-pcie-msi-map.dtsi"
