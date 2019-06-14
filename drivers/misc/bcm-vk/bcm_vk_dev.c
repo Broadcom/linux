@@ -60,6 +60,14 @@ static DEFINE_IDA(bcm_vk_ida);
 #define BCM_VK_EXTRACT_FIELD(_field, _reg, _mask, _shift) \
 	(_field = (((_reg) >> (_shift)) & (_mask)))
 
+/*
+ * check if PCIe interface is down on read.  Use it when it is
+ * certain that _val should never be all ones.
+ */
+#define BCM_VK_INTF_IS_DOWN(_val)          ((_val) == 0xFFFFFFFF)
+#define BCM_VK_BITS_NOT_SET(_val, _bitmask) \
+	(((_val) & (_bitmask)) != (_bitmask))
+
 /* structure that is used to faciliate displaying of register content */
 struct bcm_vk_sysfs_reg_entry {
 	const uint32_t mask;
@@ -186,15 +194,24 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		ret = -EACCES;
 		goto err_out;
 	}
-	dev_dbg(dev, "image type: 0x%x name: %s\n",
-		image.type, image.filename);
+
+	/*
+	 * First, do a read for the ram_open and do a check. If interface goes
+	 * down, bail out early.
+	 */
+	ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
+	dev_dbg(dev, "image type: 0x%x name: %s, ram_open = 0x%x\n",
+		image.type, image.filename, ram_open);
+
+	if (BCM_VK_INTF_IS_DOWN(ram_open)) {
+		ret = -EFAULT;
+		dev_err(dev, "Download Fails, PCIe interface down!");
+		goto err_out;
+	}
 
 	if (image.type == VK_IMAGE_TYPE_BOOT1) {
 		codepush = CODEPUSH_FASTBOOT + CODEPUSH_BOOT1_ENTRY;
 		offset_codepush = BAR_CODEPUSH_SBL;
-
-		ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
-		dev_dbg(dev, "ram_open=0x%x\n", ram_open);
 
 		/* Write a 1 to request SRAM open bit */
 		vkwrite32(vk, CODEPUSH_FASTBOOT, BAR_0, offset_codepush);
@@ -522,7 +539,9 @@ static ssize_t temperature_show(struct device *dev,
 
 	/* if ZEPHYR is not running, no one will update the value */
 	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
-	if ((fw_status & FW_STATUS_ZEPHYR_READY) != FW_STATUS_ZEPHYR_READY)
+	if (BCM_VK_INTF_IS_DOWN(fw_status))
+		return sprintf(buf, "PCIe Intf Down!\n");
+	else if (BCM_VK_BITS_NOT_SET(fw_status, FW_STATUS_ZEPHYR_READY))
 		return sprintf(buf, "Temperature: n/a (fw not running)\n");
 
 #define _TEMP_FMT "Temperature : %u Celsius\n"
@@ -542,7 +561,9 @@ static ssize_t voltage_show(struct device *dev,
 
 	/* if ZEPHYR is not running, no one will update the value */
 	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
-	if ((fw_status & FW_STATUS_ZEPHYR_READY) != FW_STATUS_ZEPHYR_READY)
+	if (BCM_VK_INTF_IS_DOWN(fw_status))
+		return sprintf(buf, "PCIe Intf Down!\n");
+	else if (BCM_VK_BITS_NOT_SET(fw_status, FW_STATUS_ZEPHYR_READY))
 		return sprintf(buf, "Voltage: n/a (fw not running)\n");
 
 #define _VOLTAGE_FMT "[1.8v] : %u mV\n[3.3v] : %u mV\n"
@@ -562,11 +583,14 @@ static ssize_t firmware_version_show(struct device *dev,
 	unsigned long offset = BAR_FIRMWARE_TAG;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t fw_status;
 
 	/* Check if ZEPHYR_PRE_KERNEL1_INIT_DONE */
-	if (!(vkread32(vk, BAR_0, BAR_FW_STATUS)
-		& FIRMWARE_STATUS_PRE_INIT_DONE))
-		return -EACCES;
+	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	if (BCM_VK_INTF_IS_DOWN(fw_status))
+		return sprintf(buf, "PCIe Intf Down!\n");
+	else if (BCM_VK_BITS_NOT_SET(fw_status, FIRMWARE_STATUS_PRE_INIT_DONE))
+		return sprintf(buf, "Version: n/a (fw not running)\n");
 
 	do {
 		buf[count] = vkread8(vk, BAR_1, offset);
@@ -676,6 +700,10 @@ static ssize_t firmware_status_show(struct device *dev,
 		 ARRAY_SIZE(fw_shutdown_reg_tab), "Last Reboot status"},
 	};
 
+	reg_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	if (BCM_VK_INTF_IS_DOWN(reg_status))
+		return sprintf(buf, "PCIe Intf Down!\n");
+
 	for (i = 0; i < ARRAY_SIZE(fw_status_reg_list); i++) {
 		reg_status = vkread32(vk, BAR_0, fw_status_reg_list[i].offset);
 		dev_dbg(dev, "%s: 0x%08x\n", fw_status_reg_list[i].hdr,
@@ -746,7 +774,9 @@ static ssize_t card_state_show(struct device *dev,
 
 	/* if ZEPHYR is not running, no one will update the value */
 	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
-	if ((fw_status & FW_STATUS_ZEPHYR_READY) != FW_STATUS_ZEPHYR_READY)
+	if (BCM_VK_INTF_IS_DOWN(fw_status))
+		return sprintf(buf, "PCIe Intf Down!\n");
+	else if (BCM_VK_BITS_NOT_SET(fw_status, FW_STATUS_ZEPHYR_READY))
 		return sprintf(buf, "card_state: n/a (fw not running)\n");
 
 	/* First, get power state and the threshold */
