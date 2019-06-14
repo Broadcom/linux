@@ -1084,6 +1084,18 @@ static void dsa_slave_get_pauseparam(struct net_device *dev,
 	pause->tx_pause = (flowctrl & FLOW_CTRL_TX) ? 1 : 0;
 }
 
+static int dsa_slave_set_pauseparam(struct net_device *dev,
+				    struct ethtool_pauseparam *pause)
+{
+	struct phy_device *phydev = dev->phydev;
+
+	if (!phydev)
+		return -ENODEV;
+	phy_set_asym_pause(phydev, pause->rx_pause, pause->tx_pause);
+
+	return 0;
+}
+
 static const struct ethtool_ops dsa_slave_ethtool_ops = {
 	.get_drvinfo		= dsa_slave_get_drvinfo,
 	.get_regs_len		= dsa_slave_get_regs_len,
@@ -1106,6 +1118,7 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
 	.set_rxnfc		= dsa_slave_set_rxnfc,
 	.get_ts_info		= dsa_slave_get_ts_info,
 	.get_pauseparam		= dsa_slave_get_pauseparam,
+	.set_pauseparam		= dsa_slave_set_pauseparam,
 };
 
 /* legacy way, bypassing the bridge *****************************************/
