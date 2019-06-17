@@ -172,6 +172,8 @@ static int nvme_lpm_arm_ssr(struct nvme_lpm *nvme_lpm, void __user *argp)
 	wrap.ssr_cmd_id = NVME_LPM_CMD_ARM_SSR;
 	wrap.ssr.state = SSR_STATE_ARM;
 	wrap.ssr.sequence = armed_ssr.sequence;
+	wrap.ssr.nvme_backup_offset = armed_ssr.disk_address;
+	wrap.ssr.nvme_backup_length = armed_ssr.length;
 
 	/* send msg to CRMU */
 	ret = iproc_mbox_send_msg(nvme_lpm, &wrap);

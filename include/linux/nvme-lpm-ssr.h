@@ -38,6 +38,8 @@ struct state_save_checkpoint {
 struct ssr {
 	uint8_t state;
 	uint32_t sequence;
+	uint64_t nvme_backup_length;
+	uint64_t nvme_backup_offset;
 	uint64_t nvme_error_code;
 	uint64_t ddr0_ecc_code;
 	uint64_t ddr1_ecc_code;
