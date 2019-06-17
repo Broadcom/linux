@@ -1,0 +1,166 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2019 Broadcom
+ */
+
+#if (PAXB_ECAM_SUPPORT == 1)
+	pcie0: pcie@500000000 {
+		compatible = "pci-host-ecam-generic";
+		reg = <0x5 0x00000000  0x0 0x10000000>;
+		reg-names = "PCI ECAM";
+
+		linux,pci-domain = <0>;
+
+		bus-range = <0x0 0xff>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0x0 0x42000000 0x0 0x42000000 0 0x2000000>,
+			 <0x43000000 0x4 0x00000000 0x4 0x00000000 0 0x80000000>;
+
+		dma-coherent;
+
+		msi-map = <0x000 &gic_its 0x000 0x400>;
+
+		iommu-map = <0x000 &smmu 0x000 0x400>;
+
+		status = "disabled";
+	};
+
+	pcie8: pcie@20000000 {
+		compatible = "pci-host-ecam-generic";
+		reg = <0x0 0x20000000  0x0 0x10000000>;
+		reg-names = "PCI ECAM";
+		linux,pci-domain = <8>;
+
+		bus-range = <0x0 0xff>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0 0x10000000 0 0x10000000 0 0x10000000>;
+
+		dma-coherent;
+
+		msi-map = <0x100 &gic_its 0x2000 0x1>, /* PF0 */
+			  <0x108 &gic_its 0x2040 0x8>, /* PF0-VF0-7 */
+			  <0x101 &gic_its 0x2080 0x1>, /* PF1 */
+			  <0x110 &gic_its 0x20c8 0x8>, /* PF1-VF8-15 */
+			  <0x102 &gic_its 0x2100 0x1>, /* PF2 */
+			  <0x118 &gic_its 0x2150 0x8>, /* PF2-VF16-23 */
+			  <0x103 &gic_its 0x2180 0x1>, /* PF3 */
+			  <0x120 &gic_its 0x21d8 0x8>, /* PF3-VF24-31 */
+			  <0x104 &gic_its 0x2200 0x1>, /* PF4 */
+			  <0x128 &gic_its 0x2260 0x8>, /* PF4-VF32-39 */
+			  <0x105 &gic_its 0x2280 0x1>, /* PF5 */
+			  <0x130 &gic_its 0x22e8 0x8>, /* PF5-VF40-47 */
+			  <0x106 &gic_its 0x2300 0x1>, /* PF6 */
+			  <0x138 &gic_its 0x2370 0x8>, /* PF6-VF48-55 */
+			  <0x107 &gic_its 0x2380 0x1>, /* PF7 */
+			  <0x140 &gic_its 0x23f8 0x8>; /* PF7-VF56-63 */
+
+		iommu-map = <0x100 &smmu 0x2000 0x1>, /* PF0 */
+			    <0x108 &smmu 0x2040 0x8>, /* PF0-VF0-7 */
+			    <0x101 &smmu 0x2080 0x1>, /* PF1 */
+			    <0x110 &smmu 0x20c8 0x8>, /* PF1-VF8-15 */
+			    <0x102 &smmu 0x2100 0x1>, /* PF2 */
+			    <0x118 &smmu 0x2150 0x8>, /* PF2-VF16-23 */
+			    <0x103 &smmu 0x2180 0x1>, /* PF3 */
+			    <0x120 &smmu 0x21d8 0x8>, /* PF3-VF24-31 */
+			    <0x104 &smmu 0x2200 0x1>, /* PF4 */
+			    <0x128 &smmu 0x2260 0x8>, /* PF4-VF32-39 */
+			    <0x105 &smmu 0x2280 0x1>, /* PF5 */
+			    <0x130 &smmu 0x22e8 0x8>, /* PF5-VF40-47 */
+			    <0x106 &smmu 0x2300 0x1>, /* PF6 */
+			    <0x138 &smmu 0x2370 0x8>, /* PF6-VF48-55 */
+			    <0x107 &smmu 0x2380 0x1>, /* PF7 */
+			    <0x140 &smmu 0x23f8 0x8>; /* PF7-VF56-63 */
+
+		status = "disabled";
+	};
+
+#else
+	pcie0: pcie@48000000 {
+		compatible = "brcm,iproc-pcie-paxb-v2";
+		reg = <0 0x48000000 0 0x4000>;
+
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 0 1 &pcie0 1>,
+				<0 0 0 0 2 &pcie0 2>,
+				<0 0 0 0 3 &pcie0 3>,
+				<0 0 0 0 4 &pcie0 4>;
+		interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>;
+
+		linux,pci-domain = <0>;
+
+		bus-range = <0x0 0xff>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0x0 0x42000000 0x0 0x42000000 0 0x2000000>,
+			 <0x43000000 0x4 0x00000000 0x4 0x00000000 0 0x80000000>;
+
+		dma-coherent;
+
+		msi-map = <0x000 &gic_its 0x000 0x400>;
+
+		iommu-map = <0x000 &smmu 0x000 0x400>;
+
+		status = "disabled";
+	};
+
+	pcie8: pcie@60400000 {
+		compatible = "brcm,iproc-pcie-paxc-v2";
+		reg = <0 0x60400000 0 0x1000>;
+		linux,pci-domain = <8>;
+
+		bus-range = <0x0 0x1>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0 0x10000000 0 0x10000000 0 0x20000000>;
+
+		dma-coherent;
+
+		msi-map = <0x100 &gic_its 0x2000 0x1>, /* PF0 */
+			  <0x108 &gic_its 0x2040 0x8>, /* PF0-VF0-7 */
+			  <0x101 &gic_its 0x2080 0x1>, /* PF1 */
+			  <0x110 &gic_its 0x20c8 0x8>, /* PF1-VF8-15 */
+			  <0x102 &gic_its 0x2100 0x1>, /* PF2 */
+			  <0x118 &gic_its 0x2150 0x8>, /* PF2-VF16-23 */
+			  <0x103 &gic_its 0x2180 0x1>, /* PF3 */
+			  <0x120 &gic_its 0x21d8 0x8>, /* PF3-VF24-31 */
+			  <0x104 &gic_its 0x2200 0x1>, /* PF4 */
+			  <0x128 &gic_its 0x2260 0x8>, /* PF4-VF32-39 */
+			  <0x105 &gic_its 0x2280 0x1>, /* PF5 */
+			  <0x130 &gic_its 0x22e8 0x8>, /* PF5-VF40-47 */
+			  <0x106 &gic_its 0x2300 0x1>, /* PF6 */
+			  <0x138 &gic_its 0x2370 0x8>, /* PF6-VF48-55 */
+			  <0x107 &gic_its 0x2380 0x1>, /* PF7 */
+			  <0x140 &gic_its 0x23f8 0x8>; /* PF7-VF56-63 */
+
+		iommu-map = <0x100 &smmu 0x2000 0x1>, /* PF0 */
+			    <0x108 &smmu 0x2040 0x8>, /* PF0-VF0-7 */
+			    <0x101 &smmu 0x2080 0x1>, /* PF1 */
+			    <0x110 &smmu 0x20c8 0x8>, /* PF1-VF8-15 */
+			    <0x102 &smmu 0x2100 0x1>, /* PF2 */
+			    <0x118 &smmu 0x2150 0x8>, /* PF2-VF16-23 */
+			    <0x103 &smmu 0x2180 0x1>, /* PF3 */
+			    <0x120 &smmu 0x21d8 0x8>, /* PF3-VF24-31 */
+			    <0x104 &smmu 0x2200 0x1>, /* PF4 */
+			    <0x128 &smmu 0x2260 0x8>, /* PF4-VF32-39 */
+			    <0x105 &smmu 0x2280 0x1>, /* PF5 */
+			    <0x130 &smmu 0x22e8 0x8>, /* PF5-VF40-47 */
+			    <0x106 &smmu 0x2300 0x1>, /* PF6 */
+			    <0x138 &smmu 0x2370 0x8>, /* PF6-VF48-55 */
+			    <0x107 &smmu 0x2380 0x1>, /* PF7 */
+			    <0x140 &smmu 0x23f8 0x8>; /* PF7-VF56-63 */
+
+		status = "disabled";
+	};
+#endif
