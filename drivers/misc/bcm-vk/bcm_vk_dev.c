@@ -701,7 +701,8 @@ static ssize_t firmware_status_show(struct device *dev,
 		 FW_LOADER_ACK_RCVD_ALL_DATA,                 "bt2_dload_done"},
 		{0xFFE3FFFF, SRAM_OPEN | FB_STATE_WAIT_BOOT1, "wait_boot1"},
 		{0xFFE3FFFF, DDR_OPEN  | FB_STATE_WAIT_BOOT2, "wait_boot2"},
-		{0xFFE3FFFF, FB_STATE_WAIT_BOOT2,             "boot2_running"},
+		{0xFFF3FFFF, FW_LOADER_ACK_RCVD_ALL_DATA | FB_STATE_WAIT_BOOT2,
+		 "boot2_running"},
 	};
 	/*
 	 * shut down is lumped with fw-status register, but we use a different
@@ -745,7 +746,7 @@ static ssize_t firmware_status_show(struct device *dev,
 		{BAR_FB_OPEN, fb_open_reg_tab,
 		 ARRAY_SIZE(fb_open_reg_tab), "FastBoot status"},
 		{BAR_FW_STATUS, fw_shutdown_reg_tab,
-		 ARRAY_SIZE(fw_shutdown_reg_tab), "Last Reboot status"},
+		 ARRAY_SIZE(fw_shutdown_reg_tab), "Last Reset status"},
 	};
 
 	reg_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
