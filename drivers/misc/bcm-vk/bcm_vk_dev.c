@@ -627,18 +627,34 @@ static ssize_t firmware_version_show(struct device *dev,
 				     struct device_attribute *devattr,
 				     char *buf)
 {
-	unsigned int count = 0;
+	int count = 0;
 	unsigned long offset = BAR_FIRMWARE_TAG;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	uint32_t fw_status;
+	uint32_t chip_id;
+	uint32_t loop_count = 0;
+
+	/* Print driver version first, which is always available */
+	count  = sprintf(buf, "Driver  : %s %s, srcversion %s\n",
+			 DRV_MODULE_NAME, THIS_MODULE->version,
+			 THIS_MODULE->srcversion);
 
 	/* Check if ZEPHYR_PRE_KERNEL1_INIT_DONE */
 	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
 	if (BCM_VK_INTF_IS_DOWN(fw_status))
-		return sprintf(buf, "PCIe Intf Down!\n");
+		return (count + sprintf(&buf[count], "PCIe Intf Down!\n"));
 	else if (BCM_VK_BITS_NOT_SET(fw_status, FIRMWARE_STATUS_PRE_INIT_DONE))
-		return sprintf(buf, "Version: n/a (fw not running)\n");
+		return (count + sprintf(&buf[count],
+					"FW Version: n/a (fw not running)\n"));
+
+	/* retrieve chip id for display */
+	chip_id = vkread32(vk, BAR_0, BAR_CHIP_ID);
+	count += sprintf(&buf[count], "Chip id : 0x%x\n", chip_id);
+
+	/* TO_FIX: boot1 and others to be added here */
+
+	count += sprintf(&buf[count], "zephyr  : ");
 
 	do {
 		buf[count] = vkread8(vk, BAR_1, offset);
@@ -646,15 +662,15 @@ static ssize_t firmware_version_show(struct device *dev,
 			break;
 		offset++;
 		count++;
-	} while (count != BAR_FIRMWARE_TAG_SIZE);
+		loop_count++;
+	} while (loop_count != BAR_FIRMWARE_TAG_SIZE);
 
-	if (count == BAR_FIRMWARE_TAG_SIZE)
+	if (loop_count == BAR_FIRMWARE_TAG_SIZE)
 		buf[--count] = '\0';
 
 	buf[count++] = '\n'; /* append a CR */
-	dev_dbg(dev, "FW version:%s", buf);
+	dev_dbg(dev, "FW version: %s", buf);
 	return count;
-
 }
 
 static ssize_t firmware_status_show(struct device *dev,
@@ -1169,3 +1185,4 @@ module_pci_driver(pci_driver);
 MODULE_DESCRIPTION("Broadcom Valkyrie Host Driver");
 MODULE_AUTHOR("Scott Branden <scott.branden@broadcom.com>");
 MODULE_LICENSE("GPL v2");
+MODULE_VERSION("1.0");
