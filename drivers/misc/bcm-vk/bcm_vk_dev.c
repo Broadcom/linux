@@ -943,6 +943,16 @@ static const struct file_operations bcm_vk_fops = {
 	.unlocked_ioctl = bcm_vk_ioctl,
 };
 
+static int bcm_vk_on_panic(struct notifier_block *nb,
+			   unsigned long e, void *p)
+{
+	struct bcm_vk *vk = container_of(nb, struct bcm_vk, panic_nb);
+
+	bcm_h2vk_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_HARD);
+
+	return 0;
+}
+
 static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	int err;
@@ -1077,6 +1087,12 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_free_sysfs_entry;
 	}
 
+
+	/* last, register for panic notifier */
+	vk->panic_nb.notifier_call = bcm_vk_on_panic;
+	atomic_notifier_chain_register(&panic_notifier_list,
+				       &vk->panic_nb);
+
 	dev_info(dev, "BCM-VK:%u created, 0x%p\n", id, vk);
 
 	return 0;
@@ -1130,6 +1146,10 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &vk->miscdev;
 
+	/* unregister panic notifier */
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+				       &vk->panic_nb);
+
 	/* remove the sysfs entry and symlinks associated */
 	sysfs_remove_link(&pdev->dev.kobj, misc_device->name);
 	sysfs_remove_link(&misc_device->this_device->kobj,
@@ -1168,6 +1188,13 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	kref_put(&vk->kref, bcm_vk_release_data);
 }
 
+static void bcm_vk_shutdown(struct pci_dev *pdev)
+{
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	bcm_h2vk_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_HARD);
+}
+
 static const struct pci_device_id bcm_vk_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_VALKYRIE), },
 	{ }
@@ -1179,6 +1206,7 @@ static struct pci_driver pci_driver = {
 	.id_table = bcm_vk_ids,
 	.probe    = bcm_vk_probe,
 	.remove   = bcm_vk_remove,
+	.shutdown = bcm_vk_shutdown,
 };
 module_pci_driver(pci_driver);
 

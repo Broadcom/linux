@@ -328,7 +328,7 @@ static void bcm_vk_append_pendq(struct bcm_vk_msg_chan *p_chan, uint16_t q_num,
 	spin_unlock(&p_chan->pendq_lock);
 }
 
-static void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num,
+void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num,
 			      uint32_t db_val)
 {
 	/* press door bell based on q_num */
@@ -1009,7 +1009,7 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 
 	/* reset fw_status with proper reason, and press db */
 	vkwrite32(vk, FW_STATUS_ZEPHYR_RESET_MBOX_DB, BAR_0, BAR_FW_STATUS);
-	bcm_h2vk_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_VAL);
+	bcm_h2vk_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_SOFT);
 
 	/* clear 4096 bits of bitmap */
 	bitmap_clear(vk->bmap, 0, VK_MSG_ID_BITMAP_SIZE);

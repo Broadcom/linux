@@ -175,6 +175,8 @@ struct bcm_vk {
 	struct work_struct vk2h_wq; /* work queue for deferred job */
 	void *tdma_vaddr; /* test dma segment virtual addr */
 	dma_addr_t tdma_addr; /* test dma segment bus addr */
+
+	struct notifier_block panic_nb;
 };
 
 static inline u32 vkread32(struct bcm_vk *vk,
@@ -226,6 +228,7 @@ void bcm_vk_msg_remove(struct bcm_vk *vk);
 int bcm_vk_sync_msgq(struct bcm_vk *vk);
 int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type, pid_t pid);
 void bcm_vk_trigger_reset(struct bcm_vk *vk);
+void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val);
 
 #if BCM_VK_MISC_API
 
