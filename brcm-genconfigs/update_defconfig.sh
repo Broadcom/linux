@@ -120,6 +120,7 @@ main() {
 	cat brcm-genconfigs/usb.cfg >> .config
 	cat brcm-genconfigs/v4l2.cfg >> .config
 	cat brcm-genconfigs/tc.cfg >> .config
+	cat brcm-genconfigs/mlnx.cfg >> .config
 	make ARCH=x86_64 savedefconfig
 	cp -v defconfig arch/x86/configs/qemu_x86_64_defconfig
 
@@ -139,6 +140,7 @@ main() {
 	cat brcm-genconfigs/usb.cfg >> .config
 	cat brcm-genconfigs/v4l2.cfg >> .config
 	cat brcm-genconfigs/tc.cfg >> .config
+	cat brcm-genconfigs/mlnx.cfg >> .config
 	make ARCH=x86_64 savedefconfig
 	cp -v defconfig arch/x86/configs/generic_x86_64_defconfig
 
