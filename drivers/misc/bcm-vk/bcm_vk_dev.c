@@ -39,6 +39,8 @@ static DEFINE_IDA(bcm_vk_ida);
 
 #define BCM_VK_MIN_RESET_TIME_SEC	2
 
+#define BCM_VK_BOOT1_STARTUP_TIME_MS    (3 * MSEC_PER_SEC)
+
 #define BCM_VK_BUS_SYMLINK_NAME		"pci"
 
 /* defines for voltage rail conversion */
@@ -73,6 +75,14 @@ static DEFINE_IDA(bcm_vk_ida);
  * 2 seconds should be enough
  */
 #define BCM_VK_ZEPHYR_DEINIT_TIME_MS    (2 * MSEC_PER_SEC)
+
+/*
+ * module parameters
+ */
+static bool auto_load = true;
+module_param(auto_load, bool, 0444);
+MODULE_PARM_DESC(auto_load,
+		 "Load images automatically at PCIe probe time.\n");
 
 /* structure that is used to faciliate displaying of register content */
 struct bcm_vk_sysfs_reg_entry {
@@ -184,38 +194,18 @@ static inline int bcm_vk_wait(struct bcm_vk *vk, enum pci_barno bar,
 	return 0;
 }
 
-static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
+static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
+				     const char *filename)
 {
 	struct device *dev = &vk->pdev->dev;
 	const struct firmware *fw;
 	void *bufp;
 	size_t max_buf;
-	struct vk_image image;
 	int ret;
 	uint64_t offset_codepush;
 	u32 codepush;
-	u32 ram_open;
 
-	if (copy_from_user(&image, arg, sizeof(image))) {
-		ret = -EACCES;
-		goto err_out;
-	}
-
-	/*
-	 * First, do a read for the ram_open and do a check. If interface goes
-	 * down, bail out early.
-	 */
-	ram_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
-	dev_dbg(dev, "image type: 0x%x name: %s, ram_open = 0x%x\n",
-		image.type, image.filename, ram_open);
-
-	if (BCM_VK_INTF_IS_DOWN(ram_open)) {
-		ret = -EFAULT;
-		dev_err(dev, "Download Fails, PCIe interface down!");
-		goto err_out;
-	}
-
-	if (image.type == VK_IMAGE_TYPE_BOOT1) {
+	if (load_type == VK_IMAGE_TYPE_BOOT1) {
 		codepush = CODEPUSH_FASTBOOT + CODEPUSH_BOOT1_ENTRY;
 		offset_codepush = BAR_CODEPUSH_SBL;
 
@@ -232,7 +222,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 
 		bufp = vk->bar[BAR_1] + BAR1_CODEPUSH_BASE_BOOT1;
 		max_buf = SZ_256K;
-	} else if (image.type == VK_IMAGE_TYPE_BOOT2) {
+	} else if (load_type == VK_IMAGE_TYPE_BOOT2) {
 		codepush = CODEPUSH_BOOT2_ENTRY;
 		offset_codepush = BAR_CODEPUSH_SBI;
 
@@ -247,17 +237,17 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		bufp = vk->bar[BAR_2];
 		max_buf = SZ_64M;
 	} else {
-		dev_err(dev, "Error invalid image type 0x%x\n", image.type);
+		dev_err(dev, "Error invalid image type 0x%x\n", load_type);
 		ret = -EINVAL;
 		goto err_out;
 	}
 
-	ret = request_firmware_into_buf(&fw, image.filename, dev,
+	ret = request_firmware_into_buf(&fw, filename, dev,
 					bufp, max_buf, 0,
 					KERNEL_PREAD_FLAG_PART);
 	if (ret) {
 		dev_err(dev, "Error %d requesting firmware file: %s\n",
-			ret, image.filename);
+			ret, filename);
 		goto err_out;
 	}
 	dev_dbg(dev, "size=0x%zx\n", fw->size);
@@ -265,7 +255,24 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	dev_dbg(dev, "Signaling 0x%x to 0x%llx\n", codepush, offset_codepush);
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
 
-	if (image.type == VK_IMAGE_TYPE_BOOT2) {
+	if (load_type == VK_IMAGE_TYPE_BOOT1) {
+
+		/* allow minimal time for boot1 to run */
+		msleep(2 * MSEC_PER_SEC);
+
+		/* wait until done */
+		ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
+				  FB_BOOT1_RUNNING,
+				  FB_BOOT1_RUNNING,
+				  BCM_VK_BOOT1_STARTUP_TIME_MS);
+		if (ret) {
+			dev_err(dev,
+				"Timeout %ld ms waiting for boot1 to come up\n",
+				BCM_VK_BOOT1_STARTUP_TIME_MS);
+			goto err_firmware_out;
+		}
+
+	} else if (load_type == VK_IMAGE_TYPE_BOOT2) {
 		/* To send more data to VK than max_buf allowed at a time */
 		do {
 			/* Wait for VK to move data from BAR space */
@@ -303,14 +310,14 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 			if (ret == 0) {
 				ret = request_firmware_into_buf(
 							&fw,
-							image.filename,
+							filename,
 							dev, bufp,
 							max_buf,
 							fw->size,
 							KERNEL_PREAD_FLAG_PART);
 				if (ret) {
 					dev_err(dev, "Error %d requesting firmware file: %s offset: 0x%zx\n",
-						ret, image.filename,
+						ret, filename,
 						fw->size);
 					goto err_firmware_out;
 				}
@@ -344,6 +351,114 @@ err_firmware_out:
 	release_firmware(fw);
 
 err_out:
+	return ret;
+}
+
+static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
+{
+	uint32_t fb_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
+	u32 load_type = 0;  /* default for unknown */
+
+	if (!BCM_VK_INTF_IS_DOWN(fb_open) && (fb_open & SRAM_OPEN))
+		load_type = VK_IMAGE_TYPE_BOOT1;
+	else if (fb_open == FB_BOOT1_RUNNING)
+		load_type = VK_IMAGE_TYPE_BOOT2;
+
+	/*
+	 * TO_FIX: For now, like to know what value we get everytime
+	 *         for debugging.
+	 */
+	dev_info(&vk->pdev->dev, "FB_OPEN value on deciding next image: 0x%x\n",
+		 fb_open);
+
+	return load_type;
+}
+
+int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
+{
+	int ret = 0;
+	struct device *dev = &vk->pdev->dev;
+	static struct _load_image_tab {
+		const uint32_t image_type;
+		const char *image_name;
+	} image_tab[] = {
+		{VK_IMAGE_TYPE_BOOT1, VK_BOOT1_DEF_FILENAME},
+		{VK_IMAGE_TYPE_BOOT2, VK_BOOT2_DEF_FILENAME},
+	};
+	uint32_t i;
+	uint32_t curr_type;
+	const char *curr_name;
+
+	for (i = 0; i < ARRAY_SIZE(image_tab); i++) {
+
+		curr_type = image_tab[i].image_type;
+		if (bcm_vk_next_boot_image(vk) == curr_type) {
+
+			curr_name = image_tab[i].image_name;
+			ret = bcm_vk_load_image_by_type(vk, curr_type,
+							curr_name);
+			dev_info(dev, "Auto load %s, ret %d\n",
+				 curr_name, ret);
+
+			if (ret) {
+				dev_err(dev, "Error loading default %s\n",
+					curr_name);
+				goto bcm_vk_auto_load_all_exit;
+			}
+		}
+	}
+
+bcm_vk_auto_load_all_exit:
+	return ret;
+
+}
+
+static int bcm_vk_trigger_autoload(struct bcm_vk *vk)
+{
+	if (test_and_set_bit(BCM_VK_WQ_DWNLD_PEND, &vk->wq_offload) != 0)
+		return -EPERM;
+
+	set_bit(BCM_VK_WQ_DWNLD_AUTO, &vk->wq_offload);
+	queue_work(vk->wq_thread, &vk->wq_work);
+
+	return 0;
+}
+
+static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
+{
+	int ret;
+	struct device *dev = &vk->pdev->dev;
+	struct vk_image image;
+	u32 next_loadable;
+
+	if (copy_from_user(&image, arg, sizeof(image))) {
+		ret = -EACCES;
+		goto bcm_vk_load_image_exit;
+	}
+
+	/* first check if fw is at the right state for the download */
+	next_loadable = bcm_vk_next_boot_image(vk);
+	if (next_loadable != image.type) {
+		dev_err(dev, "Next expected image %u, Loading %u\n",
+			next_loadable, image.type);
+		ret = -EPERM;
+		goto bcm_vk_load_image_exit;
+	}
+
+	/*
+	 * if something is pending download already.  This could only happen
+	 * for now when the driver is being loaded, or if someone has issued
+	 * another download command in another shell.
+	 */
+	if (test_and_set_bit(BCM_VK_WQ_DWNLD_PEND, &vk->wq_offload) != 0) {
+		dev_err(dev, "Download operation already pending.\n");
+		return -EPERM;
+	}
+
+	ret = bcm_vk_load_image_by_type(vk, image.type, image.filename);
+	clear_bit(BCM_VK_WQ_DWNLD_PEND, &vk->wq_offload);
+
+bcm_vk_load_image_exit:
 	return ret;
 }
 
@@ -788,10 +903,9 @@ static ssize_t firmware_status_show(struct device *dev,
 		 FW_LOADER_ACK_IN_PROGRESS,                   "bt1_inprog"},
 		{FW_LOADER_ACK_RCVD_ALL_DATA,
 		 FW_LOADER_ACK_RCVD_ALL_DATA,                 "bt2_dload_done"},
-		{0xFFE3FFFF, SRAM_OPEN | FB_STATE_WAIT_BOOT1, "wait_boot1"},
-		{0xFFE3FFFF, DDR_OPEN  | FB_STATE_WAIT_BOOT2, "wait_boot2"},
-		{0xFFF3FFFF, FW_LOADER_ACK_RCVD_ALL_DATA | FB_STATE_WAIT_BOOT2,
-		 "boot2_running"},
+		{SRAM_OPEN, SRAM_OPEN,			      "wait_boot1"},
+		{0xFFF3FFFF, FB_BOOT1_RUNNING,		      "wait_boot2"},
+		{0xFFF3FFFF, FB_BOOT2_RUNNING,		      "boot2_running"},
 	};
 	/*
 	 * shut down is lumped with fw-status register, but we use a different
@@ -1192,11 +1306,18 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_free_sysfs_entry;
 	}
 
-
 	/* last, register for panic notifier */
 	vk->panic_nb.notifier_call = bcm_vk_on_panic;
 	atomic_notifier_chain_register(&panic_notifier_list,
 				       &vk->panic_nb);
+
+	/*
+	 * lets trigger an auto download.  We don't want to do it serially here
+	 * because at probing time, it is not supposed to block for a long time.
+	 */
+	if (auto_load)
+		if (bcm_vk_trigger_autoload(vk))
+			goto err_free_sysfs_entry;
 
 	dev_info(dev, "BCM-VK:%u created, 0x%p\n", id, vk);
 
@@ -1264,7 +1385,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_card_mon_attribute_group);
 	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_card_stat_attribute_group);
 
-	cancel_work_sync(&vk->vk2h_wq);
+	cancel_work_sync(&vk->wq_work);
 	bcm_vk_msg_remove(vk);
 
 	if (vk->tdma_vaddr)

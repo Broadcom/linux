@@ -634,15 +634,25 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 }
 
 /*
- * deferred work queue for draining.  This function is created purely for
- * letting the work done in the work queue
+ * deferred work queue for draining and auto download.
  */
-static void bcm_vk2h_wq_handler(struct work_struct *work)
+static void bcm_vk_wq_handler(struct work_struct *work)
 {
-	struct bcm_vk *vk = container_of(work, struct bcm_vk, vk2h_wq);
+	struct bcm_vk *vk = container_of(work, struct bcm_vk, wq_work);
 	struct device *dev = &vk->pdev->dev;
 	uint32_t tot;
 
+	/* check wq offload bit map and see if auto download is requested */
+	if (test_bit(BCM_VK_WQ_DWNLD_AUTO, &vk->wq_offload)) {
+
+		bcm_vk_auto_load_all_images(vk);
+
+		/* at the end of operation, clear AUTO bit and pending bit */
+		clear_bit(BCM_VK_WQ_DWNLD_AUTO, &vk->wq_offload);
+		clear_bit(BCM_VK_WQ_DWNLD_PEND, &vk->wq_offload);
+	}
+
+	/* next, try to drain */
 	tot = bcm_vk2h_msg_dequeue(vk);
 
 	if (tot == 0)
@@ -670,7 +680,7 @@ static int bcm_vk_data_init(struct bcm_vk *vk)
 	for (i = 0; i < VK_PID_HT_SZ; i++)
 		INIT_LIST_HEAD(&vk->pid_ht[i].fd_head);
 
-	INIT_WORK(&vk->vk2h_wq, bcm_vk2h_wq_handler);
+	INIT_WORK(&vk->wq_work, bcm_vk_wq_handler);
 	return rc;
 }
 
@@ -684,7 +694,7 @@ irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id)
 		goto skip_schedule_work;
 	}
 
-	queue_work(vk->vk2h_wq_thread, &vk->vk2h_wq);
+	queue_work(vk->wq_thread, &vk->wq_work);
 
 skip_schedule_work:
 	return IRQ_HANDLED;
@@ -971,8 +981,8 @@ int bcm_vk_msg_init(struct bcm_vk *vk)
 	}
 
 	/* create dedicated workqueue */
-	vk->vk2h_wq_thread = create_singlethread_workqueue(vk->miscdev.name);
-	if (!vk->vk2h_wq_thread) {
+	vk->wq_thread = create_singlethread_workqueue(vk->miscdev.name);
+	if (!vk->wq_thread) {
 		dev_err(dev, "Fail to create workqueue thread\n");
 		err = -ENOMEM;
 		goto err_out;
@@ -991,7 +1001,7 @@ err_out:
 
 void bcm_vk_msg_remove(struct bcm_vk *vk)
 {
-	destroy_workqueue(vk->vk2h_wq_thread);
+	destroy_workqueue(vk->wq_thread);
 
 	/* drain all pending items */
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, NULL);

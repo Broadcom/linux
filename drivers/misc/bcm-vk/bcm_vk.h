@@ -53,8 +53,6 @@
 #define CODEPUSH_FASTBOOT	BIT(0)
 #define SRAM_OPEN		BIT(16)
 #define DDR_OPEN		BIT(17)
-#define FB_STATE_WAIT_BOOT1	0x2
-#define FB_STATE_WAIT_BOOT2	0x6
 
 /* FW_STATUS definitions */
 #define FW_STATUS_RELOCATION_ENTRY		BIT(0)
@@ -128,6 +126,10 @@
 #define ERR_LOG_MEM_ALLOC_FAIL			BIT(8)
 #define ERR_LOG_LOW_TEMP_WARN			BIT(9)
 
+/* Fast boot register derived states */
+#define FB_BOOT1_RUNNING		     (DDR_OPEN | 0x6)
+#define FB_BOOT2_RUNNING		     (FW_LOADER_ACK_RCVD_ALL_DATA | 0x6)
+
 /* VK MSG_ID Bitmap Size */
 #define VK_MSG_ID_BITMAP_SIZE 4096
 
@@ -171,13 +173,18 @@ struct bcm_vk {
 	struct bcm_vk_msg_chan h2vk_msg_chan;
 	struct bcm_vk_msg_chan vk2h_msg_chan;
 
-	struct workqueue_struct *vk2h_wq_thread;
-	struct work_struct vk2h_wq; /* work queue for deferred job */
+	struct workqueue_struct *wq_thread;
+	struct work_struct wq_work; /* work queue for deferred job */
+	unsigned long wq_offload; /* various flags on wq requested */
 	void *tdma_vaddr; /* test dma segment virtual addr */
 	dma_addr_t tdma_addr; /* test dma segment bus addr */
 
 	struct notifier_block panic_nb;
 };
+
+/* wq offload work items bits definitions */
+#define BCM_VK_WQ_DWNLD_PEND	    0
+#define BCM_VK_WQ_DWNLD_AUTO	    1
 
 static inline u32 vkread32(struct bcm_vk *vk,
 			   enum pci_barno bar,
@@ -229,6 +236,7 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk);
 int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type, pid_t pid);
 void bcm_vk_trigger_reset(struct bcm_vk *vk);
 void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val);
+int bcm_vk_auto_load_all_images(struct bcm_vk *vk);
 
 #if BCM_VK_MISC_API
 
