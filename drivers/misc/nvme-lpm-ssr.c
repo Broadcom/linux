@@ -44,6 +44,8 @@ struct nvme_lpm {
 	struct device *class_dev;
 	dev_t devt;
 	unsigned int ssr_state_armed;
+	spinlock_t live_backup_lock;
+	uint8_t live_backup_state;
 };
 
 static struct nvme_lpm_drv_ops *nvme_drv_ops;
@@ -134,6 +136,19 @@ static int nvme_lpm_erase_ssr(struct nvme_lpm *nvme_lpm, void __user *argp)
 	return iproc_mbox_send_msg(nvme_lpm, &wrap);
 }
 
+static inline void update_live_backup_state(struct nvme_lpm *nvme_lpm,
+					    enum live_backup_state state)
+{
+	/* Saving the live backup state for local usage */
+	nvme_lpm->live_backup_state = state;
+
+	/*
+	 * Continuously share the live backup state with CRMU without writing
+	 * it to SSR, this is done to avoid LPM switch delay
+	 */
+	nvme_drv_ops->update_live_backup_state(nvme_drv_ops->ctxt, state);
+}
+
 static int nvme_lpm_arm_ssr(struct nvme_lpm *nvme_lpm, void __user *argp)
 {
 	struct ssr_wrapper wrap = {0,};
@@ -169,6 +184,8 @@ static int nvme_lpm_arm_ssr(struct nvme_lpm *nvme_lpm, void __user *argp)
 		goto out;
 	}
 #endif
+	update_live_backup_state(nvme_lpm, LIVE_BACKUP_NOT_ACTIVE);
+
 	wrap.ssr_cmd_id = NVME_LPM_CMD_ARM_SSR;
 	wrap.ssr.state = SSR_STATE_ARM;
 	wrap.ssr.sequence = armed_ssr.sequence;
@@ -214,17 +231,22 @@ static int nvme_lpm_disarm_cmd(struct nvme_lpm *nvme_lpm, void __user *argp)
 
 	/* send msg to CRMU */
 	ret = iproc_mbox_send_msg(nvme_lpm, &wrap);
+	if (!ret)
+		nvme_lpm->ssr_state_armed = false;
 out:
 	return ret;
 }
 
 static int nvme_lpm_trigger_ssr(struct nvme_lpm *nvme_lpm)
 {
+	uint8_t live_backup_state = nvme_lpm->live_backup_state;
+
 	console_silent();
 
 #ifndef CONFIG_LPM_SSR_DISABLE_NVME
 	if (nvme_lpm->ssr_state_armed == true) {
-		if (nvme_drv_ops)
+		/* Do not initiate the data transfer as already in progress */
+		if (nvme_drv_ops && live_backup_state == LIVE_BACKUP_NOT_ACTIVE)
 			nvme_drv_ops->nvme_initiate_xfers(nvme_drv_ops->ctxt);
 	}
 	else
@@ -279,13 +301,24 @@ out:
 static int nvme_lpm_poll_xfers_from_ap(struct nvme_lpm *nvme_lpm)
 {
 	int ret = -EINVAL;
+	unsigned long flags;
 
-	if (!nvme_drv_ops)
+	if (!nvme_drv_ops || nvme_lpm->ssr_state_armed != true)
 		goto out;
 
-	/* initiate transfers */
-	nvme_drv_ops->nvme_initiate_xfers(nvme_drv_ops->ctxt);
+	/* Initiate transfers(live backup) */
+	spin_lock_irqsave(&nvme_lpm->live_backup_lock, flags);
 
+	update_live_backup_state(nvme_lpm, LIVE_BACKUP_XFER_INIT);
+	nvme_drv_ops->nvme_initiate_xfers(nvme_drv_ops->ctxt);
+	update_live_backup_state(nvme_lpm, LIVE_BACKUP_IN_PROGRESS);
+
+	spin_unlock_irqrestore(&nvme_lpm->live_backup_lock, flags);
+
+	/*
+	 * During polling, no need to explicitly take a lock here as each queue
+	 * gets polled with a queue lock for given polling loop
+	 */
 	ret = nvme_drv_ops->nvme_poll_xfers(nvme_drv_ops->ctxt);
 	if (ret) {
 		dev_err(nvme_lpm->dev, "Transfer not completed");
@@ -293,11 +326,18 @@ static int nvme_lpm_poll_xfers_from_ap(struct nvme_lpm *nvme_lpm)
 	}
 	dev_err(nvme_lpm->dev, "Transfer done");
 
+	/* During flush command, interrupt cannot be served */
+	spin_lock_irqsave(&nvme_lpm->live_backup_lock, flags);
+
+	update_live_backup_state(nvme_lpm, LIVE_BACKUP_FLUSH);
 	ret = nvme_drv_ops->nvme_send_flush_cmd(nvme_drv_ops->ctxt);
 	if (ret)
 		dev_err(nvme_lpm->dev, "Flush not completed");
 	else
 		dev_info(nvme_lpm->dev, "Flush done");
+	update_live_backup_state(nvme_lpm, LIVE_BACKUP_DONE);
+
+	spin_unlock_irqrestore(&nvme_lpm->live_backup_lock, flags);
 
 out:
 	return ret;
@@ -401,6 +441,7 @@ static int nvme_lpm_probe(struct platform_device *pdev)
 
 	nvme_lpm->dev = dev;
 	spin_lock_init(&nvme_lpm->shmlock);
+	spin_lock_init(&nvme_lpm->live_backup_lock);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	nvme_lpm->shared_mem = devm_memremap(dev, res->start,

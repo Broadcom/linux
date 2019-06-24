@@ -19,6 +19,14 @@ enum ssr_states {
 	SSR_STATE_ERROR,
 };
 
+enum live_backup_state {
+	LIVE_BACKUP_NOT_ACTIVE,
+	LIVE_BACKUP_XFER_INIT,
+	LIVE_BACKUP_IN_PROGRESS,
+	LIVE_BACKUP_FLUSH,
+	LIVE_BACKUP_DONE,
+};
+
 struct armed_ssr {
 	uint32_t sequence;
 	uint64_t memory_address;
@@ -111,6 +119,8 @@ struct nvme_lpm_drv_ops {
 	int (*nvme_initiate_xfers)(void *ctxt);
 	int (*nvme_poll_xfers)(void *ctxt);
 	int (*nvme_send_flush_cmd)(void *ctxt);
+	void (*update_live_backup_state)(void *ctxt,
+					 enum live_backup_state new_state);
 };
 
 int register_nvme_lpm_ops(void *nvme_drv_ops);

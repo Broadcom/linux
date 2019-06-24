@@ -24,6 +24,18 @@
 #define MIN_PAGE_SHIFT_CTRL     12  /* Minimum page shift supported by NVMe */
 #define MAX_IO_QPAIR            32
 
+/* Structure shared with CRMU for completion polling */
+struct nvme_lpm_data {
+	unsigned int used_queues;
+	unsigned int q_depth;
+	unsigned int sq_addr[MAX_IO_QPAIR + 1];
+	unsigned int cq_addr[MAX_IO_QPAIR + 1];
+	unsigned int last_cmd_id[MAX_IO_QPAIR + 1];
+	unsigned int cqe_seen[MAX_IO_QPAIR + 1];
+	unsigned int bar;
+	uint8_t live_backup_state;
+};
+
 struct memory_window {
 	u64 start_addr;
 	u64 offset;
@@ -152,6 +164,8 @@ static inline bool nvme_read_cqe(struct nvme_queue *nvmeq,
 
 static int nvme_poll(struct nvme_queue *nvmeq, unsigned int tag)
 {
+	struct nvme_dev *dev = nvmeq->dev;
+	struct nvme_lpm_data *data = dev->shared_data;
 	bool found = false;
 	unsigned int consumed = 0;
 	unsigned long flags;
@@ -161,6 +175,7 @@ static int nvme_poll(struct nvme_queue *nvmeq, unsigned int tag)
 		return 0;
 
 	spin_lock_irqsave(&nvmeq->q_lock, flags);
+
 	while (nvme_read_cqe(nvmeq, &cqe)) {
 		nvme_handle_cqe(nvmeq, &cqe);
 		consumed++;
@@ -173,6 +188,11 @@ static int nvme_poll(struct nvme_queue *nvmeq, unsigned int tag)
 
 	if (consumed)
 		nvme_ring_cq_doorbell(nvmeq);
+
+	/* Keep on updating number of polled IO CQ entries */
+	if (nvmeq->qid)
+		data->cqe_seen[nvmeq->qid] = nvmeq->cqe_seen;
+
 	spin_unlock_irqrestore(&nvmeq->q_lock, flags);
 
 	return found;
@@ -188,11 +208,14 @@ static int __nvme_submit_cmd_sync(struct nvme_command *cmd,
 	u16 tail = q->sq_tail;
 	unsigned int cmd_id = q->cmd_id;
 	unsigned int cmd_timeout = timeout ? timeout : ADMIN_CMD_TIMEOUT_MS;
+	unsigned long flags;
 	unsigned int max_cmd_id = (q->qid) ? (q->q_depth)
 					   : NVME_AQ_BLK_MQ_DEPTH;
 
 	cmd->common.command_id = (++cmd_id == max_cmd_id) ?
 				 (q->cmd_id = 1) : (q->cmd_id = cmd_id);
+
+	spin_lock_irqsave(&q->q_lock, flags);
 	memcpy(&q->sq_cmds[tail], cmd, sizeof(*cmd));
 
 	if (++tail == q->q_depth)
@@ -201,6 +224,7 @@ static int __nvme_submit_cmd_sync(struct nvme_command *cmd,
 	/* ring SQ tail doorbell */
 	writel(tail, q->q_db);
 	q->sq_tail = tail;
+	spin_unlock_irqrestore(&q->q_lock, flags);
 
 	while (!ret && cmd_timeout--) {
 		ret = nvme_poll(q, cmd->identify.command_id);
@@ -1015,14 +1039,14 @@ static int nvme_destroy_backup_io_queues(void *ndev_cntxt)
 	return 0;
 }
 
-struct nvme_lpm_data {
-	unsigned int used_queues;
-	unsigned int q_depth;
-	unsigned int sq_addr[MAX_IO_QPAIR + 1];
-	unsigned int cq_addr[MAX_IO_QPAIR + 1];
-	unsigned int last_cmd_id[MAX_IO_QPAIR + 1];
-	unsigned int bar;
-};
+static void nvme_update_live_backup_state(void *ndev_cntxt,
+					  enum live_backup_state new_state)
+{
+	struct nvme_dev *ndev = ndev_cntxt;
+	struct nvme_lpm_data *data = ndev->shared_data;
+
+	data->live_backup_state = new_state;
+}
 
 static void nvme_put_shared_data(struct nvme_dev *ndev, void *shared_data)
 {
@@ -1038,12 +1062,20 @@ static void nvme_put_shared_data(struct nvme_dev *ndev, void *shared_data)
 		data->sq_addr[i] = ndev->queues[i]->sq_dma_addr;
 		/* put CQ addresses */
 		data->cq_addr[i] = ndev->queues[i]->cq_dma_addr;
+		/* Live backup status for each QP can be known by polled CQEs */
+		data->cqe_seen[i] = 0;
 		/* put last cmd_id for each used QP */
 		data->last_cmd_id[i] = ndev->queues[i]->cmd_id;
 	}
 
 	/* put nvme registers(BAR0) address */
 	data->bar = pci_resource_start(pdev, 0);
+
+	/*
+	 * save reference to shared structure with CRMU for later use in
+	 * Live backup case
+	 */
+	ndev->shared_data = data;
 }
 
 /**
@@ -1140,6 +1172,7 @@ struct nvme_lpm_drv_ops nvme_lpm_driver_ops = {
 	.nvme_initiate_xfers = nvme_initiate_xfers,
 	.nvme_poll_xfers = nvme_poll_xfers,
 	.nvme_send_flush_cmd = nvme_send_flush_cmd,
+	.update_live_backup_state = nvme_update_live_backup_state,
 };
 
 static int nvme_lpm_probe(struct pci_dev *pdev, const struct pci_device_id *id)

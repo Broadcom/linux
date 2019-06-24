@@ -44,6 +44,7 @@ struct nvme_dev {
 	struct nvme_lpm_dev lpm_dev;
 	struct prp_list_addr *prp_addr;
 	unsigned int num_prp_pages;
+	void *shared_data;
 };
 
 static inline struct nvme_dev *to_nvme_dev(struct nvme_ctrl *ctrl)
