@@ -577,50 +577,120 @@ static long bcm_vk_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
-static ssize_t temperature_show(struct device *dev,
-				struct device_attribute *devattr, char *buf)
+static int bcm_vk_sysfs_chk_fw_status(struct bcm_vk *vk, uint32_t mask,
+				      char *buf, const char *err_log)
 {
-	unsigned int temperature;
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	uint32_t fw_status;
+	int ret = 0;
 
 	/* if ZEPHYR is not running, no one will update the value */
 	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
 	if (BCM_VK_INTF_IS_DOWN(fw_status))
 		return sprintf(buf, "PCIe Intf Down!\n");
-	else if (BCM_VK_BITS_NOT_SET(fw_status, FW_STATUS_ZEPHYR_READY))
-		return sprintf(buf, "Temperature: n/a (fw not running)\n");
+	else if (BCM_VK_BITS_NOT_SET(fw_status, mask))
+		return sprintf(buf, err_log);
 
-#define _TEMP_FMT "Temperature : %u Celsius\n"
-	temperature = vkread32(vk, BAR_0, BAR_CARD_TEMPERATURE);
-	dev_dbg(dev, _TEMP_FMT, temperature);
-	return sprintf(buf, _TEMP_FMT, temperature);
+	return ret;
 }
 
-static ssize_t voltage_show(struct device *dev,
-			    struct device_attribute *devattr, char *buf)
+static ssize_t temperature_sensor_1_show(struct device *dev,
+					 struct device_attribute *devattr,
+					 char *buf)
 {
-	unsigned int voltage;
-	unsigned int volt_1p8, volt_3p3;
+	unsigned int temperature = 0; /* default if invalid */
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t fw_status;
 
-	/* if ZEPHYR is not running, no one will update the value */
-	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
-	if (BCM_VK_INTF_IS_DOWN(fw_status))
-		return sprintf(buf, "PCIe Intf Down!\n");
-	else if (BCM_VK_BITS_NOT_SET(fw_status, FW_STATUS_ZEPHYR_READY))
-		return sprintf(buf, "Voltage: n/a (fw not running)\n");
+	temperature = vkread32(vk, BAR_0, BAR_CARD_TEMPERATURE);
 
-#define _VOLTAGE_FMT "[1.8v] : %u mV\n[3.3v] : %u mV\n"
+	dev_dbg(dev, "Temperature_sensor_1 : %u Celsius\n", temperature);
+	return sprintf(buf, "%d\n", temperature);
+}
+
+static ssize_t voltage_18_mv_show(struct device *dev,
+				  struct device_attribute *devattr, char *buf)
+{
+	unsigned int voltage;
+	unsigned int volt_1p8;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
 	voltage = vkread32(vk, BAR_0, BAR_CARD_VOLTAGE);
 	volt_1p8 = voltage & BCM_VK_VOLT_RAIL_MASK;
+
+	dev_dbg(dev, "[1.8v] : %u mV\n", volt_1p8);
+	return sprintf(buf, "%d\n", volt_1p8);
+}
+
+static ssize_t voltage_33_mv_show(struct device *dev,
+				  struct device_attribute *devattr, char *buf)
+{
+	unsigned int voltage;
+	unsigned int volt_3p3 = 0;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	voltage = vkread32(vk, BAR_0, BAR_CARD_VOLTAGE);
 	volt_3p3 = (voltage >> BCM_VK_3P3_VOLT_REG_SHIFT)
 		    & BCM_VK_VOLT_RAIL_MASK;
-	dev_dbg(dev, _VOLTAGE_FMT, volt_1p8, volt_3p3);
-	return sprintf(buf, _VOLTAGE_FMT, volt_1p8, volt_3p3);
+
+	dev_dbg(dev, "[3.3v] : %u mV\n", volt_3p3);
+	return sprintf(buf, "%d\n", volt_3p3);
+}
+
+static ssize_t chip_id_show(struct device *dev,
+			    struct device_attribute *devattr, char *buf)
+{
+	uint32_t chip_id;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	chip_id = vkread32(vk, BAR_0, BAR_CHIP_ID);
+
+	return sprintf(buf, "0x%x\n", chip_id);
+}
+
+static ssize_t firmware_status_reg_show(struct device *dev,
+					struct device_attribute *devattr,
+					char *buf)
+{
+	uint32_t fw_status;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+
+	return sprintf(buf, "0x%x\n", fw_status);
+}
+
+static ssize_t fastboot_reg_show(struct device *dev,
+				 struct device_attribute *devattr,
+				 char *buf)
+{
+	uint32_t fb_reg;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	fb_reg = vkread32(vk, BAR_0, BAR_FB_OPEN);
+
+	return sprintf(buf, "0x%x\n", fb_reg);
+}
+
+static ssize_t pwr_state_show(struct device *dev,
+			      struct device_attribute *devattr,
+			      char *buf)
+{
+	uint32_t card_pwr_and_thre;
+	uint32_t pwr_state;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	card_pwr_and_thre = vkread32(vk, BAR_0, BAR_CARD_PWR_AND_THRE);
+	BCM_VK_EXTRACT_FIELD(pwr_state, card_pwr_and_thre,
+			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
+			     BCM_VK_PWR_STATE_SHIFT);
+
+	return sprintf(buf, "%u\n", pwr_state);
 }
 
 static ssize_t firmware_version_show(struct device *dev,
@@ -631,9 +701,9 @@ static ssize_t firmware_version_show(struct device *dev,
 	unsigned long offset = BAR_FIRMWARE_TAG;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t fw_status;
 	uint32_t chip_id;
 	uint32_t loop_count = 0;
+	int ret;
 
 	/* Print driver version first, which is always available */
 	count  = sprintf(buf, "Driver  : %s %s, srcversion %s\n",
@@ -646,13 +716,12 @@ static ssize_t firmware_version_show(struct device *dev,
 	count += sprintf(&buf[count], "Boot1   : %s\n",
 			 (char *)(vk->bar[BAR_1] + VK_BAR1_BOOT1_VER_TAG));
 
-	/* Check if ZEPHYR_PRE_KERNEL1_INIT_DONE */
-	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
-	if (BCM_VK_INTF_IS_DOWN(fw_status))
-		return (count + sprintf(&buf[count], "PCIe Intf Down!\n"));
-	else if (BCM_VK_BITS_NOT_SET(fw_status, FIRMWARE_STATUS_PRE_INIT_DONE))
-		return (count + sprintf(&buf[count],
-					"FW Version: n/a (fw not running)\n"));
+	/* Check if ZEPHYR_PRE_KERNEL1_INIT_DONE for rest of items */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FIRMWARE_STATUS_PRE_INIT_DONE,
+					 &buf[count],
+					 "FW Version: n/a (fw not running)\n");
+	if (ret)
+		return (ret + count);
 
 	/* retrieve chip id for display */
 	chip_id = vkread32(vk, BAR_0, BAR_CHIP_ID);
@@ -819,7 +888,7 @@ static ssize_t card_state_show(struct device *dev,
 	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg, fw_status;
+	uint32_t reg;
 	uint32_t low_temp_thre, high_temp_thre, pwr_state;
 	uint32_t int_mem_err, ext_mem_err;
 	char *p_buf = buf;
@@ -842,11 +911,10 @@ static ssize_t card_state_show(struct device *dev,
 	char *pwr_state_str;
 
 	/* if ZEPHYR is not running, no one will update the value */
-	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
-	if (BCM_VK_INTF_IS_DOWN(fw_status))
-		return sprintf(buf, "PCIe Intf Down!\n");
-	else if (BCM_VK_BITS_NOT_SET(fw_status, FW_STATUS_ZEPHYR_READY))
-		return sprintf(buf, "card_state: n/a (fw not running)\n");
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_ZEPHYR_READY, buf,
+					 "card_state: n/a (fw not running)\n");
+	if (ret)
+		return ret;
 
 	/* First, get power state and the threshold */
 	reg = vkread32(vk, BAR_0, BAR_CARD_PWR_AND_THRE);
@@ -915,16 +983,21 @@ card_state_show_fail:
 	return ret;
 }
 
-static DEVICE_ATTR_RO(temperature);
-static DEVICE_ATTR_RO(voltage);
 static DEVICE_ATTR_RO(firmware_status);
 static DEVICE_ATTR_RO(firmware_version);
 static DEVICE_ATTR_RO(bus);
 static DEVICE_ATTR_RO(card_state);
+static DEVICE_ATTR_RO(temperature_sensor_1);
+static DEVICE_ATTR_RO(voltage_18_mv);
+static DEVICE_ATTR_RO(voltage_33_mv);
+static DEVICE_ATTR_RO(chip_id);
+static DEVICE_ATTR_RO(firmware_status_reg);
+static DEVICE_ATTR_RO(fastboot_reg);
+static DEVICE_ATTR_RO(pwr_state);
 
-static struct attribute *bcm_vk_attributes[] = {
-	&dev_attr_temperature.attr,
-	&dev_attr_voltage.attr,
+static struct attribute *bcm_vk_card_stat_attributes[] = {
+
+	&dev_attr_chip_id.attr,
 	&dev_attr_firmware_status.attr,
 	&dev_attr_firmware_version.attr,
 	&dev_attr_bus.attr,
@@ -932,9 +1005,25 @@ static struct attribute *bcm_vk_attributes[] = {
 	NULL,
 };
 
-static const struct attribute_group bcm_vk_attribute_group = {
+static struct attribute *bcm_vk_card_mon_attributes[] = {
+
+	&dev_attr_temperature_sensor_1.attr,
+	&dev_attr_voltage_18_mv.attr,
+	&dev_attr_voltage_33_mv.attr,
+	&dev_attr_firmware_status_reg.attr,
+	&dev_attr_fastboot_reg.attr,
+	&dev_attr_pwr_state.attr,
+	NULL,
+};
+
+static const struct attribute_group bcm_vk_card_stat_attribute_group = {
 	.name = "vk-card-status",
-	.attrs = bcm_vk_attributes,
+	.attrs = bcm_vk_card_stat_attributes,
+};
+
+static const struct attribute_group bcm_vk_card_mon_attribute_group = {
+	.name = "vk-card-mon",
+	.attrs = bcm_vk_card_mon_attributes,
 };
 
 static const struct file_operations bcm_vk_fops = {
@@ -1068,17 +1157,29 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 
 	dev_info(dev, "create sysfs group for bcm-vk.%d\n", id);
-	err = sysfs_create_group(&pdev->dev.kobj, &bcm_vk_attribute_group);
+	err = sysfs_create_group(&pdev->dev.kobj,
+				 &bcm_vk_card_stat_attribute_group);
 	if (err < 0) {
-		dev_err(dev, "failed to create sysfs attr for bcm.vk.%d\n", id);
+		dev_err(dev,
+			"failed to create card status attr for bcm.vk.%d\n",
+			id);
 		goto err_kfree_name;
 	}
+	err = sysfs_create_group(&pdev->dev.kobj,
+				 &bcm_vk_card_mon_attribute_group);
+	if (err < 0) {
+		dev_err(dev,
+			"failed to create card mon attr for bcm.vk.%d\n",
+			id);
+		goto err_free_card_stat_group;
+	}
+
 	/* create symbolic link from misc device to bus directory */
 	err = sysfs_create_link(&misc_device->this_device->kobj,
 				&pdev->dev.kobj, BCM_VK_BUS_SYMLINK_NAME);
 	if (err < 0) {
 		dev_err(dev, "failed to create symlink for bcm.vk.%d\n", id);
-		goto err_free_sysfs_group;
+		goto err_free_card_mon_group;
 	}
 	/* create symbolic link from bus to misc device also */
 	err = sysfs_create_link(&pdev->dev.kobj,
@@ -1105,8 +1206,10 @@ err_free_sysfs_entry:
 	sysfs_remove_link(&misc_device->this_device->kobj,
 			  BCM_VK_BUS_SYMLINK_NAME);
 
-err_free_sysfs_group:
-	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_attribute_group);
+err_free_card_mon_group:
+	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_card_mon_attribute_group);
+err_free_card_stat_group:
+	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_card_stat_attribute_group);
 
 err_kfree_name:
 	kfree(misc_device->name);
@@ -1158,7 +1261,8 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	sysfs_remove_link(&pdev->dev.kobj, misc_device->name);
 	sysfs_remove_link(&misc_device->this_device->kobj,
 			  BCM_VK_BUS_SYMLINK_NAME);
-	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_attribute_group);
+	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_card_mon_attribute_group);
+	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_card_stat_attribute_group);
 
 	cancel_work_sync(&vk->vk2h_wq);
 	bcm_vk_msg_remove(vk);
