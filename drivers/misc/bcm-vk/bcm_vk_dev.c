@@ -640,6 +640,12 @@ static ssize_t firmware_version_show(struct device *dev,
 			 DRV_MODULE_NAME, THIS_MODULE->version,
 			 THIS_MODULE->srcversion);
 
+	/* check for ucode and vk-boot1 versions */
+	count += sprintf(&buf[count], "UCODE   : %s\n",
+			 (char *)(vk->bar[BAR_1] + VK_BAR1_UCODE_VER_TAG));
+	count += sprintf(&buf[count], "Boot1   : %s\n",
+			 (char *)(vk->bar[BAR_1] + VK_BAR1_BOOT1_VER_TAG));
+
 	/* Check if ZEPHYR_PRE_KERNEL1_INIT_DONE */
 	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
 	if (BCM_VK_INTF_IS_DOWN(fw_status))
@@ -651,8 +657,6 @@ static ssize_t firmware_version_show(struct device *dev,
 	/* retrieve chip id for display */
 	chip_id = vkread32(vk, BAR_0, BAR_CHIP_ID);
 	count += sprintf(&buf[count], "Chip id : 0x%x\n", chip_id);
-
-	/* TO_FIX: boot1 and others to be added here */
 
 	count += sprintf(&buf[count], "zephyr  : ");
 

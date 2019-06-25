@@ -1006,6 +1006,8 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, NULL);
 	vk->msgq_inited = false;
 	vkwrite32(vk, 0, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
+	/* make tag '\0' terminated */
+	vkwrite32(vk, 0, BAR_1, VK_BAR1_BOOT1_VER_TAG);
 
 	/* reset fw_status with proper reason, and press db */
 	vkwrite32(vk, FW_STATUS_ZEPHYR_RESET_MBOX_DB, BAR_0, BAR_FW_STATUS);

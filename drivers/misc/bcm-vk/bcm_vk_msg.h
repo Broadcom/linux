@@ -151,7 +151,11 @@ struct bcm_vk_msg_chan {
 #define VK_BAR1_MSGQ_NR			0x60c4
 /* BAR1 queue control structure offset */
 #define VK_BAR1_MSGQ_CTRL_OFF		0x60c8
+/* BAR1 ucode and boot1 version tag */
+#define VK_BAR1_UCODE_VER_TAG		0x6170
+#define VK_BAR1_BOOT1_VER_TAG		0x61b0
+#define VK_BAR1_VER_TAG_SIZE		64
 /* Scratch memory allocated on host for VK */
-#define VK_BAR1_SCRATCH_OFF             0x61f0
+#define VK_BAR1_SCRATCH_OFF		0x61f0
 
 #endif
