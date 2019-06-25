@@ -25,6 +25,7 @@ enum live_backup_state {
 	LIVE_BACKUP_IN_PROGRESS,
 	LIVE_BACKUP_FLUSH,
 	LIVE_BACKUP_DONE,
+	LIVE_BACKUP_FAIL,
 };
 
 struct armed_ssr {
@@ -45,6 +46,7 @@ struct state_save_checkpoint {
 
 struct ssr {
 	uint8_t state;
+	uint8_t live_backup_state;
 	uint32_t sequence;
 	uint64_t nvme_backup_length;
 	uint64_t nvme_backup_offset;
@@ -63,6 +65,7 @@ enum {
 	NVME_LPM_CMD_ARM_SSR,
 	NVME_LPM_CMD_DISARM_SSR,
 	NVME_LPM_CMD_TRIGGER_SSR,
+	NVME_LPM_CMD_LIVE_BACKUP_SSR,
 };
 
 #define NVM_SSR_OFFSET	0x0

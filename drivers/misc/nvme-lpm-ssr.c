@@ -188,6 +188,8 @@ static int nvme_lpm_arm_ssr(struct nvme_lpm *nvme_lpm, void __user *argp)
 
 	wrap.ssr_cmd_id = NVME_LPM_CMD_ARM_SSR;
 	wrap.ssr.state = SSR_STATE_ARM;
+	/* initialize live backup state */
+	wrap.ssr.live_backup_state = LIVE_BACKUP_NOT_ACTIVE;
 	wrap.ssr.sequence = armed_ssr.sequence;
 	wrap.ssr.nvme_backup_offset = armed_ssr.disk_address;
 	wrap.ssr.nvme_backup_length = armed_ssr.length;
@@ -260,6 +262,20 @@ static int nvme_lpm_trigger_ssr(struct nvme_lpm *nvme_lpm)
 	return 0;
 }
 
+static int nvme_live_backup_state_ssr(struct nvme_lpm *nvme_lpm,
+				      enum live_backup_state new_state)
+{
+	struct ssr_wrapper wrap = {0,};
+
+	nvme_lpm->live_backup_state = new_state;
+	/* Only live backup state can be updated using following command */
+	wrap.ssr_cmd_id = NVME_LPM_CMD_LIVE_BACKUP_SSR;
+	wrap.ssr.live_backup_state = new_state;
+
+	/* send msg to CRMU */
+	return iproc_mbox_send_msg(nvme_lpm, &wrap);
+}
+
 #ifndef CONFIG_LPM_SSR_DISABLE_NVME
 static int nvme_lpm_read_test(struct nvme_lpm *nvme_lpm, void __user *argp)
 {
@@ -302,6 +318,7 @@ static int nvme_lpm_poll_xfers_from_ap(struct nvme_lpm *nvme_lpm)
 {
 	int ret = -EINVAL;
 	unsigned long flags;
+	uint8_t state;
 
 	if (!nvme_drv_ops || nvme_lpm->ssr_state_armed != true)
 		goto out;
@@ -321,8 +338,13 @@ static int nvme_lpm_poll_xfers_from_ap(struct nvme_lpm *nvme_lpm)
 	 */
 	ret = nvme_drv_ops->nvme_poll_xfers(nvme_drv_ops->ctxt);
 	if (ret) {
+		/* We do not want interrupt while updating the backup state */
+		spin_lock_irqsave(&nvme_lpm->live_backup_lock, flags);
+		state = LIVE_BACKUP_FAIL;
+		update_live_backup_state(nvme_lpm, state);
+		spin_unlock_irqrestore(&nvme_lpm->live_backup_lock, flags);
 		dev_err(nvme_lpm->dev, "Transfer not completed");
-		goto out;
+		goto update_ssr;
 	}
 	dev_err(nvme_lpm->dev, "Transfer done");
 
@@ -331,14 +353,19 @@ static int nvme_lpm_poll_xfers_from_ap(struct nvme_lpm *nvme_lpm)
 
 	update_live_backup_state(nvme_lpm, LIVE_BACKUP_FLUSH);
 	ret = nvme_drv_ops->nvme_send_flush_cmd(nvme_drv_ops->ctxt);
-	if (ret)
+	if (ret) {
 		dev_err(nvme_lpm->dev, "Flush not completed");
-	else
+		state = LIVE_BACKUP_FAIL;
+	} else {
 		dev_info(nvme_lpm->dev, "Flush done");
-	update_live_backup_state(nvme_lpm, LIVE_BACKUP_DONE);
+		state = LIVE_BACKUP_DONE;
+	}
+	update_live_backup_state(nvme_lpm, state);
 
 	spin_unlock_irqrestore(&nvme_lpm->live_backup_lock, flags);
 
+update_ssr:
+	ret = nvme_live_backup_state_ssr(nvme_lpm, state);
 out:
 	return ret;
 }
