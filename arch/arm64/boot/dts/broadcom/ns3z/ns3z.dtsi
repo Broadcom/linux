@@ -294,6 +294,7 @@
 		};
 	};
 
+	#include "ns3z-fs6.dtsi"
 	hsls {
 		compatible = "simple-bus";
 		dma-ranges;
