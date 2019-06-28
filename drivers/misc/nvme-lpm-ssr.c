@@ -307,8 +307,11 @@ static int nvme_lpm_read_test(struct nvme_lpm *nvme_lpm, void __user *argp)
 						    armed_ssr.length, false,
 						    nvme_lpm->shared_nvme_data);
 
-	if (ret)
+	if (ret) {
+		nvme_lpm->ssr_state_armed = false;
 		dev_err(nvme_lpm->dev, "Failed to build read-back io queues\n");
+	} else
+		nvme_lpm->ssr_state_armed = true;
 
 out:
 	return ret;
