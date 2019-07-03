@@ -48,7 +48,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "n25q512a";
-		spi-max-frequency = <30000000>;
+		spi-max-frequency = <25000000>;
 		reg = <0>;
 		spi-cpol;
 		spi-cpha;
