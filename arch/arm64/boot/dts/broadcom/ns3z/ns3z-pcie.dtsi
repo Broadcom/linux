@@ -15,6 +15,10 @@
 
 		#address-cells = <3>;
 		#size-cells = <2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic 0 GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>;
+
 		device_type = "pci";
 		ranges = <0x83000000 0x0 0x42000000 0x0 0x42000000 0 0x2000000>,
 			 <0x43000000 0x4 0x00000000 0x4 0x00000000 0 0x80000000>;
