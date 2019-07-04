@@ -42,6 +42,7 @@
 #include <linux/module.h>
 #include <linux/msi.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
@@ -289,6 +290,13 @@ struct flexrm_ring {
 	u32 cmpl_read_offset;
 };
 
+enum iproc_flexrm_type {
+	/* FLEXRM4 IP */
+	IPROC_FLEXRM_MBOX,
+	/* FLEXRM6 IP */
+	IPROC_FLEXRM_MBOX_V2,
+};
+
 struct flexrm_mbox {
 	struct device *dev;
 	void __iomem *regs;
@@ -303,6 +311,7 @@ struct flexrm_mbox {
 	struct dentry *config;
 	struct dentry *stats;
 	struct mbox_controller controller;
+	enum iproc_flexrm_type type;
 };
 
 /* ====== FlexRM ring descriptor helper routines ===== */
@@ -605,6 +614,14 @@ static bool flexrm_spu_sanity_check(struct brcm_message *msg)
 	return true;
 }
 
+static bool flexrm_pki_sanity_check(struct brcm_message *msg)
+{
+	if (!msg->pki.src || !msg->pki.dst)
+		return false;
+
+	return true;
+}
+
 static u32 flexrm_spu_estimate_nonheader_desc_count(struct brcm_message *msg)
 {
 	u32 cnt = 0;
@@ -632,6 +649,24 @@ static u32 flexrm_spu_estimate_nonheader_desc_count(struct brcm_message *msg)
 	return cnt;
 }
 
+static u32 flexrm_pki_estimate_nonheader_desc_count(struct brcm_message *msg)
+{
+	u32 cnt = 0;
+	struct scatterlist *src_sg = msg->spu.src, *dst_sg = msg->spu.dst;
+
+	while (src_sg) {
+		cnt++;
+		src_sg = sg_next(src_sg);
+	}
+
+	while (dst_sg) {
+		cnt++;
+		dst_sg = sg_next(dst_sg);
+	}
+
+	return (cnt + 1);
+}
+
 static int flexrm_spu_dma_map(struct device *dev, struct brcm_message *msg)
 {
 	int rc;
@@ -652,11 +687,39 @@ static int flexrm_spu_dma_map(struct device *dev, struct brcm_message *msg)
 	return 0;
 }
 
+static int flexrm_pki_dma_map(struct device *dev, struct brcm_message *msg)
+{
+	int rc;
+
+	rc = dma_map_sg(dev, msg->pki.src, sg_nents(msg->pki.src),
+			DMA_TO_DEVICE);
+	if (rc < 0)
+		return rc;
+
+	rc = dma_map_sg(dev, msg->pki.dst, sg_nents(msg->pki.dst),
+			DMA_FROM_DEVICE);
+	if (rc < 0) {
+		dma_unmap_sg(dev, msg->pki.src, sg_nents(msg->pki.src),
+			     DMA_TO_DEVICE);
+		return rc;
+	}
+
+	return 0;
+}
+
 static void flexrm_spu_dma_unmap(struct device *dev, struct brcm_message *msg)
 {
 	dma_unmap_sg(dev, msg->spu.dst, sg_nents(msg->spu.dst),
 		     DMA_FROM_DEVICE);
 	dma_unmap_sg(dev, msg->spu.src, sg_nents(msg->spu.src),
+		     DMA_TO_DEVICE);
+}
+
+static void flexrm_pki_dma_unmap(struct device *dev, struct brcm_message *msg)
+{
+	dma_unmap_sg(dev, msg->pki.dst, sg_nents(msg->pki.dst),
+		     DMA_FROM_DEVICE);
+	dma_unmap_sg(dev, msg->pki.src, sg_nents(msg->pki.src),
 		     DMA_TO_DEVICE);
 }
 
@@ -704,6 +767,61 @@ static void *flexrm_spu_write_descs(struct brcm_message *msg, u32 nhcnt,
 				dst_target = 0;
 			dst_sg = sg_next(dst_sg);
 		}
+	}
+
+	/* Null descriptor with invalid toggle bit */
+	flexrm_write_desc(desc_ptr, flexrm_null_desc(!toggle));
+
+	/* Ensure that descriptors have been written to memory */
+	wmb();
+
+	/* Flip toggle bit in header */
+	flexrm_flip_header_toggle(orig_desc_ptr);
+
+	return desc_ptr;
+}
+
+static void *flexrm_pki_write_descs(struct brcm_message *msg, u32 nhcnt,
+				     u32 reqid, void *desc_ptr, u32 toggle,
+				     void *start_desc, void *end_desc)
+{
+	u64 d;
+	u32 nhpos = 0;
+	void *orig_desc_ptr = desc_ptr;
+	struct scatterlist *src_sg = msg->spu.src, *dst_sg = msg->spu.dst;
+
+	/* Command as immediate descriptor */
+	d = flexrm_imm_desc(msg->pki.cmd);
+	flexrm_enqueue_desc(nhpos, nhcnt, reqid,
+			     d, &desc_ptr, &toggle,
+			     start_desc, end_desc);
+	nhpos++;
+	while (src_sg) {
+		if (sg_dma_len(src_sg) & 0xf)
+			d = flexrm_src_desc(sg_dma_address(src_sg),
+					     sg_dma_len(src_sg));
+		else
+			d = flexrm_msrc_desc(sg_dma_address(src_sg),
+					      sg_dma_len(src_sg)/16);
+		flexrm_enqueue_desc(nhpos, nhcnt, reqid,
+				     d, &desc_ptr, &toggle,
+				     start_desc, end_desc);
+		nhpos++;
+		src_sg = sg_next(src_sg);
+	}
+
+	while (dst_sg) {
+		if (sg_dma_len(dst_sg) & 0xf)
+			d = flexrm_dst_desc(sg_dma_address(dst_sg),
+					     sg_dma_len(dst_sg));
+		else
+			d = flexrm_mdst_desc(sg_dma_address(dst_sg),
+					      sg_dma_len(dst_sg)/16);
+		flexrm_enqueue_desc(nhpos, nhcnt, reqid,
+				     d, &desc_ptr, &toggle,
+				     start_desc, end_desc);
+		nhpos++;
+		dst_sg = sg_next(dst_sg);
 	}
 
 	/* Null descriptor with invalid toggle bit */
@@ -857,6 +975,8 @@ static bool flexrm_sanity_check(struct brcm_message *msg)
 		return flexrm_spu_sanity_check(msg);
 	case BRCM_MESSAGE_SBA:
 		return flexrm_sba_sanity_check(msg);
+	case BRCM_MESSAGE_PKI:
+		return flexrm_pki_sanity_check(msg);
 	default:
 		return false;
 	};
@@ -872,6 +992,8 @@ static u32 flexrm_estimate_nonheader_desc_count(struct brcm_message *msg)
 		return flexrm_spu_estimate_nonheader_desc_count(msg);
 	case BRCM_MESSAGE_SBA:
 		return flexrm_sba_estimate_nonheader_desc_count(msg);
+	case BRCM_MESSAGE_PKI:
+		return flexrm_pki_estimate_nonheader_desc_count(msg);
 	default:
 		return 0;
 	};
@@ -885,6 +1007,8 @@ static int flexrm_dma_map(struct device *dev, struct brcm_message *msg)
 	switch (msg->type) {
 	case BRCM_MESSAGE_SPU:
 		return flexrm_spu_dma_map(dev, msg);
+	case BRCM_MESSAGE_PKI:
+		return flexrm_pki_dma_map(dev, msg);
 	default:
 		break;
 	}
@@ -900,6 +1024,9 @@ static void flexrm_dma_unmap(struct device *dev, struct brcm_message *msg)
 	switch (msg->type) {
 	case BRCM_MESSAGE_SPU:
 		flexrm_spu_dma_unmap(dev, msg);
+		break;
+	case BRCM_MESSAGE_PKI:
+		flexrm_pki_dma_unmap(dev, msg);
 		break;
 	default:
 		break;
@@ -923,6 +1050,10 @@ static void *flexrm_write_descs(struct brcm_message *msg, u32 nhcnt,
 					       start_desc, end_desc);
 	case BRCM_MESSAGE_SBA:
 		return flexrm_sba_write_descs(msg, nhcnt, reqid,
+					       desc_ptr, toggle,
+					       start_desc, end_desc);
+	case BRCM_MESSAGE_PKI:
+		return flexrm_pki_write_descs(msg, nhcnt, reqid,
 					       desc_ptr, toggle,
 					       start_desc, end_desc);
 	default:
@@ -1527,6 +1658,7 @@ static int flexrm_mbox_probe(struct platform_device *pdev)
 		goto fail;
 	}
 	mbox->dev = dev;
+	mbox->type = (enum iproc_flexrm_type) of_device_get_match_data(dev);
 	platform_set_drvdata(pdev, mbox);
 
 	/* Get resource for registers */
@@ -1544,6 +1676,50 @@ static int flexrm_mbox_probe(struct platform_device *pdev)
 		goto fail;
 	}
 	regs_end = mbox->regs + resource_size(iomem);
+
+	if (mbox->type == IPROC_FLEXRM_MBOX) {
+		mbox->dme_rm_clk = devm_clk_get(&pdev->dev, "dme_rm_clk");
+		if (IS_ERR(mbox->dme_rm_clk)) {
+			ret = PTR_ERR(mbox->dme_rm_clk);
+			dev_err(&pdev->dev, "Failed to get dme_rm_clk ret:%d\n",
+				ret);
+			goto fail;
+		}
+		ret = clk_prepare_enable(mbox->dme_rm_clk);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to ena dme_rm_clk ret:%d\n",
+				ret);
+			goto fail;
+		}
+
+		mbox->ae_clk = devm_clk_get(&pdev->dev, "ae_clk");
+		if (IS_ERR(mbox->ae_clk)) {
+			ret = PTR_ERR(mbox->ae_clk);
+			dev_err(&pdev->dev, "Failed to get ae_clk retcode:%d\n",
+				ret);
+			goto fail;
+		}
+		ret = clk_prepare_enable(mbox->ae_clk);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to enable ae_clk ret:%d\n",
+				ret);
+			goto fail;
+		}
+
+		mbox->fs4_clk = devm_clk_get(&pdev->dev, "fs4_clk");
+		if (IS_ERR(mbox->fs4_clk)) {
+			ret = PTR_ERR(mbox->fs4_clk);
+			dev_err(&pdev->dev, "Failed to get fs4_clk ret:%d\n",
+				ret);
+			goto fail;
+		}
+		ret = clk_prepare_enable(mbox->fs4_clk);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to enable fs4_clk ret:%d\n",
+				ret);
+			goto fail;
+		}
+	}
 
 	mbox->dme_rm_clk = devm_clk_get(&pdev->dev, "dme_rm_clk");
 	if (IS_ERR(mbox->dme_rm_clk)) {
@@ -1755,8 +1931,14 @@ static int flexrm_mbox_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id flexrm_mbox_of_match[] = {
-	{ .compatible = "brcm,iproc-flexrm-mbox", },
-	{},
+	{
+		.compatible = "brcm,iproc-flexrm-mbox",
+		.data = (int *)IPROC_FLEXRM_MBOX,
+	}, {
+		.compatible = "brcm,iproc-flexrm-mbox-v2",
+		.data = (int *)IPROC_FLEXRM_MBOX_V2,
+	},
+	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, flexrm_mbox_of_match);
 
