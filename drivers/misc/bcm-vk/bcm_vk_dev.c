@@ -819,6 +819,9 @@ static ssize_t firmware_version_show(struct device *dev,
 	uint32_t chip_id;
 	uint32_t loop_count = 0;
 	int ret;
+	uint32_t magic;
+
+#define REL_MAGIC_TAG         0x68617368   /* this stands for "hash" */
 
 	/* Print driver version first, which is always available */
 	count  = sprintf(buf, "Driver  : %s %s, srcversion %s\n",
@@ -826,10 +829,16 @@ static ssize_t firmware_version_show(struct device *dev,
 			 THIS_MODULE->srcversion);
 
 	/* check for ucode and vk-boot1 versions */
+	magic = vkread32(vk, BAR_1, VK_BAR1_UCODE_VER_TAG);
 	count += sprintf(&buf[count], "UCODE   : %s\n",
-			 (char *)(vk->bar[BAR_1] + VK_BAR1_UCODE_VER_TAG));
+			 (magic == REL_MAGIC_TAG) ?
+			 (char *)(vk->bar[BAR_1] +
+				  VK_BAR1_UCODE_VER_TAG + sizeof(magic)) : "");
+	magic = vkread32(vk, BAR_1, VK_BAR1_BOOT1_VER_TAG);
 	count += sprintf(&buf[count], "Boot1   : %s\n",
-			 (char *)(vk->bar[BAR_1] + VK_BAR1_BOOT1_VER_TAG));
+			 (magic == REL_MAGIC_TAG) ?
+			 (char *)(vk->bar[BAR_1] +
+				  VK_BAR1_BOOT1_VER_TAG + sizeof(magic)) : "");
 
 	/* Check if ZEPHYR_PRE_KERNEL1_INIT_DONE for rest of items */
 	ret = bcm_vk_sysfs_chk_fw_status(vk, FIRMWARE_STATUS_PRE_INIT_DONE,
