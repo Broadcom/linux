@@ -11,7 +11,7 @@ fs6: fs6 {
 	ranges = <0x0 0x0 0x67400000 0x00200000>;
 
 	pki_mbox: pki_mbox@0 {
-		compatible = "brcm,iproc-flexrm-mbox";
+		compatible = "brcm,iproc-flexrm-mbox-v2";
 		reg = <0x00000000 0x200000>;
 		msi-parent = <&gic_its 0x4100>;
 		#mbox-cells = <3>;
