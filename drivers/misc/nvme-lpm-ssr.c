@@ -242,14 +242,17 @@ out:
 static int nvme_lpm_trigger_ssr(struct nvme_lpm *nvme_lpm)
 {
 	uint8_t live_backup_state = nvme_lpm->live_backup_state;
+	unsigned long flags;
 
 	console_silent();
 
 #ifndef CONFIG_LPM_SSR_DISABLE_NVME
 	if (nvme_lpm->ssr_state_armed == true) {
+		spin_lock_irqsave(&nvme_lpm->live_backup_lock, flags);
 		/* Do not initiate the data transfer as already in progress */
 		if (nvme_drv_ops && live_backup_state == LIVE_BACKUP_NOT_ACTIVE)
 			nvme_drv_ops->nvme_initiate_xfers(nvme_drv_ops->ctxt);
+		spin_unlock_irqrestore(&nvme_lpm->live_backup_lock, flags);
 	}
 	else
 		machine_halt();
