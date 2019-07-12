@@ -1011,6 +1011,8 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 
 void bcm_vk_trigger_reset(struct bcm_vk *vk)
 {
+	uint32_t i;
+
 	/* clean up before pressing the door bell */
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, NULL);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, NULL);
@@ -1018,6 +1020,13 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	vkwrite32(vk, 0, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
 	/* make tag '\0' terminated */
 	vkwrite32(vk, 0, BAR_1, VK_BAR1_BOOT1_VER_TAG);
+
+	for (i = 0; i < VK_BAR1_DAUTH_MAX; i++) {
+		vkwrite32(vk, 0, BAR_1, VK_BAR1_DAUTH_STORE_ADDR(i));
+		vkwrite32(vk, 0, BAR_1, VK_BAR1_DAUTH_VALID_ADDR(i));
+	}
+	for (i = 0; i < VK_BAR1_SOTP_REVID_MAX; i++)
+		vkwrite32(vk, 0, BAR_1, VK_BAR1_SOTP_REVID_ADDR(i));
 
 	/* reset fw_status with proper reason, and press db */
 	vkwrite32(vk, FW_STATUS_ZEPHYR_RESET_MBOX_DB, BAR_0, BAR_FW_STATUS);

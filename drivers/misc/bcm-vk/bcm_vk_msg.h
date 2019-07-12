@@ -155,6 +155,23 @@ struct bcm_vk_msg_chan {
 #define VK_BAR1_UCODE_VER_TAG		0x6170
 #define VK_BAR1_BOOT1_VER_TAG		0x61b0
 #define VK_BAR1_VER_TAG_SIZE		64
+/* BAR1 SOTP AUTH and REVID info */
+#define VK_BAR1_DAUTH_BASE_ADDR		0x6200
+#define VK_BAR1_DAUTH_STORE_SIZE	0x48
+#define VK_BAR1_DAUTH_VALID_SIZE	0x8
+#define VK_BAR1_DAUTH_MAX		4
+#define VK_BAR1_DAUTH_STORE_ADDR(x)					     \
+		(VK_BAR1_DAUTH_BASE_ADDR +				     \
+		 (x) * (VK_BAR1_DAUTH_STORE_SIZE + VK_BAR1_DAUTH_VALID_SIZE))
+#define VK_BAR1_DAUTH_VALID_ADDR(x)					     \
+		(VK_BAR1_DAUTH_STORE_ADDR(x) + VK_BAR1_DAUTH_STORE_SIZE)
+
+#define VK_BAR1_SOTP_REVID_BASE_ADDR	0x6340
+#define VK_BAR1_SOTP_REVID_SIZE		0x10
+#define VK_BAR1_SOTP_REVID_MAX		2
+#define VK_BAR1_SOTP_REVID_ADDR(x)					     \
+		(VK_BAR1_SOTP_REVID_BASE_ADDR + (x) * VK_BAR1_SOTP_REVID_SIZE)
+
 /* Scratch memory allocated on host for VK */
 #define VK_BAR1_SCRATCH_OFF		0x61f0
 

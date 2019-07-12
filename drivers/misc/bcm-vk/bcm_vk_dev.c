@@ -723,6 +723,18 @@ static int bcm_vk_sysfs_chk_fw_status(struct bcm_vk *vk, uint32_t mask,
 	return ret;
 }
 
+static int bcm_vk_sysfs_get_tag(struct bcm_vk *vk, enum pci_barno barno,
+				uint32_t offset, char *buf, const char *fmt)
+{
+	uint32_t magic;
+
+#define REL_MAGIC_TAG         0x68617368   /* this stands for "hash" */
+
+	magic = vkread32(vk, barno, offset);
+	return sprintf(buf, fmt, (magic == REL_MAGIC_TAG) ?
+		       (char *)(vk->bar[barno] + offset + sizeof(magic)) : "");
+}
+
 static ssize_t temperature_sensor_1_show(struct device *dev,
 					 struct device_attribute *devattr,
 					 char *buf)
@@ -834,9 +846,6 @@ static ssize_t firmware_version_show(struct device *dev,
 	uint32_t chip_id;
 	uint32_t loop_count = 0;
 	int ret;
-	uint32_t magic;
-
-#define REL_MAGIC_TAG         0x68617368   /* this stands for "hash" */
 
 	/* Print driver version first, which is always available */
 	count  = sprintf(buf, "Driver  : %s %s, srcversion %s\n",
@@ -844,16 +853,10 @@ static ssize_t firmware_version_show(struct device *dev,
 			 THIS_MODULE->srcversion);
 
 	/* check for ucode and vk-boot1 versions */
-	magic = vkread32(vk, BAR_1, VK_BAR1_UCODE_VER_TAG);
-	count += sprintf(&buf[count], "UCODE   : %s\n",
-			 (magic == REL_MAGIC_TAG) ?
-			 (char *)(vk->bar[BAR_1] +
-				  VK_BAR1_UCODE_VER_TAG + sizeof(magic)) : "");
-	magic = vkread32(vk, BAR_1, VK_BAR1_BOOT1_VER_TAG);
-	count += sprintf(&buf[count], "Boot1   : %s\n",
-			 (magic == REL_MAGIC_TAG) ?
-			 (char *)(vk->bar[BAR_1] +
-				  VK_BAR1_BOOT1_VER_TAG + sizeof(magic)) : "");
+	count += bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_UCODE_VER_TAG,
+				      &buf[count], "UCODE   : %s\n");
+	count += bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_BOOT1_VER_TAG,
+				      &buf[count], "Boot1   : %s\n");
 
 	/* Check if ZEPHYR_PRE_KERNEL1_INIT_DONE for rest of items */
 	ret = bcm_vk_sysfs_chk_fw_status(vk, FIRMWARE_STATUS_PRE_INIT_DONE,
@@ -1121,10 +1124,106 @@ card_state_show_fail:
 	return ret;
 }
 
+static ssize_t sotp_common_show(struct device *dev,
+				struct device_attribute *devattr,
+				char *buf, uint32_t tag_offset)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return bcm_vk_sysfs_get_tag(vk, BAR_1, tag_offset, buf, "%s\n");
+}
+
+static ssize_t sotp_dauth_1_show(struct device *dev,
+				 struct device_attribute *devattr, char *buf)
+{
+	return sotp_common_show(dev, devattr, buf,
+				VK_BAR1_DAUTH_STORE_ADDR(0));
+}
+
+static ssize_t sotp_dauth_1_valid_show(struct device *dev,
+				       struct device_attribute *devattr,
+				       char *buf)
+{
+	return sotp_common_show(dev, devattr, buf,
+				VK_BAR1_DAUTH_VALID_ADDR(0));
+}
+
+static ssize_t sotp_dauth_2_show(struct device *dev,
+				 struct device_attribute *devattr, char *buf)
+{
+	return sotp_common_show(dev, devattr, buf,
+				VK_BAR1_DAUTH_STORE_ADDR(1));
+}
+
+static ssize_t sotp_dauth_2_valid_show(struct device *dev,
+				       struct device_attribute *devattr,
+				       char *buf)
+{
+	return sotp_common_show(dev, devattr, buf,
+				VK_BAR1_DAUTH_VALID_ADDR(1));
+}
+
+static ssize_t sotp_dauth_3_show(struct device *dev,
+				 struct device_attribute *devattr, char *buf)
+{
+	return sotp_common_show(dev, devattr, buf,
+				VK_BAR1_DAUTH_STORE_ADDR(2));
+}
+
+static ssize_t sotp_dauth_3_valid_show(struct device *dev,
+				       struct device_attribute *devattr,
+				       char *buf)
+{
+	return sotp_common_show(dev, devattr, buf,
+				VK_BAR1_DAUTH_VALID_ADDR(2));
+}
+
+static ssize_t sotp_dauth_4_show(struct device *dev,
+				 struct device_attribute *devattr, char *buf)
+{
+	return sotp_common_show(dev, devattr, buf,
+				VK_BAR1_DAUTH_STORE_ADDR(3));
+}
+
+static ssize_t sotp_dauth_4_valid_show(struct device *dev,
+				       struct device_attribute *devattr,
+				       char *buf)
+{
+	return sotp_common_show(dev, devattr, buf,
+				VK_BAR1_DAUTH_VALID_ADDR(3));
+}
+
+static ssize_t sotp_boot1_rev_id_show(struct device *dev,
+				      struct device_attribute *devattr,
+				      char *buf)
+{
+	return sotp_common_show(dev, devattr, buf,
+				VK_BAR1_SOTP_REVID_ADDR(0));
+}
+
+static ssize_t sotp_boot2_rev_id_show(struct device *dev,
+				      struct device_attribute *devattr,
+				      char *buf)
+{
+	return sotp_common_show(dev, devattr, buf,
+				VK_BAR1_SOTP_REVID_ADDR(1));
+}
+
 static DEVICE_ATTR_RO(firmware_status);
 static DEVICE_ATTR_RO(firmware_version);
 static DEVICE_ATTR_RO(bus);
 static DEVICE_ATTR_RO(card_state);
+static DEVICE_ATTR_RO(sotp_dauth_1);
+static DEVICE_ATTR_RO(sotp_dauth_1_valid);
+static DEVICE_ATTR_RO(sotp_dauth_2);
+static DEVICE_ATTR_RO(sotp_dauth_2_valid);
+static DEVICE_ATTR_RO(sotp_dauth_3);
+static DEVICE_ATTR_RO(sotp_dauth_3_valid);
+static DEVICE_ATTR_RO(sotp_dauth_4);
+static DEVICE_ATTR_RO(sotp_dauth_4_valid);
+static DEVICE_ATTR_RO(sotp_boot1_rev_id);
+static DEVICE_ATTR_RO(sotp_boot2_rev_id);
 static DEVICE_ATTR_RO(temperature_sensor_1);
 static DEVICE_ATTR_RO(voltage_18_mv);
 static DEVICE_ATTR_RO(voltage_33_mv);
@@ -1140,6 +1239,16 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 	&dev_attr_firmware_version.attr,
 	&dev_attr_bus.attr,
 	&dev_attr_card_state.attr,
+	&dev_attr_sotp_dauth_1.attr,
+	&dev_attr_sotp_dauth_1_valid.attr,
+	&dev_attr_sotp_dauth_2.attr,
+	&dev_attr_sotp_dauth_2_valid.attr,
+	&dev_attr_sotp_dauth_3.attr,
+	&dev_attr_sotp_dauth_3_valid.attr,
+	&dev_attr_sotp_dauth_4.attr,
+	&dev_attr_sotp_dauth_4_valid.attr,
+	&dev_attr_sotp_boot1_rev_id.attr,
+	&dev_attr_sotp_boot2_rev_id.attr,
 	NULL,
 };
 
