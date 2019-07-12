@@ -85,11 +85,6 @@ struct iproc_msi;
  * @need_msi_steer: indicates additional configuration of the iProc PCIe
  * controller is required to steer MSI writes to external interrupt controller
  * @msi: MSI data
- * @srp_check: Stingray B0 check.
- * In Stingray B0 has new features
- * CFG_RD_STATUS register gives CRS state,
- * RO configuration
- * this flag will be set in Stingray B0 PAXB core.
  */
 struct iproc_pcie {
 	struct device *dev;
@@ -125,7 +120,6 @@ struct iproc_pcie {
 #ifdef CONFIG_PM_SLEEP
 	unsigned int *paxb_map_regs;
 #endif
-	bool srp_check;
 };
 
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res);
