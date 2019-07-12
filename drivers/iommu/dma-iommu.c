@@ -221,13 +221,6 @@ static void iova_reserve_pci_windows(struct pci_dev *dev,
 		hi = iova_pfn(iovad, window->res->end - window->offset);
 		reserve_iova(iovad, lo, hi);
 	}
-
-	/* Get reserved DMA windows from host bridge */
-	resource_list_for_each_entry(window, &bridge->dma_resv) {
-		lo = iova_pfn(iovad, window->res->start - window->offset);
-		hi = iova_pfn(iovad, window->res->end - window->offset);
-		reserve_iova(iovad, lo, hi);
-	}
 }
 
 static int iova_reserve_iommu_regions(struct device *dev,
