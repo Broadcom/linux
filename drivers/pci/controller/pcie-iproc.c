@@ -63,10 +63,10 @@
 #define APB_ERR_EN_SHIFT		0
 #define APB_ERR_EN			BIT(APB_ERR_EN_SHIFT)
 
-#define CFG_RD_SUCCESS               0
-#define CFG_RD_UR                    1
-#define CFG_RD_CRS                   2
-#define CFG_RD_CA                    3
+#define CFG_RD_SUCCESS			0
+#define CFG_RD_UR			1
+#define CFG_RD_CRS			2
+#define CFG_RD_CA			3
 #define CFG_RETRY_STATUS		0xffff0001
 #define CFG_RETRY_STATUS_TIMEOUT_US	500000 /* 500 milliseconds */
 
@@ -574,17 +574,14 @@ static unsigned int iproc_pcie_cfg_retry(struct iproc_pcie *pcie,
 	data = readl(cfg_data_p);
 	while (data == CFG_RETRY_STATUS && timeout--) {
 		/*
-		 * Stingray B0 PAXB controller CRS state is set
-		 * in CFG_RD status register
+		 * CRS state is set in CFG_RD status register
 		 * This will handle the case where CFG_RETRY_STATUS is
 		 * valid config data.
 		 */
-		if (pcie->srp_check) {
-			status = iproc_pcie_read_reg(pcie,
-						     IPROC_PCIE_CFG_RD_STATUS);
-			if (status != CFG_RD_CRS)
-				return data;
-		}
+		status = iproc_pcie_read_reg(pcie, IPROC_PCIE_CFG_RD_STATUS);
+		if (status != CFG_RD_CRS)
+			return data;
+
 		udelay(1);
 		data = readl(cfg_data_p);
 	}
@@ -1118,7 +1115,7 @@ static int iproc_pcie_setup_ob(struct iproc_pcie *pcie, u64 axi_addr,
 			 */
 			if (size < window_size) {
 				if (size_idx > 0 || window_idx > 0)
-				continue;
+					continue;
 
 				/*
 				 * For the corner case of reaching the minimal
@@ -1337,19 +1334,32 @@ err_ib:
 	return ret;
 }
 
-static int
-iproc_pcie_add_dma_resv_range(struct device *dev, struct list_head *resources,
-			      uint64_t start, uint64_t end)
+static int iproc_pcie_add_dma_range(struct device *dev,
+				    struct list_head *resources,
+				    struct of_pci_range *range)
 {
 	struct resource *res;
+	struct resource_entry *entry, *tmp;
+	struct list_head *head = resources;
 
 	res = devm_kzalloc(dev, sizeof(struct resource), GFP_KERNEL);
 	if (!res)
 		return -ENOMEM;
 
-	res->start = (resource_size_t)start;
-	res->end = (resource_size_t)end;
-	pci_add_resource_offset(resources, res, 0);
+	resource_list_for_each_entry(tmp, resources) {
+		if (tmp->res->start < range->cpu_addr)
+			head = &tmp->node;
+	}
+
+	res->start = range->cpu_addr;
+	res->end = res->start + range->size - 1;
+
+	entry = resource_list_create_entry(res, 0);
+	if (!entry)
+		return -ENOMEM;
+
+	entry->offset = res->start - range->cpu_addr;
+	resource_list_add(entry, head);
 
 	return 0;
 }
@@ -1360,7 +1370,6 @@ static int iproc_pcie_map_dma_ranges(struct iproc_pcie *pcie)
 	struct of_pci_range range;
 	struct of_pci_range_parser parser;
 	int ret;
-	uint64_t start, end;
 	LIST_HEAD(resources);
 
 	/* Get the dma-ranges from DT */
@@ -1368,37 +1377,19 @@ static int iproc_pcie_map_dma_ranges(struct iproc_pcie *pcie)
 	if (ret)
 		return ret;
 
-	start = 0;
 	for_each_of_pci_range(&parser, &range) {
-		end = range.pci_addr;
-		/* dma-ranges list expected in sorted order */
-		if (end < start)
+		ret = iproc_pcie_add_dma_range(pcie->dev,
+					       &resources,
+					       &range);
+		if (ret)
 			goto out;
-
 		/* Each range entry corresponds to an inbound mapping region */
 		ret = iproc_pcie_setup_ib(pcie, &range, IPROC_PCIE_IB_MAP_MEM);
 		if (ret)
-			return ret;
-
-		if (end - start) {
-			ret = iproc_pcie_add_dma_resv_range(pcie->dev,
-							    &resources,
-							    start, end);
-			if (ret)
-				goto out;
-		}
-		start = range.pci_addr + range.size;
-	}
-
-	end = ~0;
-	if (end - start) {
-		ret = iproc_pcie_add_dma_resv_range(pcie->dev, &resources,
-						    start, end);
-		if (ret)
 			goto out;
 	}
 
-	list_splice_init(&resources, &host->dma_resv);
+	list_splice_init(&resources, &host->dma_ranges);
 
 	return 0;
 out:
@@ -1965,14 +1956,6 @@ static void quirk_paxc_bridge(struct pci_dev *pdev)
 	writel(0, pcie->base + PAXC_CFG_ECM_ADDR_OFFSET);
 }
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0x16cd, quirk_paxc_bridge);
-
-static void quirk_paxb_srp_check(struct pci_dev *pdev)
-{
-	struct iproc_pcie *pcie = iproc_data(pdev->bus);
-	/* CRS support is added in Stingray B0 */
-	pcie->srp_check = true;
-}
-DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0xd714, quirk_paxb_srp_check);
 
 /*
  * The MSI parsing logic in certain revisions of Broadcom PAXC based root
