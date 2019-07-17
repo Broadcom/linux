@@ -303,6 +303,7 @@
 	};
 
 	#include "ns3z-fs6.dtsi"
+	#include "ns3z-usb.dtsi"
 	hsls {
 		compatible = "simple-bus";
 		dma-ranges;
