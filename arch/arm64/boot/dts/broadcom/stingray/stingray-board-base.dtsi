@@ -83,6 +83,12 @@
 			reg = <0x0 0x8f101000 0x0 0x1000>;
 			no-map;
 		};
+
+		bl33_exec_region: bl33_exec_region@ff000000 {
+			reg = <0x0 0xff000000 0x0 0x1000000>;
+			no-map;
+			status = "disabled";
+		};
 	};
 
 	nvme_lpm: nvme_lpm {
