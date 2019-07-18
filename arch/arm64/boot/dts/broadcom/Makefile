@@ -8,3 +8,4 @@ subdir-y	+= northstar2
 subdir-y	+= ns3z
 subdir-y	+= omega
 subdir-y	+= stingray
+subdir-y	+= valkyrie
