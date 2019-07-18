@@ -10,6 +10,7 @@
 #include <linux/phy.h>
 #include <linux/mdio-mux.h>
 #include <linux/delay.h>
+#include <linux/debugfs.h>
 
 #define MDIO_RATE_ADJ_EXT_OFFSET	0x000
 #define MDIO_RATE_ADJ_INT_OFFSET	0x004
@@ -50,6 +51,7 @@ struct iproc_mdiomux_desc {
 	void __iomem *base;
 	struct device *dev;
 	struct mii_bus *mii_bus;
+	struct dentry *dentry_mux;
 	struct clk *core_clk;
 };
 
@@ -181,6 +183,85 @@ static int mdio_mux_iproc_switch_fn(int current_child, int desired_child,
 	return 0;
 }
 
+static ssize_t mux_write(struct file *file, const char __user *user_buf,
+			 size_t count, loff_t *ppos)
+{
+	u16 busid, phyid, reg, val, opt;
+	struct iproc_mdiomux_desc *md;
+	char *start, *s, buf[32];
+	u32 buf_size;
+	int ret;
+
+	md = file->f_inode->i_private;
+
+	buf_size = min(count, (size_t)(sizeof(buf) - 1));
+	if (copy_from_user(buf, user_buf, buf_size)) {
+		dev_err(md->dev, "Failed to copy from user\n");
+		return -EFAULT;
+	}
+
+	buf[buf_size] = 0;
+	dev_err(md->dev, "buffer :%s\n", buf);
+	start = buf;
+
+	s = strsep(&start, " ");
+	if (!s || !*s)
+		return -EINVAL;
+	ret = kstrtou16(s, 0, &busid);
+	if (ret)
+		return -EINVAL;
+	dev_info(md->dev, "busid:0x%x\n", (busid < EXT_BUS_START_ADDR) ?
+		 busid : busid - EXT_BUS_START_ADDR);
+
+	s = strsep(&start, " ");
+	if (!s || !*s)
+		return -EINVAL;
+	ret = kstrtou16(s, 0, &phyid);
+	if (ret)
+		return -EINVAL;
+	dev_info(md->dev, "phyid:0x%x\n", phyid);
+
+	s = strsep(&start, " ");
+	if (!s || !*s)
+		return -EINVAL;
+	ret = kstrtou16(s, 0, &reg);
+	if (ret)
+		return -EINVAL;
+	dev_info(md->dev, "reg:0x%x\n", reg);
+
+	s = strsep(&start, " ");
+	if (!s || !*s)
+		return -EINVAL;
+	ret = kstrtou16(s, 0, &opt);
+	if (ret)
+		return -EINVAL;
+	dev_info(md->dev, "opt:%s\n", opt ? "write" : "read");
+
+	if (opt) {
+		s = strsep(&start, " ");
+		if (!s || !*s)
+			return -EINVAL;
+		ret = kstrtou16(s, 0, &val);
+		if (ret)
+			return -EINVAL;
+		dev_info(md->dev, "val:0x%x\n", val);
+	}
+
+	mdio_mux_iproc_switch_fn(0, busid, md);
+	if (opt) {
+		md->mii_bus->write(md->mii_bus, phyid, reg, val);
+	} else {
+		ret = md->mii_bus->read(md->mii_bus, phyid, reg);
+		dev_info(md->dev, "regval :%x\n", ret);
+	}
+
+	return buf_size;
+}
+
+static const struct file_operations mux_fops = {
+	.write = mux_write,
+};
+
 static int mdio_mux_iproc_probe(struct platform_device *pdev)
 {
 	struct iproc_mdiomux_desc *md;
@@ -252,6 +333,11 @@ static int mdio_mux_iproc_probe(struct platform_device *pdev)
 		goto out_register;
 	}
 
+	md->dentry_mux = debugfs_create_file("bcmmux", 0644, NULL,
+					     md, &mux_fops);
+	if (!md->dentry_mux)
+		dev_warn(md->dev, "Failed to create debugfs bcmmux file\n");
+
 	mdio_mux_iproc_config(md);
 
 	dev_info(md->dev, "iProc mdiomux registered\n");
@@ -270,6 +356,7 @@ static int mdio_mux_iproc_remove(struct platform_device *pdev)
 
 	mdio_mux_uninit(md->mux_handle);
 	mdiobus_unregister(md->mii_bus);
+	debugfs_remove(md->dentry_mux);
 	clk_disable_unprepare(md->core_clk);
 
 	return 0;
