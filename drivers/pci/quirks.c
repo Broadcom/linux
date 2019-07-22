@@ -5142,19 +5142,3 @@ SWITCHTEC_QUIRK(0x8573);  /* PFXI 48XG3 */
 SWITCHTEC_QUIRK(0x8574);  /* PFXI 64XG3 */
 SWITCHTEC_QUIRK(0x8575);  /* PFXI 80XG3 */
 SWITCHTEC_QUIRK(0x8576);  /* PFXI 96XG3 */
-
-/*
- * classless end points are not enumarted by pci framework, because
- * of which, resources are not aligned into pci bus addresses, and
- * hence, no BAR populated.
- */
-static void quirk_avip_force_class(struct pci_dev *pdev)
-{
-	u32 class;
-
-	pci_read_config_dword(pdev, PCI_CLASS_REVISION, &class);
-	class = class >> 8;
-	if (class == PCI_CLASS_NOT_DEFINED)
-		pdev->class = PCI_CLASS_MEMORY_OTHER;
-}
-DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_CADENCE, PCI_DEVICE_ID_CADENCE_AVIP, quirk_avip_force_class);
