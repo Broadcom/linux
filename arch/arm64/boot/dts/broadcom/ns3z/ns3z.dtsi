@@ -156,9 +156,16 @@
 		};
 	};
 
-	psci {
-		compatible = "arm,psci-0.2";
-		method = "smc";
+	firmware {
+		psci {
+			compatible = "arm,psci-0.2";
+			method = "smc";
+		};
+
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
 	};
 
 	pmu {
