@@ -63,7 +63,3 @@
 &pci_lpm_region {
 	status = "disabled";
 };
-
-&bl33_exec_region {
-	status = "okay";
-};
