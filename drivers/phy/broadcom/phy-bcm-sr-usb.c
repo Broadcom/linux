@@ -1,14 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2016 Broadcom
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation version 2.
- *
- * This program is distributed "as is" WITHOUT ANY WARRANTY of any
- * kind, whether express or implied; without even the implied warranty
- * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (C) 2016-2018 Broadcom
  */
 
 #include <linux/delay.h>
@@ -19,8 +11,8 @@
 #include <linux/platform_device.h>
 
 enum bcm_usb_phy_version {
-	BCM_USB_PHY_V1,
-	BCM_USB_PHY_V2,
+	BCM_SR_USB_COMBO_PHY,
+	BCM_SR_USB_HS_PHY,
 };
 
 enum bcm_usb_phy_reg {
@@ -33,12 +25,12 @@ enum bcm_usb_phy_reg {
 
 /* USB PHY registers */
 
-static const u8 bcm_usb_u3phy_v1[] = {
+static const u8 bcm_usb_combo_phy_ss[] = {
 	[PLL_CTRL]		= 0x18,
 	[PHY_CTRL]		= 0x14,
 };
 
-static const u8 bcm_usb_u2phy_v1[] = {
+static const u8 bcm_usb_combo_phy_hs[] = {
 	[PLL_NDIV_FRAC]	= 0x04,
 	[PLL_NDIV_INT]	= 0x08,
 	[PLL_CTRL]	= 0x0c,
@@ -48,7 +40,7 @@ static const u8 bcm_usb_u2phy_v1[] = {
 #define HSPLL_NDIV_INT_VAL	0x13
 #define HSPLL_NDIV_FRAC_VAL	0x1005
 
-static const u8 bcm_usb_u2phy_v2[] = {
+static const u8 bcm_usb_hs_phy[] = {
 	[PLL_NDIV_FRAC]	= 0x0,
 	[PLL_NDIV_INT]	= 0x4,
 	[PLL_CTRL]	= 0x8,
@@ -116,7 +108,7 @@ static const u8 u2phy_ctrl[] = {
 
 struct bcm_usb_phy_cfg {
 	uint32_t type;
-	uint32_t ver;
+	uint32_t version;
 	void __iomem *regs;
 	struct phy *phy;
 	const u8 *offset;
@@ -124,8 +116,12 @@ struct bcm_usb_phy_cfg {
 
 #define PLL_LOCK_RETRY_COUNT	1000
 
-#define USB_HS_PHY	0
-#define USB_SS_PHY	1
+enum bcm_usb_phy_type {
+	USB_HS_PHY,
+	USB_SS_PHY,
+};
+
+#define NUM_BCM_SR_USB_COMBO_PHYS	2
 
 static inline void bcm_usb_reg32_clrbits(void __iomem *addr, uint32_t clear)
 {
@@ -176,6 +172,7 @@ static int bcm_usb_ss_phy_init(struct bcm_usb_phy_cfg *phy_cfg)
 	bcm_usb_reg32_setbits(regs + offset[PLL_CTRL],
 			      BIT(u3pll_ctrl[PLL_RESETB]));
 
+	/* Maximum timeout for PLL reset done */
 	msleep(30);
 
 	ret = bcm_usb_pll_lock_check(regs + offset[PLL_CTRL],
@@ -205,7 +202,8 @@ static int bcm_usb_hs_phy_init(struct bcm_usb_phy_cfg *phy_cfg)
 	bcm_usb_reg32_setbits(regs + offset[PHY_CTRL],
 			      BIT(u2phy_ctrl[CORERDY]));
 
-	msleep(100);
+	/* Maximum timeout for Core Ready done */
+	msleep(30);
 
 	bcm_usb_reg32_setbits(regs + offset[PLL_CTRL],
 			      BIT(u2pll_ctrl[PLL_RESETB]));
@@ -217,6 +215,9 @@ static int bcm_usb_hs_phy_init(struct bcm_usb_phy_cfg *phy_cfg)
 	rd_data &= ~(PHY_PCTL_MASK << u2phy_ctrl[PHY_PCTL]);
 	rd_data |= (HSPHY_PCTL_VAL << u2phy_ctrl[PHY_PCTL]);
 	writel(rd_data, regs + offset[PHY_CTRL]);
+
+	/* Maximum timeout for PLL reset done */
+	msleep(30);
 
 	ret = bcm_usb_pll_lock_check(regs + offset[PLL_CTRL],
 				     BIT(u2pll_ctrl[PLL_LOCK]));
@@ -261,65 +262,88 @@ static struct phy_ops sr_phy_ops = {
 	.owner		= THIS_MODULE,
 };
 
-static int bcm_usb_phy_create(struct device *dev, struct device_node *node,
-			     void __iomem *regs, uint32_t version)
+static struct phy *bcm_usb_phy_xlate(struct device *dev,
+				     struct of_phandle_args *args)
 {
 	struct bcm_usb_phy_cfg *phy_cfg;
-	struct phy_provider *phy_provider;
+	int phy_idx;
 
-	phy_cfg = devm_kzalloc(dev, sizeof(struct bcm_usb_phy_cfg), GFP_KERNEL);
+	phy_cfg = dev_get_drvdata(dev);
 	if (!phy_cfg)
-		return -ENOMEM;
+		return ERR_PTR(-EINVAL);
 
-	phy_cfg->regs = regs;
-	phy_cfg->ver = version;
+	if (phy_cfg->version == BCM_SR_USB_COMBO_PHY) {
+		phy_idx = args->args[0];
 
-	if (phy_cfg->ver == BCM_USB_PHY_V1) {
-		unsigned int id;
+		if (WARN_ON(phy_idx > 1))
+			return ERR_PTR(-ENODEV);
 
-		if (of_property_read_u32(node, "reg", &id)) {
-			dev_err(dev, "missing reg property in node %s\n",
-				node->name);
-			return -EINVAL;
+		return phy_cfg[phy_idx].phy;
+	} else
+		return phy_cfg->phy;
+}
+
+static int bcm_usb_phy_create(struct device *dev, struct device_node *node,
+			      void __iomem *regs, uint32_t version)
+{
+	struct bcm_usb_phy_cfg *phy_cfg;
+	int idx;
+
+	if (version == BCM_SR_USB_COMBO_PHY) {
+		phy_cfg = devm_kzalloc(dev, NUM_BCM_SR_USB_COMBO_PHYS *
+				       sizeof(struct bcm_usb_phy_cfg),
+				       GFP_KERNEL);
+		if (!phy_cfg)
+			return -ENOMEM;
+
+		for (idx = 0; idx < NUM_BCM_SR_USB_COMBO_PHYS; idx++) {
+			phy_cfg[idx].regs = regs;
+			phy_cfg[idx].version = version;
+			if (idx == 0) {
+				phy_cfg[idx].offset = bcm_usb_combo_phy_hs;
+				phy_cfg[idx].type = USB_HS_PHY;
+			} else {
+				phy_cfg[idx].offset = bcm_usb_combo_phy_ss;
+				phy_cfg[idx].type = USB_SS_PHY;
+			}
+			phy_cfg[idx].phy = devm_phy_create(dev, node,
+							   &sr_phy_ops);
+			if (IS_ERR(phy_cfg[idx].phy))
+				return PTR_ERR(phy_cfg[idx].phy);
+
+			phy_set_drvdata(phy_cfg[idx].phy, &phy_cfg[idx]);
 		}
+	} else if (version == BCM_SR_USB_HS_PHY) {
+		phy_cfg = devm_kzalloc(dev, sizeof(struct bcm_usb_phy_cfg),
+				       GFP_KERNEL);
+		if (!phy_cfg)
+			return -ENOMEM;
 
-		if (id == 0) {
-			phy_cfg->offset = bcm_usb_u2phy_v1;
-			phy_cfg->type = USB_HS_PHY;
-		} else if (id == 1) {
-			phy_cfg->offset = bcm_usb_u3phy_v1;
-			phy_cfg->type = USB_SS_PHY;
-		} else {
-			return -ENODEV;
-		}
-	} else if (phy_cfg->ver == BCM_USB_PHY_V2) {
-		phy_cfg->offset = bcm_usb_u2phy_v2;
+		phy_cfg->regs = regs;
+		phy_cfg->version = version;
+		phy_cfg->offset = bcm_usb_hs_phy;
 		phy_cfg->type = USB_HS_PHY;
-	}
+		phy_cfg->phy = devm_phy_create(dev, node, &sr_phy_ops);
+		if (IS_ERR(phy_cfg->phy))
+			return PTR_ERR(phy_cfg->phy);
 
-	phy_cfg->phy = devm_phy_create(dev, node, &sr_phy_ops);
-	if (IS_ERR(phy_cfg->phy))
-		return PTR_ERR(phy_cfg->phy);
+		phy_set_drvdata(phy_cfg->phy, phy_cfg);
+	} else
+		return -ENODEV;
 
-	phy_set_drvdata(phy_cfg->phy, phy_cfg);
-	phy_provider = devm_of_phy_provider_register(&phy_cfg->phy->dev,
-						     of_phy_simple_xlate);
-	if (IS_ERR(phy_provider)) {
-		dev_err(dev, "Failed to register phy provider\n");
-		return PTR_ERR(phy_provider);
-	}
+	dev_set_drvdata(dev, phy_cfg);
 
 	return 0;
 }
 
 static const struct of_device_id bcm_usb_phy_of_match[] = {
 	{
-		.compatible = "brcm,sr-usb-phy",
-		.data = (void *)BCM_USB_PHY_V1,
+		.compatible = "brcm,sr-usb-combo-phy",
+		.data = (void *)BCM_SR_USB_COMBO_PHY,
 	},
 	{
-		.compatible = "brcm,sr-usb-phy-v2",
-		.data = (void *)BCM_USB_PHY_V2,
+		.compatible = "brcm,sr-usb-hs-phy",
+		.data = (void *)BCM_SR_USB_HS_PHY,
 	},
 	{ /* sentinel */ },
 };
@@ -328,12 +352,13 @@ MODULE_DEVICE_TABLE(of, bcm_usb_phy_of_match);
 static int bcm_usb_phy_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *dn = dev->of_node, *child;
+	struct device_node *dn = dev->of_node;
 	const struct of_device_id *of_id;
 	struct resource *res;
 	void __iomem *regs;
 	int ret;
-	uint32_t version;
+	enum bcm_usb_phy_version version;
+	struct phy_provider *phy_provider;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	regs = devm_ioremap_resource(dev, res);
@@ -346,18 +371,13 @@ static int bcm_usb_phy_probe(struct platform_device *pdev)
 	else
 		return -ENODEV;
 
-	if (of_get_child_count(dn) == 0)
-		return bcm_usb_phy_create(dev, dn, regs, version);
+	ret = bcm_usb_phy_create(dev, dn, regs, version);
+	if (ret)
+		return ret;
 
-	for_each_available_child_of_node(dn, child) {
-		ret = bcm_usb_phy_create(dev, child, regs, version);
-		if (ret) {
-			of_node_put(child);
-			return ret;
-		}
-	}
+	phy_provider = devm_of_phy_provider_register(dev, bcm_usb_phy_xlate);
 
-	return 0;
+	return PTR_ERR_OR_ZERO(phy_provider);
 }
 
 static struct platform_driver bcm_usb_phy_driver = {
