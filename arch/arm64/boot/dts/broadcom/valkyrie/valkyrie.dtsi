@@ -9,7 +9,7 @@
  * Reserve BL31 image area. In absence of A72 ROM,
  * Linux reboot enters at stand-alone BL31.
  */
-/memreserve/ 0x402000000 0x00100000;
+/memreserve/ 0x602000000 0x00100000;
 
 / {
 	compatible = "brcm,valkyrie";
@@ -46,7 +46,7 @@
 
 	memory: memory@400000000 {
 		device_type = "memory";
-		reg = <0x4 0x00000000 0 0x40000000>;
+		reg = <0x6 0x00000000 0x1 0x40000000>;
 	};
 
 	psci {

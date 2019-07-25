@@ -19,8 +19,8 @@
 			   earlycon=uart8250,mmio32,0x48100000 maxcpus=1";
 
 		stdout-path = "serial0:57600n8";
-		linux,initrd-start = <0x4 0x04000000>;
-		linux,initrd-end = <0x4 0x04c00000>;
+		linux,initrd-start = <0x6 0x04000000>;
+		linux,initrd-end = <0x6 0x04c00000>;
 	};
 };
 
