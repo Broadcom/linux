@@ -83,7 +83,10 @@ static bool auto_load = true;
 module_param(auto_load, bool, 0444);
 MODULE_PARM_DESC(auto_load,
 		 "Load images automatically at PCIe probe time.\n");
-
+uint nr_scratch_pages = VK_BAR1_SCRATCH_DEF_NR_PAGES;
+module_param(nr_scratch_pages, uint, 0444);
+MODULE_PARM_DESC(nr_scratch_pages,
+		 "Number of pre allocated DMAable coherent pages.\n");
 /*
  * mutex for download - this is created for temporary fix as the
  * firmware request seems to return corrupted data when run in parallel.
@@ -1333,8 +1336,16 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_disable_pdev;
 	}
 
-	vk->tdma_vaddr = dma_alloc_coherent(dev, PAGE_SIZE, &vk->tdma_addr,
-					    GFP_KERNEL);
+	/* The tdma is a scratch area for some DMA testings. */
+	if (nr_scratch_pages) {
+		vk->tdma_vaddr = dma_alloc_coherent(dev,
+					 nr_scratch_pages * PAGE_SIZE,
+					 &vk->tdma_addr, GFP_KERNEL);
+		if (!vk->tdma_vaddr) {
+			err = -ENOMEM;
+			goto err_disable_pdev;
+		}
+	}
 
 	pci_set_master(pdev);
 	pci_set_drvdata(pdev, vk);
@@ -1439,10 +1450,20 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_free_sysfs_entry;
 	}
 
-	/* last, register for panic notifier */
+	/* register for panic notifier */
 	vk->panic_nb.notifier_call = bcm_vk_on_panic;
 	atomic_notifier_chain_register(&panic_notifier_list,
 				       &vk->panic_nb);
+
+	/* pass down scratch mem info */
+	if (vk->tdma_addr) {
+		vkwrite32(vk, vk->tdma_addr >> 32, BAR_1,
+			  VK_BAR1_SCRATCH_OFF_LO);
+		vkwrite32(vk, (uint32_t)vk->tdma_addr, BAR_1,
+			  VK_BAR1_SCRATCH_OFF_HI);
+		vkwrite32(vk, nr_scratch_pages * PAGE_SIZE, BAR_1,
+			  VK_BAR1_SCRATCH_SZ_ADDR);
+	}
 
 	/*
 	 * lets trigger an auto download.  We don't want to do it serially here

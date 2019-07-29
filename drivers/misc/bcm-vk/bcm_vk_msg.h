@@ -173,6 +173,9 @@ struct bcm_vk_msg_chan {
 		(VK_BAR1_SOTP_REVID_BASE_ADDR + (x) * VK_BAR1_SOTP_REVID_SIZE)
 
 /* Scratch memory allocated on host for VK */
-#define VK_BAR1_SCRATCH_OFF		0x61f0
+#define VK_BAR1_SCRATCH_OFF_LO		0x61f0
+#define VK_BAR1_SCRATCH_OFF_HI		(VK_BAR1_SCRATCH_OFF_LO + 4)
+#define VK_BAR1_SCRATCH_SZ_ADDR		(VK_BAR1_SCRATCH_OFF_LO + 8)
+#define VK_BAR1_SCRATCH_DEF_NR_PAGES	32
 
 #endif
