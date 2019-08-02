@@ -280,7 +280,36 @@ static int nvme_live_backup_state_ssr(struct nvme_lpm *nvme_lpm,
 }
 
 #ifndef CONFIG_LPM_SSR_DISABLE_NVME
-static int nvme_lpm_read_test(struct nvme_lpm *nvme_lpm, void __user *argp)
+static int nvme_lpm_poll_xfers_from_ap(struct nvme_lpm *nvme_lpm)
+{
+	int ret = -EINVAL;
+
+	if (!nvme_drv_ops)
+		goto out;
+
+	nvme_drv_ops->nvme_initiate_xfers(nvme_drv_ops->ctxt);
+
+	ret = nvme_drv_ops->nvme_poll_xfers(nvme_drv_ops->ctxt);
+	if (ret) {
+		/* We do not want interrupt while updating the backup state */
+		dev_err(nvme_lpm->dev, "Transfer not completed");
+		goto out;
+	}
+
+	dev_info(nvme_lpm->dev, "Transfer done");
+
+	ret = nvme_drv_ops->nvme_send_flush_cmd(nvme_drv_ops->ctxt);
+	if (ret)
+		dev_err(nvme_lpm->dev, "Flush not completed");
+	else
+		dev_info(nvme_lpm->dev, "Flush done");
+
+out:
+	return ret;
+}
+
+static int nvme_lpm_trigger_restore(struct nvme_lpm *nvme_lpm,
+				    void __user *argp)
 {
 	struct armed_ssr armed_ssr;
 	int ret = -EINVAL;
@@ -311,16 +340,19 @@ static int nvme_lpm_read_test(struct nvme_lpm *nvme_lpm, void __user *argp)
 						    nvme_lpm->shared_nvme_data);
 
 	if (ret) {
-		nvme_lpm->ssr_state_armed = false;
 		dev_err(nvme_lpm->dev, "Failed to build read-back io queues\n");
-	} else
-		nvme_lpm->ssr_state_armed = true;
+		goto out;
+	}
+
+	ret = nvme_lpm_poll_xfers_from_ap(nvme_lpm);
+	if (ret)
+		dev_err(nvme_lpm->dev, "Failed to restore data from NVMe\n");
 
 out:
 	return ret;
 }
 
-static int nvme_lpm_poll_xfers_from_ap(struct nvme_lpm *nvme_lpm)
+static int nvme_lpm_trigger_live_backup(struct nvme_lpm *nvme_lpm)
 {
 	int ret = -EINVAL;
 	unsigned long flags;
@@ -410,8 +442,11 @@ static long nvme_dev_ioctl(struct file *file, unsigned int cmd,
 		ret = nvme_lpm_trigger_ssr(nvme_lpm);
 		break;
 #ifndef CONFIG_LPM_SSR_DISABLE_NVME
-	case NVME_LPM_IOCTL_READ:
-		ret = nvme_lpm_read_test(nvme_lpm, argp);
+	case NVME_LPM_IOCTL_TRIGGER_RESTORE:
+		ret = nvme_lpm_trigger_restore(nvme_lpm, argp);
+		break;
+	case NVME_LPM_IOCTL_LIVE_BACKUP:
+		ret = nvme_lpm_trigger_live_backup(nvme_lpm);
 		break;
 	case NVME_LPM_IOCTL_AP_POLL:
 		ret = nvme_lpm_poll_xfers_from_ap(nvme_lpm);
