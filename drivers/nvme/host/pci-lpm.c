@@ -403,6 +403,63 @@ static int adapter_delete_sq(struct nvme_dev *dev, u16 sqid)
 	return adapter_delete_queue(dev, nvme_admin_delete_sq, sqid);
 }
 
+static int nvme_get_log_page(struct nvme_dev *dev, u8 log_page, u8 lsp,
+			     dma_addr_t log, size_t size, u64 offset)
+{
+	struct nvme_command c;
+	unsigned long dwlen = size / 4 - 1;
+	struct nvme_queue *q = dev->queues[0];
+	int error;
+
+	memset(&c, 0, sizeof(c));
+	c.get_log_page.opcode = nvme_admin_get_log_page;
+	c.get_log_page.nsid = 1;
+	c.get_log_page.lid = log_page;
+	c.get_log_page.lsp = lsp;
+	c.get_log_page.numdl = cpu_to_le16(dwlen & (BIT(16) - 1));
+	c.get_log_page.numdu = cpu_to_le16(dwlen >> 16);
+	c.get_log_page.lpol = cpu_to_le32(lower_32_bits(offset));
+	c.get_log_page.lpou = cpu_to_le32(upper_32_bits(offset));
+	c.identify.dptr.prp1 = log;
+
+	error = nvme_submit_cmd_sync(&c, q, NULL);
+	if (error)
+		dev_warn(dev->dev, "Log page command failed\n");
+
+	return error;
+}
+
+static int nvme_get_smart_log(void *ndev_cntxt,
+			      struct nvme_smart_log *smart_log)
+{
+	struct nvme_dev *dev = ndev_cntxt;
+	struct nvme_smart_log *log;
+	dma_addr_t log_phys;
+	int ret;
+
+	log = dmam_alloc_coherent(dev->dev, sizeof(*log),
+				  &log_phys, GFP_KERNEL);
+	if (!log) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	ret = nvme_get_log_page(dev, NVME_LOG_SMART, 0,
+				log_phys, sizeof(*log), 0);
+	if (ret) {
+		dev_err(dev->dev, "Failed to retrieve SMART log");
+		ret = -EIO;
+		goto free_smart_log;
+	}
+
+	memcpy(smart_log, log, sizeof(*log));
+
+free_smart_log:
+	dma_free_coherent(dev->dev, sizeof(*log), &log_phys, GFP_KERNEL);
+err:
+	return ret;
+}
+
 static unsigned long db_bar_size(struct nvme_dev *dev,
 				 unsigned int nr_io_queues)
 {
@@ -1173,6 +1230,7 @@ struct nvme_lpm_drv_ops nvme_lpm_driver_ops = {
 	.nvme_poll_xfers = nvme_poll_xfers,
 	.nvme_send_flush_cmd = nvme_send_flush_cmd,
 	.update_live_backup_state = nvme_update_live_backup_state,
+	.nvme_get_smart_log = nvme_get_smart_log,
 };
 
 static int nvme_lpm_probe(struct pci_dev *pdev, const struct pci_device_id *id)

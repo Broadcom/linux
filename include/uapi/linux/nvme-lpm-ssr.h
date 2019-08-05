@@ -72,5 +72,7 @@ struct disarmed_ssr {
 						struct armed_ssr)
 #define NVME_LPM_IOCTL_LIVE_BACKUP	_IO(NVME_LPM_IOCTL_MAGIC, 7)
 #define NVME_LPM_IOCTL_AP_POLL		_IO(NVME_LPM_IOCTL_MAGIC, 8)
+#define NVME_LPM_IOCTL_GET_SMARTLOG	_IOR(NVME_LPM_IOCTL_MAGIC, 9, \
+						struct nvme_smart_log)
 
 #endif

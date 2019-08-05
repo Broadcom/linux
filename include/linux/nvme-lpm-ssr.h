@@ -6,6 +6,7 @@
 #ifndef __NVME_LPM_SSR_H__
 #define __NVME_LPM_SSR_H__
 
+#include <linux/nvme.h>
 #include <stddef.h>
 #include <uapi/linux/nvme-lpm-ssr.h>
 
@@ -61,6 +62,7 @@ struct nvme_lpm_drv_ops {
 	int (*nvme_send_flush_cmd)(void *ctxt);
 	void (*update_live_backup_state)(void *ctxt,
 					 enum live_backup_state new_state);
+	int (*nvme_get_smart_log)(void *ctxt, struct nvme_smart_log *smart_log);
 };
 
 int register_nvme_lpm_ops(void *nvme_drv_ops);

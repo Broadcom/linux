@@ -407,6 +407,28 @@ update_ssr:
 out:
 	return ret;
 }
+
+static int nvme_lpm_get_smartlog(struct nvme_lpm *nvme_lpm, void __user *argp)
+{
+	int ret = -EINVAL;
+	struct nvme_smart_log nvme_smart_log;
+
+	if (!nvme_drv_ops)
+		goto fail;
+
+	ret = nvme_drv_ops->nvme_get_smart_log(nvme_drv_ops->ctxt,
+					       &nvme_smart_log);
+	if (ret)
+		goto fail;
+
+	/* copy SSR */
+	if (copy_to_user(argp, &nvme_smart_log, sizeof(nvme_smart_log))) {
+		dev_err(nvme_lpm->dev, "Failed to copy to user space\n");
+		ret = -EFAULT;
+	}
+fail:
+	return ret;
+}
 #endif
 
 /* IOCTL interface through character device */
@@ -450,6 +472,9 @@ static long nvme_dev_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case NVME_LPM_IOCTL_AP_POLL:
 		ret = nvme_lpm_poll_xfers_from_ap(nvme_lpm);
+		break;
+	case NVME_LPM_IOCTL_GET_SMARTLOG:
+		ret = nvme_lpm_get_smartlog(nvme_lpm, argp);
 		break;
 #endif
 	default:
