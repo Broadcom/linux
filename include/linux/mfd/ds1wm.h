@@ -16,8 +16,6 @@ struct ds1wm_driver_data {
 	 * a reset pulse/presence detect sequence.
 	 */
 	unsigned int reset_recover_delay;
-	void (*write)(void __iomem *map, u32 reg, u8 val);
-	u8 (*read)(void __iomem *map, u32 reg);
 
 	/* Say 1 here for big endian Hardware
 	 * (only relevant with bus-shift > 0
