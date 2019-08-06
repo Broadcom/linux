@@ -33,7 +33,6 @@
 /dts-v1/;
 
 #include "ns2.dtsi"
-#include "ns2-svk-common.dtsi"
 
 / {
 	model = "Broadcom NS2 SVK";
@@ -50,33 +49,14 @@
 		stdout-path = "serial0:115200n8";
 		bootargs = "earlycon=uart8250,mmio32,0x66130000";
 	};
-};
 
-&ehci0 {
-	status = "okay";
-};
-
-&ehci1 {
-	status = "okay";
-};
-
-&ehci2 {
-	status = "okay";
+	memory {
+		device_type = "memory";
+		reg = <0x000000000 0x80000000 0x00000000 0x40000000>;
+	};
 };
 
 &enet {
-	status = "okay";
-};
-
-&ohci0 {
-	status = "okay";
-};
-
-&ohci1 {
-	status = "okay";
-};
-
-&ohci2 {
 	status = "okay";
 };
 
@@ -214,96 +194,43 @@
 
 &pinctrl {
 	pinctrl-names = "default";
-	pinctrl-0 = <&nand_sel &uart0_sel &uart1_sel &uart2_sel &usb2_sel
-		     &gpio_sel &pwm_sel>;
+	pinctrl-0 = <&nand_sel>;
 	nand_sel: nand_sel {
 		function = "nand";
 		groups = "nand_grp";
 	};
-
-	uart0_sel: uart0_sel {
-		function = "uart0";
-		groups = "uart0_rts_cts_grp", "uart0_in_out_grp",
-			 "uart0_modem_grp";
-	};
-
-	uart1_sel: uart1_sel {
-		function = "uart1";
-		groups = "uart1_ri_dtr_grp", "uart1_rts_cts_grp",
-			 "uart1_in_out_grp";
-	};
-
-	uart2_sel: uart2_sel {
-		function = "uart2";
-		groups = "uart2_rts_cts_grp";
-	};
-
-	usb2_sel: usb2_sel {
-		pins = "usb2_presence_indication";
-		bias-pull-up;
-	};
-
-	gpio_sel: gpio_sel {
-		function = "gpio";
-		groups = "gpio_0_1_grp";
-	};
-
-	pwm_sel: pwm_sel {
-		function = "pwm";
-		groups = "pwm_0_grp", "pwm_1_grp";
-	};
-};
-
-&pwm {
-	status = "okay";
 };
 
 &qspi {
 	bspi-sel = <0>;
-	flash: n25q256a@0 {
+	flash: m25p80@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "n25q256a","jedec,spi-nor";
+		compatible = "m25p80";
 		reg = <0x0>;
-		spi-max-frequency = <54000000>;
+		spi-max-frequency = <12500000>;
 		m25p,fast-read;
 		spi-cpol;
 		spi-cpha;
+
+		partition@0 {
+			label = "boot";
+			reg = <0x00000000 0x000a0000>;
+		};
+
+		partition@a0000 {
+			label = "env";
+			reg = <0x000a0000 0x00060000>;
+		};
+
+		partition@100000 {
+			label = "system";
+			reg = <0x00100000 0x00600000>;
+		};
+
+		partition@700000 {
+			label = "rootfs";
+			reg = <0x00700000 0x01900000>;
+		};
 	};
-};
-
-&udc_dwc {
-	status = "okay";
-};
-
-&usb2_phy0 {
-	status = "okay";
-};
-
-&usb2_phy1 {
-	status = "okay";
-};
-
-&usb3_phy0 {
-	status = "okay";
-};
-
-&usb3_phy1 {
-	status = "okay";
-};
-
-&usbdrd_phy {
-	status = "okay";
-};
-
-&xhci0 {
-	status = "okay";
-};
-
-&xhci1 {
-	status = "okay";
-};
-
-&rtc {
-	status = "okay";
 };

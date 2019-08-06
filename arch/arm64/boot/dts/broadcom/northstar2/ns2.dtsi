@@ -87,16 +87,8 @@
 		method = "smc";
 	};
 
-	firmware {
-		optee {
-			compatible = "linaro,optee-tz";
-			method = "smc";
-		};
-	};
-
 	timer {
 		compatible = "arm,armv8-timer";
-		arm,no-tick-in-suspend;
 		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_RAW(0xff) |
 			      IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 14 (GIC_CPU_MASK_RAW(0xff) |
@@ -121,20 +113,12 @@
 
 	pcie0: pcie@20020000 {
 		compatible = "brcm,iproc-pcie";
-		reg = <0 0x20020000 0 0x1000>,
-		      <0 0x21004000 0 0x1000>;
-		brcm,pcie-link-poll-interval = <1000>;
+		reg = <0 0x20020000 0 0x1000>;
 		dma-coherent;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie0 1>,
-				<0 0 0 0 2 &pcie0 2>,
-				<0 0 0 0 3 &pcie0 3>,
-				<0 0 0 0 4 &pcie0 4>;
-
-		interrupts = <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic 0 GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <0>;
 
@@ -143,10 +127,12 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
-		ranges = <0x83000000 0 0x80000000 0 0x00000000 0 0x20000000>;
+		ranges = <0x83000000 0 0x00000000 0 0x00000000 0 0x20000000>;
 
 		brcm,pcie-ob;
+		brcm,pcie-ob-oarr-size;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
+		brcm,pcie-ob-window-size = <256>;
 
 		status = "disabled";
 
@@ -158,20 +144,12 @@
 
 	pcie4: pcie@50020000 {
 		compatible = "brcm,iproc-pcie";
-		reg = <0 0x50020000 0 0x1000>,
-		      <0 0x51004000 0 0x1000>;
-		brcm,pcie-link-poll-interval = <1000>;
+		reg = <0 0x50020000 0 0x1000>;
 		dma-coherent;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 1 &pcie4 1>,
-				<0 0 0 2 &pcie4 2>,
-				<0 0 0 3 &pcie4 3>,
-				<0 0 0 4 &pcie4 4>;
-
-		interrupts = <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic 0 GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <4>;
 
@@ -180,10 +158,12 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
-		ranges = <0x83000000 0 0x80000000 0 0x30000000 0 0x20000000>;
+		ranges = <0x83000000 0 0x00000000 0 0x30000000 0 0x20000000>;
 
 		brcm,pcie-ob;
+		brcm,pcie-ob-oarr-size;
 		brcm,pcie-ob-axi-offset = <0x30000000>;
+		brcm,pcie-ob-window-size = <256>;
 
 		status = "disabled";
 
@@ -242,16 +222,10 @@
 			brcm,use-bcm-hdr;
 		};
 
-		spum: spum@612d0000 {
+		crypto0: crypto@612d0000 {
 			compatible = "brcm,spum-crypto";
-			reg = <0x612d0000 0x900>,
-			      <0x612f0000 0x900>,
-			      <0x61310000 0x900>,
-			      <0x61330000 0x900>;
-			mboxes = <&pdc0 0>,
-				 <&pdc1 0>,
-				 <&pdc2 0>,
-				 <&pdc3 0>;
+			reg = <0x612d0000 0x900>;
+			mboxes = <&pdc0 0>;
 		};
 
 		pdc1: iproc-pdc1@612e0000 {
@@ -264,6 +238,12 @@
 			brcm,use-bcm-hdr;
 		};
 
+		crypto1: crypto@612f0000 {
+			compatible = "brcm,spum-crypto";
+			reg = <0x612f0000 0x900>;
+			mboxes = <&pdc1 0>;
+		};
+
 		pdc2: iproc-pdc2@61300000 {
 			compatible = "brcm,iproc-pdc-mbox";
 			reg = <0x61300000 0x445>;  /* PDC FS2 regs */
@@ -274,6 +254,12 @@
 			brcm,use-bcm-hdr;
 		};
 
+		crypto2: crypto@61310000 {
+			compatible = "brcm,spum-crypto";
+			reg = <0x61310000 0x900>;
+			mboxes = <&pdc2 0>;
+		};
+
 		pdc3: iproc-pdc3@61320000 {
 			compatible = "brcm,iproc-pdc-mbox";
 			reg = <0x61320000 0x445>;  /* PDC FS3 regs */
@@ -282,6 +268,12 @@
 			dma-coherent;
 			brcm,rx-status-len = <32>;
 			brcm,use-bcm-hdr;
+		};
+
+		crypto3: crypto@61330000 {
+			compatible = "brcm,spum-crypto";
+			reg = <0x61330000 0x900>;
+			mboxes = <&pdc3 0>;
 		};
 
 		dma0: dma@61360000 {
@@ -344,23 +336,11 @@
 			#iommu-cells = <1>;
 		};
 
-		otp: otp@6501c800{
-			compatible = "brcm,ocotp";
-			reg = <0x6501c800 0x30>;
-			brcm,ocotp-size = <2048>;
-			status = "okay";
-		};
-
 		pinctrl: pinctrl@6501d130 {
 			compatible = "brcm,ns2-pinmux";
 			reg = <0x6501d130 0x08>,
 			      <0x660a0028 0x04>,
 			      <0x660009b0 0x40>;
-		};
-
-		crmu_usb_ctl: syscon@6501d144 {
-			compatible = "brcm,ns2-crmu-usbctl", "syscon";
-			reg = <0x6501d144 0x8>;
 		};
 
 		gpio_aon: gpio@65024800 {
@@ -480,19 +460,15 @@
 			};
 		};
 
-		usb3_icfg_ctl: syscon@66000910 {
-			compatible = "brcm,ns2-usb3-icfg-ctl", "syscon";
-			reg = <0x66000910 0x14>;
-		};
-
 		usbdrd_phy: phy@66000960 {
 			#phy-cells = <0>;
 			compatible = "brcm,ns2-drd-phy";
 			reg = <0x66000960 0x24>,
-			      <0x67012408 0x400>,
+			      <0x67012800 0x4>,
+			      <0x6501d148 0x4>,
 			      <0x664d0700 0x4>;
 			reg-names = "icfg", "rst-ctrl",
-				    "usb2-strap";
+				    "crmu-ctrl", "usb2-strap";
 			id-gpios = <&gpio_g 30 0>;
 			vbus-gpios = <&gpio_g 31 0>;
 			status = "disabled";
@@ -525,33 +501,6 @@
 				};
 			};
 
-			mdio@1 {
-				reg = <0x1>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				usb3_phy: usb3-phy@0 {
-					compatible = "brcm,ns2-usb3-phy";
-					reg = <0x0>;
-					#address-cells = <1>;
-					#size-cells = <0>;
-					usb3-icfg-syscon = <&usb3_icfg_ctl>;
-					usb3-idm-syscon = <&usb3_idm_ctl>;
-
-					usb3_phy0: usb3-phy@0 {
-						reg = <0>;
-						#phy-cells = <0>;
-						status = "disabled";
-					};
-
-					usb3_phy1: usb3-phy@1 {
-						reg = <1>;
-						#phy-cells = <0>;
-						status = "disabled";
-					};
-				};
-			};
-
 			mdio@7 {
 				reg = <0x7>;
 				#address-cells = <1>;
@@ -572,7 +521,6 @@
 			};
 		};
 
-		/* This timer is being used by ATF. DON'T USE in Linux. */
 		timer0: timer@66030000 {
 			compatible = "arm,sp804", "arm,primecell";
 			reg = <0x66030000 0x1000>;
@@ -581,7 +529,6 @@
 				 <&iprocslow>,
 				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			status = "disabled";
 		};
 
 		timer1: timer@66040000 {
@@ -592,7 +539,6 @@
 				 <&iprocslow>,
 				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			status = "disabled";
 		};
 
 		timer2: timer@66050000 {
@@ -603,7 +549,6 @@
 				 <&iprocslow>,
 				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			status = "disabled";
 		};
 
 		timer3: timer@66060000 {
@@ -614,7 +559,6 @@
 				 <&iprocslow>,
 				 <&iprocslow>;
 			clock-names = "timer1", "timer2", "apb_pclk";
-			status = "disabled";
 		};
 
 		i2c0: i2c@66080000 {
@@ -701,7 +645,6 @@
 			interrupts = <GIC_SPI 404 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&iprocslow>, <&iprocslow>;
 			clock-names = "spiclk", "apb_pclk";
-			num-cs = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -713,7 +656,6 @@
 			interrupts = <GIC_SPI 405 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&iprocslow>, <&iprocslow>;
 			clock-names = "spiclk", "apb_pclk";
-			num-cs = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -722,48 +664,6 @@
 		hwrng: hwrng@66220000 {
 			compatible = "brcm,iproc-rng200";
 			reg = <0x66220000 0x28>;
-		};
-
-		xhci0: usb@66300000 {
-			compatible = "generic-xhci";
-			reg = <0x66300000 0x1000>;
-			interrupts = <GIC_SPI 429 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usb3_phy0>;
-			phy-names = "usb3-phy";
-			dma-coherent;
-			needs-reset-on-resume;
-			status = "disabled";
-		};
-
-		xhci1: usb@66310000 {
-			compatible = "generic-xhci";
-			reg = <0x66310000 0x1000>;
-			interrupts = <GIC_SPI 433 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usb3_phy1>;
-			phy-names = "usb3-phy";
-			dma-coherent;
-			needs-reset-on-resume;
-			status = "disabled";
-		};
-
-		dma1: dma@66330000 {
-			compatible = "arm,pl330", "arm,primecell";
-			reg = <0x66330000 0x1000>;
-			interrupts = <GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 411 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 413 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 414 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 415 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 417 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH>;
-			#dma-cells = <1>;
-			#dma-channels = <8>;
-			#dma-requests = <32>;
-			clocks = <&iprocslow>;
-			clock-names = "apb_pclk";
-			iommus = <&smmu 0x408>;
 		};
 
 		sata_phy: sata_phy@663f0100 {
@@ -817,7 +717,6 @@
 			dma-coherent;
 			bus-width = <8>;
 			clocks = <&genpll_sw BCM_NS2_GENPLL_SW_SDIO_CLK>;
-			sdhci,auto-cmd12;
 			status = "disabled";
 		};
 
@@ -828,7 +727,6 @@
 			dma-coherent;
 			bus-width = <8>;
 			clocks = <&genpll_sw BCM_NS2_GENPLL_SW_SDIO_CLK>;
-			sdhci,auto-cmd12;
 			status = "disabled";
 		};
 
@@ -863,115 +761,5 @@
 			#size-cells = <0>;
 		};
 
-		ehci0: usb@66480000 {
-			compatible = "generic-ehci";
-			reg = <0x66480000 0x100>;
-			interrupts = <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usb2_phy0>;
-			phy-names = "usb2-phy";
-			dma-coherent;
-			status = "disabled";
-		};
-
-		ohci0: usb@66480800 {
-			compatible = "generic-ohci";
-			reg = <0x66480800 0x100>;
-			interrupts = <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usb2_phy0>;
-			phy-names = "usb2-phy";
-			dma-coherent;
-			status = "disabled";
-		};
-
-		ehci1: usb@664a0000 {
-			compatible = "generic-ehci";
-			reg = <0x664a0000 0x100>;
-			interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usb2_phy1>;
-			phy-names = "usb2-phy";
-			dma-coherent;
-			status = "disabled";
-		};
-
-		ohci1: usb@664a0800 {
-			compatible = "generic-ohci";
-			reg = <0x664a0800 0x100>;
-			interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usb2_phy1>;
-			phy-names = "usb2-phy";
-			dma-coherent;
-			status = "disabled";
-		};
-
-		ehci2: usb@664c0000 {
-			compatible = "generic-ehci";
-			reg = <0x664c0000 0x100>;
-			interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usbdrd_phy>;
-			phy-names = "usb2h";
-			dma-coherent;
-			status = "disabled";
-		};
-
-		ohci2: usb@664c0800 {
-			compatible = "generic-ohci";
-			reg = <0x664c0800 0x100>;
-			interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usbdrd_phy>;
-			phy-names = "usb2h";
-			dma-coherent;
-			status = "disabled";
-		};
-
-		udc_dwc: usb@664e0000 {
-			compatible = "snps,dw-ahb-udc";
-			reg = <0x664e0000 0x2000>;
-			interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usbdrd_phy>;
-			extcon = <&usbdrd_phy>;
-			phy-names = "usb2drd";
-			dma-coherent;
-			status = "disabled";
-		};
-
-		usb3_idm_ctl: syscon@67000408 {
-			compatible = "brcm,ns2-usb3-idm-ctl", "syscon";
-			reg = <0x67000408 0x1808>;
-		};
-
-		usb2_phy0: usbphy@67010800 {
-			#phy-cells = <0>;
-			compatible = "brcm,ns2-usb2-phy";
-			reg = <0x67010408 0x400>,
-			      <0x66490200 0x600>,
-			      <0x66000888 0x4>;
-			reg-names = "usb2-idm-ctl",
-				    "usb2-phy-ctl",
-				    "usb2-icfg-sts";
-			usb-ctl-syscon = <&crmu_usb_ctl>;
-			brcm,ns2-usbh-afe = <13>;
-			status = "disabled";
-		};
-
-		usb2_phy1: usbphy@67011800 {
-			#phy-cells = <0>;
-			compatible = "brcm,ns2-usb2-phy";
-			reg = <0x67011408 0x400>,
-			      <0x664b0200 0x600>,
-			      <0x660008d8 0x4>;
-			reg-names = "usb2-idm-ctl",
-				    "usb2-phy-ctl",
-				    "usb2-icfg-sts";
-			usb-ctl-syscon = <&crmu_usb_ctl>;
-			brcm,ns2-usbh-afe = <6>;
-			status = "disabled";
-		};
-
-		rtc: rtc {
-			compatible = "brcm,iproc-rtc";
-			interrupts = <GIC_SPI 20 IRQ_TYPE_EDGE_RISING>,
-				     <GIC_SPI 21 IRQ_TYPE_EDGE_RISING>;
-			status = "disabled";
-		};
 	};
 };

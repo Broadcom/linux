@@ -46,13 +46,14 @@
 		stdout-path = "serial0:115200n8";
 		bootargs = "earlycon=uart8250,mmio32,0x66130000";
 	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x000000000 0x80000000 0x00000001 0x00000000>;
+	};
 };
 
 &enet {
-	status = "okay";
-};
-
-&ehci0 {
 	status = "okay";
 };
 
@@ -120,10 +121,6 @@
 	};
 };
 
-&ohci0 {
-	status = "okay";
-};
-
 &pci_phy0 {
 	status = "okay";
 };
@@ -152,7 +149,7 @@
 	flash: m25p80@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "m25p80","jedec,spi-nor";
+		compatible = "m25p80";
 		spi-max-frequency = <62500000>;
 		m25p,default-addr-width = <3>;
 		reg = <0x0 0x0>;
@@ -190,17 +187,5 @@
 };
 
 &uart3 {
-	status = "okay";
-};
-
-&usb2_phy0 {
-	status = "okay";
-};
-
-&usb3_phy0 {
-	status = "okay";
-};
-
-&xhci0 {
 	status = "okay";
 };
