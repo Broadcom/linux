@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2017 Broadcom
+ * Copyright (C) 2013 Broadcom Corporation
  * Copyright 2013 Linaro Limited
  *
  * This program is free software; you can redistribute it and/or
@@ -58,8 +58,7 @@
 #define BCM281XX_MASTER_CCU_USB_IC		4
 #define BCM281XX_MASTER_CCU_HSIC2_48M		5
 #define BCM281XX_MASTER_CCU_HSIC2_12M		6
-#define BCM281XX_MASTER_CCU_NAND		7
-#define BCM281XX_MASTER_CCU_CLOCK_COUNT		8
+#define BCM281XX_MASTER_CCU_CLOCK_COUNT		7
 
 /* slave CCU clock ids */
 
