@@ -285,9 +285,7 @@ static int vc4_drm_bind(struct device *dev)
 	if (ret < 0)
 		goto unbind_all;
 
-#ifdef CONFIG_DRM_VC4_DISPLAY
 	vc4_kms_load(drm);
-#endif
 
 	drm_fbdev_generic_setup(drm, 32);
 
