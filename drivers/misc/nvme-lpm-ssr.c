@@ -271,9 +271,10 @@ static int nvme_live_backup_state_ssr(struct nvme_lpm *nvme_lpm,
 	struct ssr_wrapper wrap = {0,};
 
 	nvme_lpm->live_backup_state = new_state;
-	/* Only live backup state can be updated using following command */
 	wrap.ssr_cmd_id = NVME_LPM_CMD_LIVE_BACKUP_SSR;
 	wrap.ssr.live_backup_state = new_state;
+	wrap.ssr.state = (new_state == LIVE_BACKUP_DONE) ?
+			 SSR_STATE_COMPLETE : SSR_STATE_ERROR;
 
 	/* send msg to CRMU */
 	return iproc_mbox_send_msg(nvme_lpm, &wrap);
@@ -354,7 +355,7 @@ out:
 
 static int nvme_lpm_trigger_live_backup(struct nvme_lpm *nvme_lpm)
 {
-	int ret = -EINVAL;
+	int err, ret = -EINVAL;
 	unsigned long flags;
 	uint8_t state;
 
@@ -369,6 +370,18 @@ static int nvme_lpm_trigger_live_backup(struct nvme_lpm *nvme_lpm)
 	update_live_backup_state(nvme_lpm, LIVE_BACKUP_IN_PROGRESS);
 
 	spin_unlock_irqrestore(&nvme_lpm->live_backup_lock, flags);
+
+	/*
+	 * Following will assert SSA signal to indicate that backup is
+	 * in progress, but it will not update the SSR,
+	 * SSR will get updated only at the end - with the result of backup
+	 */
+	ret = nvme_live_backup_state_ssr(nvme_lpm, LIVE_BACKUP_IN_PROGRESS);
+	if (ret) {
+		dev_err(nvme_lpm->dev, "Failed to assert SSA signal\n");
+		state = LIVE_BACKUP_FAIL;
+		goto update_ssr;
+	}
 
 	/*
 	 * During polling, no need to explicitly take a lock here as each queue
@@ -403,7 +416,13 @@ static int nvme_lpm_trigger_live_backup(struct nvme_lpm *nvme_lpm)
 	spin_unlock_irqrestore(&nvme_lpm->live_backup_lock, flags);
 
 update_ssr:
-	ret = nvme_live_backup_state_ssr(nvme_lpm, state);
+	/*
+	 * Following will update SSR state field with result of backup,
+	 * it will also de-assert SSA and CCV signals
+	 */
+	err = nvme_live_backup_state_ssr(nvme_lpm, state);
+	if (err)
+		dev_err(nvme_lpm->dev, "Failed to update SSR\n");
 out:
 	return ret;
 }
