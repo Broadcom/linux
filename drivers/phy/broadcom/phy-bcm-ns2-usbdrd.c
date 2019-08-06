@@ -36,24 +36,12 @@
 #define ICFG_FSM_CTRL		0x24
 
 #define ICFG_DEV_BIT		BIT(2)
-#define STRAP_CTRL_VAL		0x7ff0001
-#define DRD_AFE_VAL		0xc0000001
-
-#define IDM_RST_CTL_OFFSET	0x3f8
 #define IDM_RST_BIT		BIT(0)
-
-#define DRD_IOCTL_ARCACHE_W	4
-#define DRD_IOCTL_ARCACHE_R	6
-#define DRD_IOCTL_AWCACHE_W	4
-#define DRD_IOCTL_AWCACHE_R	2
-#define DRD_IOCTRL_VAL		0x3dee001
-
 #define AFE_CORERDY_VDDC	BIT(18)
 #define PHY_PLL_RESETB		BIT(15)
 #define PHY_RESETB		BIT(14)
 #define PHY_PLL_LOCK		BIT(0)
 
-#define CRMU_USB2		0x4
 #define DRD_DEV_MODE		BIT(20)
 #define OHCI_OVRCUR_POL		BIT(11)
 #define ICFG_OFF_MODE		BIT(6)
@@ -71,7 +59,7 @@
 struct ns2_phy_data;
 struct ns2_phy_driver {
 	void __iomem *icfgdrd_regs;
-	void __iomem *idmdrd_regs;
+	void __iomem *idmdrd_rst_ctrl;
 	void __iomem *crmu_usb2_ctrl;
 	void __iomem *usb2h_strap_reg;
 	struct ns2_phy_data *data;
@@ -118,18 +106,6 @@ static int ns2_drd_phy_init(struct phy *phy)
 	struct ns2_phy_driver *driver = data->driver;
 	u32 val;
 
-	val = readl(driver->icfgdrd_regs + ICFG_STRAP_CTRL);
-	val |= STRAP_CTRL_VAL;
-	writel(val, driver->icfgdrd_regs + ICFG_STRAP_CTRL);
-
-	writel(DRD_AFE_VAL, driver->icfgdrd_regs + ICFG_DRD_AFE);
-
-	/* Configure IDM IO control register - preserve AxCACHE settings */
-	val = readl(driver->idmdrd_regs);
-	val &= ((((1 << DRD_IOCTL_ARCACHE_W) - 1) << DRD_IOCTL_ARCACHE_R) |
-		(((1 << DRD_IOCTL_AWCACHE_W) - 1) << DRD_IOCTL_AWCACHE_R));
-	writel(DRD_IOCTRL_VAL | val, driver->idmdrd_regs);
-
 	val = readl(driver->icfgdrd_regs + ICFG_FSM_CTRL);
 
 	if (data->new_state == EVT_HOST) {
@@ -148,16 +124,15 @@ static int ns2_drd_phy_poweroff(struct phy *phy)
 {
 	struct ns2_phy_data *data = phy_get_drvdata(phy);
 	struct ns2_phy_driver *driver = data->driver;
-	u32 mask;
 	u32 val;
 
-	mask = AFE_CORERDY_VDDC;
-	val = ~mask;
-	regmap_update_bits(driver->crmu_usb2_ctrl, CRMU_USB2, mask, val);
+	val = readl(driver->crmu_usb2_ctrl);
+	val &= ~AFE_CORERDY_VDDC;
+	writel(val, driver->crmu_usb2_ctrl);
 
-	mask = DRD_DEV_MODE;
-	val = ~mask;
-	regmap_update_bits(driver->crmu_usb2_ctrl, CRMU_USB2, mask, val);
+	val = readl(driver->crmu_usb2_ctrl);
+	val &= ~DRD_DEV_MODE;
+	writel(val, driver->crmu_usb2_ctrl);
 
 	/* Disable Host and Device Mode */
 	val = readl(driver->icfgdrd_regs + ICFG_FSM_CTRL);
@@ -172,25 +147,24 @@ static int ns2_drd_phy_poweron(struct phy *phy)
 	struct ns2_phy_data *data = phy_get_drvdata(phy);
 	struct ns2_phy_driver *driver = data->driver;
 	u32 extcon_event = data->new_state;
-	u32 mask;
 	int ret;
 	u32 val;
 
 	if (extcon_event == EVT_DEVICE) {
 		writel(DRD_DEV_VAL, driver->icfgdrd_regs + ICFG_DRD_P0CTL);
 
-		val = readl(driver->idmdrd_regs + IDM_RST_CTL_OFFSET);
+		val = readl(driver->idmdrd_rst_ctrl);
 		val &= ~IDM_RST_BIT;
-		writel(val, driver->idmdrd_regs + IDM_RST_CTL_OFFSET);
+		writel(val, driver->idmdrd_rst_ctrl);
 
-		mask = val = (AFE_CORERDY_VDDC | DRD_DEV_MODE);
-		regmap_update_bits(driver->crmu_usb2_ctrl, CRMU_USB2,
-				   mask, val);
+		val = readl(driver->crmu_usb2_ctrl);
+		val |= (AFE_CORERDY_VDDC | DRD_DEV_MODE);
+		writel(val, driver->crmu_usb2_ctrl);
 
 		/* Bring PHY and PHY_PLL out of Reset */
-		mask = val = (PHY_PLL_RESETB | PHY_RESETB);
-		regmap_update_bits(driver->crmu_usb2_ctrl, CRMU_USB2,
-				   mask, val);
+		val = readl(driver->crmu_usb2_ctrl);
+		val |= (PHY_PLL_RESETB | PHY_RESETB);
+		writel(val, driver->crmu_usb2_ctrl);
 
 		ret = pll_lock_stat(ICFG_MISC_STAT, PHY_PLL_LOCK, driver);
 		if (ret < 0) {
@@ -200,9 +174,9 @@ static int ns2_drd_phy_poweron(struct phy *phy)
 	} else {
 		writel(DRD_HOST_VAL, driver->icfgdrd_regs + ICFG_DRD_P0CTL);
 
-		mask = val = AFE_CORERDY_VDDC;
-		regmap_update_bits(driver->crmu_usb2_ctrl, CRMU_USB2,
-				   mask, val);
+		val = readl(driver->crmu_usb2_ctrl);
+		val |= AFE_CORERDY_VDDC;
+		writel(val, driver->crmu_usb2_ctrl);
 
 		ret = pll_lock_stat(ICFG_MISC_STAT, PHY_PLL_LOCK, driver);
 		if (ret < 0) {
@@ -210,9 +184,9 @@ static int ns2_drd_phy_poweron(struct phy *phy)
 			return ret;
 		}
 
-		val = readl(driver->idmdrd_regs + IDM_RST_CTL_OFFSET);
+		val = readl(driver->idmdrd_rst_ctrl);
 		val &= ~IDM_RST_BIT;
-		writel(val, driver->idmdrd_regs + IDM_RST_CTL_OFFSET);
+		writel(val, driver->idmdrd_rst_ctrl);
 
 		/* port over current Polarity */
 		val = readl(driver->usb2h_strap_reg);
@@ -326,6 +300,7 @@ static int ns2_drd_phy_probe(struct platform_device *pdev)
 	struct ns2_phy_data *data;
 	struct resource *res;
 	int ret;
+	u32 val;
 
 	driver = devm_kzalloc(dev, sizeof(struct ns2_phy_driver),
 			      GFP_KERNEL);
@@ -343,9 +318,14 @@ static int ns2_drd_phy_probe(struct platform_device *pdev)
 		return PTR_ERR(driver->icfgdrd_regs);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rst-ctrl");
-	driver->idmdrd_regs = devm_ioremap_resource(dev, res);
-	if (IS_ERR(driver->idmdrd_regs))
-		return PTR_ERR(driver->idmdrd_regs);
+	driver->idmdrd_rst_ctrl = devm_ioremap_resource(dev, res);
+	if (IS_ERR(driver->idmdrd_rst_ctrl))
+		return PTR_ERR(driver->idmdrd_rst_ctrl);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "crmu-ctrl");
+	driver->crmu_usb2_ctrl = devm_ioremap_resource(dev, res);
+	if (IS_ERR(driver->crmu_usb2_ctrl))
+		return PTR_ERR(driver->crmu_usb2_ctrl);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "usb2-strap");
 	driver->usb2h_strap_reg = devm_ioremap_resource(dev, res);
@@ -412,6 +392,11 @@ static int ns2_drd_phy_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, driver);
 
+	/* Shutdown all ports. They can be powered up as required */
+	val = readl(driver->crmu_usb2_ctrl);
+	val &= ~(AFE_CORERDY_VDDC | PHY_RESETB);
+	writel(val, driver->crmu_usb2_ctrl);
+
 	data = driver->data;
 	data->phy = devm_phy_create(dev, dev->of_node, &ops);
 	if (IS_ERR(data->phy)) {
@@ -427,11 +412,6 @@ static int ns2_drd_phy_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to register as phy provider\n");
 		return PTR_ERR(phy_provider);
 	}
-
-	driver->crmu_usb2_ctrl = syscon_regmap_lookup_by_compatible
-					("brcm,ns2-crmu-usbctl");
-	if (IS_ERR(driver->crmu_usb2_ctrl))
-		return PTR_ERR(driver->crmu_usb2_ctrl);
 
 	platform_set_drvdata(pdev, driver);
 
