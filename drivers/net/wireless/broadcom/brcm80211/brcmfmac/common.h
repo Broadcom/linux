@@ -49,7 +49,6 @@ extern struct brcmf_mp_global_t brcmf_mp_global;
  * @roamoff: Firmware roaming off?
  * @ignore_probe_fail: Ignore probe failure.
  * @country_codes: If available, pointer to struct for translating country codes
- * @log_size: limit the read size when accessing log from wifi chip
  * @bus: Bus specific platform data. Only SDIO at the mmoment.
  */
 struct brcmf_mp_device {
@@ -60,7 +59,6 @@ struct brcmf_mp_device {
 	bool		iapp;
 	bool		ignore_probe_fail;
 	struct brcmfmac_pd_cc *country_codes;
-	unsigned int	log_size;
 	const char	*board_type;
 	union {
 		struct brcmfmac_sdio_pd sdio;
