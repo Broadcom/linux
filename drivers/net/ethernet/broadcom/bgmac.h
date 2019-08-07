@@ -520,8 +520,6 @@ struct bgmac {
 
 	bool loopback;
 
-	bool switch_disable;
-
 	u32 (*read)(struct bgmac *bgmac, u16 offset);
 	void (*write)(struct bgmac *bgmac, u16 offset, u32 value);
 	u32 (*idm_read)(struct bgmac *bgmac, u16 offset);

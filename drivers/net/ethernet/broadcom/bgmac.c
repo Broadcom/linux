@@ -849,9 +849,6 @@ static void bgmac_mac_speed(struct bgmac *bgmac)
 	if (bgmac->mac_duplex == DUPLEX_HALF)
 		set |= BGMAC_CMDCFG_HD;
 
-	if (bgmac->switch_disable)
-		set |= BGMAC_CMDCFG_AE;
-
 	bgmac_cmdcfg_maskset(bgmac, mask, set, true);
 }
 
