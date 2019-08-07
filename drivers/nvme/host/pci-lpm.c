@@ -986,6 +986,7 @@ static int nvme_alloc_ns(struct nvme_ctrl *ctrl, unsigned int nsid)
 
 	lba_shift = id->lbaf[id->flbas & NVME_NS_FLBAS_LBA_MASK].ds;
 	dev->lpm_dev.lba_shift = lba_shift;
+	dev->capacity = id->ncap << lba_shift;
 
 	return 0;
 }
@@ -1135,6 +1136,17 @@ static void nvme_put_shared_data(struct nvme_dev *ndev, void *shared_data)
 	ndev->shared_data = data;
 }
 
+static u64 nvme_lpm_backup_capacity(struct nvme_dev *dev)
+{
+	struct nvme_lpm_dev *lpm_dev = &dev->lpm_dev;
+	u64 max_io_sqes, backup_limit;
+
+	max_io_sqes = (dev->online_queues - 1) * (dev->q_depth - 1);
+	backup_limit = max_io_sqes << lpm_dev->max_transfer_shift;
+
+	return min(backup_limit, dev->capacity);
+}
+
 /**
  * nvme_build_backup_io_queues - Build NVMe command queue as per memory backup
  *				 requirement
@@ -1174,6 +1186,12 @@ static int nvme_build_backup_io_queues(void *ndev_cntxt, u64 mem_addr,
 	if (!dev->prp_addr)
 		return -ENOMEM;
 	dev->num_prp_pages = 0;
+
+	if (xfer_length > nvme_lpm_backup_capacity(dev)) {
+		dev_err(dev->dev,
+			"NVMe not capable for given LPM backup length\n");
+		return -EIO;
+	}
 
 	/* At least 1 IO Queue will be used */
 	lpm_dev->used_io_queues = 1;
