@@ -35,9 +35,6 @@ Optional properties:
 	cell's memory interface can handle; if not present, the memory
 	interface is fast enough to handle all possible video modes
 
-- clcd-clock-select: to drive the CLCDCLKSEL signal, which selects the
-	the reference clock source, set to <0> for HCLK, <1> for CLCDCLK.
-
 Required sub-nodes:
 
 - port: describes LCD panel signals, following the common binding
@@ -79,7 +76,6 @@ Example:
 		clocks = <&oscclk1>, <&oscclk2>;
 		clock-names = "clcdclk", "apb_pclk";
 		max-memory-bandwidth = <94371840>; /* Bps, 1024x768@60 16bpp */
-		clcd-clock-select = <0>;
 
 		port {
 			clcd_pads: endpoint {
