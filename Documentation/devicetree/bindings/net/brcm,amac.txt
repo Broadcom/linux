@@ -19,10 +19,6 @@ Required properties:
 
 Optional properties:
 - mac-address:	See ethernet.txt file in the same directory
-- brcm,amac-switch-bypass:  This configuration is to by pass the internal
-			    switch (if available). With the switch
-			    disabled only Port 0 will function in those
-			    SoC's.
 
 Examples:
 
