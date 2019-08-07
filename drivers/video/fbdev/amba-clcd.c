@@ -759,7 +759,6 @@ static int clcdfb_of_init_display(struct clcd_fb *fb)
 	unsigned int bpp;
 	u32 max_bandwidth;
 	u32 tft_r0b0g0[3];
-	u32 clcd_clock_select;
 
 	fb->panel = devm_kzalloc(&fb->dev->dev, sizeof(*fb->panel), GFP_KERNEL);
 	if (!fb->panel)
@@ -808,11 +807,6 @@ static int clcdfb_of_init_display(struct clcd_fb *fb)
 	} else
 		bpp = 32;
 	fb->panel->bpp = bpp;
-
-	err = of_property_read_u32(fb->dev->dev.of_node, "clcd-clock-select",
-			&clcd_clock_select);
-	if (!err && clcd_clock_select)
-		fb->panel->tim2 |= TIM2_CLKSEL;
 
 #ifdef CONFIG_CPU_BIG_ENDIAN
 	fb->panel->cntl |= CNTL_BEBO;
