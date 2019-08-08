@@ -9,95 +9,55 @@ Required properties:
 		Valid names are "aud" and "i2s_in". "aud" contains a
 		set of DMA, I2S_OUT and SPDIF registers. "i2s_in" contains
 		a set of I2S_IN registers.
+	- clocks: PLL and leaf clocks used by audio ports
+	- assigned-clocks: PLL and leaf clocks
+	- assigned-clock-parents: parent clocks of the assigned clocks
+		(usually the PLL)
+	- assigned-clock-rates: List of clock frequencies of the
+		assigned clocks
+	- clock-names: names of 3 leaf clocks used by audio ports
+		Valid names are "ch0_audio", "ch1_audio", "ch2_audio"
 	- interrupts: audio DMA interrupt number
-	- brcm,clk-mux-syscon: The syscon phandle for shared registers which
-		control the port's audio mux clock and some of the i2s controls
-
-Optional properties:
-	- assigned-clocks: only valid choice is audiopll
-	- assigned-clock-rates: clock frequency for audiopll
-If none of the ports need an internal master clock then there no need to
-initialize the pll clock.
-
 
 SSP Subnode properties:
-Required:
-	- reg: The index of ssp port interface to use
-		Valid value are 0, 1, 2, or 3 (for spdif)
-Optional:
-	- clocks: clock used by audio port
-		  one of the audiopll outputs (see brcm,iproc-clocks.txt).
-	- clock-names: Must be "ssp_clk"
+- reg: The index of ssp port interface to use
+	Valid value are 0, 1, 2, or 3 (for spdif)
 
 Example:
-	ssp_clkmux: syscon@180aea00 {
-		compatible = "brcm,iproc-audio-ssp-syscon", "syscon";
-		reg = <0x180aea00 0x100>;
-	};
-
 	cygnus_audio: audio@180ae000 {
 		compatible = "brcm,cygnus-audio";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x180ae000 0xafd>, <0x180aec00 0x1f8>;
 		reg-names = "aud", "i2s_in";
-
-		assigned-clocks = <&audiopll BCM_CYGNUS_AUDIOPLL>;
-		assigned-clock-rates = <1376255989>;
-
+		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
+				<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
+				<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+		assigned-clocks = <&audiopll BCM_CYGNUS_AUDIOPLL>,
+							<&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
+							<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
+							<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
+		assigned-clock-parents = <&audiopll BCM_CYGNUS_AUDIOPLL>;
+		assigned-clock-rates = <1769470191>,
+								<0>,
+								<0>,
+								<0>;
+		clock-names = "ch0_audio", "ch1_audio", "ch2_audio";
 		interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
-
-		brcm,clk-mux-syscon = <&ssp_clkmux>;
 
 		ssp0: ssp_port@0 {
 			reg = <0>;
-
-			clocks = <&ssp0_clock>;
-			clock-names = "ssp_clk";
-
-			assigned-clocks = <&ssp0_clock>;
-			assigned-clock-parents =
-					<&audiopll BCM_CYGNUS_AUDIOPLL_CH0>;
-
-			status = "okay";
 		};
 
 		ssp1: ssp_port@1 {
 			reg = <1>;
-
-			clocks = <&ssp1_clock>;
-			clock-names = "ssp_clk";
-
-			assigned-clocks = <&ssp1_clock>;
-			assigned-clock-parents =
-					<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>;
-
-			status = "okay";
 		};
 
 		ssp2: ssp_port@2 {
 			reg = <2>;
-
-			clocks = <&ssp2_clock>;
-			clock-names = "ssp_clk";
-
-			assigned-clocks = <&ssp2_clock>;
-			assigned-clock-parents =
-					<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>;
-
-			status = "okay";
 		};
 
 		spdif: spdif_port@3 {
 			reg = <3>;
-
-			clocks = <&spdiftx_clock>;
-       			clock-names = "ssp_clk";
-
-			assigned-clocks = <&spdiftx_clock>;
-			assigned-clock-parents =
-					<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
-
-			status = "disabled";
 		};
 	};
