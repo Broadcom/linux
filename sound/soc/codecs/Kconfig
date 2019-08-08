@@ -47,7 +47,6 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_AK5558 if I2C
 	select SND_SOC_ALC5623 if I2C
 	select SND_SOC_ALC5632 if I2C
-	select SND_SOC_BCMDUMMY
 	select SND_SOC_BT_SCO
 	select SND_SOC_BD28623
 	select SND_SOC_CQ0093VC
@@ -445,9 +444,6 @@ config SND_SOC_ALC5623
 
 config SND_SOC_ALC5632
 	tristate
-
-config SND_SOC_BCMDUMMY
-	tristate "Dummy generic codec driver"
 
 config SND_SOC_BD28623
 	tristate "ROHM BD28623 CODEC"
