@@ -31,7 +31,11 @@ struct bcm_vk_msgq {
 /*
  * some useful message queue macros
  */
+
+/* vk_msg_blk is 16 bytes fixed */
 #define VK_MSGQ_BLK_SIZE   (sizeof(struct vk_msg_blk))
+/* shift for fast division of basic msg blk size */
+#define VK_MSGQ_BLK_SZ_SHIFT 4
 
 #define VK_MSGQ_EMPTY(q) (q->rd_idx == q->wr_idx)
 

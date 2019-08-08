@@ -135,6 +135,11 @@
 
 /* VK device supports a maximum of 3 bars */
 #define MAX_BAR	3
+
+/* default number of msg blk for inband SGL */
+#define BCM_VK_DEF_IB_SGL_BLK_LEN	 16
+#define BCM_VK_IB_SGL_BLK_MAX		 24
+
 enum pci_barno {
 	BAR_0 = 0,
 	BAR_1,
@@ -176,6 +181,7 @@ struct bcm_vk {
 	dma_addr_t tdma_addr; /* test dma segment bus addr */
 
 	struct notifier_block panic_nb;
+	uint32_t ib_sgl_size; /* size allocated for inband sgl insertion */
 };
 
 /* wq offload work items bits definitions */

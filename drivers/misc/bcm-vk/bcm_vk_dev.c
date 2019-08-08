@@ -83,10 +83,15 @@ static bool auto_load = true;
 module_param(auto_load, bool, 0444);
 MODULE_PARM_DESC(auto_load,
 		 "Load images automatically at PCIe probe time.\n");
-uint nr_scratch_pages = VK_BAR1_SCRATCH_DEF_NR_PAGES;
+static uint nr_scratch_pages = VK_BAR1_SCRATCH_DEF_NR_PAGES;
 module_param(nr_scratch_pages, uint, 0444);
 MODULE_PARM_DESC(nr_scratch_pages,
 		 "Number of pre allocated DMAable coherent pages.\n");
+static uint nr_ib_sgl_blk = BCM_VK_DEF_IB_SGL_BLK_LEN;
+module_param(nr_ib_sgl_blk, uint, 0444);
+MODULE_PARM_DESC(nr_ib_sgl_blk,
+		 "Number of in-band msg blks for short SGL.\n");
+
 /*
  * mutex for download - this is created for temporary fix as the
  * firmware request seems to return corrupted data when run in parallel.
@@ -1318,6 +1323,12 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		return -ENOMEM;
 
 	kref_init(&vk->kref);
+	if (nr_ib_sgl_blk > BCM_VK_IB_SGL_BLK_MAX) {
+		dev_warn(dev, "Inband SGL blk %d limited to max %d\n",
+			 nr_ib_sgl_blk, BCM_VK_IB_SGL_BLK_MAX);
+		nr_ib_sgl_blk = BCM_VK_IB_SGL_BLK_MAX;
+	}
+	vk->ib_sgl_size = nr_ib_sgl_blk * VK_MSGQ_BLK_SIZE;
 	vk->pdev = pdev;
 	mutex_init(&vk->mutex);
 

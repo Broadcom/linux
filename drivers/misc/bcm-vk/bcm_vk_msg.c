@@ -269,6 +269,38 @@ static void bcm_vk_append_pendq(struct bcm_vk_msg_chan *chan, uint16_t q_num,
 	spin_unlock(&chan->pendq_lock);
 }
 
+static uint32_t bcm_vk_append_ib_sgl(struct bcm_vk *vk,
+				     struct bcm_vk_wkent *entry,
+				     struct _vk_data *data,
+				     unsigned int num_planes)
+{
+	unsigned int i;
+	unsigned int item_cnt = 0;
+	struct device *dev = &vk->pdev->dev;
+	uint32_t ib_sgl_size = 0;
+	uint8_t *buf = (uint8_t *)&entry->h2vk_msg[entry->h2vk_blks];
+
+	for (i = 0; i < num_planes; i++) {
+		if (data[i].address &&
+		    (ib_sgl_size + data[i].size) <= vk->ib_sgl_size) {
+
+			item_cnt++;
+			memcpy(buf, entry->dma[i].sglist, data[i].size);
+			ib_sgl_size += data[i].size;
+			buf += data[i].size;
+		}
+	}
+
+	dev_dbg(dev, "Num %u sgl items appended, size 0x%x, room 0x%x\n",
+		item_cnt, ib_sgl_size, vk->ib_sgl_size);
+
+	/* round up size */
+	ib_sgl_size = (ib_sgl_size + VK_MSGQ_BLK_SIZE - 1)
+		       >> VK_MSGQ_BLK_SZ_SHIFT;
+
+	return ib_sgl_size;
+}
+
 void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num,
 			      uint32_t db_val)
 {
@@ -730,6 +762,7 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	struct bcm_vk_msgq *msgq;
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_wkent *entry;
+	uint32_t sgl_extra_blks;
 
 	dev_dbg(dev, "Msg count %ld, msg_inited %d\n", count, vk->msgq_inited);
 
@@ -737,15 +770,16 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		return -EPERM;
 
 	/* first, do sanity check where count should be multiple of basic blk */
-	if ((count % VK_MSGQ_BLK_SIZE) != 0) {
+	if (count & (VK_MSGQ_BLK_SIZE - 1)) {
 		dev_err(dev, "Failure with size %ld not multiple of %ld\n",
 			count, VK_MSGQ_BLK_SIZE);
 		rc = -EBADR;
 		goto bcm_vk_write_err;
 	}
 
-	/* allocate the work entry and the buffer */
-	entry = kzalloc(sizeof(struct bcm_vk_wkent) + count, GFP_KERNEL);
+	/* allocate the work entry + buffer for size count and inband sgl */
+	entry = kzalloc(sizeof(struct bcm_vk_wkent) + count + vk->ib_sgl_size,
+			GFP_KERNEL);
 	if (!entry) {
 		rc = -ENOMEM;
 		goto bcm_vk_write_err;
@@ -755,12 +789,13 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	if (copy_from_user(&entry->h2vk_msg[0], buf, count))
 		goto bcm_vk_write_free_ent;
 
-	entry->h2vk_blks = count / VK_MSGQ_BLK_SIZE;
+	entry->h2vk_blks = count >> VK_MSGQ_BLK_SZ_SHIFT;
 	entry->ctx = ctx;
 
 	/* do a check on the blk size which could not exceed queue space */
 	msgq = vk->h2vk_msg_chan.msgq[entry->h2vk_msg[0].queue_id];
-	if (entry->h2vk_blks > (msgq->size - 1)) {
+	if (entry->h2vk_blks + (vk->ib_sgl_size >> VK_MSGQ_BLK_SZ_SHIFT)
+	    > (msgq->size - 1)) {
 		dev_err(dev, "Blk size %d exceed max queue size allowed %d\n",
 			entry->h2vk_blks, msgq->size - 1);
 		rc = -EOVERFLOW;
@@ -784,7 +819,7 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 
 	/* Convert any pointers to sg list */
 	if (entry->h2vk_msg[0].function_id == VK_FID_TRANS_BUF) {
-		int num_planes;
+		unsigned int num_planes;
 		int dir;
 		struct _vk_data *data;
 
@@ -820,6 +855,12 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		rc = bcm_vk_sg_alloc(dev, entry->dma, dir, data, num_planes);
 		if (rc)
 			goto bcm_vk_write_free_msgid;
+
+		/* try to embed inband sgl */
+		sgl_extra_blks = bcm_vk_append_ib_sgl(vk, entry, data,
+						      num_planes);
+		entry->h2vk_blks += sgl_extra_blks;
+		entry->h2vk_msg[0].size += sgl_extra_blks;
 	}
 
 	/*
