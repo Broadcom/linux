@@ -59,7 +59,6 @@ obj-$(CONFIG_ASPEED_LPC_SNOOP)	+= aspeed-lpc-snoop.o
 obj-$(CONFIG_PCI_ENDPOINT_TEST)	+= pci_endpoint_test.o
 obj-$(CONFIG_OCXL)		+= ocxl/
 obj-$(CONFIG_BCM_VK)		+= bcm-vk/
-obj-$(CONFIG_BCM_IPROC_DTE)     += bcm_iproc_dte.o
 obj-y				+= bcm-iproc-ftm/
 obj-$(CONFIG_NVME_LPM_SSR)	+= nvme-lpm-ssr.o
 obj-y				+= cardreader/

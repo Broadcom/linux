@@ -548,16 +548,6 @@ source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/bcm-vk/Kconfig"
 source "drivers/misc/bcm-iproc-ftm/Kconfig"
 
-config BCM_IPROC_DTE
-        tristate "DTE support"
-        depends on ARCH_BCM_IPROC || COMPILE_TEST
-        help
-          Enable support for a Digital Timing Engine (DTE) that allows for hardware
-          time stamping of network packets, audio/video samples and/or GPIO inputs
-          in a common adjustable time base.
-
-          If unsure, say N.
-
 config NVME_LPM_SSR
         bool "NVME LPM data-back support"
         depends on ARCH_BCM_IPROC || COMPILE_TEST
