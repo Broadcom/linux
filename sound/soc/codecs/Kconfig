@@ -36,7 +36,6 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_ADS117X
 	select SND_SOC_AK4104 if SPI_MASTER
 	select SND_SOC_AK4118 if I2C
-	select SND_SOC_AK4385 if SPI_MASTER
 	select SND_SOC_AK4458 if I2C
 	select SND_SOC_AK4535 if I2C
 	select SND_SOC_AK4554
@@ -406,10 +405,6 @@ config SND_SOC_AK4118
 	tristate "AKM AK4118 CODEC"
 	depends on I2C
 	select REGMAP_I2C
-
-config SND_SOC_AK4385
-	tristate "AKM AK4385 CODEC"
-	depends on SPI_MASTER
 
 config SND_SOC_AK4458
 	tristate "AKM AK4458 CODEC"
