@@ -23,37 +23,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
 
-#include "iproc-pcm.h"
-
-/*
- * The ring buffer regs are arranged as an array in io space. This is the size
- * of each array element.
- */
-#define RBUF_REG_STEP_SIZE    0x18
-
-struct ringbuf_regs {
-	unsigned int rdaddr;
-	unsigned int wraddr;
-	unsigned int baseaddr;
-	unsigned int endaddr;
-	unsigned int fmark;   /* freemark for play, fullmark for caputure */
-};
-
-#define RINGBUF_REG_PLAYBACK(num) ((struct ringbuf_regs) { \
-	.rdaddr = SRC_RBUF_0_RDADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.wraddr = SRC_RBUF_0_WRADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.baseaddr = SRC_RBUF_0_BASEADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)),\
-	.endaddr = SRC_RBUF_0_ENDADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.fmark = SRC_RBUF_0_FREE_MARK_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-})
-
-#define RINGBUF_REG_CAPTURE(num) ((struct ringbuf_regs)  { \
-	.rdaddr = DST_RBUF_0_RDADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.wraddr = DST_RBUF_0_WRADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.baseaddr = DST_RBUF_0_BASEADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)),\
-	.endaddr = DST_RBUF_0_ENDADDR_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-	.fmark = DST_RBUF_0_FULL_MARK_OFFSET + (RBUF_REG_STEP_SIZE * (num)), \
-})
+#include "cygnus-ssp.h"
 
 /* Register offset needed for ASoC PCM module */
 
@@ -214,6 +184,8 @@ static const struct snd_pcm_hardware cygnus_pcm_hw = {
 	.info = SNDRV_PCM_INFO_MMAP |
 			SNDRV_PCM_INFO_MMAP_VALID |
 			SNDRV_PCM_INFO_INTERLEAVED,
+	.formats = SNDRV_PCM_FMTBIT_S16_LE |
+			SNDRV_PCM_FMTBIT_S32_LE,
 
 	/* A period is basically an interrupt */
 	.period_bytes_min = PERIOD_BYTES_MIN,
@@ -232,19 +204,7 @@ static const struct snd_pcm_hardware cygnus_pcm_hw = {
 
 static u64 cygnus_dma_dmamask = DMA_BIT_MASK(32);
 
-static int iproc_reg_read(struct regmap *io_base, unsigned int offset, u32 *val)
-{
-	regmap_read(io_base, offset, val);
-	return 0;
-}
-
-static int iproc_reg_write(struct regmap *io_base, unsigned int offset, u32 val)
-{
-	regmap_write(io_base, offset, val);
-	return 0;
-}
-
-static struct iproc_pcm_dma_info *cygnus_dai_get_dma_data(
+static struct cygnus_aio_port *cygnus_dai_get_dma_data(
 				struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *soc_runtime = substream->private_data;
@@ -252,7 +212,7 @@ static struct iproc_pcm_dma_info *cygnus_dai_get_dma_data(
 	return snd_soc_dai_get_dma_data(soc_runtime->cpu_dai, substream);
 }
 
-static void ringbuf_set_initial(struct regmap *audio_io,
+static void ringbuf_set_initial(void __iomem *audio_io,
 		struct ringbuf_regs *p_rbuf,
 		bool is_playback,
 		u32 start,
@@ -263,6 +223,9 @@ static void ringbuf_set_initial(struct regmap *audio_io,
 	u32 initial_wr;
 	u32 end;
 	u32 fmark_val; /* free or full mark */
+
+	p_rbuf->period_bytes = periodsize;
+	p_rbuf->buf_size = bufsize;
 
 	if (is_playback) {
 		/* Set the pointers to indicate full (flip uppermost bit) */
@@ -283,29 +246,80 @@ static void ringbuf_set_initial(struct regmap *audio_io,
 	 */
 	fmark_val = periodsize - PERIOD_BYTES_MIN;
 
-	iproc_reg_write(audio_io, p_rbuf->baseaddr, start);
-	iproc_reg_write(audio_io, p_rbuf->endaddr, end);
-	iproc_reg_write(audio_io, p_rbuf->fmark, fmark_val);
-	iproc_reg_write(audio_io, p_rbuf->rdaddr, initial_rd);
-	iproc_reg_write(audio_io, p_rbuf->wraddr, initial_wr);
+	writel(start, audio_io + p_rbuf->baseaddr);
+	writel(end, audio_io + p_rbuf->endaddr);
+	writel(fmark_val, audio_io + p_rbuf->fmark);
+	writel(initial_rd, audio_io + p_rbuf->rdaddr);
+	writel(initial_wr, audio_io + p_rbuf->wraddr);
 }
 
-static void get_ringbuf(struct snd_pcm_substream *substream,
-			struct ringbuf_regs *rb_regs)
+static int configure_ringbuf_regs(struct snd_pcm_substream *substream)
 {
-	struct iproc_pcm_dma_info *aio;
+	struct cygnus_aio_port *aio;
+	struct ringbuf_regs *p_rbuf;
+	int status = 0;
+
+	aio = cygnus_dai_get_dma_data(substream);
+
+	/* Map the ssp portnum to a set of ring buffers. */
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		p_rbuf = &aio->play_rb_regs;
+
+		switch (aio->portnum) {
+		case 0:
+			*p_rbuf = RINGBUF_REG_PLAYBACK(0);
+			break;
+		case 1:
+			*p_rbuf = RINGBUF_REG_PLAYBACK(2);
+			break;
+		case 2:
+			*p_rbuf = RINGBUF_REG_PLAYBACK(4);
+			break;
+		case 3: /* SPDIF */
+			*p_rbuf = RINGBUF_REG_PLAYBACK(6);
+			break;
+		default:
+			status = -EINVAL;
+		}
+	} else {
+		p_rbuf = &aio->capture_rb_regs;
+
+		switch (aio->portnum) {
+		case 0:
+			*p_rbuf = RINGBUF_REG_CAPTURE(0);
+			break;
+		case 1:
+			*p_rbuf = RINGBUF_REG_CAPTURE(2);
+			break;
+		case 2:
+			*p_rbuf = RINGBUF_REG_CAPTURE(4);
+			break;
+		default:
+			status = -EINVAL;
+		}
+	}
+
+	return status;
+}
+
+static struct ringbuf_regs *get_ringbuf(struct snd_pcm_substream *substream)
+{
+	struct cygnus_aio_port *aio;
+	struct ringbuf_regs *p_rbuf = NULL;
 
 	aio = cygnus_dai_get_dma_data(substream);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		*rb_regs = RINGBUF_REG_PLAYBACK(aio->portnum * 2);
+		p_rbuf = &aio->play_rb_regs;
 	else
-		*rb_regs = RINGBUF_REG_CAPTURE(aio->portnum * 2);
+		p_rbuf = &aio->capture_rb_regs;
+
+	return p_rbuf;
 }
 
 static void enable_intr(struct snd_pcm_substream *substream)
 {
-	struct iproc_pcm_dma_info *aio;
+	struct cygnus_aio_port *aio;
 	u32 clear_mask;
 
 	aio = cygnus_dai_get_dma_data(substream);
@@ -315,31 +329,32 @@ static void enable_intr(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Clear interrupt status before enabling them */
-		iproc_reg_write(aio->audio, ESR0_STATUS_CLR_OFFSET, clear_mask);
-		iproc_reg_write(aio->audio, ESR1_STATUS_CLR_OFFSET, clear_mask);
-		iproc_reg_write(aio->audio, ESR3_STATUS_CLR_OFFSET, clear_mask);
+		writel(clear_mask, aio->cygaud->audio + ESR0_STATUS_CLR_OFFSET);
+		writel(clear_mask, aio->cygaud->audio + ESR1_STATUS_CLR_OFFSET);
+		writel(clear_mask, aio->cygaud->audio + ESR3_STATUS_CLR_OFFSET);
 		/* Unmask the interrupts of the given port*/
-		iproc_reg_write(aio->audio, ESR0_MASK_CLR_OFFSET, clear_mask);
-		iproc_reg_write(aio->audio, ESR1_MASK_CLR_OFFSET, clear_mask);
-		iproc_reg_write(aio->audio, ESR3_MASK_CLR_OFFSET, clear_mask);
+		writel(clear_mask, aio->cygaud->audio + ESR0_MASK_CLR_OFFSET);
+		writel(clear_mask, aio->cygaud->audio + ESR1_MASK_CLR_OFFSET);
+		writel(clear_mask, aio->cygaud->audio + ESR3_MASK_CLR_OFFSET);
 
-		iproc_reg_write(aio->audio, INTH_R5F_MASK_CLEAR_OFFSET,
-				ANY_PLAYBACK_IRQ);
+		writel(ANY_PLAYBACK_IRQ,
+			aio->cygaud->audio + INTH_R5F_MASK_CLEAR_OFFSET);
 	} else {
-		iproc_reg_write(aio->audio, ESR2_STATUS_CLR_OFFSET, clear_mask);
-		iproc_reg_write(aio->audio, ESR4_STATUS_CLR_OFFSET, clear_mask);
-		iproc_reg_write(aio->audio, ESR2_MASK_CLR_OFFSET, clear_mask);
-		iproc_reg_write(aio->audio, ESR4_MASK_CLR_OFFSET, clear_mask);
+		writel(clear_mask, aio->cygaud->audio + ESR2_STATUS_CLR_OFFSET);
+		writel(clear_mask, aio->cygaud->audio + ESR4_STATUS_CLR_OFFSET);
+		writel(clear_mask, aio->cygaud->audio + ESR2_MASK_CLR_OFFSET);
+		writel(clear_mask, aio->cygaud->audio + ESR4_MASK_CLR_OFFSET);
 
-		iproc_reg_write(aio->audio, INTH_R5F_MASK_CLEAR_OFFSET,
-				ANY_CAPTURE_IRQ);
+		writel(ANY_CAPTURE_IRQ,
+			aio->cygaud->audio + INTH_R5F_MASK_CLEAR_OFFSET);
 	}
+
 }
 
 static void disable_intr(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct iproc_pcm_dma_info *aio;
+	struct cygnus_aio_port *aio;
 	u32 set_mask;
 
 	aio = cygnus_dai_get_dma_data(substream);
@@ -351,13 +366,14 @@ static void disable_intr(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Mask the interrupts of the given port*/
-		iproc_reg_write(aio->audio, ESR0_MASK_SET_OFFSET, set_mask);
-		iproc_reg_write(aio->audio, ESR1_MASK_SET_OFFSET, set_mask);
-		iproc_reg_write(aio->audio, ESR3_MASK_SET_OFFSET, set_mask);
+		writel(set_mask, aio->cygaud->audio + ESR0_MASK_SET_OFFSET);
+		writel(set_mask, aio->cygaud->audio + ESR1_MASK_SET_OFFSET);
+		writel(set_mask, aio->cygaud->audio + ESR3_MASK_SET_OFFSET);
 	} else {
-		iproc_reg_write(aio->audio, ESR2_MASK_SET_OFFSET, set_mask);
-		iproc_reg_write(aio->audio, ESR4_MASK_SET_OFFSET, set_mask);
+		writel(set_mask, aio->cygaud->audio + ESR2_MASK_SET_OFFSET);
+		writel(set_mask, aio->cygaud->audio + ESR4_MASK_SET_OFFSET);
 	}
+
 }
 
 static int cygnus_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
@@ -383,13 +399,13 @@ static int cygnus_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 
 static void cygnus_pcm_period_elapsed(struct snd_pcm_substream *substream)
 {
-	struct iproc_pcm_dma_info *aio;
-	struct ringbuf_regs rbuf;
+	struct cygnus_aio_port *aio;
+	struct ringbuf_regs *p_rbuf = NULL;
 	u32 regval;
 
 	aio = cygnus_dai_get_dma_data(substream);
 
-	get_ringbuf(substream, &rbuf);
+	p_rbuf = get_ringbuf(substream);
 
 	/*
 	 * If free/full mark interrupt occurs, provide timestamp
@@ -399,13 +415,13 @@ static void cygnus_pcm_period_elapsed(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* Set the ring buffer to full */
-		iproc_reg_read(aio->audio, rbuf.rdaddr, &regval);
+		regval = readl(aio->cygaud->audio + p_rbuf->rdaddr);
 		regval = regval ^ BIT(31);
-		iproc_reg_write(aio->audio, rbuf.wraddr, regval);
+		writel(regval, aio->cygaud->audio + p_rbuf->wraddr);
 	} else {
 		/* Set the ring buffer to empty */
-		iproc_reg_read(aio->audio, rbuf.wraddr, &regval);
-		iproc_reg_write(aio->audio, rbuf.rdaddr, regval);
+		regval = readl(aio->cygaud->audio + p_rbuf->wraddr);
+		writel(regval, aio->cygaud->audio + p_rbuf->rdaddr);
 	}
 }
 
@@ -416,14 +432,13 @@ static void cygnus_pcm_period_elapsed(struct snd_pcm_substream *substream)
  *  0x4	I2S2_out port caused interrupt
  *  0x8	SPDIF_out port caused interrupt
  */
-static void handle_playback_irq(struct iproc_rb_info *rb_info)
+static void handle_playback_irq(struct cygnus_audio *cygaud)
 {
-	struct regmap *audio_io;
+	void __iomem *audio_io;
 	u32 port;
 	u32 esr_status0, esr_status1, esr_status3;
-	u32 esr_mask0, esr_mask1, esr_mask3;
 
-	audio_io = rb_info->audio;
+	audio_io = cygaud->audio;
 
 	/*
 	 * ESR status gets updates with/without interrupts enabled.
@@ -431,19 +446,14 @@ static void handle_playback_irq(struct iproc_rb_info *rb_info)
 	 * disable status and use it to determine which ESR status
 	 * should be serviced.
 	 */
-	iproc_reg_read(audio_io, ESR0_STATUS_OFFSET, &esr_status0);
-	iproc_reg_read(audio_io, ESR0_MASK_STATUS_OFFSET, &esr_mask0);
-	esr_status0 &= ~esr_mask0;
+	esr_status0 = readl(audio_io + ESR0_STATUS_OFFSET);
+	esr_status0 &= ~readl(audio_io + ESR0_MASK_STATUS_OFFSET);
+	esr_status1 = readl(audio_io + ESR1_STATUS_OFFSET);
+	esr_status1 &= ~readl(audio_io + ESR1_MASK_STATUS_OFFSET);
+	esr_status3 = readl(audio_io + ESR3_STATUS_OFFSET);
+	esr_status3 &= ~readl(audio_io + ESR3_MASK_STATUS_OFFSET);
 
-	iproc_reg_read(audio_io, ESR1_STATUS_OFFSET, &esr_status1);
-	iproc_reg_read(audio_io, ESR1_MASK_STATUS_OFFSET, &esr_mask1);
-	esr_status1 &= ~esr_mask1;
-
-	iproc_reg_read(audio_io, ESR3_STATUS_OFFSET, &esr_status3);
-	iproc_reg_read(audio_io, ESR3_MASK_STATUS_OFFSET, &esr_mask3);
-	esr_status3 &= ~esr_mask3;
-
-	for (port = 0; port < rb_info->num_playback; port++) {
+	for (port = 0; port < CYGNUS_MAX_PLAYBACK_PORTS; port++) {
 		u32 esrmask = BIT(port);
 
 		/*
@@ -454,7 +464,7 @@ static void handle_playback_irq(struct iproc_rb_info *rb_info)
 		 * handle getting everything going again.
 		 */
 		if ((esrmask & esr_status1) || (esrmask & esr_status0)) {
-			dev_dbg(rb_info->dev,
+			dev_dbg(cygaud->dev,
 				"Underrun: esr0=0x%x, esr1=0x%x esr3=0x%x\n",
 				esr_status0, esr_status1, esr_status3);
 		}
@@ -466,17 +476,17 @@ static void handle_playback_irq(struct iproc_rb_info *rb_info)
 		if (esrmask & esr_status3) {
 			struct snd_pcm_substream *playstr;
 
-			playstr = rb_info->rb_state_play[port].substream;
+			playstr = cygaud->portinfo[port].play_stream;
 			cygnus_pcm_period_elapsed(playstr);
 		}
 	}
 
 	/* Clear ESR interrupt */
-	iproc_reg_write(audio_io, ESR0_STATUS_CLR_OFFSET, esr_status0);
-	iproc_reg_write(audio_io, ESR1_STATUS_CLR_OFFSET, esr_status1);
-	iproc_reg_write(audio_io, ESR3_STATUS_CLR_OFFSET, esr_status3);
+	writel(esr_status0, audio_io + ESR0_STATUS_CLR_OFFSET);
+	writel(esr_status1, audio_io + ESR1_STATUS_CLR_OFFSET);
+	writel(esr_status3, audio_io + ESR3_STATUS_CLR_OFFSET);
 	/* Rearm freemark logic by writing 1 to the correct bit */
-	iproc_reg_write(audio_io, BF_REARM_FREE_MARK_OFFSET, esr_status3);
+	writel(esr_status3, audio_io + BF_REARM_FREE_MARK_OFFSET);
 }
 
 /*
@@ -485,14 +495,13 @@ static void handle_playback_irq(struct iproc_rb_info *rb_info)
  *  0x2	I2S1_in port caused interrupt
  *  0x4	I2S2_in port caused interrupt
  */
-static void handle_capture_irq(struct iproc_rb_info *rb_info)
+static void handle_capture_irq(struct cygnus_audio *cygaud)
 {
-	struct regmap *audio_io;
+	void __iomem *audio_io;
 	u32 port;
 	u32 esr_status2, esr_status4;
-	u32 esr_mask2, esr_mask4;
 
-	audio_io = rb_info->audio;
+	audio_io = cygaud->audio;
 
 	/*
 	 * ESR status gets updates with/without interrupts enabled.
@@ -500,15 +509,12 @@ static void handle_capture_irq(struct iproc_rb_info *rb_info)
 	 * disable status and use it to determine which ESR status
 	 * should be serviced.
 	 */
-	iproc_reg_read(audio_io, ESR2_STATUS_OFFSET, &esr_status2);
-	iproc_reg_read(audio_io, ESR2_MASK_STATUS_OFFSET, &esr_mask2);
-	esr_status2 &= ~esr_mask2;
+	esr_status2 = readl(audio_io + ESR2_STATUS_OFFSET);
+	esr_status2 &= ~readl(audio_io + ESR2_MASK_STATUS_OFFSET);
+	esr_status4 = readl(audio_io + ESR4_STATUS_OFFSET);
+	esr_status4 &= ~readl(audio_io + ESR4_MASK_STATUS_OFFSET);
 
-	iproc_reg_read(audio_io, ESR4_STATUS_OFFSET, &esr_status4);
-	iproc_reg_read(audio_io, ESR4_MASK_STATUS_OFFSET, &esr_mask4);
-	esr_status4 &= ~esr_mask4;
-
-	for (port = 0; port < rb_info->num_capture; port++) {
+	for (port = 0; port < CYGNUS_MAX_CAPTURE_PORTS; port++) {
 		u32 esrmask = BIT(port);
 
 		/*
@@ -519,27 +525,27 @@ static void handle_capture_irq(struct iproc_rb_info *rb_info)
 		 * handle getting everything going again.
 		 */
 		if (esrmask & esr_status2)
-			dev_dbg(rb_info->dev,
+			dev_dbg(cygaud->dev,
 				"Overflow: esr2=0x%x\n", esr_status2);
 
 		if (esrmask & esr_status4) {
 			struct snd_pcm_substream *capstr;
 
-			capstr = rb_info->rb_state_cap[port].substream;
+			capstr = cygaud->portinfo[port].capture_stream;
 			cygnus_pcm_period_elapsed(capstr);
 		}
 	}
 
-	iproc_reg_write(audio_io, ESR2_STATUS_CLR_OFFSET, esr_status2);
-	iproc_reg_write(audio_io, ESR4_STATUS_CLR_OFFSET, esr_status4);
+	writel(esr_status2, audio_io + ESR2_STATUS_CLR_OFFSET);
+	writel(esr_status4, audio_io + ESR4_STATUS_CLR_OFFSET);
 	/* Rearm fullmark logic by writing 1 to the correct bit */
-	iproc_reg_write(audio_io, BF_REARM_FULL_MARK_OFFSET, esr_status4);
+	writel(esr_status4, audio_io + BF_REARM_FULL_MARK_OFFSET);
 }
 
 static irqreturn_t cygnus_dma_irq(int irq, void *data)
 {
 	u32 r5_status;
-	struct iproc_rb_info *rb_info = data;
+	struct cygnus_audio *cygaud = data;
 
 	/*
 	 * R5 status bits	Description
@@ -549,23 +555,23 @@ static irqreturn_t cygnus_dma_irq(int irq, void *data)
 	 *  3		ESR3 (Freemark play. interrupt)
 	 *  4		ESR4 (Fullmark capt. interrupt)
 	 */
-	iproc_reg_read(rb_info->audio, INTH_R5F_STATUS_OFFSET, &r5_status);
+	r5_status = readl(cygaud->audio + INTH_R5F_STATUS_OFFSET);
 
 	if (!(r5_status & (ANY_PLAYBACK_IRQ | ANY_CAPTURE_IRQ)))
 		return IRQ_NONE;
 
 	/* If playback interrupt happened */
 	if (ANY_PLAYBACK_IRQ & r5_status) {
-		handle_playback_irq(rb_info);
-		iproc_reg_write(rb_info->audio, INTH_R5F_CLEAR_OFFSET,
-				ANY_PLAYBACK_IRQ & r5_status);
+		handle_playback_irq(cygaud);
+		writel(ANY_PLAYBACK_IRQ & r5_status,
+			cygaud->audio + INTH_R5F_CLEAR_OFFSET);
 	}
 
 	/* If  capture interrupt happened */
 	if (ANY_CAPTURE_IRQ & r5_status) {
-		handle_capture_irq(rb_info);
-		iproc_reg_write(rb_info->audio, INTH_R5F_CLEAR_OFFSET,
-				ANY_CAPTURE_IRQ & r5_status);
+		handle_capture_irq(cygaud);
+		writel(ANY_CAPTURE_IRQ & r5_status,
+			cygaud->audio + INTH_R5F_CLEAR_OFFSET);
 	}
 
 	return IRQ_HANDLED;
@@ -575,7 +581,7 @@ static int cygnus_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct iproc_pcm_dma_info *aio;
+	struct cygnus_aio_port *aio;
 	int ret;
 
 	aio = cygnus_dai_get_dma_data(substream);
@@ -599,7 +605,10 @@ static int cygnus_pcm_open(struct snd_pcm_substream *substream)
 	 * Keep track of which substream belongs to which port.
 	 * This info is needed by snd_pcm_period_elapsed() in irq_handler
 	 */
-	aio->substream = substream;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		aio->play_stream = substream;
+	else
+		aio->capture_stream = substream;
 
 	return 0;
 }
@@ -607,13 +616,19 @@ static int cygnus_pcm_open(struct snd_pcm_substream *substream)
 static int cygnus_pcm_close(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct iproc_pcm_dma_info *aio;
+	struct cygnus_aio_port *aio;
 
 	aio = cygnus_dai_get_dma_data(substream);
 
 	dev_dbg(rtd->cpu_dai->dev, "%s  port %d\n", __func__, aio->portnum);
 
-	aio->substream = NULL;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		aio->play_stream = NULL;
+	else
+		aio->capture_stream = NULL;
+
+	if (!aio->play_stream && !aio->capture_stream)
+		dev_dbg(rtd->cpu_dai->dev, "freed  port %d\n", aio->portnum);
 
 	return 0;
 }
@@ -623,7 +638,7 @@ static int cygnus_pcm_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct iproc_pcm_dma_info *aio;
+	struct cygnus_aio_port *aio;
 	int ret = 0;
 
 	aio = cygnus_dai_get_dma_data(substream);
@@ -638,7 +653,7 @@ static int cygnus_pcm_hw_params(struct snd_pcm_substream *substream,
 static int cygnus_pcm_hw_free(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct iproc_pcm_dma_info *aio;
+	struct cygnus_aio_port *aio;
 
 	aio = cygnus_dai_get_dma_data(substream);
 	dev_dbg(rtd->cpu_dai->dev, "%s  port %d\n", __func__, aio->portnum);
@@ -651,12 +666,12 @@ static int cygnus_pcm_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct iproc_pcm_dma_info *aio;
+	struct cygnus_aio_port *aio;
 	unsigned long bufsize, periodsize;
 	int ret = 0;
 	bool is_play;
 	u32 start;
-	struct ringbuf_regs rbuf;
+	struct ringbuf_regs *p_rbuf = NULL;
 
 	aio = cygnus_dai_get_dma_data(substream);
 	dev_dbg(rtd->cpu_dai->dev, "%s port %d\n", __func__, aio->portnum);
@@ -667,13 +682,15 @@ static int cygnus_pcm_prepare(struct snd_pcm_substream *substream)
 	dev_dbg(rtd->cpu_dai->dev, "%s (buf_size %lu) (period_size %lu)\n",
 			__func__, bufsize, periodsize);
 
-	get_ringbuf(substream, &rbuf);
+	configure_ringbuf_regs(substream);
+
+	p_rbuf = get_ringbuf(substream);
 
 	start = runtime->dma_addr;
 
 	is_play = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? 1 : 0;
 
-	ringbuf_set_initial(aio->audio, &rbuf, is_play, start,
+	ringbuf_set_initial(aio->cygaud->audio, p_rbuf, is_play, start,
 				periodsize, bufsize);
 
 	return ret;
@@ -681,9 +698,9 @@ static int cygnus_pcm_prepare(struct snd_pcm_substream *substream)
 
 static snd_pcm_uframes_t cygnus_pcm_pointer(struct snd_pcm_substream *substream)
 {
-	struct iproc_pcm_dma_info *aio;
+	struct cygnus_aio_port *aio;
 	unsigned int res = 0, cur = 0, base = 0;
-	struct ringbuf_regs rbuf;
+	struct ringbuf_regs *p_rbuf = NULL;
 
 	aio = cygnus_dai_get_dma_data(substream);
 
@@ -691,13 +708,13 @@ static snd_pcm_uframes_t cygnus_pcm_pointer(struct snd_pcm_substream *substream)
 	 * Get the offset of the current read (for playack) or write
 	 * index (for capture).  Report this value back to the asoc framework.
 	 */
-	get_ringbuf(substream, &rbuf);
+	p_rbuf = get_ringbuf(substream);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		iproc_reg_read(aio->audio, rbuf.rdaddr, &cur);
+		cur = readl(aio->cygaud->audio + p_rbuf->rdaddr);
 	else
-		iproc_reg_read(aio->audio, rbuf.wraddr, &cur);
+		cur = readl(aio->cygaud->audio + p_rbuf->wraddr);
 
-	iproc_reg_read(aio->audio, rbuf.baseaddr, &base);
+	base = readl(aio->cygaud->audio + p_rbuf->baseaddr);
 
 	/*
 	 * Mask off the MSB of the rdaddr,wraddr and baseaddr
@@ -734,6 +751,7 @@ static int cygnus_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 
 	return 0;
 }
+
 
 static const struct snd_pcm_ops cygnus_pcm_ops = {
 	.open		= cygnus_pcm_open,
@@ -808,15 +826,15 @@ static struct snd_soc_component_driver cygnus_soc_platform = {
 	.pcm_free	= cygnus_dma_free_dma_buffers,
 };
 
-int iproc_pcm_platform_register(struct device *dev,
-				 struct iproc_rb_info *rb_info)
+int cygnus_soc_platform_register(struct device *dev,
+				 struct cygnus_audio *cygaud)
 {
 	int rc = 0;
 
 	dev_dbg(dev, "%s Enter\n", __func__);
 
-	rc = devm_request_irq(dev, rb_info->irq_num, cygnus_dma_irq,
-				IRQF_SHARED, "cygnus-audio", rb_info);
+	rc = devm_request_irq(dev, cygaud->irq_num, cygnus_dma_irq,
+				IRQF_SHARED, "cygnus-audio", cygaud);
 	if (rc) {
 		dev_err(dev, "%s request_irq error %d\n", __func__, rc);
 		return rc;
@@ -832,7 +850,7 @@ int iproc_pcm_platform_register(struct device *dev,
 	return 0;
 }
 
-int iproc_pcm_platform_unregister(struct device *dev)
+int cygnus_soc_platform_unregister(struct device *dev)
 {
 	return 0;
 }
