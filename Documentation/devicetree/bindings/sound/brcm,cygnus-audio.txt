@@ -42,17 +42,8 @@ Example:
 		reg = <0x180ae000 0xafd>, <0x180aec00 0x1f8>;
 		reg-names = "aud", "i2s_in";
 
-		assigned-clocks = <&audiopll BCM_CYGNUS_AUDIOPLL>,
-				  <&ssp0_clock>,
-				  <&ssp1_clock>,
-				  <&ssp2_clock>,
-				  <&spdiftx_clock>;
+		assigned-clocks = <&audiopll BCM_CYGNUS_AUDIOPLL>;
 		assigned-clock-rates = <1376255989>;
-		assigned-clock-parents = <0>,
-			<&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
-			<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
-			<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>,
-			<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
 
 		interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
 
@@ -60,32 +51,52 @@ Example:
 
 		ssp0: ssp_port@0 {
 			reg = <0>;
+
 			clocks = <&ssp0_clock>;
 			clock-names = "ssp_clk";
+
+			assigned-clocks = <&ssp0_clock>;
+			assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH0>;
 
 			status = "okay";
 		};
 
 		ssp1: ssp_port@1 {
 			reg = <1>;
+
 			clocks = <&ssp1_clock>;
 			clock-names = "ssp_clk";
+
+			assigned-clocks = <&ssp1_clock>;
+			assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>;
 
 			status = "okay";
 		};
 
 		ssp2: ssp_port@2 {
 			reg = <2>;
+
 			clocks = <&ssp2_clock>;
 			clock-names = "ssp_clk";
+
+			assigned-clocks = <&ssp2_clock>;
+			assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>;
 
 			status = "okay";
 		};
 
 		spdif: spdif_port@3 {
 			reg = <3>;
+
 			clocks = <&spdiftx_clock>;
        			clock-names = "ssp_clk";
+
+			assigned-clocks = <&spdiftx_clock>;
+			assigned-clock-parents =
+					<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
 
 			status = "disabled";
 		};
