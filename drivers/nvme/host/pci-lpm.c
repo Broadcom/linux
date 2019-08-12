@@ -3,6 +3,7 @@
  * Copyright(c) 2018 Broadcom
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 #include <linux/aer.h>
 #include <linux/delay.h>
 #include <linux/init.h>
@@ -13,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/nvme-lpm-ssr.h>
+#include <linux/of_device.h>
 #include <linux/sizes.h>
 #include <linux/types.h>
 
@@ -41,32 +43,16 @@ struct memory_window {
 	u64 offset;
 };
 
-/* FIXME: have to get memory map from kernel to make following table generic */
-static const struct memory_window memory_map[] = {
-	{
-		.start_addr = 0x80000000,
-		.offset = 0x80000000,
-	},
-	{
-		.start_addr = 0x880000000,
-		.offset = 0x800000000,
-	},
-	{
-		.start_addr = 0x9000000000,
-		.offset = 0x400000000,
-	},
-	{
-		.start_addr = 0xa000000000,
-		.offset = 0x400000000,
-	},
-};
+static struct memory_window *memory_map;
+static unsigned int num_mem_windows;
+static int current_memmap;
 
 static int get_current_memmap(phys_addr_t memaddr)
 {
 	int i;
 	u64 start_addr, end_addr;
 
-	for (i = 0; i < ARRAY_SIZE(memory_map); i++) {
+	for (i = 0; i < num_mem_windows; i++) {
 		start_addr = memory_map[i].start_addr;
 		end_addr = memory_map[i].start_addr + memory_map[i].offset - 1;
 		if (memaddr >= start_addr && memaddr <= end_addr)
@@ -76,15 +62,23 @@ static int get_current_memmap(phys_addr_t memaddr)
 	return -EINVAL;
 }
 
-static void check_memaddr(phys_addr_t *memaddr, unsigned int *current_memmap)
+static int check_memaddr(phys_addr_t *memaddr)
 {
 	int ret;
 
 	ret = get_current_memmap(*memaddr);
-	if (ret < 0 && *current_memmap < (ARRAY_SIZE(memory_map) - 1)) {
-		(*current_memmap)++;
-		*memaddr = memory_map[*current_memmap].start_addr;
+	if (ret >= 0)
+		return 0;
+
+	if (current_memmap < (num_mem_windows - 1)) {
+		current_memmap++;
+		*memaddr = memory_map[current_memmap].start_addr;
+		pr_debug("current memmap transitioned to: %d, base: %llx\n",
+			 current_memmap, *memaddr);
+		return 0;
 	}
+
+	return -ENXIO;
 }
 
 static void nvme_init_queue(struct nvme_queue *nvmeq, u16 qid)
@@ -257,10 +251,6 @@ static int nvme_submit_cmd_sync(struct nvme_command *cmd, struct nvme_queue *q,
 static int nvme_submit_cmd(struct nvme_command *cmd, struct nvme_queue *q)
 {
 	u16 tail = q->sq_tail;
-	unsigned int cmd_id = q->cmd_id;
-
-	cmd->common.command_id = (++cmd_id == q->dev->q_depth) ?
-				 (q->cmd_id = 1) : (q->cmd_id = cmd_id);
 
 	memcpy(&q->sq_cmds[tail], cmd, sizeof(*cmd));
 
@@ -867,9 +857,9 @@ static int nvme_pci_setup_prps(struct nvme_dev *dev, phys_addr_t *mem_addr,
 	unsigned int offset = *mem_addr & (page_size - 1);
 	int xfer_length = lbas << lpm_dev->lba_shift;
 	unsigned int nprps, i;
-	int current_memmap;
 	dma_addr_t *prp_list;
 	dma_addr_t prp_dma_addr;
+	int ret;
 
 	xfer_length -= page_size - offset;
 	if (xfer_length <= 0) {
@@ -877,13 +867,12 @@ static int nvme_pci_setup_prps(struct nvme_dev *dev, phys_addr_t *mem_addr,
 		return 0;
 	}
 
-	current_memmap = get_current_memmap(*mem_addr);
-	check_memaddr(mem_addr, &current_memmap);
-
-	if (xfer_length) {
+	if (xfer_length)
 		*mem_addr += page_size - offset;
-		check_memaddr(mem_addr, &current_memmap);
-	}
+
+	ret = check_memaddr(mem_addr);
+	if (ret)
+		return ret;
 
 	if (xfer_length <= page_size) {
 		*prp2 = *mem_addr;
@@ -904,7 +893,9 @@ static int nvme_pci_setup_prps(struct nvme_dev *dev, phys_addr_t *mem_addr,
 	for (i = 0; i < nprps; i++) {
 		prp_list[i] = cpu_to_le64(*mem_addr);
 		*mem_addr += page_size;
-		check_memaddr(mem_addr, &current_memmap);
+		ret = check_memaddr(mem_addr);
+		if (ret)
+			return ret;
 	}
 
 	*prp2 = prp_dma_addr;
@@ -937,6 +928,7 @@ static int nvme_build_io_queue(struct nvme_dev *ndev, int qid,
 	struct device *dev = ndev->dev;
 	int error;
 	u64 prp2;
+	unsigned int cmd_id = q->cmd_id;
 
 	memset(&cmnd, 0, sizeof(cmnd));
 
@@ -950,13 +942,20 @@ static int nvme_build_io_queue(struct nvme_dev *ndev, int qid,
 	cmnd.rw.slba = cpu_to_le64(slba);
 	cmnd.rw.length = cpu_to_le16(lbas - 1);
 
+	cmnd.rw.command_id = (++cmd_id == q->dev->q_depth) ?
+				 (q->cmd_id = 1) : (q->cmd_id = cmd_id);
+
+	error = check_memaddr(mem_addr);
+	if (error)
+		goto out;
+
 	cmnd.rw.dptr.prp1 = cpu_to_le64(*mem_addr);
 
 	error = nvme_pci_setup_prps(ndev, mem_addr, &prp2, lbas);
 	if (error) {
 		dev_warn(dev, "PRP setup for SQ%d entry-%d failed\n",
 				q->qid, cmnd.rw.command_id);
-		return -EIO;
+		goto out;
 	}
 
 	cmnd.rw.dptr.prp2 = cpu_to_le64(prp2);
@@ -964,11 +963,12 @@ static int nvme_build_io_queue(struct nvme_dev *ndev, int qid,
 	error = nvme_submit_cmd(&cmnd, q);
 	if (error) {
 		dev_warn(dev, "SQ%d entry-%d failed\n", q->qid, q->cmd_id);
-		return -EIO;
+		goto out;
 	}
 	dev_dbg(dev, "SQ%d entry-%d done\n", q->qid, q->cmd_id);
 
-	return 0;
+out:
+	return error;
 }
 
 static int nvme_alloc_ns(struct nvme_ctrl *ctrl, unsigned int nsid)
@@ -1169,7 +1169,8 @@ static int nvme_build_backup_io_queues(void *ndev_cntxt, u64 mem_addr,
 	u16 max_lbas_per_xfer;
 	int ret;
 
-	if (get_current_memmap(mem_addr) < 0) {
+	current_memmap = get_current_memmap(mem_addr);
+	if (current_memmap < 0) {
 		dev_err(dev->dev, "Invalid memory address!\n");
 		return -EINVAL;
 	}
@@ -1251,6 +1252,71 @@ struct nvme_lpm_drv_ops nvme_lpm_driver_ops = {
 	.nvme_get_smart_log = nvme_get_smart_log,
 };
 
+static u64 dt_mem_next_cell(int s, const __be32 **cellp)
+{
+	const __be32 *p = *cellp;
+
+	*cellp = p + s;
+	return of_read_number(p, s);
+}
+
+static int of_get_valid_memory_range(struct device *dev)
+{
+	struct device_node *np;
+	const __be32 *reg, *endp;
+	unsigned int len, addr_cells, size_cells;
+	int ret = 0;
+	unsigned int i = 0;
+
+	np = of_find_node_by_path("/lpm-memory-range");
+	if (!np) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	addr_cells = of_n_addr_cells(np);
+	size_cells = of_n_size_cells(np);
+
+	reg = of_get_property(np, "reg", &len);
+	if (!reg) {
+		ret = -ENOMEM;
+		pr_debug("Cannot get reg property of /lpm-memory node.\n");
+		goto put_node;
+	}
+
+	num_mem_windows = len / sizeof(*memory_map);
+	memory_map = devm_kzalloc(dev, num_mem_windows * sizeof(*memory_map),
+				  GFP_KERNEL);
+	if (!memory_map) {
+		ret = -ENOMEM;
+		goto put_node;
+	}
+
+	endp = reg + (len / sizeof(__be32));
+
+	while ((endp - reg) >= addr_cells + size_cells) {
+		u64 base, size;
+
+		base = dt_mem_next_cell(addr_cells, &reg);
+		size = dt_mem_next_cell(size_cells, &reg);
+
+		if (size == 0)
+			continue;
+
+		pr_debug(" - %#llx ,  %#llx\n", (unsigned long long)base,
+		    (unsigned long long)size);
+
+		memory_map[i].start_addr = base;
+		memory_map[i].offset = size;
+		i++;
+	}
+
+put_node:
+	of_node_put(np);
+out:
+	return ret;
+}
+
 static int nvme_lpm_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int ret = -ENOMEM;
@@ -1269,6 +1335,11 @@ static int nvme_lpm_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 			(MAX_IO_QPAIR + 1) * sizeof(void *), GFP_KERNEL);
 	if (!dev->queues)
 		return -ENOMEM;
+
+	/* get valid memory range from DT */
+	ret = of_get_valid_memory_range(&pdev->dev);
+	if (ret)
+		return ret;
 
 	dev->dev = get_device(&pdev->dev);
 	pci_set_drvdata(pdev, dev);
