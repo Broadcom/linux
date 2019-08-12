@@ -1005,6 +1005,7 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 void bcm_vk_trigger_reset(struct bcm_vk *vk)
 {
 	uint32_t i;
+	u32 value;
 
 	/* clean up before pressing the door bell */
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, NULL);
@@ -1020,6 +1021,17 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	}
 	for (i = 0; i < VK_BAR1_SOTP_REVID_MAX; i++)
 		vkwrite32(vk, 0, BAR_1, VK_BAR1_SOTP_REVID_ADDR(i));
+
+	/*
+	 * When fastboot fails, the CODE_PUSH_OFFSET stays persistent.
+	 * Allowing us to debug the failure. When we call reset,
+	 * we should clear CODE_PUSH_OFFSET so ROM does not execute
+	 * fastboot again (and fails again) and instead waits for a new
+	 * codepush.
+	 */
+	value = vkread32(vk, BAR_0, BAR_CODEPUSH_SBL);
+	value &= ~CODEPUSH_MASK;
+	vkwrite32(vk, value, BAR_0, BAR_CODEPUSH_SBL);
 
 	/* reset fw_status with proper reason, and press db */
 	vkwrite32(vk, FW_STATUS_ZEPHYR_RESET_MBOX_DB, BAR_0, BAR_FW_STATUS);
