@@ -67,7 +67,7 @@
 		};
 
 		bdc0: usb@00002000 {
-			compatible = "brcm,bdc-usb3";
+			compatible = "brcm,bdc-v0.16";
 			reg = <0x00002000 0x1000>;
 			interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usbphy0 0>, <&usbphy0 1>;
@@ -123,7 +123,7 @@
 		};
 
 		bdc1: usb@00021000 {
-			compatible = "brcm,bdc-usb3";
+			compatible = "brcm,bdc-v0.16";
 			reg = <0x00021000 0x1000>;
 			interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usbphy2>;
