@@ -43,11 +43,6 @@ Optional properties:
 		active low signal to the PCA953x.
  - vcc-supply:	power supply regulator.
 
- - interrupt-controller: Identifies the node as an interrupt controller.
- - #interrupt-cells: Number of cells to encode an interrupt source.
- - interrupt-parent: phandle of the parent interrupt controller.
- - interrupts: Interrupt specifier for the controllers interrupt.
-
 Example:
 
 
