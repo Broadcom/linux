@@ -85,6 +85,13 @@
 		};
 	};
 
+	lpm-memory-range {
+		reg = <0x0 0x80000000 0x0 0x80000000>, /* 2G @ 2G */
+		      <0x8 0x80000000 0x8 0x00000000>, /* 32G @ 34G */
+		      <0x90 0x00000000 0x4 0x00000000>, /* 16G @ 576G */
+		      <0xa0 0x00000000 0x4 0x00000000>; /* 16G @ 640G */
+	};
+
 	nvme_lpm: nvme_lpm {
 		compatible = "simple-bus";
 		#address-cells = <1>;
