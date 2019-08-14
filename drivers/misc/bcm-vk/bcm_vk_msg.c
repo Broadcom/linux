@@ -204,8 +204,19 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 					 &p_chan->pendq_head[q_num],
 					 list_node) {
 
-			if ((p_ctx == NULL) ||
-			    (p_ent->p_ctx->idx == p_ctx->idx)) {
+			if (p_ctx == NULL) {
+				list_del(&p_ent->list_node);
+				bcm_vk_free_wkent(dev, p_ent);
+			} else if (p_ent->p_ctx->idx == p_ctx->idx) {
+				struct vk_msg_blk *p_msg;
+
+				/* if it is specific ctx, log for any stuck */
+				p_msg = p_ent->p_h2vk_msg;
+				dev_err(dev,
+					"Drained: fid %u size %u msg 0x%x ctx 0x%x args:[0x%x 0x%x]",
+					p_msg->function_id, p_msg->size,
+					p_msg->msg_id, p_msg->context_id,
+					p_msg->args[0], p_msg->args[1]);
 				list_del(&p_ent->list_node);
 				bcm_vk_free_wkent(dev, p_ent);
 			}
