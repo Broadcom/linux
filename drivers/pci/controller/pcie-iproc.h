@@ -117,18 +117,10 @@ struct iproc_pcie {
 	bool need_msi_steer;
 	struct delayed_work work;
 	struct iproc_msi *msi;
-#ifdef CONFIG_PM_SLEEP
-	unsigned int *paxb_map_regs;
-#endif
 };
 
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res);
 int iproc_pcie_remove(struct iproc_pcie *pcie);
-
-#ifdef CONFIG_PM_SLEEP
-int iproc_pcie_suspend(struct iproc_pcie *pcie);
-int iproc_pcie_resume(struct iproc_pcie *pcie);
-#endif
 
 #ifdef CONFIG_PCIE_IPROC_MSI
 int iproc_msi_init(struct iproc_pcie *pcie, struct device_node *node);
