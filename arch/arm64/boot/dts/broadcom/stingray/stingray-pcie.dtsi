@@ -22,13 +22,12 @@
 		compatible = "brcm,iproc-pcie-paxb-v2";
 		reg = <0 0x48000000 0 0x4000>;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie0 1>,
-				<0 0 0 0 2 &pcie0 2>,
-				<0 0 0 0 3 &pcie0 3>,
-				<0 0 0 0 4 &pcie0 4>;
+		interrupt-map = <0 0 0 1 &pcie0_intc 1>,
+				<0 0 0 2 &pcie0_intc 2>,
+				<0 0 0 3 &pcie0_intc 3>,
+				<0 0 0 4 &pcie0_intc 4>;
 		interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <0>;
@@ -66,19 +65,23 @@
 #else
 		status = "disabled";
 #endif
+		pcie0_intc: interrupt-controller {
+			compatible = "brcm,iproc-intc";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
 	};
 
 	pcie1: pcie@48004000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
 		reg = <0 0x48004000 0 0x4000>;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie1 1>,
-				<0 0 0 0 2 &pcie1 2>,
-				<0 0 0 0 3 &pcie1 3>,
-				<0 0 0 0 4 &pcie1 4>;
+		interrupt-map = <0 0 0 1 &pcie1_intc 1>,
+				<0 0 0 2 &pcie1_intc 2>,
+				<0 0 0 3 &pcie1_intc 3>,
+				<0 0 0 4 &pcie1_intc 4>;
 		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <1>;
@@ -116,19 +119,23 @@
 #else
 		status = "disabled";
 #endif
+		pcie1_intc: interrupt-controller {
+			compatible = "brcm,iproc-intc";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
 	};
 
 	pcie2: pcie@48008000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
 		reg = <0 0x48008000 0 0x4000>;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie2 1>,
-				<0 0 0 0 2 &pcie2 2>,
-				<0 0 0 0 3 &pcie2 3>,
-				<0 0 0 0 4 &pcie2 4>;
+		interrupt-map = <0 0 0 1 &pcie2_intc 1>,
+				<0 0 0 2 &pcie2_intc 2>,
+				<0 0 0 3 &pcie2_intc 3>,
+				<0 0 0 4 &pcie2_intc 4>;
 		interrupts = <GIC_SPI 432 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <2>;
@@ -166,19 +173,23 @@
 #else
 		status = "disabled";
 #endif
+		pcie2_intc: interrupt-controller {
+			compatible = "brcm,iproc-intc";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
 	};
 
 	pcie3: pcie@4800c000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
 		reg = <0 0x4800c000 0 0x4000>;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie3 1>,
-				<0 0 0 0 2 &pcie3 2>,
-				<0 0 0 0 3 &pcie3 3>,
-				<0 0 0 0 4 &pcie3 4>;
+		interrupt-map = <0 0 0 1 &pcie3_intc 1>,
+				<0 0 0 2 &pcie3_intc 2>,
+				<0 0 0 3 &pcie3_intc 3>,
+				<0 0 0 4 &pcie3_intc 4>;
 		interrupts = <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <3>;
@@ -216,19 +227,23 @@
 #else
 		status = "disabled";
 #endif
+		pcie3_intc: interrupt-controller {
+			compatible = "brcm,iproc-intc";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
 	};
 
 	pcie4: pcie@48010000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
 		reg = <0 0x48010000 0 0x4000>;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie4 1>,
-				<0 0 0 0 2 &pcie4 2>,
-				<0 0 0 0 3 &pcie4 3>,
-				<0 0 0 0 4 &pcie4 4>;
+		interrupt-map = <0 0 0 1 &pcie4_intc 1>,
+				<0 0 0 2 &pcie4_intc 2>,
+				<0 0 0 3 &pcie4_intc 3>,
+				<0 0 0 4 &pcie4_intc 4>;
 		interrupts = <GIC_SPI 444 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <4>;
@@ -266,19 +281,23 @@
 #else
 		status = "disabled";
 #endif
+		pcie4_intc: interrupt-controller {
+			compatible = "brcm,iproc-intc";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
 	};
 
 	pcie5: pcie@48014000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
 		reg = <0 0x48014000 0 0x4000>;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie5 1>,
-				<0 0 0 0 2 &pcie5 2>,
-				<0 0 0 0 3 &pcie5 3>,
-				<0 0 0 0 4 &pcie5 4>;
+		interrupt-map = <0 0 0 1 &pcie5_intc 1>,
+				<0 0 0 2 &pcie5_intc 2>,
+				<0 0 0 3 &pcie5_intc 3>,
+				<0 0 0 4 &pcie5_intc 4>;
 		interrupts = <GIC_SPI 450 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <5>;
@@ -316,19 +335,23 @@
 #else
 		status = "disabled";
 #endif
+		pcie5_intc: interrupt-controller {
+			compatible = "brcm,iproc-intc";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
 	};
 
 	pcie6: pcie@48018000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
 		reg = <0 0x48018000 0 0x4000>;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie6 1>,
-				<0 0 0 0 2 &pcie6 2>,
-				<0 0 0 0 3 &pcie6 3>,
-				<0 0 0 0 4 &pcie6 4>;
+		interrupt-map = <0 0 0 1 &pcie6_intc 1>,
+				<0 0 0 2 &pcie6_intc 2>,
+				<0 0 0 3 &pcie6_intc 3>,
+				<0 0 0 4 &pcie6_intc 4>;
 		interrupts = <GIC_SPI 456 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <6>;
@@ -366,19 +389,23 @@
 #else
 		status = "disabled";
 #endif
+		pcie6_intc: interrupt-controller {
+			compatible = "brcm,iproc-intc";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
 	};
 
 	pcie7: pcie@4801c000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
 		reg = <0 0x4801c000 0 0x4000>;
 
-		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 0 1 &pcie7 1>,
-				<0 0 0 0 2 &pcie7 2>,
-				<0 0 0 0 3 &pcie7 3>,
-				<0 0 0 0 4 &pcie7 4>;
+		interrupt-map = <0 0 0 1 &pcie7_intc 1>,
+				<0 0 0 2 &pcie7_intc 2>,
+				<0 0 0 3 &pcie7_intc 3>,
+				<0 0 0 4 &pcie7_intc 4>;
 		interrupts = <GIC_SPI 462 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <7>;
@@ -416,6 +443,11 @@
 #else
 		status = "disabled";
 #endif
+		pcie7_intc: interrupt-controller {
+			compatible = "brcm,iproc-intc";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
 	};
 
 	pcie8: pcie@60400000 {
