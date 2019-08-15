@@ -943,8 +943,8 @@ static void iproc_pcie_isr(struct irq_desc *desc)
 	dev = pcie->dev;
 
 	/* go through INTx A, B, C, D until all interrupts are handled */
-	while ((status = iproc_pcie_read_reg(pcie, IPROC_PCIE_INTX_CSR) &
-		SYS_RC_INTX_MASK) != 0) {
+	do {
+		status = iproc_pcie_read_reg(pcie, IPROC_PCIE_INTX_CSR);
 		for_each_set_bit(bit, &status, NUM_INTX) {
 			virq = irq_find_mapping(pcie->irq_domain, bit + 1);
 			if (virq)
@@ -952,7 +952,7 @@ static void iproc_pcie_isr(struct irq_desc *desc)
 			else
 				dev_err(dev, "unexpected INTx%u\n", bit);
 		}
-	}
+	} while ((status & SYS_RC_INTX_MASK) != 0);
 
 	chained_irq_exit(chip, desc);
 }
@@ -960,10 +960,8 @@ static void iproc_pcie_isr(struct irq_desc *desc)
 static int iproc_pcie_intx_enable(struct iproc_pcie *pcie)
 {
 	struct device *dev = pcie->dev;
-	struct device_node *node = dev->of_node;
+	struct device_node *node;
 	int ret;
-
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_INTX_EN, SYS_RC_INTX_MASK);
 
 	/*
 	 * BCMA devices do not map INTx the same way as platform devices. All
@@ -971,6 +969,14 @@ static int iproc_pcie_intx_enable(struct iproc_pcie *pcie)
 	 */
 	if (pcie->irq <= 0)
 		return 0;
+
+	node = of_get_compatible_child(dev->of_node, "brcm,iproc-intc");
+	if (!node) {
+		dev_err(dev, "No brcm,iproc-intx node found\n");
+		return -ENODEV;
+	}
+
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_INTX_EN, SYS_RC_INTX_MASK);
 
 	/* set IRQ handler */
 	irq_set_chained_handler_and_data(pcie->irq, iproc_pcie_isr, pcie);
@@ -987,6 +993,7 @@ static int iproc_pcie_intx_enable(struct iproc_pcie *pcie)
 	return 0;
 
 err_rm_handler_data:
+	of_node_put(node);
 	irq_set_chained_handler_and_data(pcie->irq, NULL, NULL);
 
 	return ret;
