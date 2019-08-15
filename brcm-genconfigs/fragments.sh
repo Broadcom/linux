@@ -43,7 +43,7 @@ iproc_defconfig="base-arm64 ns2 stingray \
     ata blk bpf                          \
     clocksource crypto crashdump         \
     dbg dma                              \
-    efi fs hba hwmon                     \
+    edac efi fs hba hwmon                \
     i2c i2c-slave infiniband iomux       \
     iscsi                                \
     mailbox md misc mmc mtd mtd-spi      \
