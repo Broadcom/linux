@@ -206,8 +206,8 @@ static const struct iproc_pll_ctrl mipipll = {
 };
 
 static const struct iproc_clk_ctrl mipipll_clk[] = {
-	[BCM_CYGNUS_MIPIPLL_CH0_DSI] = {
-		.channel = BCM_CYGNUS_MIPIPLL_CH0_DSI,
+	[BCM_CYGNUS_MIPIPLL_CH0_UNUSED] = {
+		.channel = BCM_CYGNUS_MIPIPLL_CH0_UNUSED,
 		.flags = IPROC_CLK_NEEDS_READ_BACK,
 		.enable = ENABLE_VAL(0x4, 12, 6, 18),
 		.mdiv = REG_VAL(0x20, 0, 8),
@@ -256,18 +256,12 @@ static const struct iproc_asiu_div asiu_div[] = {
 	[BCM_CYGNUS_ASIU_KEYPAD_CLK] = ASIU_DIV_VAL(0x0, 31, 16, 10, 0, 10),
 	[BCM_CYGNUS_ASIU_ADC_CLK] = ASIU_DIV_VAL(0x4, 31, 16, 10, 0, 10),
 	[BCM_CYGNUS_ASIU_PWM_CLK] = ASIU_DIV_VAL(0x8, 31, 16, 10, 0, 10),
-	[BCM_CYGNUS_ASIU_SMARTCARD_CLK] =
-		ASIU_DIV_VAL(IPROC_CLK_INVALID_OFFSET, 0, 0, 0, 0, 0),
-	[BCM_CYGNUS_ASIU_CAM_CLK] =
-			ASIU_DIV_VAL(IPROC_CLK_INVALID_OFFSET, 0, 0, 0, 0, 0),
 };
 
 static const struct iproc_asiu_gate asiu_gate[] = {
 	[BCM_CYGNUS_ASIU_KEYPAD_CLK] = ASIU_GATE_VAL(0x0, 7),
 	[BCM_CYGNUS_ASIU_ADC_CLK] = ASIU_GATE_VAL(0x0, 9),
 	[BCM_CYGNUS_ASIU_PWM_CLK] = ASIU_GATE_VAL(IPROC_CLK_INVALID_OFFSET, 0),
-	[BCM_CYGNUS_ASIU_SMARTCARD_CLK] = ASIU_GATE_VAL(0x0, 8),
-	[BCM_CYGNUS_ASIU_CAM_CLK] = ASIU_GATE_VAL(0x0, 2),
 };
 
 static void __init cygnus_asiu_init(struct device_node *node)
