@@ -221,6 +221,4 @@ void iproc_asiu_setup(struct device_node *node,
 		      const struct iproc_asiu_gate *gate,
 		      unsigned int num_clks);
 
-int iproc_audiomux_setup(struct device_node *node);
-
 #endif /* _CLK_IPROC_H */
