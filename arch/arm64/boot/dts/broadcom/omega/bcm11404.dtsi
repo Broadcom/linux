@@ -5,11 +5,3 @@
 #include "omega.dtsi"
 
 /delete-node/ &cpu1;
-
-&gphy0 {
-	max-speed = <100>;
-};
-
-&gphy1 {
-	max-speed = <100>;
-};
