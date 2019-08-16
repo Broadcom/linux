@@ -1,9 +1,0 @@
-Broadcom Omega device tree bindings
-------------------------------------------------
-
-Boards with Omega SOC shall have the following properties:
-
-Required root node property:
-
-Omega SOC
-compatible = "brcm,omega";
