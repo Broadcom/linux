@@ -41,27 +41,10 @@
 
 	aliases {
 		serial0 = &uart3;
-		serial1 = &uart0;
-	};
-
-	reserved-memory {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
-
-		/* global autoconfigured region for CMA */
-		linux,cma {
-			compatible = "shared-dma-pool";
-			reusable;
-			size = <0x8800000>;
-			alignment = <0x1000>;
-			linux,cma-default;
-		};
 	};
 
 	chosen {
-		stdout-path = &uart3;
-		bootargs = "console=serial0,115200n8";
+		stdout-path = "serial0:115200n8";
 	};
 
 	gpio_keys {
@@ -75,154 +58,9 @@
 			gpios = <&gpio_asiu 48 0>;
 		};
 	};
-
-	vbus_p0: regulator@0 {
-		compatible = "regulator-fixed";
-		regulator-name = "usb-vbus-p0";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio_crmu 1 0>;
-		enable-active-high;
-		status = "okay";
-	};
-
-	vbus_p2: regulator@3 {
-		compatible = "regulator-fixed";
-		regulator-name = "usb-vbus-p2";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio_ccm 7 0>;
-		enable-active-high;
-		status = "okay";
-	};
-
-	wlan_reg0: regulator@1 {
-		compatible = "regulator-fixed";
-		regulator-name = "wlan-rf-reg0";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&gpio_asiu 102 0>;
-		enable-active-high;
-		regulator-always-on;
-	};
-
-	vdd_3v3_reg: regulator@2 {
-		compatible = "regulator-fixed";
-		regulator-name = "power";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		regulator-always-on;
-	};
-
-	bluetooth {
-		compatible = "brcm,bt-rfkill";
-
-		bt-dev-wake-gpio = <&gpio_asiu 42 0>;
-		bt-host-wake-gpio = <&gpio_asiu 41 0>;
-		brcm,rfkill-regulator = <&rf_reg0>;
-	};
-
-	rf_reg0: regulator@2 {
-		compatible = "regulator-fixed";
-		regulator-name = "bt-rf-reg0";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio_asiu 43 0>;
-		enable-active-high;
-	};
-
-	ipp_sound: ipp_sound {
-		compatible = "brcm,bcm911360_entphn-machine";
-		brcm,cygnus-pcm = <&cygnus_audio>;
-
-		brcm,handsfree-amp-en-gpio = <&gpio_asiu 41 0>;
-
-		ipp-primary-link {
-			format = "i2s";
-			bitclock-master = <&dailink0_master>;
-			frame-master = <&dailink0_master>;
-
-			dailink0_master: cpu {
-				sound-dai = <&cygnus_audio 0>;
-			};
-
-			codec {
-				sound-dai = <&cs42l73 0>;
-			};
-		} ;
-
-		ipp-bluetooth-voice-link {
-			format = "i2s";
-			bitclock-master = <&dailink1_master>;
-			frame-master = <&dailink1_master>;
-
-			dailink1_master: cpu {
-				sound-dai = <&cygnus_audio 2>;
-			};
-
-			codec {
-				sound-dai = <&bt_codec>;
-			};
-		};
-	};
-
-	bt_codec: bt_voice_codec {
-		#sound-dai-cells = <0>;
-		status = "okay";
-		compatible = "cypress,bt_voice_codec";
-
-		cypress,bt-voice-link-mode = "i2s";
-		cypress,bt-voice-tdm-bps = <2048000>;
-	};
 };
 
-&sdhci0 {
-	status = "okay";
-	no-1-8-v;
-};
-
-&sdhci1 {
-	status = "okay";
-	vmmc-supply = <&wlan_reg0>;
-	keep-power-in-suspend;
-	wakeup-source;
-
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	brcmf: bcrmf@1 {
-		reg = <1>;
-		compatible = "brcm,bcm4329-fmac";
-		status = "okay";
-	};
-};
-
-&usbphy {
-	usbphy0: usb-phy@0 {
-		vbus-p0-supply = <&vbus_p0>;
-	};
-
-	usbphy2: usb-phy@2 {
-		vbus-p2-supply = <&vbus_p2>;
-	};
-};
-
-&uart0 {
-	dcd-override;
-	dsr-override;
-	ri-override;
-	status = "okay";
-};
-
-&v3d {
-	status = "okay";
-};
-
-&vc4 {
-	status = "okay";
-};
-
-&uart3 {
+&eth0 {
 	status = "okay";
 };
 
@@ -230,11 +68,20 @@
 	status = "okay";
 };
 
-&eth0 {
+&switch {
 	status = "okay";
-	brcm,amac-switch-bypass;
-	phy-handle = <&gphy0>;
-	phy-mode = "gmii";
+};
+
+&v3d {
+	assigned-clocks =
+		<&mipipll BCM_CYGNUS_MIPIPLL>,
+		<&mipipll BCM_CYGNUS_MIPIPLL_CH2_V3D>;
+	assigned-clock-rates = <525000000>, <300000000>;
+	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
 };
 
 &nand {
@@ -251,157 +98,4 @@
 
 		brcm,nand-oob-sector-size = <27>;
 	};
-};
-
-&pwm {
-	status = "okay";
-};
-
-&bl {
-	brightness-levels = <0 16 24 32 50 64 128 255>;
-	default-brightness-level = <6>;
-	status = "okay";
-};
-
-&ehci0 {
-	phys = <&usbphy0 0 &usbphy2 2>;
-	phy-names = "usbp0", "usbp2";
-	status = "okay";
-};
-
-&ohci0 {
-	phys = <&usbphy0 0 &usbphy2 2>;
-	phy-names = "usbp0", "usbp2";
-	status = "okay";
-};
-
-&spi0 {
-	num-cs = <1>;
-	status = "okay";
-
-	lcd@0 {
-		compatible = "wintek,wd-f6448x-eflwc";
-		spi-max-frequency = <500000>;
-		reg = <0>;
-		power-supply = <&vdd_3v3_reg>;
-		enable-gpios = <&gpio_asiu 64 0>;
-		reset-gpios = <&gpio_asiu 68 0>;
-		backlight = <&bl>;
-
-		port {
-			clcd_panel: endpoint {
-				remote-endpoint = <&clcd_pads>;
-			};
-		};
-	};
-};
-
-&mipipll {
-	assigned-clocks =
-		<&mipipll BCM_CYGNUS_MIPIPLL>,
-		<&mipipll BCM_CYGNUS_MIPIPLL_CH1_LCD>,
-		<&mipipll BCM_CYGNUS_MIPIPLL_CH2_V3D>;
-	assigned-clock-rates = <1200000000>, <27000000>, <300000000>;
-};
-
-&drm_clcd {
-	status = "okay";
-	port {
-		clcd_pads: endpoint {
-			remote-endpoint = <&clcd_panel>;
-			arm,pl11x,tft-r0g0b0-pads = <0 8 16>;
-		};
-	};
-};
-
-&pinctrl {
-	pinctrl-names = "default";
-	pinctrl-0 = <
-		&keypad_5x5
-		&i2s0_default_mux
-		&i2s1_default_mux
-		&i2s2_default_mux
-		>;
-
-	/* Configures 5x5 keypad. */
-	keypad_5x5: keypad_5x5 {
-		function = "key";
-		groups = "key0_grp", "key1_grp", "key2_grp",
-			 "key3_grp", "key4_grp", "key8_grp",
-			 "key9_grp", "key10_grp", "key11_grp",
-			 "key12_grp";
-	};
-};
-
-&i2c1 {
-	status = "okay";
-	cs42l73: cs42l73@4A {
-		#sound-dai-cells = <1>;
-		compatible = "cirrus,cs42l73";
-		reg = <0x4a>;
-		reset-gpio = <&gpio_asiu 103 0>;
-	};
-};
-
-&cygnus_audio {
-	#sound-dai-cells = <1>;
-
-	ssp0: ssp_port@0 {
-		status = "okay";
-	};
-
-	ssp1: ssp_port@1 {
-		status = "okay";
-	};
-
-	ssp2: ssp_port@2 {
-		status = "okay";
-	};
-
-	spdif: spdif_port@3 {
-		status = "okay";
-	};
-};
-
-&usb2 {
-	status = "okay";
-};
-
-&touchscreen {
-	/* Touchscreen is rotated 180 degrees. */
-	touchscreen-inverted-x;
-	touchscreen-inverted-y;
-	status = "okay";
-};
-
-&keypad {
-	keypad,num-rows = <5>;
-	keypad,num-columns = <5>;
-	status = "okay";
-
-	linux,keymap = <
-		MATRIX_KEY(0x00, 0x02, KEY_F) /* key_forward */
-		MATRIX_KEY(0x00, 0x03, KEY_HOME) /* key_home */
-		MATRIX_KEY(0x00, 0x04, KEY_M) /* key_message */
-		MATRIX_KEY(0x01, 0x00, KEY_A) /* key_contacts */
-		MATRIX_KEY(0x01, 0x01, KEY_1) /* key_1 */
-		MATRIX_KEY(0x01, 0x02, KEY_2) /* key_2 */
-		MATRIX_KEY(0x01, 0x03, KEY_3) /* key_3 */
-		MATRIX_KEY(0x01, 0x04, KEY_S) /* key_speaker */
-		MATRIX_KEY(0x02, 0x00, KEY_P) /* key_phone */
-		MATRIX_KEY(0x02, 0x01, KEY_4) /* key_4 */
-		MATRIX_KEY(0x02, 0x02, KEY_5) /* key_5 */
-		MATRIX_KEY(0x02, 0x03, KEY_6) /* key_6 */
-		MATRIX_KEY(0x02, 0x04, KEY_VOLUMEUP) /* key_vol_up */
-		MATRIX_KEY(0x03, 0x00, KEY_C) /* key_call_log */
-		MATRIX_KEY(0x03, 0x01, KEY_7) /* key_7 */
-		MATRIX_KEY(0x03, 0x02, KEY_8) /* key_8 */
-		MATRIX_KEY(0x03, 0x03, KEY_9) /* key_9 */
-		MATRIX_KEY(0x03, 0x04, KEY_VOLUMEDOWN) /* key_vol_down */
-		MATRIX_KEY(0x04, 0x00, KEY_H) /* key_headset */
-		MATRIX_KEY(0x04, 0x01, KEY_KPASTERISK) /* key_* */
-		MATRIX_KEY(0x04, 0x02, KEY_0) /* key_0 */
-		MATRIX_KEY(0x04, 0x03, KEY_GRAVE) /* key_# */
-		MATRIX_KEY(0x04, 0x04, KEY_MUTE) /* key_mute */
-	>;
 };

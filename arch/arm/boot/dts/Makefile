@@ -131,13 +131,9 @@ dtb-$(CONFIG_ARCH_BCM_63XX) += \
 	bcm963138dvt.dtb
 dtb-$(CONFIG_ARCH_BCM_CYGNUS) += \
 	bcm911360_entphn.dtb \
-	bcm911360_entphn-emmc.dtb \
 	bcm911360k.dtb \
 	bcm958300k.dtb \
-	bcm958305k.dtb \
-	bcm958305k-emmc.dtb \
-	bcm958305_aud_base.dtb \
-	bcm958305_audio_sa.dtb
+	bcm958305k.dtb
 dtb-$(CONFIG_ARCH_BCM_HR2) += \
 	bcm53340-ubnt-unifi-switch8.dtb
 dtb-$(CONFIG_ARCH_BCM_MOBILE) += \

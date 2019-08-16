@@ -62,7 +62,7 @@
 		};
 	};
 
-	#include "bcm-cygnus-clock.dtsi"
+	/include/ "bcm-cygnus-clock.dtsi"
 
 	pmu {
 		compatible = "arm,cortex-a9-pmu";
@@ -99,57 +99,11 @@
 		};
 	};
 
-	cygnus_crmu_timer: cygnus_crmu_timer {
-		compatible = "brcm,cygnus-crmu-timer";
-		mboxes = <&mailbox 4>;
-		status = "disabled";
-	};
-
-	firmware {
-		optee {
-			compatible = "linaro,optee-tz";
-			method = "smc";
-		};
-	};
-
-	iproc-reset {
-		compatible = "brcm,iproc-reset";
-		mboxes = <&mailbox 0>;
-	};
-
-	axi: axi {
+	axi {
 		compatible = "simple-bus";
 		ranges;
 		#address-cells = <1>;
 		#size-cells = <1>;
-
-		usbphy: phy@301c028 {
-			compatible = "brcm,cygnus-usb-phy";
-			reg = <0x0301c028 0x4>,
-			      <0x0301d1b4 0x5c>,
-			      <0x18115000 0xa00>,
-			      <0x18111000 0xa00>;
-			reg-names = "crmu-usbphy-aon-ctrl", "cdru-usbphy",
-				    "usb2h-idm", "usb2d-idm";
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			usbphy0: usb-phy@0 {
-				#phy-cells = <1>;
-				reg = <0>;
-			};
-
-			usbphy1: usb-phy@1 {
-				#phy-cells = <1>;
-				reg = <1>;
-			};
-
-			usbphy2: usb-phy@2 {
-				#phy-cells = <1>;
-				reg = <2>;
-				extcon = <&extcon_usb>;
-			};
-		};
 
 		otp: otp@301c800 {
 			compatible = "brcm,ocotp";
@@ -180,50 +134,6 @@
 			reg = <0x0301d0c8 0x30>,
 			      <0x0301d24c 0x2c>;
 
-			i2s0_default_mux: i2s0_mux {
-				i2s0_default_mux {
-					function = "i2s0";
-					groups = "i2s0_0_grp", "i2s0_1_grp";
-				};
-			};
-
-			i2s1_default_mux: i2s1_mux {
-				i2s1_default_mux {
-					function = "i2s1";
-					groups = "i2s1_0_grp", "i2s1_1_grp";
-				};
-			};
-
-			i2s2_default_mux: i2s2_mux {
-				i2s2_default_mux {
-					function = "i2s2";
-					groups = "i2s2_0_grp", "i2s2_1_grp",
-					"i2s2_2_grp", "i2s2_3_grp",
-					"i2s2_4_grp";
-				};
-			};
-
-			spdif_default_mux: spdif_mux {
-				spdif_default_mux {
-					function = "spdif";
-					groups = "spdif_grp";
-				};
-			};
-
-			flextimer_default_mux: flextimer_mux {
-				flextimer_default_mux {
-					function = "audio_dte";
-					groups = "audio_dte0_grp",
-					"audio_dte1_grp",
-					"audio_dte2_grp";
-				};
-			};
-
-			dte_lts_0: dte_lts_0 {
-				function = "audio_dte";
-				groups = "audio_dte0_grp", "audio_dte1_grp";
-			};
-
 			spi_0: spi_0 {
 				function = "spi0";
 				groups = "spi0_grp";
@@ -242,18 +152,11 @@
 
 		mailbox: mailbox@3024024 {
 			compatible = "brcm,iproc-mailbox";
-			reg = <0x03024024 0x8>;
-			#mbox-cells = <1>;
-		};
-
-		iproc_crmu_intc: interrupt-controller@0302402c {
-			compatible = "brcm,iproc-crmu-intc";
-			reg = <0x0302402c 0x8>,
-			      <0x03024058 0xc>;
+			reg = <0x03024024 0x40>;
 			interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
 			#interrupt-cells = <1>;
 			interrupt-controller;
-			mboxes = <&mailbox 3>;
+			#mbox-cells = <1>;
 		};
 
 		gpio_crmu: gpio@3024800 {
@@ -264,9 +167,8 @@
 			#gpio-cells = <2>;
 			gpio-controller;
 			interrupt-controller;
-			interrupt-parent = <&iproc_crmu_intc>;
+			interrupt-parent = <&mailbox>;
 			interrupts = <0>;
-			mboxes = <&mailbox 1>;
 		};
 
 		mdio: mdio@18002000 {
@@ -276,7 +178,7 @@
 			#address-cells = <0>;
 			status = "disabled";
 
-			gphy0: eth-gphy@0 {
+			gphy0: ethernet-phy@0 {
 				reg = <0>;
 			};
 
@@ -286,7 +188,7 @@
 		};
 
 		switch: switch@18007000 {
-			compatible = "brcm,cygnus-srab";
+			compatible = "brcm,bcm11360-srab", "brcm,cygnus-srab";
 			reg = <0x18007000 0x1000>;
 			status = "disabled";
 
@@ -361,15 +263,9 @@
 			compatible = "brcm,iproc-pcie";
 			reg = <0x18012000 0x1000>;
 
-			interrupt-controller;
 			#interrupt-cells = <1>;
-			interrupt-map-mask = <0 0 0 7>;
-			interrupt-map = <0 0 0 0 1 &pcie0 1>,
-					<0 0 0 0 2 &pcie0 2>,
-					<0 0 0 0 3 &pcie0 3>,
-					<0 0 0 0 4 &pcie0 4>;
-
-			interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-map-mask = <0 0 0 0>;
+			interrupt-map = <0 0 0 0 &gic GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
 
 			linux,pci-domain = <0>;
 
@@ -402,15 +298,9 @@
 			compatible = "brcm,iproc-pcie";
 			reg = <0x18013000 0x1000>;
 
-			interrupt-controller;
 			#interrupt-cells = <1>;
-			interrupt-map-mask = <0 0 0 7>;
-			interrupt-map = <0 0 0 1 &pcie1 1>,
-					<0 0 0 2 &pcie1 2>,
-					<0 0 0 3 &pcie1 3>,
-					<0 0 0 4 &pcie1 4>;
-
-			interrupts = <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-map-mask = <0 0 0 0>;
+			interrupt-map = <0 0 0 0 &gic GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>;
 
 			linux,pci-domain = <1>;
 
@@ -541,12 +431,6 @@
 			reg = <0x18032000 0x28>;
 		};
 
-		pka: iproc_pka@18031000 {
-			compatible = "brcm,iproc-pka";
-			reg = <0x18031000 0x10>;
-			status = "disabled";
-		};
-
 		sdhci0: sdhci@18041000 {
 			compatible = "brcm,sdhci-iproc-cygnus";
 			reg = <0x18041000 0x100>;
@@ -603,34 +487,7 @@
 			status = "disabled";
 		};
 
-		extcon_usb: extcon_usb {
-			compatible = "linux,extcon-usb-gpio";
-			vbus-gpio = <&gpio_asiu 121 0>;
-			id-gpio = <&gpio_asiu 122 0>;
-			status = "okay";
-		};
-
-		usb2: usb@1804c000 {
-			compatible = "snps,dw-ahb-udc";
-			reg = <0x1804c000 0x2000>;
-			interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usbphy2 2>;
-			extcon = <&extcon_usb>;
-			phy-names = "usb2drd";
-			status = "disabled";
-		};
-
 		clcd: clcd@180a0000 {
-			compatible = "brcm,iproc-pl111", "arm,primecell";
-			reg = <0x180a0000 0x1000>;
-			interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "combined";
-			clocks = <&axi41_clk>, <&apb_clk>;
-			clock-names = "clcdclk", "apb_pclk";
-			status = "disabled";
-		};
-
-		drm_clcd: drm_clcd@180a0000 {
 			compatible = "arm,pl111", "arm,primecell";
 			reg = <0x180a0000 0x1000>;
 			interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
@@ -638,6 +495,19 @@
 			clocks = <&axi41_clk>, <&apb_clk>;
 			clock-names = "clcdclk", "apb_pclk";
 			status = "disabled";
+		};
+
+		v3d: v3d@180a2000 {
+			compatible = "brcm,cygnus-v3d";
+			reg = <0x180a2000 0x1000>;
+			clocks = <&mipipll BCM_CYGNUS_MIPIPLL_CH2_V3D>;
+			clock-names = "v3d_clk";
+			interrupts = <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		vc4: gpu {
+			compatible = "brcm,cygnus-vc4";
 		};
 
 		gpio_asiu: gpio@180a5000 {
@@ -707,16 +577,6 @@
 			reg = <0x180a6000 0xc30>;
 		};
 
-		flextimer: flextimer@180a6000 {
-			compatible = "brcm,iproc-ftm";
-			flextimer_syscon = <&ts_adc_syscon>;
-			interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&asiu_clks BCM_CYGNUS_ASIU_ADC_CLK>;
-			clock-names = "ftm_clk";
-			pinctrl-0 = <&flextimer_default_mux>;
-			status = "disabled";
-		};
-
 		touchscreen: touchscreen@180a6000 {
 			compatible = "brcm,iproc-touchscreen";
 			#address-cells = <1>;
@@ -725,20 +585,6 @@
 			clocks = <&asiu_clks BCM_CYGNUS_ASIU_ADC_CLK>;
 			clock-names = "tsc_clk";
 			interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
-			status = "disabled";
-		};
-
-		v3d: v3d@180a2000 {
-			compatible = "brcm,cygnus-v3d";
-			reg = <0x180a2000 0x1000>;
-			clocks = <&mipipll BCM_CYGNUS_MIPIPLL_CH2_V3D>;
-			clock-names = "v3d_clk";
-			interrupts = <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>;
-			status = "disabled";
-		};
-
-		vc4: gpu {
-			compatible = "brcm,cygnus-vc4";
 			status = "disabled";
 		};
 
@@ -753,33 +599,11 @@
 			status = "disabled";
 		};
 
-		asiu_padctrl: syscon@180aa05c {
-			compatible = "brcm,asiu-padctrl", "syscon";
-			reg = <0x180aa05c 0xc>;
-		};
-
 		pwm: pwm@180aa500 {
-			compatible = "brcm,kona-pwm-v2";
+			compatible = "brcm,kona-pwm";
 			reg = <0x180aa500 0xc4>;
 			#pwm-cells = <3>;
 			clocks = <&asiu_clks BCM_CYGNUS_ASIU_PWM_CLK>;
-			status = "disabled";
-		};
-
-		bl: backlight {
-			compatible = "pwm-backlight";
-			pwms = <&pwm 0 50000 0>;
-			status = "disabled";
-		};
-
-		iproc_d1w: d1w@180ab000 {
-			compatible = "brcm,iproc-d1w";
-			reg = <0x180ab000 0x0f>;
-			interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&axi81_clk>;
-			clock-names = "iproc_d1w_clk";
-			clock-frequency = <100000000>;
-			reset-recover-delay = <1>;
 			status = "disabled";
 		};
 
@@ -794,106 +618,6 @@
 			col-debounce-filter-period = <0>;
 			status-debounce-filter-period = <0>;
 			row-output-enabled;
-			status = "disabled";
-		};
-
-		iproc_dsi: dsi@180a9000 {
-			compatible = "brcm,iproc-dsi";
-			id = <0>;
-			reg = <0x180c0000 0x80>,
-				<0x180a9000 0x60>,
-				<0x180a9400 0x40>,
-				<0x180a9800 0x50>,
-				<0x0301d074 0x04>;
-			reg-names = "dsi-phy", "axipv", "pv", "gen-pll",
-							"crmu_ext_reset";
-			interrupts = <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 156 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&mipipll BCM_CYGNUS_MIPIPLL_CH0_DSI>;
-			clock-names = "mipidsi_clk";
-			brcm,num-fb = <3>;
-			brcm,iproc-mipi-reg-errata;
-			status = "disabled";
-		};
-
-		ssp_clkmux: syscon@180aea00 {
-			compatible = "brcm,iproc-audio-ssp-syscon", "syscon";
-			reg = <0x180aea00 0x100>;
-		};
-
-		cygnus_audio: audio@180ae000 {
-			compatible = "brcm,cygnus-audio";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0x180ae000 0xafd>, <0x180aec00 0x1f8>;
-			reg-names = "aud", "i2s_in";
-
-			interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
-
-			assigned-clocks = <&ssp0_clock>,
-					  <&ssp1_clock>,
-					  <&ssp2_clock>,
-					  <&spdiftx_clock>;
-
-			assigned-clock-parents =
-				<&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
-				<&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
-				<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>,
-				<&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
-
-			brcm,clk-mux-syscon = <&ssp_clkmux>;
-
-			ssp0: ssp_port@0 {
-				reg = <0>;
-
-				clocks = <&ssp0_clock>;
-				clock-names = "ssp_clk";
-
-				status = "disabled";
-			};
-
-			ssp1: ssp_port@1 {
-				reg = <1>;
-
-				clocks = <&ssp1_clock>;
-				clock-names = "ssp_clk";
-
-				status = "disabled";
-			};
-
-			ssp2: ssp_port@2 {
-				reg = <2>;
-
-				clocks = <&ssp2_clock>;
-				clock-names = "ssp_clk";
-
-				status = "disabled";
-			};
-
-			spdif: spdif_port@3 {
-				reg = <3>;
-
-				clocks = <&spdiftx_clock>;
-				clock-names = "ssp_clk";
-
-				status = "disabled";
-			};
-		};
-
-		dte: dte@180af000 {
-			compatible = "brcm,cygnus-dte", "brcm,iproc-dte";
-			reg = <0x180af000 0x1000>, <0x180aa054 0x4>;
-			reg-names = "dte_primary", "dte_trigg";
-		};
-
-		pm: pm@19020000 {
-			compatible = "brcm,cygnus-pm";
-			reg = <0x19020000 0x100>,
-			      <0x03024024 0x7c>,
-			      <0x1800e000 0x2000>;
-			reg-names = "scu", "crmu", "cru";
-			mboxes = <&mailbox 2>;
 			status = "disabled";
 		};
 	};
