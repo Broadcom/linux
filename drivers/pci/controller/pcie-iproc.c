@@ -1745,60 +1745,6 @@ int iproc_pcie_remove(struct iproc_pcie *pcie)
 }
 EXPORT_SYMBOL(iproc_pcie_remove);
 
-/**
- * FIXME
- * Hacky code to work around the ASIC issue with PAXC and Nitro
- *
- * 1. The bridge header fix should eventually be moved to pci/quirks.c
- * 2. The Nitro fix should be moved to either Chimp firmware or the Nitro
- * kernel driver, which we have no control at this point. Or, hopefully this
- * may be fixed in NS2 B0
- */
-static void quirk_paxc_bridge(struct pci_dev *pdev)
-{
-	struct iproc_pcie *pcie = iproc_data(pdev->bus);
-	int pf;
-
-	if (pdev->hdr_type == PCI_HEADER_TYPE_BRIDGE) {
-		pdev->class = PCI_CLASS_BRIDGE_PCI << 8;
-		return;
-	}
-#define MAX_NUM_PAXC_PF              4
-#define PAXC_CFG_ECM_ADDR_OFFSET     0x1e0
-#define PAXC_CFG_ECM_DBG_EN_SHIFT    31
-#define PAXC_CFG_ECM_DBG_EN          BIT(PAXC_CFG_ECM_DBG_EN_SHIFT)
-#define PAXC_CFG_FUNC_SHIFT          12
-#define PAXC_CFG_FUNC_MASK           0x7000
-#define PAXC_CFG_FUNC(pf)            (((pf) << PAXC_CFG_FUNC_SHIFT) & \
-				      PAXC_CFG_FUNC_MASK)
-#define PAXC_CFG_ECM_DATA_OFFSET     0x1e4
-
-#define NITRO_MSI_CFG_OFFSET         0x4c4
-#define NITRO_QSIZE_OFFSET           0x4c0
-	for (pf = 0; pf < MAX_NUM_PAXC_PF; pf++) {
-		u32 val;
-
-		/*
-		 * TODO:
-		 * Need to figure out what these hardcoded values mean.
-		 * It's unbelievable that after weeks of poking around and
-		 * digging, there's still no one who can point me to a proper
-		 * Nitro documentation
-		 */
-		val = PAXC_CFG_ECM_DBG_EN | PAXC_CFG_FUNC(pf) |
-			NITRO_MSI_CFG_OFFSET;
-		writel(val, pcie->base + PAXC_CFG_ECM_ADDR_OFFSET);
-		writel(0x4, pcie->base + PAXC_CFG_ECM_DATA_OFFSET);
-
-		val = PAXC_CFG_ECM_DBG_EN | PAXC_CFG_FUNC(pf) |
-			NITRO_QSIZE_OFFSET;
-		writel(val, pcie->base + PAXC_CFG_ECM_ADDR_OFFSET);
-		writel(0xba80b, pcie->base + PAXC_CFG_ECM_DATA_OFFSET);
-	}
-	writel(0, pcie->base + PAXC_CFG_ECM_ADDR_OFFSET);
-}
-DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0x16cd, quirk_paxc_bridge);
-
 /*
  * The MSI parsing logic in certain revisions of Broadcom PAXC based root
  * complex does not work and needs to be disabled
