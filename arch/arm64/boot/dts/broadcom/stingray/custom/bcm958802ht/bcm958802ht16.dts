@@ -25,6 +25,11 @@
 		stdout-path = "serial1:115200n8";
 	};
 
+	lpm-memory-range {
+		reg = <0x0 0x80000000 0x0 0x80000000>, /* 2G @ 2G */
+		      <0x8 0x80000000 0x3 0x80000000>; /* 14G @ 34G */
+	};
+
 	nvme_lpm {
 		status = "okay";
 	};
