@@ -86,26 +86,12 @@ main() {
 	# for uses when NS2/Stingray run standalone without NB host
 	do_update ${ARCH64} iproc $iproc_defconfig
 
-	# Omega
-	do_update ${ARCH64} bcm_omega $bcm_omega_defconfig
-
 	#Cleanup 64 bit
 	make ARCH=${ARCH64} mrproper > /dev/null
 	if [ -e defconfig ]; then
 		rm defconfig
 	fi
 	echo "Done 64 bit."
-
-	# 32 bit platforms
-	# cygnus
-	do_update ${ARCH32} bcm_cygnus $bcm_cygnus_defconfig
-
-	#Cleanup 32 bit
-	make ARCH=${ARCH32} mrproper > /dev/null
-	if [ -e defconfig ]; then
-		rm defconfig
-	fi
-	echo "Done 32 bit."
 
 	#
 	# Generate QEMU profiles for x86 and x86_64
