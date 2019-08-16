@@ -25,12 +25,8 @@ clock control registers required for the PLL
     The input parent clock phandle for the PLL. For most iProc PLLs, this is an
 onboard crystal with a fixed rate
 
-Optional properties for a PLL and its leaf clocks:
 - clock-output-names:
-    An ordered list of strings defining the names of the clocks.
-    If this is not supplied the names of the leaf clocks will be generated
-    automatically.  The generated name will be <pll_name> appended with "_chX".
-    Where X is the index of the output.  e.g, "audiopll_ch0", "audiopll_ch1"
+    An ordered list of strings defining the names of the clocks
 
 Example:
 
@@ -88,52 +84,6 @@ Example:
 		clock-output-names = "keypad", "adc/touch", "pwm";
 	};
 
-
-Required properties for audio-mux clocks:
------------------------------------------
-- compatible:  Should have a value of the form "brcm,iproc-mux-clk".
-    An example node is shown below.  For Cygnus here are the properties
-    that need to vary between nodes.
-	ssp port 0
-		compatible = "brcm,iproc-mux-clk"
-		reg-offset = <0x0c>
-	ssp port 1
-		compatible = "brcm,iproc-mux-clk"
-		reg-offset = <0x4c>
-	ssp port 2
-		compatible = "brcm,iproc-mux-clk"
-		reg-offset = <0x8c>
-	spdiftx port
-		compatible = "brcm,iproc-mux-clk"
-		reg-offset = <0xdc>
-
-- clocks: Ordered list of phandles which are the possible parents to the mux.
-	The index of the clock within this list will be value written into
-	control registers bit field.
-- clk-mux-syscon: syscon node used to derive regmap handle
-- reg-offset: offset or the muxes reg from the start of regmap
-- bit-shift: bit shift needed to access mux field within reg
-- bit-width: number of bits in control field
-
-Example:
-  The ssp0 clock mux is controlled by the first 4 bits of the register found at
-  offset 0xc in the regmap defined in ssp_clkmux_syscon.
-  The inputs to this mux are the channel 0, 1, and 2 outputs from the audio pll.
-
-	ssp0_clock: ssp0_clock {
-		#clock-cells = <0>;
-		compatible = "brcm,cygnus-ssp0-clk";
-		clocks = <&audiopll BCM_CYGNUS_AUDIOPLL_CH0>,
-			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH1>,
-			 <&audiopll BCM_CYGNUS_AUDIOPLL_CH2>;
-
-		clk-mux-syscon = <&ssp_clkmux_syscon>;
-		reg-offset = <0x0c>;
-		bit-shift = <0>;
-		bit-width = <4>;
-	};
-
-
 Cygnus
 ------
 PLL and leaf clock compatible strings for Cygnus are:
@@ -157,8 +107,6 @@ These clock IDs are defined in:
     keypad     crystal (ASIU)   0       BCM_CYGNUS_ASIU_KEYPAD_CLK
     adc/tsc    crystal (ASIU)   1       BCM_CYGNUS_ASIU_ADC_CLK
     pwm        crystal (ASIU)   2       BCM_CYGNUS_ASIU_PWM_CLK
-    smartcard  lcpll0  (ASIU)   3       BCM_CYGNUS_ASIU_SMARTCARD_CLK
-    camera     audiopll(ASIU)   4       BCM_CYGNUS_ASIU_CAM_CLK
 
     genpll     crystal          0       BCM_CYGNUS_GENPLL
     axi21      genpll           1       BCM_CYGNUS_GENPLL_AXI21_CLK
@@ -177,7 +125,7 @@ These clock IDs are defined in:
     ch5_unused lcpll0           6       BCM_CYGNUS_LCPLL0_CH5_UNUSED
 
     mipipll    crystal          0       BCM_CYGNUS_MIPIPLL
-    ch0_dsi    mipipll          1       BCM_CYGNUS_MIPIPLL_CH0_DSI
+    ch0_unused mipipll          1       BCM_CYGNUS_MIPIPLL_CH0_UNUSED
     ch1_lcd    mipipll          2       BCM_CYGNUS_MIPIPLL_CH1_LCD
     ch2_v3d    mipipll          3       BCM_CYGNUS_MIPIPLL_CH2_V3D
     ch3_unused mipipll          4       BCM_CYGNUS_MIPIPLL_CH3_UNUSED
@@ -363,30 +311,3 @@ These clock IDs are defined in:
 
     lcpll_pcie		crystal		0	BCM_SR_LCPLL_PCIE
     pcie_phy_ref 	lcpll1		1	BCM_SR_LCPLL_PCIE_PHY_REF_CLK
-
-Omega
-------
-PLL and leaf clock compatible string for Omega are:
-    "brcm,omega-audiopll0"
-    "brcm,omega-audiopll1"
-
-The following table defines the set of PLL/clock index and ID for omega.
-These clock IDs are defined in:
-    "include/dt-bindings/clock/bcm-omega.h"
-
-    Clock             Source (Parent)  Index    ID
-    ---               -----            -----    ---------
-    audiopll_0        crystal           0       BCM_OMEGA_AUDIOPLL
-    audio_pll_0_ch0   audiopll_0        1       BCM_OMEGA_AUDIOPLL_CH0
-    audio_pll_0_ch1   audiopll_0        2       BCM_OMEGA_AUDIOPLL_CH1
-    audio_pll_0_ch2   audiopll_0        3       BCM_OMEGA_AUDIOPLL_CH2
-    audio_pll_0_ch3   audiopll_0        4       BCM_OMEGA_AUDIOPLL_CH3
-    audio_pll_0_ch4   audiopll_0        5       BCM_OMEGA_AUDIOPLL_CH4
-    audio_pll_0_ch5   audiopll_0        6       BCM_OMEGA_AUDIOPLL_CH5
-    audiopll_1        crystal           0       BCM_OMEGA_AUDIOPLL
-    audio_pll_1_ch0   audiopll_1        1       BCM_OMEGA_AUDIOPLL_CH0
-    audio_pll_1_ch1   audiopll_1        2       BCM_OMEGA_AUDIOPLL_CH1
-    audio_pll_1_ch2   audiopll_1        3       BCM_OMEGA_AUDIOPLL_CH2
-    audio_pll_1_ch3   audiopll_1        4       BCM_OMEGA_AUDIOPLL_CH3
-    audio_pll_1_ch4   audiopll_1        5       BCM_OMEGA_AUDIOPLL_CH4
-    audio_pll_1_ch5   audiopll_1        6       BCM_OMEGA_AUDIOPLL_CH5
