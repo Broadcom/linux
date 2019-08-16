@@ -10,15 +10,6 @@ config PHY_CYGNUS_PCIE
 	  Enable this to support the Broadcom Cygnus PCIe PHY.
 	  If unsure, say N.
 
-config PHY_OMEGA_PCIE
-	tristate "Broadcom Omega PCIe PHY driver"
-	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
-	select GENERIC_PHY
-	default ARCH_BCM_IPROC
-	help
-	  Enable this to support the Broadcom Omega PCIe PHY.
-	  If unsure, say N.
-
 config PHY_SR_PCIE_DIAG
 	tristate "Broadcom Stingray PCIe PHY Diag driver"
 	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
