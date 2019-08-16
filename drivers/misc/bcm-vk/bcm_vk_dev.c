@@ -1571,13 +1571,6 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	kref_put(&vk->kref, bcm_vk_release_data);
 }
 
-static void bcm_vk_shutdown(struct pci_dev *pdev)
-{
-	struct bcm_vk *vk = pci_get_drvdata(pdev);
-
-	bcm_h2vk_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_HARD);
-}
-
 static const struct pci_device_id bcm_vk_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_VALKYRIE), },
 	{ }
@@ -1589,7 +1582,6 @@ static struct pci_driver pci_driver = {
 	.id_table = bcm_vk_ids,
 	.probe    = bcm_vk_probe,
 	.remove   = bcm_vk_remove,
-	.shutdown = bcm_vk_shutdown,
 };
 module_pci_driver(pci_driver);
 
