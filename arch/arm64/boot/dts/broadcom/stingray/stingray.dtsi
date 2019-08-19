@@ -336,6 +336,8 @@
 		};
 	};
 
+	#include "stingray-ddr.dtsi"
+
 	crmu: crmu {
 		compatible = "simple-bus";
 		#address-cells = <1>;
