@@ -14,16 +14,23 @@ controller, used in Stingray
 root complex is connected to emulated endpoint devices internal to the ASIC
 - reg: base address and length of the PCIe controller I/O register space
 - #interrupt-cells: set to <1>
-- interrupt-controller: claims itself as an interrupt controller for INTx
 - interrupt-map-mask and interrupt-map, standard PCI properties to define the
   mapping of the PCIe interface to interrupt numbers
-- interrupts: interrupt line wired to the generic GIC for INTx support
 - linux,pci-domain: PCI domain ID. Should be unique for each host controller
 - bus-range: PCI bus numbers covered
 - #address-cells: set to <3>
 - #size-cells: set to <2>
 - device_type: set to "pci"
 - ranges: ranges for the PCI memory and I/O regions
+
+In addition, this Device node must include a sub-node that describes
+the legacy interrupt controller built into the PCIe controller.
+This sub-node must have the following properties:
+ - compatible: must be "brcm,iproc-intc"
+ - interrupt-controller: claims itself as an interrupt controller for INTx
+ - #interrupt-cells: set to <1>
+ - interrupts: interrupt line wired to the generic GIC for INTx support
+ - interrupt-parent: Phandle to the parent interrupt controller
 
 Optional properties:
 - phys: phandle of the PCIe PHY device
@@ -84,7 +91,6 @@ Example:
 				<0 0 0 2 &pcie0_intc 2>,
 				<0 0 0 3 &pcie0_intc 3>,
 				<0 0 0 4 &pcie0_intc 4>;
-		interrupts = <GIC_SPI 100 IRQ_TYPE_NONE>;
 
 		linux,pci-domain = <0>;
 
@@ -108,6 +114,8 @@ Example:
 			compatible = "brcm,iproc-intc";
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 100 IRQ_TYPE_NONE>;
 		};
 
 		/* iProc event queue based MSI */
@@ -132,7 +140,6 @@ Example:
 				<0 0 0 2 &pcie1_intc 2>,
 				<0 0 0 3 &pcie1_intc 3>,
 				<0 0 0 4 &pcie1_intc 4>;
-		interrupts = <GIC_SPI 106 IRQ_TYPE_NONE>;
 
 		linux,pci-domain = <1>;
 
@@ -151,5 +158,7 @@ Example:
 			compatible = "brcm,iproc-intc";
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 106 IRQ_TYPE_NONE>;
 		};
 	};
