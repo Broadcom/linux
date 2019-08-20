@@ -6912,6 +6912,10 @@ static int __bnxt_hwrm_func_qcaps(struct bnxt *bp)
 		bp->fw_cap |= BNXT_FW_CAP_EXT_STATS_SUPPORTED;
 	if (flags &  FUNC_QCAPS_RESP_FLAGS_ERROR_RECOVERY_CAPABLE)
 		bp->fw_cap |= BNXT_FW_CAP_ERROR_RECOVERY;
+#ifdef CONFIG_TEE_BNXT_FW
+	if (flags & FUNC_QCAPS_RESP_FLAGS_ERR_RECOVER_RELOAD)
+		bp->fw_cap |= BNXT_FW_CAP_ERR_RECOVER_RELOAD;
+#endif
 
 	bp->tx_push_thresh = 0;
 	if (flags & FUNC_QCAPS_RESP_FLAGS_PUSH_MODE_SUPPORTED)
@@ -10057,6 +10061,12 @@ static void bnxt_force_fw_reset(struct bnxt *bp)
 		wait_dsecs = fw_health->normal_func_wait_dsecs;
 		bp->fw_reset_state = BNXT_FW_RESET_STATE_ENABLE_DEV;
 	}
+
+	if (bp->fw_cap && BNXT_FW_CAP_ERR_RECOVER_RELOAD) {
+		wait_dsecs = 0;
+		bp->fw_reset_state = BNXT_FW_RESET_STATE_POLL_FW_DOWN;
+	}
+	bp->fw_reset_min_dsecs = fw_health->post_reset_wait_dsecs;
 	bp->fw_reset_max_dsecs = fw_health->post_reset_max_wait_dsecs;
 	bnxt_queue_fw_reset_work(bp, wait_dsecs * HZ / 10);
 }
@@ -10121,8 +10131,15 @@ void bnxt_fw_reset(struct bnxt *bp)
 			goto fw_reset_exit;
 		}
 		bnxt_fw_reset_close(bp);
-		bp->fw_reset_state = BNXT_FW_RESET_STATE_ENABLE_DEV;
-		bnxt_queue_fw_reset_work(bp, bp->fw_reset_min_dsecs * HZ / 10);
+		if ((bp->fw_cap & BNXT_FW_CAP_ERR_RECOVER_RELOAD) &&
+		    bp->fw_health) {
+			bp->fw_reset_state = BNXT_FW_RESET_STATE_POLL_FW_DOWN;
+			bnxt_queue_fw_reset_work(bp, HZ / 10);
+		} else {
+			bp->fw_reset_state = BNXT_FW_RESET_STATE_ENABLE_DEV;
+			bnxt_queue_fw_reset_work(bp, bp->fw_reset_min_dsecs *
+						 HZ / 10);
+		}
 	}
 fw_reset_exit:
 	bnxt_rtnl_unlock_sp(bp);
@@ -10531,14 +10548,21 @@ static void bnxt_fw_reset_writel(struct bnxt *bp, int reg_idx)
 static void bnxt_reset_all(struct bnxt *bp)
 {
 	struct bnxt_fw_health *fw_health = bp->fw_health;
-	int i;
+	int i, rc;
 
+#ifdef CONFIG_TEE_BNXT_FW
+	if (bp->fw_cap & BNXT_FW_CAP_ERR_RECOVER_RELOAD) {
+		rc = tee_bnxt_fw_load();
+		if (rc)
+			netdev_err(bp->dev, "Unable to reset FW rc=%d\n", rc);
+		return;
+	}
+#endif
 	if (fw_health->flags & ERROR_RECOVERY_QCFG_RESP_FLAGS_HOST) {
 		for (i = 0; i < fw_health->fw_reset_seq_cnt; i++)
 			bnxt_fw_reset_writel(bp, i);
 	} else if (fw_health->flags & ERROR_RECOVERY_QCFG_RESP_FLAGS_CO_CPU) {
 		struct hwrm_fw_reset_input req = {0};
-		int rc;
 
 		bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FW_RESET, -1, -1);
 		req.resp_addr = cpu_to_le64(bp->hwrm_cmd_kong_resp_dma_addr);
@@ -10549,7 +10573,6 @@ static void bnxt_reset_all(struct bnxt *bp)
 		if (rc)
 			netdev_warn(bp->dev, "Unable to reset FW rc=%d\n", rc);
 	}
-	bp->fw_reset_timestamp = jiffies;
 }
 
 static void bnxt_fw_reset_task(struct work_struct *work)
@@ -10586,19 +10609,45 @@ static void bnxt_fw_reset_task(struct work_struct *work)
 		bp->fw_reset_timestamp = jiffies;
 		rtnl_lock();
 		bnxt_fw_reset_close(bp);
-		bp->fw_reset_state = BNXT_FW_RESET_STATE_ENABLE_DEV;
+		if ((bp->fw_cap & BNXT_FW_CAP_ERR_RECOVER_RELOAD) &&
+		    bp->fw_health) {
+			bp->fw_reset_state = BNXT_FW_RESET_STATE_POLL_FW_DOWN;
+			bnxt_queue_fw_reset_work(bp, HZ / 10);
+		} else {
+			bp->fw_reset_state = BNXT_FW_RESET_STATE_ENABLE_DEV;
+			bnxt_queue_fw_reset_work(bp, bp->fw_reset_min_dsecs *
+						 HZ / 10);
+		}
 		rtnl_unlock();
-		bnxt_queue_fw_reset_work(bp, bp->fw_reset_min_dsecs * HZ / 10);
 		return;
 	}
-	case BNXT_FW_RESET_STATE_RESET_FW: {
-		u32 wait_dsecs = bp->fw_health->post_reset_wait_dsecs;
+	case BNXT_FW_RESET_STATE_POLL_FW_DOWN: {
+		u32 val;
 
-		bnxt_reset_all(bp);
-		bp->fw_reset_state = BNXT_FW_RESET_STATE_ENABLE_DEV;
-		bnxt_queue_fw_reset_work(bp, wait_dsecs * HZ / 10);
-		return;
+		val = bnxt_fw_health_readl(bp, BNXT_FW_HEALTH_REG);
+		if (!(val & BNXT_FW_STATUS_SHUTDOWN) &&
+		    !time_after(jiffies, bp->fw_reset_timestamp +
+		    (bp->fw_reset_min_dsecs * HZ / 10))) {
+			bnxt_queue_fw_reset_work(bp, HZ / 5);
+			return;
+		}
+
+		if (!bp->fw_health->master) {
+			u32 wait_dsecs = bp->fw_health->normal_func_wait_dsecs;
+
+			bp->fw_reset_state = BNXT_FW_RESET_STATE_ENABLE_DEV;
+			bnxt_queue_fw_reset_work(bp, wait_dsecs * HZ / 10);
+			return;
+		}
+		bp->fw_reset_state = BNXT_FW_RESET_STATE_RESET_FW;
 	}
+	/* fall through */
+	case BNXT_FW_RESET_STATE_RESET_FW:
+		bnxt_reset_all(bp);
+		bp->fw_reset_timestamp = jiffies;
+		bp->fw_reset_state = BNXT_FW_RESET_STATE_ENABLE_DEV;
+		bnxt_queue_fw_reset_work(bp, bp->fw_reset_min_dsecs  * HZ / 10);
+		return;
 	case BNXT_FW_RESET_STATE_ENABLE_DEV:
 		if (test_bit(BNXT_STATE_FW_FATAL_COND, &bp->state) &&
 		    bp->fw_health) {
