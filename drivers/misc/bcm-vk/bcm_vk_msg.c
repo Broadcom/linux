@@ -117,6 +117,12 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk,
 		}
 	}
 
+	if (!ctx) {
+		dev_err(&vk->pdev->dev, "All context in use\n");
+
+		goto all_in_use_exit;
+	}
+
 	/* set the pid and insert it to hash table */
 	ctx->ppid = ppid;
 	ctx->hash_idx = hash_idx;
@@ -125,6 +131,7 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk,
 	/* increase kref */
 	kref_get(&vk->kref);
 
+all_in_use_exit:
 in_reset_exit:
 	spin_unlock(&vk->ctx_lock);
 
