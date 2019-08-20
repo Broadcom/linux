@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright(c) 2018 Broadcom
+ * Copyright 2018-2019 Broadcom.
  */
 
-#ifndef __BCM_VK_H
-#define __BCM_VK_H
+#ifndef BCM_VK_H
+#define BCM_VK_H
 
 #include <linux/pci.h>
 #include <linux/irq.h>

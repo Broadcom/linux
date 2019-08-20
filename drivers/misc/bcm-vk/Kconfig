@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Broadcom VK device
+#
 config BCM_VK
 	tristate "Support for Broadcom Valkyrie Accelerators (VK)"
 	depends on PCI_MSI
