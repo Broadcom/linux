@@ -963,20 +963,18 @@ static int iproc_pcie_intx_enable(struct iproc_pcie *pcie)
 	struct device_node *node;
 	int ret;
 
+	iproc_pcie_write_reg(pcie, IPROC_PCIE_INTX_EN, SYS_RC_INTX_MASK);
 	/*
 	 * BCMA devices do not map INTx the same way as platform devices. All
 	 * BCMA needs is the above code to enable INTx
 	 */
-	if (pcie->irq <= 0)
-		return 0;
 
 	node = of_get_compatible_child(dev->of_node, "brcm,iproc-intc");
-	if (!node) {
-		dev_err(dev, "No brcm,iproc-intx node found\n");
-		return -ENODEV;
-	}
+	if (node)
+		pcie->irq = of_irq_get(node, 0);
 
-	iproc_pcie_write_reg(pcie, IPROC_PCIE_INTX_EN, SYS_RC_INTX_MASK);
+	if (!node || pcie->irq <= 0)
+		return 0;
 
 	/* set IRQ handler */
 	irq_set_chained_handler_and_data(pcie->irq, iproc_pcie_isr, pcie);
