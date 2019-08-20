@@ -15,19 +15,16 @@
 #include "bcm_vk_msg.h"
 #include "bcm_vk_sg.h"
 
+#if CONFIG_BCM_VK_H2VK_VERIFY_AND_RETRY
 /*
  * Turn on the following to verify the data passed down to VK is good, and
- * if not, do retry.  This is a debug/workaround on FPGA PCIe issue.
- * WARN: need to revisit after discussion with HW/ASIC
+ * if not, do retry.  This is a debug/workaround on FPGA PCIe timing issues
+ * but may be found useful for debugging other PCIe hardware issues.
  */
-#define  VK_H2VK_VERIFY_AND_RETRY       1
-
-#if VK_H2VK_VERIFY_AND_RETRY
-
-static inline void bcm_vk_h2vk_verify_idx(struct device *dev,
-					  const char *tag,
-					  volatile uint32_t *p_idx,
-					  const uint32_t expected_val)
+static void bcm_vk_h2vk_verify_idx(struct device *dev,
+				   const char *tag,
+				   volatile uint32_t *p_idx,
+				   uint32_t expected_val)
 {
 	volatile uint32_t *p_rd_bck_idx = p_idx;
 	uint32_t count = 0;
@@ -43,9 +40,9 @@ static inline void bcm_vk_h2vk_verify_idx(struct device *dev,
 	}
 }
 
-static inline void bcm_vk_h2vk_verify_blk(struct device *dev,
-					  const struct vk_msg_blk *p_src_blk,
-					  volatile struct vk_msg_blk *p_dst_blk)
+static void bcm_vk_h2vk_verify_blk(struct device *dev,
+				   const struct vk_msg_blk *p_src_blk,
+				   volatile struct vk_msg_blk *p_dst_blk)
 
 {
 	struct vk_msg_blk rd_bck_blk;
@@ -74,8 +71,22 @@ static inline void bcm_vk_h2vk_verify_blk(struct device *dev,
 		rd_bck_blk = *p_dst_blk;
 	}
 }
+#else
+static void bcm_vk_h2vk_verify_idx(struct device __always_unused *dev,
+				   const char __always_unused *tag,
+				   volatile uint32_t __always_unused *idx,
+				   uint32_t __always_unused expected)
+{
+}
 
-#endif /* VK_H2VK_VERIFY_AND_RETRY */
+static void bcm_vk_h2vk_verify_blk
+		(struct device __always_unused *dev,
+		 const struct vk_msg_blk __always_unused *src,
+		 volatile struct vk_msg_blk __always_unused *dst)
+
+{
+}
+#endif
 
 /*
  * allocate a ctx per file struct
@@ -383,9 +394,8 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
 	for (i = 0; i < p_ent->h2vk_blks; i++) {
 		*p_dst_blk = *p_src_blk;
 
-#if VK_H2VK_VERIFY_AND_RETRY
 		bcm_vk_h2vk_verify_blk(dev, p_src_blk, p_dst_blk);
-#endif
+
 		p_src_blk++;
 		wr_idx = VK_MSGQ_INC(p_msgq, wr_idx, 1);
 		p_dst_blk = VK_MSGQ_BLK_ADDR(vk->bar[1],
@@ -397,9 +407,7 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
 	p_msgq->wr_idx = wr_idx;
 	wmb(); /* flush */
 
-#if VK_H2VK_VERIFY_AND_RETRY
 	bcm_vk_h2vk_verify_idx(dev, "wr_idx", &p_msgq->wr_idx, wr_idx);
-#endif
 
 	/* log new info for debugging */
 	dev_dbg(dev,
@@ -583,10 +591,8 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 			p_msgq->rd_idx = rd_idx;
 			mb(); /* do both rd/wr as we are extracting data out */
 
-#if VK_H2VK_VERIFY_AND_RETRY
 			bcm_vk_h2vk_verify_idx(dev, "rd_idx",
 					       &p_msgq->rd_idx, rd_idx);
-#endif
 
 			/* log new info for debugging */
 			dev_dbg(dev,
