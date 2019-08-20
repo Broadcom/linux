@@ -138,7 +138,7 @@ static uint16_t bcm_vk_get_msg_id(struct bcm_vk *vk)
 	spin_lock(&vk->msg_id_lock);
 	while (test_bit_count < VK_MSG_ID_BITMAP_SIZE) {
 		vk->msg_id++;
-		vk->msg_id = (vk->msg_id & 0x0FFF);
+		vk->msg_id = (vk->msg_id & VK_MSG_ID_BITMAP_MASK);
 		if (test_bit(vk->msg_id, vk->bmap)) {
 			test_bit_count++;
 			continue;

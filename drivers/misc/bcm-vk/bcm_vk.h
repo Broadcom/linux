@@ -43,9 +43,9 @@
 #define BAR_CHIP_ID		0x448
 #define BAR_CARD_TEMPERATURE	0x45C
 #define BAR_CARD_VOLTAGE	0x460
-#define BAR_CARD_ERR_LOG        0x464
+#define BAR_CARD_ERR_LOG	0x464
 #define BAR_CARD_ERR_MEM	0x468
-#define BAR_CARD_PWR_AND_THRE   0x46c
+#define BAR_CARD_PWR_AND_THRE	0x46c
 #define BAR_FIRMWARE_TAG	0x220000
 
 #define CODEPUSH_BOOT1_ENTRY	0x00400000
@@ -82,64 +82,68 @@
 #define FW_STATUS_ZEPHYR_DRV_DEINIT_START	BIT(25)
 #define FW_STATUS_ZEPHYR_DRV_DEINIT_DONE	BIT(26)
 #define FW_STATUS_ZEPHYR_RESET_DONE		BIT(27)
-#define FW_STATUS_ZEPHYR_DEINIT_TRIGGERED (FW_STATUS_ZEPHYR_APP_DEINIT_START | \
-					   FW_STATUS_ZEPHYR_APP_DEINIT_DONE  | \
-					   FW_STATUS_ZEPHYR_DRV_DEINIT_START | \
-					   FW_STATUS_ZEPHYR_DRV_DEINIT_DONE)
+#define FW_STATUS_ZEPHYR_DEINIT_TRIGGERED	\
+				(FW_STATUS_ZEPHYR_APP_DEINIT_START | \
+				 FW_STATUS_ZEPHYR_APP_DEINIT_DONE  | \
+				 FW_STATUS_ZEPHYR_DRV_DEINIT_START | \
+				 FW_STATUS_ZEPHYR_DRV_DEINIT_DONE)
 
 /* Last nibble for reboot reason */
 #define FW_STATUS_ZEPHYR_RESET_REASON_SHIFT	28
 #define FW_STATUS_ZEPHYR_RESET_REASON_MASK	\
-	(0xF << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
+		(0xF << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
 #define FW_STATUS_ZEPHYR_RESET_MBOX_DB		\
-	(0x1 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
+		(0x1 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
 #define FW_STATUS_ZEPHYR_RESET_M7_WDOG		\
-	(0x2 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
+		(0x2 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
 #define FW_STATUS_ZEPHYR_RESET_TEMP		\
-	(0x3 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
+		(0x3 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
 #define FW_STATUS_ZEPHYR_RESET_PCI_FLR		\
-	(0x4 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
+		(0x4 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
 #define FW_STATUS_ZEPHYR_RESET_PCI_HOT		\
-	(0x5 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
+		(0x5 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
 #define FW_STATUS_ZEPHYR_RESET_PCI_WARM		\
-	(0x6 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
+		(0x6 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
 #define FW_STATUS_ZEPHYR_RESET_PCI_COLD		\
-	(0x7 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
+		(0x7 << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
 #define FW_STATUS_ZEPHYR_RESET_UNKNOWN		\
-	(0xF << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
+		(0xF << FW_STATUS_ZEPHYR_RESET_REASON_SHIFT)
 
 /* FW_STATUS definitions end */
 
 /* Zephyr Firmware version size */
-#define BAR_FIRMWARE_TAG_SIZE            50
-#define FIRMWARE_STATUS_PRE_INIT_DONE    0x1F
+#define BAR_FIRMWARE_TAG_SIZE		50
+#define FIRMWARE_STATUS_PRE_INIT_DONE	0x1F
 
 /* Fastboot firmware loader status definitions */
-#define FW_LOADER_ACK_SEND_MORE_DATA		BIT(18)
-#define FW_LOADER_ACK_IN_PROGRESS		BIT(19)
-#define FW_LOADER_ACK_RCVD_ALL_DATA		BIT(20)
+#define FW_LOADER_ACK_SEND_MORE_DATA	BIT(18)
+#define FW_LOADER_ACK_IN_PROGRESS	BIT(19)
+#define FW_LOADER_ACK_RCVD_ALL_DATA	BIT(20)
 
 /* Error log register bit definition - register for error alerts */
-#define ERR_LOG_ALERT_ECC			BIT(0)
-#define ERR_LOG_ALERT_SSIM_BUSY			BIT(1)
-#define ERR_LOG_ALERT_AFBC_BUSY			BIT(2)
-#define ERR_LOG_HIGH_TEMP_ERR			BIT(3)
-#define ERR_LOG_MEM_ALLOC_FAIL			BIT(8)
-#define ERR_LOG_LOW_TEMP_WARN			BIT(9)
+#define ERR_LOG_ALERT_ECC		BIT(0)
+#define ERR_LOG_ALERT_SSIM_BUSY		BIT(1)
+#define ERR_LOG_ALERT_AFBC_BUSY		BIT(2)
+#define ERR_LOG_HIGH_TEMP_ERR		BIT(3)
+#define ERR_LOG_MEM_ALLOC_FAIL		BIT(8)
+#define ERR_LOG_LOW_TEMP_WARN		BIT(9)
 
 /* Fast boot register derived states */
-#define FB_BOOT1_RUNNING		     (DDR_OPEN | 0x6)
-#define FB_BOOT2_RUNNING		     (FW_LOADER_ACK_RCVD_ALL_DATA | 0x6)
+#define FB_BOOT1_RUNNING		(DDR_OPEN | 0x6)
+#define FB_BOOT2_RUNNING		(FW_LOADER_ACK_RCVD_ALL_DATA | 0x6)
 
-/* VK MSG_ID Bitmap Size */
-#define VK_MSG_ID_BITMAP_SIZE 4096
+/* VK MSG_ID defines */
+#define VK_MSG_ID_BITMAP_SIZE		4096
+#define VK_MSG_ID_BITMAP_MASK		(VK_MSG_ID_BITMAP_SIZE - 1)
+#define VK_MSG_ID_OVERFLOW		0xFFFF
 
 /*
  * Use legacy way of implementation with older version
  */
 #define BCM_VK_MISC_API  (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
 
-#define MAX_BAR 3
+/* VK device supports a maximum of 3 bars */
+#define MAX_BAR	3
 enum pci_barno {
 	BAR_0 = 0,
 	BAR_1,
@@ -184,8 +188,8 @@ struct bcm_vk {
 };
 
 /* wq offload work items bits definitions */
-#define BCM_VK_WQ_DWNLD_PEND	    0
-#define BCM_VK_WQ_DWNLD_AUTO	    1
+#define BCM_VK_WQ_DWNLD_PEND	0
+#define BCM_VK_WQ_DWNLD_AUTO	1
 
 static inline u32 vkread32(struct bcm_vk *vk,
 			   enum pci_barno bar,
@@ -245,8 +249,8 @@ int bcm_vk_auto_load_all_images(struct bcm_vk *vk);
  * For legacy kernels, the following 2 PCI APIs will be missing, and
  * have to use msix_entry[] instead.  The APIs are provided in file bcm_vk_pci.c
  */
-#define PCI_IRQ_MSI		    BIT(0)
-#define PCI_IRQ_MSIX		    BIT(1)
+#define PCI_IRQ_MSI		BIT(0)
+#define PCI_IRQ_MSIX		BIT(1)
 
 int pci_irq_vector(struct pci_dev *pdev, unsigned int nr);
 int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
