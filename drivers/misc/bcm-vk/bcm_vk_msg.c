@@ -23,52 +23,47 @@
  */
 static void bcm_vk_h2vk_verify_idx(struct device *dev,
 				   const char *tag,
-				   volatile uint32_t *p_idx,
-				   uint32_t expected_val)
+				   volatile uint32_t *idx,
+				   uint32_t expected)
 {
-	volatile uint32_t *p_rd_bck_idx = p_idx;
 	uint32_t count = 0;
 
-	while (*p_rd_bck_idx != expected_val) {
-
+	while (*idx != expected) {
 		count++;
-		dev_err(dev, "[%d] %s exp %d rd_bck_idx %d\n",
-			count, tag, expected_val, *p_rd_bck_idx);
+		dev_err(dev, "[%d] %s exp %d idx %d\n",
+			count, tag, expected, *idx);
 
 		/* write again */
-		*p_idx = expected_val;
+		*idx = expected;
 	}
 }
 
 static void bcm_vk_h2vk_verify_blk(struct device *dev,
-				   const struct vk_msg_blk *p_src_blk,
-				   volatile struct vk_msg_blk *p_dst_blk)
+				   const struct vk_msg_blk *src,
+				   volatile struct vk_msg_blk *dst)
 
 {
-	struct vk_msg_blk rd_bck_blk;
+	struct vk_msg_blk rd_bck;
 	uint32_t count = 0;
 
-	rd_bck_blk = *p_dst_blk;
-	while (memcmp(&rd_bck_blk,
-		      p_src_blk,
-		      sizeof(rd_bck_blk)) != 0) {
-
+	rd_bck = *dst;
+	while (memcmp(&rd_bck, src, sizeof(rd_bck)) != 0) {
 		count++;
 		dev_err(dev,
 			"[%d]Src Blk: [0x%x 0x%x 0x%x 0x%x]\n",
-			count, *(uint32_t *)p_src_blk,
-			p_src_blk->context_id,
-			p_src_blk->args[0],
-			p_src_blk->args[1]);
+			count, *(uint32_t *)src,
+			src->context_id,
+			src->args[0],
+			src->args[1]);
 		dev_err(dev,
 			"[%d]Rdb Blk: [0x%x 0x%x 0x%x 0x%x]\n",
-			count, *(uint32_t *)(&rd_bck_blk),
-			rd_bck_blk.context_id,
-			rd_bck_blk.args[0],
-			rd_bck_blk.args[1]);
+			count, *(uint32_t *)(&rd_bck),
+			rd_bck.context_id,
+			rd_bck.args[0],
+			rd_bck.args[1]);
 
-		*p_dst_blk = *p_src_blk;
-		rd_bck_blk = *p_dst_blk;
+		*dst = *src;
+		rd_bck = *dst;
 	}
 }
 #else
@@ -92,34 +87,36 @@ static void bcm_vk_h2vk_verify_blk
  * allocate a ctx per file struct
  */
 static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk,
-					 struct task_struct *p_pid)
+					 struct task_struct *ppid)
 {
-	struct bcm_vk_ctx *p_ctx = NULL;
 	uint32_t i;
-	const pid_t pid = task_pid_nr(p_pid);
+	struct bcm_vk_ctx *ctx = NULL;
+	const pid_t pid = task_pid_nr(ppid);
 	uint32_t hash_idx = hash_32(pid, VK_PID_HT_SHIFT_BIT);
 
 	spin_lock(&vk->ctx_lock);
 
 	/* check if it is in reset, if so, don't allow */
 	if (vk->reset_ppid) {
-		dev_err(&vk->pdev->dev, "No context allowed during reset by pid %d\n",
+		dev_err(&vk->pdev->dev,
+			"No context allowed during reset by pid %d\n",
 			task_pid_nr(vk->reset_ppid));
+
 		goto in_reset_exit;
 	}
 
 	for (i = 0; i < VK_CMPT_CTX_MAX; i++) {
-		if (!vk->op_ctx[i].in_use) {
-			vk->op_ctx[i].in_use = true;
-			p_ctx = &vk->op_ctx[i];
+		if (!vk->ctx[i].in_use) {
+			vk->ctx[i].in_use = true;
+			ctx = &vk->ctx[i];
 			break;
 		}
 	}
 
 	/* set the pid and insert it to hash table */
-	p_ctx->p_pid = p_pid;
-	p_ctx->hash_idx = hash_idx;
-	list_add_tail(&p_ctx->list_node, &vk->pid_ht[hash_idx].fd_head);
+	ctx->ppid = ppid;
+	ctx->hash_idx = hash_idx;
+	list_add_tail(&ctx->node, &vk->pid_ht[hash_idx].head);
 
 	/* increase kref */
 	kref_get(&vk->kref);
@@ -127,7 +124,7 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk,
 in_reset_exit:
 	spin_unlock(&vk->ctx_lock);
 
-	return p_ctx;
+	return ctx;
 }
 
 static uint16_t bcm_vk_get_msg_id(struct bcm_vk *vk)
@@ -138,7 +135,7 @@ static uint16_t bcm_vk_get_msg_id(struct bcm_vk *vk)
 	spin_lock(&vk->msg_id_lock);
 	while (test_bit_count < VK_MSG_ID_BITMAP_SIZE) {
 		vk->msg_id++;
-		vk->msg_id = (vk->msg_id & VK_MSG_ID_BITMAP_MASK);
+		vk->msg_id = vk->msg_id & VK_MSG_ID_BITMAP_MASK;
 		if (test_bit(vk->msg_id, vk->bmap)) {
 			test_bit_count++;
 			continue;
@@ -152,41 +149,36 @@ static uint16_t bcm_vk_get_msg_id(struct bcm_vk *vk)
 	return rc;
 }
 
-static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *p_ctx)
+static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *ctx)
 {
 	uint32_t idx;
 	uint32_t hash_idx;
 	pid_t pid;
-	struct bcm_vk_ctx *p_ent;
+	struct bcm_vk_ctx *entry;
 	int count = 0;
 
-	if (p_ctx == NULL) {
+	if (ctx == NULL) {
 		dev_err(&vk->pdev->dev, "NULL context detected\n");
 		return -EINVAL;
 	}
-	idx = p_ctx->idx;
-	pid = task_pid_nr(p_ctx->p_pid);
+	idx = ctx->idx;
+	pid = task_pid_nr(ctx->ppid);
 
 	spin_lock(&vk->ctx_lock);
 
-	if (!vk->op_ctx[idx].in_use) {
-		dev_err(&vk->pdev->dev, "Freeing context id[%d] not in use!\n",
-			idx);
+	if (!vk->ctx[idx].in_use) {
+		dev_err(&vk->pdev->dev, "context[%d] not in use!\n", idx);
 	} else {
-		vk->op_ctx[idx].in_use = false;
-		vk->op_ctx[idx].p_miscdev = NULL;
+		vk->ctx[idx].in_use = false;
+		vk->ctx[idx].miscdev = NULL;
 
-		/*
-		 * remove it from hash list, and do a search to see if it is
-		 * the last one
-		 */
-		list_del(&p_ctx->list_node);
-		hash_idx = p_ctx->hash_idx;
-		list_for_each_entry(p_ent,
-				    &vk->pid_ht[hash_idx].fd_head,
-				    list_node)
-			if (task_pid_nr(p_ent->p_pid) == pid)
+		/* Remove it from hash list and see if it is the last one. */
+		list_del(&ctx->node);
+		hash_idx = ctx->hash_idx;
+		list_for_each_entry(entry, &vk->pid_ht[hash_idx].head, node) {
+			if (task_pid_nr(entry->ppid) == pid)
 				count++;
+		}
 	}
 
 	spin_unlock(&vk->ctx_lock);
@@ -194,46 +186,43 @@ static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *p_ctx)
 	return count;
 }
 
-static void bcm_vk_free_wkent(struct device *dev, struct bcm_vk_wkent *p_ent)
+static void bcm_vk_free_wkent(struct device *dev, struct bcm_vk_wkent *entry)
 {
-	bcm_vk_sg_free(dev, p_ent->dma, VK_DMA_MAX_ADDRS);
+	bcm_vk_sg_free(dev, entry->dma, VK_DMA_MAX_ADDRS);
 
-	kfree(p_ent->p_vk2h_msg);
-	kfree(p_ent);
+	kfree(entry->vk2h_msg);
+	kfree(entry);
 }
 
 static void bcm_vk_drain_all_pend(struct device *dev,
-				  struct bcm_vk_msg_chan *p_chan,
-				  struct bcm_vk_ctx *p_ctx)
+				  struct bcm_vk_msg_chan *chan,
+				  struct bcm_vk_ctx *ctx)
 {
-	uint32_t q_num;
-	struct bcm_vk_wkent *p_ent, *p_tmp;
+	uint32_t num;
+	struct bcm_vk_wkent *entry, *tmp;
 
-	spin_lock(&p_chan->pendq_lock);
-	for (q_num = 0; q_num < p_chan->q_nr; q_num++) {
-		list_for_each_entry_safe(p_ent, p_tmp,
-					 &p_chan->pendq_head[q_num],
-					 list_node) {
-
-			if (p_ctx == NULL) {
-				list_del(&p_ent->list_node);
-				bcm_vk_free_wkent(dev, p_ent);
-			} else if (p_ent->p_ctx->idx == p_ctx->idx) {
-				struct vk_msg_blk *p_msg;
+	spin_lock(&chan->pendq_lock);
+	for (num = 0; num < chan->q_nr; num++) {
+		list_for_each_entry_safe(entry, tmp, &chan->pendq[num], node) {
+			if (ctx == NULL) {
+				list_del(&entry->node);
+				bcm_vk_free_wkent(dev, entry);
+			} else if (entry->ctx->idx == ctx->idx) {
+				struct vk_msg_blk *msg;
 
 				/* if it is specific ctx, log for any stuck */
-				p_msg = p_ent->p_h2vk_msg;
+				msg = entry->h2vk_msg;
 				dev_err(dev,
 					"Drained: fid %u size %u msg 0x%x ctx 0x%x args:[0x%x 0x%x]",
-					p_msg->function_id, p_msg->size,
-					p_msg->msg_id, p_msg->context_id,
-					p_msg->args[0], p_msg->args[1]);
-				list_del(&p_ent->list_node);
-				bcm_vk_free_wkent(dev, p_ent);
+					msg->function_id, msg->size,
+					msg->msg_id, msg->context_id,
+					msg->args[0], msg->args[1]);
+				list_del(&entry->node);
+				bcm_vk_free_wkent(dev, entry);
 			}
 		}
 	}
-	spin_unlock(&p_chan->pendq_lock);
+	spin_unlock(&chan->pendq_lock);
 }
 
 bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
@@ -250,17 +239,17 @@ bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
 }
 
 /*
- * Function to sync up the messages queue info that is provided by BAR0 and BAR1
+ * Function to sync up the messages queue info that is provided by BAR1
  */
 int bcm_vk_sync_msgq(struct bcm_vk *vk)
 {
-	struct bcm_vk_msgq *p_msgq = NULL;
+	struct bcm_vk_msgq *msgq = NULL;
 	struct device *dev = &vk->pdev->dev;
 	uint32_t msgq_off;
 	uint32_t num_q;
 	struct bcm_vk_msg_chan *chan_list[] = {&vk->h2vk_msg_chan,
 					       &vk->vk2h_msg_chan};
-	struct bcm_vk_msg_chan *p_chan = NULL;
+	struct bcm_vk_msg_chan *chan = NULL;
 	int i, j;
 
 	/*
@@ -290,28 +279,27 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 		vkread32(vk, BAR_1, VK_BAR1_MSGQ_NR) / 2;
 
 	/* first msgq location */
-	p_msgq = (struct bcm_vk_msgq *)(vk->bar[1] + msgq_off);
+	msgq = (struct bcm_vk_msgq *)(vk->bar[BAR_1] + msgq_off);
 
 	for (i = 0; i < ARRAY_SIZE(chan_list); i++) {
-		p_chan = chan_list[i];
+		chan = chan_list[i];
 		for (j = 0; j < num_q; j++) {
-
-			p_chan->msgq[j] = p_msgq;
+			chan->msgq[j] = msgq;
 
 			dev_info(dev,
-				 "MsgQ[%d] info - type %d num %d, @ 0x%x, rd_idx %d wr_idx %d, size %d, off 0x%x\n",
+				 "MsgQ[%d] type %d num %d, @ 0x%x, rd_idx %d wr_idx %d, size %d, nxt 0x%x\n",
 				 j,
-				 p_chan->msgq[j]->q_type,
-				 p_chan->msgq[j]->q_num,
-				 p_chan->msgq[j]->q_start_loc,
-				 p_chan->msgq[j]->rd_idx,
-				 p_chan->msgq[j]->wr_idx,
-				 p_chan->msgq[j]->size,
-				 p_chan->msgq[j]->next_off);
+				 chan->msgq[j]->type,
+				 chan->msgq[j]->num,
+				 chan->msgq[j]->start,
+				 chan->msgq[j]->rd_idx,
+				 chan->msgq[j]->wr_idx,
+				 chan->msgq[j]->size,
+				 chan->msgq[j]->nxt);
 
-			p_msgq = (struct bcm_vk_msgq *)
-				 ((char *)p_msgq + sizeof(*p_msgq) +
-				  p_msgq->next_off);
+			msgq = (struct bcm_vk_msgq *)
+				 ((char *)msgq + sizeof(*msgq) +
+				  msgq->nxt);
 
 			rmb(); /* do a read mb to guarantee */
 		}
@@ -322,25 +310,25 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 	return 0;
 }
 
-static int bcm_vk_msg_chan_init(struct bcm_vk_msg_chan *p_chan)
+static int bcm_vk_msg_chan_init(struct bcm_vk_msg_chan *chan)
 {
 	int rc = 0;
 	uint32_t i;
 
-	mutex_init(&p_chan->msgq_mutex);
-	spin_lock_init(&p_chan->pendq_lock);
+	mutex_init(&chan->msgq_mutex);
+	spin_lock_init(&chan->pendq_lock);
 	for (i = 0; i < VK_MSGQ_MAX_NR; i++)
-		INIT_LIST_HEAD(&p_chan->pendq_head[i]);
+		INIT_LIST_HEAD(&chan->pendq[i]);
 
 	return rc;
 }
 
-static void bcm_vk_append_pendq(struct bcm_vk_msg_chan *p_chan, uint16_t q_num,
-				struct bcm_vk_wkent *p_ent)
+static void bcm_vk_append_pendq(struct bcm_vk_msg_chan *chan, uint16_t q_num,
+				struct bcm_vk_wkent *entry)
 {
-	spin_lock(&p_chan->pendq_lock);
-	list_add_tail(&p_ent->list_node, &p_chan->pendq_head[q_num]);
-	spin_unlock(&p_chan->pendq_lock);
+	spin_lock(&chan->pendq_lock);
+	list_add_tail(&entry->node, &chan->pendq[q_num]);
+	spin_unlock(&chan->pendq_lock);
 }
 
 void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num,
@@ -353,72 +341,70 @@ void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num,
 		  VK_BAR0_REGSEG_DB_BASE + q_num * VK_BAR0_REGSEG_DB_REG_GAP);
 }
 
-static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *p_ent)
+static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 {
-	struct bcm_vk_msg_chan *p_chan = &vk->h2vk_msg_chan;
+	struct bcm_vk_msg_chan *chan = &vk->h2vk_msg_chan;
 	struct device *dev = &vk->pdev->dev;
-	struct vk_msg_blk *p_src_blk = &p_ent->p_h2vk_msg[0];
+	struct vk_msg_blk *src = &entry->h2vk_msg[0];
 
-	volatile struct vk_msg_blk *p_dst_blk;
-	struct bcm_vk_msgq *p_msgq;
-	uint32_t q_num = p_src_blk->queue_id;
+	volatile struct vk_msg_blk *dst;
+	struct bcm_vk_msgq *msgq;
+	uint32_t q_num = src->queue_id;
 	uint32_t wr_idx; /* local copy */
 	uint32_t i;
 
-	if (p_ent->h2vk_blks != p_src_blk->size + 1) {
+	if (entry->h2vk_blks != src->size + 1) {
 		dev_err(dev, "ent number of blks %d not matching data's %d MsgId[0x%x]: func %d ctx 0x%x\n",
-			p_ent->h2vk_blks,
-			p_src_blk->size + 1,
-			p_src_blk->msg_id,
-			p_src_blk->function_id,
-			p_src_blk->context_id);
+			entry->h2vk_blks,
+			src->size + 1,
+			src->msg_id,
+			src->function_id,
+			src->context_id);
 		return -EMSGSIZE;
 	}
 
-	p_msgq = p_chan->msgq[q_num];
+	msgq = chan->msgq[q_num];
 
 	rmb(); /* start with a read barrier */
-	mutex_lock(&p_chan->msgq_mutex);
+	mutex_lock(&chan->msgq_mutex);
 
 	/* if not enough space, return EAGAIN and let app handles it */
-	if (VK_MSGQ_AVAIL_SPACE(p_msgq) < p_ent->h2vk_blks) {
-		mutex_unlock(&p_chan->msgq_mutex);
+	if (VK_MSGQ_AVAIL_SPACE(msgq) < entry->h2vk_blks) {
+		mutex_unlock(&chan->msgq_mutex);
 		return -EAGAIN;
 	}
 
-	/* at this point, mutex is got and it is sure there is enough space */
+	/* at this point, mutex is taken and there is enough space */
 
-	wr_idx = p_msgq->wr_idx;
+	wr_idx = msgq->wr_idx;
 
-	p_dst_blk = VK_MSGQ_BLK_ADDR(vk->bar[1], p_msgq, wr_idx);
-	for (i = 0; i < p_ent->h2vk_blks; i++) {
-		*p_dst_blk = *p_src_blk;
+	dst = VK_MSGQ_BLK_ADDR(vk->bar[BAR_1], msgq, wr_idx);
+	for (i = 0; i < entry->h2vk_blks; i++) {
+		*dst = *src;
 
-		bcm_vk_h2vk_verify_blk(dev, p_src_blk, p_dst_blk);
+		bcm_vk_h2vk_verify_blk(dev, src, dst);
 
-		p_src_blk++;
-		wr_idx = VK_MSGQ_INC(p_msgq, wr_idx, 1);
-		p_dst_blk = VK_MSGQ_BLK_ADDR(vk->bar[1],
-					     p_msgq,
-					     wr_idx);
+		src++;
+		wr_idx = VK_MSGQ_INC(msgq, wr_idx, 1);
+		dst = VK_MSGQ_BLK_ADDR(vk->bar[BAR_1], msgq, wr_idx);
 	}
 
 	/* flush the write pointer */
-	p_msgq->wr_idx = wr_idx;
+	msgq->wr_idx = wr_idx;
 	wmb(); /* flush */
 
-	bcm_vk_h2vk_verify_idx(dev, "wr_idx", &p_msgq->wr_idx, wr_idx);
+	bcm_vk_h2vk_verify_idx(dev, "wr_idx", &msgq->wr_idx, wr_idx);
 
 	/* log new info for debugging */
 	dev_dbg(dev,
 		"MsgQ[%d] [Rd Wr] = [%d %d] blks inserted %d - Q = [u-%d a-%d]/%d\n",
-		p_msgq->q_num,
-		p_msgq->rd_idx, p_msgq->wr_idx, p_ent->h2vk_blks,
-		VK_MSGQ_OCCUPIED(p_msgq),
-		VK_MSGQ_AVAIL_SPACE(p_msgq),
-		p_msgq->size);
+		msgq->num,
+		msgq->rd_idx, msgq->wr_idx, entry->h2vk_blks,
+		VK_MSGQ_OCCUPIED(msgq),
+		VK_MSGQ_AVAIL_SPACE(msgq),
+		msgq->size);
 
-	mutex_unlock(&p_chan->msgq_mutex);
+	mutex_unlock(&chan->msgq_mutex);
 
 	/*
 	 * press door bell based on queue number. 1 is added to the wr_idx
@@ -434,7 +420,7 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 			     pid_t pid)
 {
 	int rc = 0;
-	struct bcm_vk_wkent *p_ent;
+	struct bcm_vk_wkent *entry;
 	struct device *dev = &vk->pdev->dev;
 
 	/*
@@ -447,34 +433,34 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 		return -EINVAL;
 	}
 
-	p_ent = kzalloc(sizeof(struct bcm_vk_wkent) +
+	entry = kzalloc(sizeof(struct bcm_vk_wkent) +
 			sizeof(struct vk_msg_blk), GFP_KERNEL);
-	if (!p_ent)
+	if (!entry)
 		return -ENOMEM;
 
 	/* just fill up non-zero data */
-	p_ent->p_h2vk_msg[0].function_id = VK_FID_SHUTDOWN;
-	p_ent->p_h2vk_msg[0].queue_id = 0; /* use highest queue */
-	p_ent->h2vk_blks = 1; /* always 1 block */
+	entry->h2vk_msg[0].function_id = VK_FID_SHUTDOWN;
+	entry->h2vk_msg[0].queue_id = 0; /* use highest queue */
+	entry->h2vk_blks = 1; /* always 1 block */
 
-	p_ent->p_h2vk_msg[0].args[0] = shut_type;
-	p_ent->p_h2vk_msg[0].args[1] = pid;
+	entry->h2vk_msg[0].args[0] = shut_type;
+	entry->h2vk_msg[0].args[1] = pid;
 
-	rc = bcm_h2vk_msg_enqueue(vk, p_ent);
+	rc = bcm_h2vk_msg_enqueue(vk, entry);
 	if (rc)
 		dev_err(dev,
 			"Sending shutdown message to q %d for pid %d fails.\n",
-			p_ent->p_h2vk_msg[0].queue_id, pid);
+			entry->h2vk_msg[0].queue_id, pid);
 
-	kfree(p_ent);
+	kfree(entry);
 
 	return rc;
 }
 
-int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *p_pid)
+int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *ppid)
 {
 	int rc = 0;
-	pid_t pid = task_pid_nr(p_pid);
+	pid_t pid = task_pid_nr(ppid);
 	struct device *dev = &vk->pdev->dev;
 
 	/*
@@ -483,7 +469,7 @@ int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *p_pid)
 	 */
 	if (!vk->msgq_inited) {
 
-		if (vk->reset_ppid == p_pid)
+		if (vk->reset_ppid == ppid)
 			vk->reset_ppid = NULL;
 		return -EPERM;
 	}
@@ -491,7 +477,7 @@ int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *p_pid)
 	dev_info(dev, "No more sessions, shut down pid %d\n", pid);
 
 	/* only need to do it if it is not the reset process */
-	if (vk->reset_ppid != p_pid)
+	if (vk->reset_ppid != ppid)
 		rc = bcm_vk_send_shutdown_msg(vk, VK_SHUTDOWN_PID, pid);
 	else
 		/* reset the pointer if it is exiting last session */
@@ -500,37 +486,37 @@ int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *p_pid)
 	return rc;
 }
 
-static struct bcm_vk_wkent *bcm_vk_find_pending(struct bcm_vk_msg_chan *p_chan,
+static struct bcm_vk_wkent *bcm_vk_find_pending(struct bcm_vk_msg_chan *chan,
 						uint16_t q_num,
 						uint16_t msg_id,
 						unsigned long *map)
 {
 	bool found = false;
-	struct bcm_vk_wkent *p_ent;
+	struct bcm_vk_wkent *entry;
 
-	spin_lock(&p_chan->pendq_lock);
-	list_for_each_entry(p_ent, &p_chan->pendq_head[q_num], list_node) {
+	spin_lock(&chan->pendq_lock);
+	list_for_each_entry(entry, &chan->pendq[q_num], node) {
 
-		if (p_ent->p_h2vk_msg[0].msg_id == msg_id) {
-			list_del(&p_ent->list_node);
+		if (entry->h2vk_msg[0].msg_id == msg_id) {
+			list_del(&entry->node);
 			found = true;
 			bitmap_clear(map, msg_id, 1);
 			break;
 		}
 	}
-	spin_unlock(&p_chan->pendq_lock);
-	return ((found) ? p_ent : NULL);
+	spin_unlock(&chan->pendq_lock);
+	return ((found) ? entry : NULL);
 }
 
 static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
-	struct bcm_vk_msg_chan *p_chan = &vk->vk2h_msg_chan;
-	struct vk_msg_blk *p_data;
-	volatile struct vk_msg_blk *p_src_blk;
-	struct vk_msg_blk *p_dst_blk;
-	struct bcm_vk_msgq *p_msgq;
-	struct bcm_vk_wkent *p_ent;
+	struct bcm_vk_msg_chan *chan = &vk->vk2h_msg_chan;
+	struct vk_msg_blk *data;
+	volatile struct vk_msg_blk *src;
+	struct vk_msg_blk *dst;
+	struct bcm_vk_msgq *msgq;
+	struct bcm_vk_wkent *entry;
 	uint32_t rd_idx;
 	uint32_t q_num, j;
 	uint32_t num_blks;
@@ -542,66 +528,62 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 	 * entry to the vk2h pending queue, waiting for user space
 	 * program to extract
 	 */
-	mutex_lock(&p_chan->msgq_mutex);
+	mutex_lock(&chan->msgq_mutex);
 	rmb(); /* start with a read barrier */
-	for (q_num = 0; q_num < p_chan->q_nr; q_num++) {
-		p_msgq = p_chan->msgq[q_num];
+	for (q_num = 0; q_num < chan->q_nr; q_num++) {
+		msgq = chan->msgq[q_num];
 
-		while (!VK_MSGQ_EMPTY(p_msgq)) {
+		while (!VK_MSGQ_EMPTY(msgq)) {
 
 			/* make a local copy */
-			rd_idx = p_msgq->rd_idx;
+			rd_idx = msgq->rd_idx;
 
 			/* look at the first block and decide the size */
-			p_src_blk = VK_MSGQ_BLK_ADDR(vk->bar[1],
-						     p_msgq,
-						     rd_idx);
+			src = VK_MSGQ_BLK_ADDR(vk->bar[BAR_1], msgq, rd_idx);
 
-			num_blks = p_src_blk->size + 1;
+			num_blks = src->size + 1;
 
-			p_data = kzalloc(num_blks * VK_MSGQ_BLK_SIZE,
-					 GFP_KERNEL);
+			data = kzalloc(num_blks * VK_MSGQ_BLK_SIZE,
+				       GFP_KERNEL);
 
-			if (p_data) {
-
+			if (data) {
 				/* copy messages and linearize it */
-				p_dst_blk = p_data;
+				dst = data;
 				for (j = 0; j < num_blks; j++) {
+					*dst = *src;
 
-					*p_dst_blk = *p_src_blk;
-
-					p_dst_blk++;
+					dst++;
 					rd_idx = VK_MSGQ_INC
-							(p_msgq,
+							(msgq,
 							 rd_idx,
 							 1);
-					p_src_blk = VK_MSGQ_BLK_ADDR
-							(vk->bar[1],
-							 p_msgq,
+					src = VK_MSGQ_BLK_ADDR
+							(vk->bar[BAR_1],
+							 msgq,
 							 rd_idx);
 				}
 				total++;
 			} else {
 				dev_crit(dev, "Error allocating memory\n");
 				/* just keep draining..... */
-				rd_idx = VK_MSGQ_INC(p_msgq, rd_idx, num_blks);
+				rd_idx = VK_MSGQ_INC(msgq, rd_idx, num_blks);
 			}
 
 			/* flush rd pointer after a message is dequeued */
-			p_msgq->rd_idx = rd_idx;
+			msgq->rd_idx = rd_idx;
 			mb(); /* do both rd/wr as we are extracting data out */
 
 			bcm_vk_h2vk_verify_idx(dev, "rd_idx",
-					       &p_msgq->rd_idx, rd_idx);
+					       &msgq->rd_idx, rd_idx);
 
 			/* log new info for debugging */
 			dev_dbg(dev,
 				"MsgQ[%d] [Rd Wr] = [%d %d] blks extracted %d - Q = [u-%d a-%d]/%d\n",
-				p_msgq->q_num,
-				p_msgq->rd_idx, p_msgq->wr_idx, num_blks,
-				VK_MSGQ_OCCUPIED(p_msgq),
-				VK_MSGQ_AVAIL_SPACE(p_msgq),
-				p_msgq->size);
+				msgq->num,
+				msgq->rd_idx, msgq->wr_idx, num_blks,
+				VK_MSGQ_OCCUPIED(msgq),
+				VK_MSGQ_AVAIL_SPACE(msgq),
+				msgq->size);
 
 			/*
 			 * No need to search if it is an autonomous one-way
@@ -609,35 +591,35 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 			 * a h2vk pending item. Currently, only the shutdown
 			 * message falls into this category.
 			 */
-			if (p_data->function_id == VK_FID_SHUTDOWN) {
-				kfree(p_data);
+			if (data->function_id == VK_FID_SHUTDOWN) {
+				kfree(data);
 				continue;
 			}
 
 			/* lookup original message in h2vk direction */
-			p_ent = bcm_vk_find_pending(&vk->h2vk_msg_chan, q_num,
-						    p_data->msg_id,
+			entry = bcm_vk_find_pending(&vk->h2vk_msg_chan, q_num,
+						    data->msg_id,
 						    vk->bmap);
 
 			/*
 			 * if there is message to does not have prior send,
 			 * this is the location to add here
 			 */
-			if (p_ent) {
-				p_ent->vk2h_blks = num_blks;
-				p_ent->p_vk2h_msg = p_data;
+			if (entry) {
+				entry->vk2h_blks = num_blks;
+				entry->vk2h_msg = data;
 				bcm_vk_append_pendq(&vk->vk2h_msg_chan,
-						    q_num, p_ent);
+						    q_num, entry);
 
 			} else {
 				dev_crit(dev, "Could not find MsgId[0x%x] for resp func %d\n",
-					 p_data->msg_id, p_data->function_id);
-				kfree(p_data);
+					 data->msg_id, data->function_id);
+				kfree(data);
 			}
 
 		}
 	}
-	mutex_unlock(&p_chan->msgq_mutex);
+	mutex_unlock(&chan->msgq_mutex);
 	dev_dbg(dev, "total %d drained from queues\n", total);
 
 	return total;
@@ -679,16 +661,16 @@ static int bcm_vk_data_init(struct bcm_vk *vk)
 
 	spin_lock_init(&vk->ctx_lock);
 	for (i = 0; i < VK_CMPT_CTX_MAX; i++) {
-		vk->op_ctx[i].in_use = false;
-		vk->op_ctx[i].idx = i;	/* self identity */
-		vk->op_ctx[i].p_miscdev = NULL;
+		vk->ctx[i].in_use = false;
+		vk->ctx[i].idx = i;	/* self identity */
+		vk->ctx[i].miscdev = NULL;
 	}
 	spin_lock_init(&vk->msg_id_lock);
 	vk->msg_id = 0;
 
 	/* initialize hash table */
 	for (i = 0; i < VK_PID_HT_SZ; i++)
-		INIT_LIST_HEAD(&vk->pid_ht[i].fd_head);
+		INIT_LIST_HEAD(&vk->pid_ht[i].head);
 
 	INIT_WORK(&vk->wq_work, bcm_vk_wq_handler);
 	return rc;
@@ -712,15 +694,15 @@ skip_schedule_work:
 
 int bcm_vk_open(struct inode *inode, struct file *p_file)
 {
-	struct bcm_vk_ctx *p_ctx;
-	struct miscdevice *p_miscdev = (struct miscdevice *)p_file->private_data;
-	struct bcm_vk *vk = container_of(p_miscdev, struct bcm_vk, miscdev);
+	struct bcm_vk_ctx *ctx;
+	struct miscdevice *miscdev = (struct miscdevice *)p_file->private_data;
+	struct bcm_vk *vk = container_of(miscdev, struct bcm_vk, miscdev);
 	struct device *dev = &vk->pdev->dev;
 	int    rc = 0;
 
 	/* get a context and set it up for file */
-	p_ctx = bcm_vk_get_ctx(vk, current);
-	if (!p_ctx) {
+	ctx = bcm_vk_get_ctx(vk, current);
+	if (!ctx) {
 		dev_err(dev, "Error allocating context\n");
 		rc = -ENOMEM;
 	} else {
@@ -731,12 +713,12 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 		 * it is allowed for multiple sessions to open the sysfs, and
 		 * for each file open, when upper layer query the response,
 		 * only those that are tied to a specific open should be
-		 * returened.  The context->idx will be used for such binding
+		 * returned.  The context->idx will be used for such binding
 		 */
-		p_ctx->p_miscdev = p_miscdev;
-		p_file->private_data = p_ctx;
+		ctx->miscdev = miscdev;
+		p_file->private_data = ctx;
 		dev_dbg(dev, "ctx_returned with idx %d, pid %d\n",
-			p_ctx->idx, task_pid_nr(p_ctx->p_pid));
+			ctx->idx, task_pid_nr(ctx->ppid));
 	}
 	return rc;
 }
@@ -745,12 +727,12 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 			   loff_t *f_pos)
 {
 	ssize_t rc = -ENOMSG;
-	struct bcm_vk_ctx *p_ctx = p_file->private_data;
-	struct bcm_vk *vk = container_of(p_ctx->p_miscdev, struct bcm_vk,
+	struct bcm_vk_ctx *ctx = p_file->private_data;
+	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk,
 					 miscdev);
 	struct device *dev = &vk->pdev->dev;
-	struct bcm_vk_msg_chan *p_chan = &vk->vk2h_msg_chan;
-	struct bcm_vk_wkent *p_ent = NULL;
+	struct bcm_vk_msg_chan *chan = &vk->vk2h_msg_chan;
+	struct bcm_vk_wkent *entry = NULL;
 	uint32_t q_num;
 	uint32_t rsp_length;
 	bool found = false;
@@ -768,14 +750,13 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 	 * that belongs to the same context.  Search is always from the high to
 	 * the low priority queues
 	 */
-	spin_lock(&p_chan->pendq_lock);
-	for (q_num = 0; q_num < p_chan->q_nr; q_num++) {
-		list_for_each_entry(p_ent, &p_chan->pendq_head[q_num],
-				    list_node) {
-			if (p_ent->p_ctx->idx == p_ctx->idx) {
-				if (count >= p_ent->vk2h_blks *
-					     VK_MSGQ_BLK_SIZE) {
-					list_del(&p_ent->list_node);
+	spin_lock(&chan->pendq_lock);
+	for (q_num = 0; q_num < chan->q_nr; q_num++) {
+		list_for_each_entry(entry, &chan->pendq[q_num], node) {
+			if (entry->ctx->idx == ctx->idx) {
+				if (count >=
+				    (entry->vk2h_blks * VK_MSGQ_BLK_SIZE)) {
+					list_del(&entry->node);
 					found = true;
 				} else {
 					/* buffer not big enough */
@@ -786,25 +767,25 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 		}
 	}
  bcm_vk_read_loop_exit:
-	spin_unlock(&p_chan->pendq_lock);
+	spin_unlock(&chan->pendq_lock);
 
 	if (found) {
 		/* retrieve the passed down msg_id */
-		p_ent->p_vk2h_msg[0].msg_id = p_ent->usr_msg_id;
-		rsp_length = p_ent->vk2h_blks * VK_MSGQ_BLK_SIZE;
-		if (copy_to_user(buf, p_ent->p_vk2h_msg, rsp_length) == 0)
+		entry->vk2h_msg[0].msg_id = entry->usr_msg_id;
+		rsp_length = entry->vk2h_blks * VK_MSGQ_BLK_SIZE;
+		if (copy_to_user(buf, entry->vk2h_msg, rsp_length) == 0)
 			rc = rsp_length;
 
-		bcm_vk_free_wkent(dev, p_ent);
+		bcm_vk_free_wkent(dev, entry);
 	} else if (rc == -EMSGSIZE) {
-		struct vk_msg_blk tmp_msg = p_ent->p_vk2h_msg[0];
+		struct vk_msg_blk tmp_msg = entry->vk2h_msg[0];
 
 		/*
 		 * in this case, return just the first block, so
 		 * that app knows what size it is looking for.
 		 */
-		tmp_msg.msg_id = p_ent->usr_msg_id;
-		tmp_msg.size = p_ent->vk2h_blks - 1;
+		tmp_msg.msg_id = entry->usr_msg_id;
+		tmp_msg.size = entry->vk2h_blks - 1;
 		if (copy_to_user(buf, &tmp_msg, VK_MSGQ_BLK_SIZE) != 0) {
 			dev_err(dev,
 				"Error returning first block in -EMSGSIZE case\n");
@@ -818,12 +799,12 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 			    size_t count, loff_t *f_pos)
 {
 	ssize_t rc = -EPERM;
-	struct bcm_vk_ctx *p_ctx = p_file->private_data;
-	struct bcm_vk *vk = container_of(p_ctx->p_miscdev, struct bcm_vk,
+	struct bcm_vk_ctx *ctx = p_file->private_data;
+	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk,
 					 miscdev);
-	struct bcm_vk_msgq *p_msgq;
+	struct bcm_vk_msgq *msgq;
 	struct device *dev = &vk->pdev->dev;
-	struct bcm_vk_wkent *p_ent;
+	struct bcm_vk_wkent *entry;
 
 	dev_dbg(dev, "Msg count %ld, msg_inited %d\n",
 		 count, vk->msgq_inited);
@@ -840,45 +821,45 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	}
 
 	/* allocate the work entry and the buffer */
-	p_ent = kzalloc(sizeof(struct bcm_vk_wkent) + count, GFP_KERNEL);
-	if (!p_ent) {
+	entry = kzalloc(sizeof(struct bcm_vk_wkent) + count, GFP_KERNEL);
+	if (!entry) {
 		rc = -ENOMEM;
 		goto bcm_vk_write_err;
 	}
 
 	/* now copy msg from user space, and then formulate the wk ent */
-	if (copy_from_user(&p_ent->p_h2vk_msg[0], buf, count))
+	if (copy_from_user(&entry->h2vk_msg[0], buf, count))
 		goto bcm_vk_write_free_ent;
 
-	p_ent->h2vk_blks = count / VK_MSGQ_BLK_SIZE;
-	p_ent->p_ctx = p_ctx;
+	entry->h2vk_blks = count / VK_MSGQ_BLK_SIZE;
+	entry->ctx = ctx;
 
 	/* do a check on the blk size which could not exceed queue space */
-	p_msgq = vk->h2vk_msg_chan.msgq[p_ent->p_h2vk_msg[0].queue_id];
-	if (p_ent->h2vk_blks > (p_msgq->size - 1)) {
+	msgq = vk->h2vk_msg_chan.msgq[entry->h2vk_msg[0].queue_id];
+	if (entry->h2vk_blks > (msgq->size - 1)) {
 		dev_err(dev, "Blk size %d exceed max queue size allowed %d\n",
-			p_ent->h2vk_blks, p_msgq->size - 1);
+			entry->h2vk_blks, msgq->size - 1);
 		rc = -EOVERFLOW;
 		goto bcm_vk_write_free_ent;
 	}
 
 	/* Use internal message id */
-	p_ent->usr_msg_id = p_ent->p_h2vk_msg[0].msg_id;
+	entry->usr_msg_id = entry->h2vk_msg[0].msg_id;
 	rc = bcm_vk_get_msg_id(vk);
 	if (rc == VK_MSG_ID_OVERFLOW) {
 		dev_err(dev, "msg_id overflow\n");
 		rc = -EOVERFLOW;
 		goto bcm_vk_write_free_ent;
 	}
-	p_ent->p_h2vk_msg[0].msg_id = rc;
+	entry->h2vk_msg[0].msg_id = rc;
 
 	dev_dbg(dev,
 		"Message ctx id %d, usr_msg_id 0x%x sent msg_id 0x%x\n",
-		p_ctx->idx, p_ent->usr_msg_id,
-		p_ent->p_h2vk_msg[0].msg_id);
+		ctx->idx, entry->usr_msg_id,
+		entry->h2vk_msg[0].msg_id);
 
 	/* Convert any pointers to sg list */
-	if (p_ent->p_h2vk_msg[0].function_id == VK_FID_TRANS_BUF) {
+	if (entry->h2vk_msg[0].function_id == VK_FID_TRANS_BUF) {
 		int num_planes;
 		int dir;
 		struct _vk_data *data;
@@ -889,14 +870,14 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		 */
 		if (vk->reset_ppid) {
 			dev_dbg(dev, "No Transfer allowed during reset, pid %d.\n",
-				task_pid_nr(p_ctx->p_pid));
+				task_pid_nr(ctx->ppid));
 			rc = -EACCES;
 			goto bcm_vk_write_free_msgid;
 		}
 
-		num_planes = p_ent->p_h2vk_msg[0].args[0] & VK_CMD_PLANES_MASK;
-		if ((p_ent->p_h2vk_msg[0].args[0] & VK_CMD_MASK) ==
-		    VK_CMD_DOWNLOAD) {
+		num_planes = entry->h2vk_msg[0].args[0] & VK_CMD_PLANES_MASK;
+		if ((entry->h2vk_msg[0].args[0] & VK_CMD_MASK)
+		    == VK_CMD_DOWNLOAD) {
 			/* Memory transfer from vk device */
 			dir = DMA_FROM_DEVICE;
 		} else {
@@ -907,12 +888,12 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		/* Calculate vk_data location */
 		/* Go to end of the message */
 		data = (struct _vk_data *)
-			&(p_ent->p_h2vk_msg[p_ent->p_h2vk_msg[0].size + 1]);
+			&(entry->h2vk_msg[entry->h2vk_msg[0].size + 1]);
 		/* Now back up to the start of the pointers */
 		data -= num_planes;
 
 		/* Convert user addresses to DMA SG List */
-		rc = bcm_vk_sg_alloc(dev, p_ent->dma, dir, data, num_planes);
+		rc = bcm_vk_sg_alloc(dev, entry->dma, dir, data, num_planes);
 		if (rc)
 			goto bcm_vk_write_free_msgid;
 	}
@@ -921,17 +902,17 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	 * store wk ent to pending queue until a response is got. This needs to
 	 * be done before enqueuing the message
 	 */
-	bcm_vk_append_pendq(&vk->h2vk_msg_chan, p_ent->p_h2vk_msg[0].queue_id,
-			    p_ent);
+	bcm_vk_append_pendq(&vk->h2vk_msg_chan, entry->h2vk_msg[0].queue_id,
+			    entry);
 
-	rc = bcm_h2vk_msg_enqueue(vk, p_ent);
+	rc = bcm_h2vk_msg_enqueue(vk, entry);
 	if (rc) {
 		dev_err(dev, "Fail to enqueue msg to h2vk queue\n");
 
 		/* remove message from pending list */
-		p_ent = bcm_vk_find_pending(&vk->h2vk_msg_chan,
-					    p_ent->p_h2vk_msg[0].queue_id,
-					    p_ent->p_h2vk_msg[0].msg_id,
+		entry = bcm_vk_find_pending(&vk->h2vk_msg_chan,
+					    entry->h2vk_msg[0].queue_id,
+					    entry->h2vk_msg[0].msg_id,
 					    vk->bmap);
 		goto bcm_vk_write_free_msgid;
 	}
@@ -939,9 +920,9 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	return count;
 
 bcm_vk_write_free_msgid:
-	bitmap_clear(vk->bmap, p_ent->p_h2vk_msg[0].msg_id, 1);
+	bitmap_clear(vk->bmap, entry->h2vk_msg[0].msg_id, 1);
 bcm_vk_write_free_ent:
-	kfree(p_ent);
+	kfree(entry);
 bcm_vk_write_err:
 	return rc;
 }
@@ -949,22 +930,22 @@ bcm_vk_write_err:
 int bcm_vk_release(struct inode *inode, struct file *p_file)
 {
 	int ret;
-	struct bcm_vk_ctx *p_ctx = p_file->private_data;
-	struct bcm_vk *vk = container_of(p_ctx->p_miscdev, struct bcm_vk,
+	struct bcm_vk_ctx *ctx = p_file->private_data;
+	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk,
 					 miscdev);
 	struct device *dev = &vk->pdev->dev;
-	struct task_struct *p_pid = p_ctx->p_pid;
-	pid_t pid = task_pid_nr(p_pid);
+	struct task_struct *ppid = ctx->ppid;
+	pid_t pid = task_pid_nr(ppid);
 
 	dev_dbg(dev, "Draining with context idx %d pid %d\n",
-		p_ctx->idx, pid);
+		ctx->idx, pid);
 
-	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, p_ctx);
-	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, p_ctx);
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, ctx);
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, ctx);
 
-	ret = bcm_vk_free_ctx(vk, p_ctx);
+	ret = bcm_vk_free_ctx(vk, ctx);
 	if (ret == 0)
-		ret = bcm_vk_handle_last_sess(vk, p_pid);
+		ret = bcm_vk_handle_last_sess(vk, ppid);
 
 	/* free memory if it is the last reference */
 	kref_put(&vk->kref, bcm_vk_release_data);

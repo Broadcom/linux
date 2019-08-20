@@ -115,16 +115,16 @@ static int bcm_vk_sysfs_dump_reg(uint32_t reg_val,
 				 const uint32_t table_size, char *buf)
 {
 	uint32_t i, masked_val;
-	struct bcm_vk_sysfs_reg_entry const *p_entry;
+	struct bcm_vk_sysfs_reg_entry const *entry;
 	char *p_buf = buf;
 	int ret;
 
 	for (i = 0; i < table_size; i++) {
-		p_entry = &entry_tab[i];
-		masked_val = p_entry->mask & reg_val;
-		if (masked_val == p_entry->exp_val) {
+		entry = &entry_tab[i];
+		masked_val = entry->mask & reg_val;
+		if (masked_val == entry->exp_val) {
 			ret = sprintf(p_buf, "  [0x%08x]    : %s\n",
-				      masked_val, p_entry->str);
+				      masked_val, entry->str);
 			if (ret < 0)
 				return ret;
 
@@ -616,16 +616,13 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	spin_lock(&vk->ctx_lock);
 	for (i = 0; i < VK_PID_HT_SZ; i++) {
 
-		struct bcm_vk_ctx *p_ctx;
+		struct bcm_vk_ctx *ctx;
 
-		list_for_each_entry(p_ctx,
-				    &vk->pid_ht[i].fd_head,
-				    list_node) {
-
-			if (p_ctx->p_pid != vk->reset_ppid) {
+		list_for_each_entry(ctx, &vk->pid_ht[i].head, node) {
+			if (ctx->ppid != vk->reset_ppid) {
 				dev_dbg(dev, "Send kill signal to pid %d\n",
-					task_pid_nr(p_ctx->p_pid));
-				kill_pid(task_pid(p_ctx->p_pid), SIGKILL, 1);
+					task_pid_nr(ctx->ppid));
+				kill_pid(task_pid(ctx->ppid), SIGKILL, 1);
 			}
 		}
 	}
@@ -650,9 +647,9 @@ err_out:
 static int bcm_vk_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct bcm_vk_ctx *ctx = file->private_data;
-	struct bcm_vk *vk = container_of(ctx->p_miscdev, struct bcm_vk,
-					 miscdev);
+	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk, miscdev);
 	unsigned long pg_size;
+
 	/* only BAR2 is mmap possible, which is bar num 4 due to 64bit */
 #define VK_MMAPABLE_BAR	   4
 
@@ -674,8 +671,7 @@ static long bcm_vk_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	long ret = -EINVAL;
 	struct bcm_vk_ctx *ctx = file->private_data;
-	struct bcm_vk *vk = container_of(ctx->p_miscdev, struct bcm_vk,
-					 miscdev);
+	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk, miscdev);
 	void __user *argp = (void __user *)arg;
 
 	dev_dbg(&vk->pdev->dev,

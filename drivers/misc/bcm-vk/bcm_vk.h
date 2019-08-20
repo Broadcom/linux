@@ -170,7 +170,7 @@ struct bcm_vk {
 	uint16_t msg_id;
 	DECLARE_BITMAP(bmap, VK_MSG_ID_BITMAP_SIZE);
 	spinlock_t ctx_lock;
-	struct bcm_vk_ctx op_ctx[VK_CMPT_CTX_MAX];
+	struct bcm_vk_ctx ctx[VK_CMPT_CTX_MAX];
 	struct bcm_vk_ht_entry pid_ht[VK_PID_HT_SZ];
 	struct task_struct *reset_ppid; /* process that issue reset */
 
