@@ -28,7 +28,6 @@
 				<0 0 0 2 &pcie0_intc 2>,
 				<0 0 0 3 &pcie0_intc 3>,
 				<0 0 0 4 &pcie0_intc 4>;
-		interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <0>;
 
@@ -69,6 +68,8 @@
 			compatible = "brcm,iproc-intc";
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 
@@ -82,7 +83,6 @@
 				<0 0 0 2 &pcie1_intc 2>,
 				<0 0 0 3 &pcie1_intc 3>,
 				<0 0 0 4 &pcie1_intc 4>;
-		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <1>;
 
@@ -123,6 +123,8 @@
 			compatible = "brcm,iproc-intc";
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 
@@ -136,7 +138,6 @@
 				<0 0 0 2 &pcie2_intc 2>,
 				<0 0 0 3 &pcie2_intc 3>,
 				<0 0 0 4 &pcie2_intc 4>;
-		interrupts = <GIC_SPI 432 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <2>;
 
@@ -177,6 +178,8 @@
 			compatible = "brcm,iproc-intc";
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 432 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 
@@ -190,7 +193,6 @@
 				<0 0 0 2 &pcie3_intc 2>,
 				<0 0 0 3 &pcie3_intc 3>,
 				<0 0 0 4 &pcie3_intc 4>;
-		interrupts = <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <3>;
 
@@ -231,6 +233,8 @@
 			compatible = "brcm,iproc-intc";
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 
@@ -244,7 +248,6 @@
 				<0 0 0 2 &pcie4_intc 2>,
 				<0 0 0 3 &pcie4_intc 3>,
 				<0 0 0 4 &pcie4_intc 4>;
-		interrupts = <GIC_SPI 444 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <4>;
 
@@ -285,6 +288,8 @@
 			compatible = "brcm,iproc-intc";
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 444 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 
@@ -298,7 +303,6 @@
 				<0 0 0 2 &pcie5_intc 2>,
 				<0 0 0 3 &pcie5_intc 3>,
 				<0 0 0 4 &pcie5_intc 4>;
-		interrupts = <GIC_SPI 450 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <5>;
 
@@ -339,6 +343,8 @@
 			compatible = "brcm,iproc-intc";
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 450 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 
@@ -352,7 +358,6 @@
 				<0 0 0 2 &pcie6_intc 2>,
 				<0 0 0 3 &pcie6_intc 3>,
 				<0 0 0 4 &pcie6_intc 4>;
-		interrupts = <GIC_SPI 456 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <6>;
 
@@ -393,6 +398,8 @@
 			compatible = "brcm,iproc-intc";
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 456 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 
@@ -406,7 +413,6 @@
 				<0 0 0 2 &pcie7_intc 2>,
 				<0 0 0 3 &pcie7_intc 3>,
 				<0 0 0 4 &pcie7_intc 4>;
-		interrupts = <GIC_SPI 462 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <7>;
 
@@ -447,6 +453,8 @@
 			compatible = "brcm,iproc-intc";
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 462 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 
