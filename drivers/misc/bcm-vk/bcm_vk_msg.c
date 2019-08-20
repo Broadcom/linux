@@ -237,8 +237,7 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 				 chan->msgq[j]->nxt);
 
 			msgq = (struct bcm_vk_msgq *)
-				 ((char *)msgq + sizeof(*msgq) +
-				  msgq->nxt);
+				((char *)msgq + sizeof(*msgq) + msgq->nxt);
 
 			rmb(); /* do a read mb to guarantee */
 		}
@@ -293,7 +292,7 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	uint32_t i;
 
 	if (entry->h2vk_blks != src->size + 1) {
-		dev_err(dev, "ent number of blks %d not matching data's %d MsgId[0x%x]: func %d ctx 0x%x\n",
+		dev_err(dev, "number of blks %d not matching %d MsgId[0x%x]: func %d ctx 0x%x\n",
 			entry->h2vk_blks,
 			src->size + 1,
 			src->msg_id,
@@ -478,8 +477,7 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 
 			num_blks = src->size + 1;
 
-			data = kzalloc(num_blks * VK_MSGQ_BLK_SIZE,
-				       GFP_KERNEL);
+			data = kzalloc(num_blks * VK_MSGQ_BLK_SIZE, GFP_KERNEL);
 
 			if (data) {
 				/* copy messages and linearize it */
@@ -488,14 +486,10 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 					*dst = *src;
 
 					dst++;
-					rd_idx = VK_MSGQ_INC
-							(msgq,
-							 rd_idx,
-							 1);
-					src = VK_MSGQ_BLK_ADDR
-							(vk->bar[BAR_1],
-							 msgq,
-							 rd_idx);
+					rd_idx = VK_MSGQ_INC(msgq, rd_idx, 1);
+					src = VK_MSGQ_BLK_ADDR(vk->bar[BAR_1],
+							       msgq,
+							       rd_idx);
 				}
 				total++;
 			} else {
@@ -529,7 +523,8 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 			}
 
 			/* lookup original message in h2vk direction */
-			entry = bcm_vk_find_pending(&vk->h2vk_msg_chan, q_num,
+			entry = bcm_vk_find_pending(&vk->h2vk_msg_chan,
+						    q_num,
 						    data->msg_id,
 						    vk->bmap);
 
@@ -544,7 +539,8 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 						    q_num, entry);
 
 			} else {
-				dev_crit(dev, "Could not find MsgId[0x%x] for resp func %d\n",
+				dev_crit(dev,
+					 "Could not find MsgId[0x%x] for resp func %d\n",
 					 data->msg_id, data->function_id);
 				kfree(data);
 			}
@@ -568,7 +564,6 @@ static void bcm_vk_wq_handler(struct work_struct *work)
 
 	/* check wq offload bit map and see if auto download is requested */
 	if (test_bit(BCM_VK_WQ_DWNLD_AUTO, &vk->wq_offload)) {
-
 		bcm_vk_auto_load_all_images(vk);
 
 		/* at the end of operation, clear AUTO bit and pending bit */
@@ -669,8 +664,7 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 	uint32_t rsp_length;
 	bool found = false;
 
-	dev_dbg(dev, "Buf count %ld, msgq_inited %d\n",
-		count, vk->msgq_inited);
+	dev_dbg(dev, "Buf count %ld, msgq_inited %d\n", count, vk->msgq_inited);
 
 	if (!vk->msgq_inited)
 		return -EPERM;
@@ -719,8 +713,7 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 		tmp_msg.msg_id = entry->usr_msg_id;
 		tmp_msg.size = entry->vk2h_blks - 1;
 		if (copy_to_user(buf, &tmp_msg, VK_MSGQ_BLK_SIZE) != 0) {
-			dev_err(dev,
-				"Error returning first block in -EMSGSIZE case\n");
+			dev_err(dev, "Error return 1st block in -EMSGSIZE\n");
 			rc = -EFAULT;
 		}
 	}
@@ -738,8 +731,7 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_wkent *entry;
 
-	dev_dbg(dev, "Msg count %ld, msg_inited %d\n",
-		 count, vk->msgq_inited);
+	dev_dbg(dev, "Msg count %ld, msg_inited %d\n", count, vk->msgq_inited);
 
 	if (!vk->msgq_inited)
 		return -EPERM;
@@ -863,8 +855,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 {
 	int ret;
 	struct bcm_vk_ctx *ctx = p_file->private_data;
-	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk,
-					 miscdev);
+	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk, miscdev);
 	struct device *dev = &vk->pdev->dev;
 	struct task_struct *ppid = ctx->ppid;
 	pid_t pid = task_pid_nr(ppid);
