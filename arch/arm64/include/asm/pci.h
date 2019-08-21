@@ -18,9 +18,6 @@
 #define pcibios_assign_all_busses() \
 	(pci_has_flag(PCI_REASSIGN_ALL_BUS))
 
-/* FIXME: investigate if this is still needed in the future */
-#define HAVE_PCI_MMAP
-
 #define ARCH_GENERIC_PCI_MMAP_RESOURCE	1
 
 extern int isa_dma_bridge_buggy;
