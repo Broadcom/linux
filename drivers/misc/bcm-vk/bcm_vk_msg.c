@@ -171,7 +171,7 @@ bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
 
 	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
 
-	if ((fw_status & FW_STATUS_ZEPHYR_READY) == FW_STATUS_ZEPHYR_READY)
+	if ((fw_status & FW_STATUS_READY) == FW_STATUS_READY)
 		rdy_marker = vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
 
 	return (rdy_marker == VK_BAR1_MSGQ_RDY_MARKER);
@@ -955,7 +955,7 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	vkwrite32(vk, value, BAR_0, BAR_CODEPUSH_SBL);
 
 	/* reset fw_status with proper reason, and press db */
-	vkwrite32(vk, FW_STATUS_ZEPHYR_RESET_MBOX_DB, BAR_0, BAR_FW_STATUS);
+	vkwrite32(vk, FW_STATUS_RESET_MBOX_DB, BAR_0, BAR_FW_STATUS);
 	bcm_h2vk_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_SOFT);
 
 	/* clear 4096 bits of bitmap */

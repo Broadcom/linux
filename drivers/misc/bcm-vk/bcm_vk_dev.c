@@ -71,10 +71,10 @@ static DEFINE_IDA(bcm_vk_ida);
 	(((_val) & (_bitmask)) != (_bitmask))
 
 /*
- * deinit time for the zephyr os after receiving doorbell,
+ * deinit time for the card os after receiving doorbell,
  * 2 seconds should be enough
  */
-#define BCM_VK_ZEPHYR_DEINIT_TIME_MS    (2 * MSEC_PER_SEC)
+#define BCM_VK_DEINIT_TIME_MS    (2 * MSEC_PER_SEC)
 
 /*
  * module parameters
@@ -343,17 +343,17 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		} while (1);
 
 		/* Initialize Message Q if we are loading boot2 */
-		/* wait for fw status bits to indicate Zephyr app ready */
+		/* wait for fw status bits to indicate app ready */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_FW_STATUS,
-				  FW_STATUS_ZEPHYR_READY,
-				  FW_STATUS_ZEPHYR_READY,
+				  FW_STATUS_READY,
+				  FW_STATUS_READY,
 				  LOAD_IMAGE_TIMEOUT_MS);
 		if (ret < 0) {
 			dev_err(dev, "Boot2 not ready - timeout\n");
 			goto err_firmware_out;
 		}
 
-		/* sync queues when zephyr is up */
+		/* sync queues when card os is up */
 		if (bcm_vk_sync_msgq(vk)) {
 			dev_err(dev, "Boot2 Error reading comm msg Q info\n");
 			ret = -EIO;
@@ -555,17 +555,17 @@ static int bcm_vk_reset_successful(struct bcm_vk *vk)
 	}
 
 	/* initial check on reset reason */
-	reset_reason = (fw_status & FW_STATUS_ZEPHYR_RESET_REASON_MASK);
-	if ((reset_reason == FW_STATUS_ZEPHYR_RESET_MBOX_DB)
-	     || (reset_reason == FW_STATUS_ZEPHYR_RESET_UNKNOWN))
+	reset_reason = (fw_status & FW_STATUS_RESET_REASON_MASK);
+	if ((reset_reason == FW_STATUS_RESET_MBOX_DB)
+	     || (reset_reason == FW_STATUS_RESET_UNKNOWN))
 		ret = 0;
 
 	/*
 	 * if some of the deinit bits are set, but done
 	 * bit is not, this is a failure if triggered while boot2 is running
 	 */
-	if ((fw_status & FW_STATUS_ZEPHYR_DEINIT_TRIGGERED)
-	    && !(fw_status & FW_STATUS_ZEPHYR_RESET_DONE))
+	if ((fw_status & FW_STATUS_DEINIT_TRIGGERED)
+	    && !(fw_status & FW_STATUS_RESET_DONE))
 		ret = -EAGAIN;
 
 bcm_vk_reset_exit:
@@ -633,10 +633,10 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	bcm_vk_trigger_reset(vk);
 
 	/*
-	 * Wait enough time for zephyr to deinit + populate the reset
+	 * Wait enough time for card os to deinit + populate the reset
 	 * reason.
 	 */
-	msleep(BCM_VK_ZEPHYR_DEINIT_TIME_MS);
+	msleep(BCM_VK_DEINIT_TIME_MS);
 
 	ret = bcm_vk_reset_successful(vk);
 
@@ -712,7 +712,7 @@ static int bcm_vk_sysfs_chk_fw_status(struct bcm_vk *vk, uint32_t mask,
 	uint32_t fw_status;
 	int ret = 0;
 
-	/* if ZEPHYR is not running, no one will update the value */
+	/* if card OS is not running, no one will update the value */
 	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
 	if (BCM_VK_INTF_IS_DOWN(fw_status))
 		return sprintf(buf, "PCIe Intf Down!\n");
@@ -857,7 +857,7 @@ static ssize_t firmware_version_show(struct device *dev,
 	count += bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_BOOT1_VER_TAG,
 				      &buf[count], "Boot1   : %s\n");
 
-	/* Check if ZEPHYR_PRE_KERNEL1_INIT_DONE for rest of items */
+	/* Check if FIRMWARE_STATUS_PRE_INIT_DONE for rest of items */
 	ret = bcm_vk_sysfs_chk_fw_status(vk, FIRMWARE_STATUS_PRE_INIT_DONE,
 					 &buf[count],
 					 "FW Version: n/a (fw not running)\n");
@@ -868,7 +868,7 @@ static ssize_t firmware_version_show(struct device *dev,
 	chip_id = vkread32(vk, BAR_0, BAR_CHIP_ID);
 	count += sprintf(&buf[count], "Chip id : 0x%x\n", chip_id);
 
-	count += sprintf(&buf[count], "zephyr  : ");
+	count += sprintf(&buf[count], "Card os  : ");
 
 	do {
 		buf[count] = vkread8(vk, BAR_1, offset);
@@ -900,82 +900,88 @@ static ssize_t firmware_status_show(struct device *dev,
 	 * so mask == exp_val
 	 */
 	static struct bcm_vk_sysfs_reg_entry const fw_status_reg_tab[] = {
-		{FW_STATUS_RELOCATION_ENTRY,
-		 FW_STATUS_RELOCATION_ENTRY,                "relo_entry"},
-		{FW_STATUS_RELOCATION_EXIT,
-		 FW_STATUS_RELOCATION_EXIT,                 "relo_exit"},
-		{FW_STATUS_ZEPHYR_INIT_START,
-		 FW_STATUS_ZEPHYR_INIT_START,               "init_st"},
-		{FW_STATUS_ZEPHYR_ARCH_INIT_DONE,
-		 FW_STATUS_ZEPHYR_ARCH_INIT_DONE,           "arch_inited"},
-		{FW_STATUS_ZEPHYR_PRE_KERNEL1_INIT_DONE,
-		 FW_STATUS_ZEPHYR_PRE_KERNEL1_INIT_DONE,    "pre_kern1_inited"},
-		{FW_STATUS_ZEPHYR_PRE_KERNEL2_INIT_DONE,
-		 FW_STATUS_ZEPHYR_PRE_KERNEL2_INIT_DONE,    "pre_kern2_inited"},
-		{FW_STATUS_ZEPHYR_POST_KERNEL_INIT_DONE,
-		 FW_STATUS_ZEPHYR_POST_KERNEL_INIT_DONE,    "kern_inited"},
-		{FW_STATUS_ZEPHYR_INIT_DONE,
-		 FW_STATUS_ZEPHYR_INIT_DONE,                "zephyr_inited"},
-		{FW_STATUS_ZEPHYR_APP_INIT_START,
-		 FW_STATUS_ZEPHYR_APP_INIT_START,           "app_init_st"},
-		{FW_STATUS_ZEPHYR_APP_INIT_DONE,
-		 FW_STATUS_ZEPHYR_APP_INIT_DONE,            "app_inited"},
+		{FW_STATUS_RELOCATION_ENTRY, FW_STATUS_RELOCATION_ENTRY,
+		 "relo_entry"},
+		{FW_STATUS_RELOCATION_EXIT, FW_STATUS_RELOCATION_EXIT,
+		 "relo_exit"},
+		{FW_STATUS_INIT_START, FW_STATUS_INIT_START,
+		 "init_st"},
+		{FW_STATUS_ARCH_INIT_DONE, FW_STATUS_ARCH_INIT_DONE,
+		 "arch_inited"},
+		{FW_STATUS_PRE_KNL1_INIT_DONE, FW_STATUS_PRE_KNL1_INIT_DONE,
+		 "pre_kern1_inited"},
+		{FW_STATUS_PRE_KNL2_INIT_DONE, FW_STATUS_PRE_KNL2_INIT_DONE,
+		  "pre_kern2_inited"},
+		{FW_STATUS_POST_KNL_INIT_DONE, FW_STATUS_POST_KNL_INIT_DONE,
+		  "kern_inited"},
+		{FW_STATUS_INIT_DONE, FW_STATUS_INIT_DONE,
+		 "card_os_inited"},
+		{FW_STATUS_APP_INIT_START, FW_STATUS_APP_INIT_START,
+		 "app_init_st"},
+		{FW_STATUS_APP_INIT_DONE, FW_STATUS_APP_INIT_DONE,
+		 "app_inited"},
 	};
 	/* for FB register */
 	static struct bcm_vk_sysfs_reg_entry const fb_open_reg_tab[] = {
-		{FW_LOADER_ACK_SEND_MORE_DATA,
-		 FW_LOADER_ACK_SEND_MORE_DATA,                "bt1_needs_data"},
-		{FW_LOADER_ACK_IN_PROGRESS,
-		 FW_LOADER_ACK_IN_PROGRESS,                   "bt1_inprog"},
-		{FW_LOADER_ACK_RCVD_ALL_DATA,
-		 FW_LOADER_ACK_RCVD_ALL_DATA,                 "bt2_dload_done"},
-		{SRAM_OPEN, SRAM_OPEN,			      "wait_boot1"},
-		{0xFFF3FFFF, FB_BOOT1_RUNNING,		      "wait_boot2"},
-		{0xFFF3FFFF, FB_BOOT2_RUNNING,		      "boot2_running"},
+		{FW_LOADER_ACK_SEND_MORE_DATA, FW_LOADER_ACK_SEND_MORE_DATA,
+		 "bt1_needs_data"},
+		{FW_LOADER_ACK_IN_PROGRESS, FW_LOADER_ACK_IN_PROGRESS,
+		 "bt1_inprog"},
+		{FW_LOADER_ACK_RCVD_ALL_DATA, FW_LOADER_ACK_RCVD_ALL_DATA,
+		 "bt2_dload_done"},
+		{SRAM_OPEN, SRAM_OPEN,
+		 "wait_boot1"},
+		{FB_BOOT_STATE_MASK, FB_BOOT1_RUNNING,
+		 "wait_boot2"},
+		{FB_BOOT_STATE_MASK, FB_BOOT2_RUNNING,
+		 "boot2_running"},
 	};
 	/*
 	 * shut down is lumped with fw-status register, but we use a different
 	 * table to isolate it out.
 	 */
 	static struct bcm_vk_sysfs_reg_entry const fw_shutdown_reg_tab[] = {
-		{FW_STATUS_ZEPHYR_APP_DEINIT_START,
-		 FW_STATUS_ZEPHYR_APP_DEINIT_START,        "app_deinit_st"},
-		{FW_STATUS_ZEPHYR_APP_DEINIT_DONE,
-		 FW_STATUS_ZEPHYR_APP_DEINIT_DONE,         "app_deinited"},
-		{FW_STATUS_ZEPHYR_DRV_DEINIT_START,
-		 FW_STATUS_ZEPHYR_DRV_DEINIT_START,        "drv_deinit_st"},
-		{FW_STATUS_ZEPHYR_DRV_DEINIT_DONE,
-		 FW_STATUS_ZEPHYR_DRV_DEINIT_DONE,         "drv_deinited"},
-		{FW_STATUS_ZEPHYR_RESET_DONE,
-		 FW_STATUS_ZEPHYR_RESET_DONE,              "reset_done"},
+		{FW_STATUS_APP_DEINIT_START, FW_STATUS_APP_DEINIT_START,
+		 "app_deinit_st"},
+		{FW_STATUS_APP_DEINIT_DONE, FW_STATUS_APP_DEINIT_DONE,
+		 "app_deinited"},
+		{FW_STATUS_DRV_DEINIT_START, FW_STATUS_DRV_DEINIT_START,
+		 "drv_deinit_st"},
+		{FW_STATUS_DRV_DEINIT_DONE, FW_STATUS_DRV_DEINIT_DONE,
+		 "drv_deinited"},
+		{FW_STATUS_RESET_DONE, FW_STATUS_RESET_DONE,
+		 "reset_done"},
 		/* reboot reason */
-		{FW_STATUS_ZEPHYR_RESET_REASON_MASK, 0,    "R-sys_pwrup"},
-		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
-		 FW_STATUS_ZEPHYR_RESET_MBOX_DB,	   "R-reset_doorbell"},
-		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
-		 FW_STATUS_ZEPHYR_RESET_M7_WDOG,	   "R-wdog"},
-		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
-		 FW_STATUS_ZEPHYR_RESET_TEMP,	           "R-overheat"},
-		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
-		 FW_STATUS_ZEPHYR_RESET_PCI_FLR,           "R-pci_flr"},
-		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
-		 FW_STATUS_ZEPHYR_RESET_PCI_HOT,	   "R-pci_hot"},
-		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
-		 FW_STATUS_ZEPHYR_RESET_PCI_WARM,	   "R-pci_warm" },
-		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
-		 FW_STATUS_ZEPHYR_RESET_PCI_COLD,          "R-pci_cold" },
-		{FW_STATUS_ZEPHYR_RESET_REASON_MASK,
-		 FW_STATUS_ZEPHYR_RESET_UNKNOWN,           "R-unknown" },
-
+		{FW_STATUS_RESET_REASON_MASK, 0,
+		 "R-sys_pwrup"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_MBOX_DB,
+		 "R-reset_doorbell"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_M7_WDOG,
+		 "R-wdog"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_TEMP,
+		 "R-overheat"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_FLR,
+		 "R-pci_flr"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_HOT,
+		 "R-pci_hot"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_WARM,
+		 "R-pci_warm" },
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_COLD,
+		 "R-pci_cold" },
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_UNKNOWN,
+		 "R-unknown" },
 	};
 	/* list of registers */
 	static struct bcm_vk_sysfs_reg_list const fw_status_reg_list[] = {
 		{BAR_FW_STATUS, fw_status_reg_tab,
-		 ARRAY_SIZE(fw_status_reg_tab), "FW status"},
+		 ARRAY_SIZE(fw_status_reg_tab),
+		 "FW status"},
 		{BAR_FB_OPEN, fb_open_reg_tab,
-		 ARRAY_SIZE(fb_open_reg_tab), "FastBoot status"},
+		 ARRAY_SIZE(fb_open_reg_tab),
+		 "FastBoot status"},
 		{BAR_FW_STATUS, fw_shutdown_reg_tab,
-		 ARRAY_SIZE(fw_shutdown_reg_tab), "Last Reset status"},
+		 ARRAY_SIZE(fw_shutdown_reg_tab),
+		 "Last Reset status"},
 	};
 
 	reg_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
@@ -984,8 +990,10 @@ static ssize_t firmware_status_show(struct device *dev,
 
 	for (i = 0; i < ARRAY_SIZE(fw_status_reg_list); i++) {
 		reg_status = vkread32(vk, BAR_0, fw_status_reg_list[i].offset);
-		dev_dbg(dev, "%s: 0x%08x\n", fw_status_reg_list[i].hdr,
-			reg_status);
+
+		dev_dbg(dev, "%s: 0x%08x\n",
+			fw_status_reg_list[i].hdr, reg_status);
+
 		ret = sprintf(p_buf, "%s: 0x%08x\n",
 			      fw_status_reg_list[i].hdr, reg_status);
 		if (ret < 0)
@@ -1017,6 +1025,7 @@ static ssize_t bus_show(struct device *dev,
 	dev_dbg(dev, _BUS_NUM_FMT,
 		pci_domain_nr(pdev->bus), pdev->bus->number,
 		PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+
 	return sprintf(buf, _BUS_NUM_FMT,
 		       pci_domain_nr(pdev->bus), pdev->bus->number,
 		       PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
@@ -1050,8 +1059,8 @@ static ssize_t card_state_show(struct device *dev,
 		"Full", "Reduced", "Lowest"};
 	char *pwr_state_str;
 
-	/* if ZEPHYR is not running, no one will update the value */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_ZEPHYR_READY, buf,
+	/* if OS is not running, no one will update the value */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
 					 "card_state: n/a (fw not running)\n");
 	if (ret)
 		return ret;
