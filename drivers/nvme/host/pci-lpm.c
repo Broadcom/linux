@@ -1165,7 +1165,7 @@ static int nvme_build_backup_io_queues(void *ndev_cntxt, u64 mem_addr,
 	struct nvme_dev *dev = ndev_cntxt;
 	struct nvme_lpm_dev *lpm_dev = &dev->lpm_dev;
 	unsigned int lba_shift, i = 0, qid = 1;
-	u64 blkcnt;
+	u64 blkcnt, max_lba;
 	u16 max_lbas_per_xfer;
 	int ret;
 
@@ -1200,10 +1200,17 @@ static int nvme_build_backup_io_queues(void *ndev_cntxt, u64 mem_addr,
 	lba_shift = lpm_dev->lba_shift;
 	blkcnt = DIV_ROUND_UP(xfer_length, 1 << lba_shift);
 	max_lbas_per_xfer = 1 << (lpm_dev->max_transfer_shift - lba_shift);
+	max_lba = dev->capacity >> lba_shift;
 
 	dev_info(dev->dev, "requested xfer size:%#llx->lbas:%#llx;"
 		 "max_lbas_per_xfer:%#x start mem_addr:%#llx start lba: %#llx",
 		 xfer_length, blkcnt, max_lbas_per_xfer, mem_addr, blknr);
+
+	/* check if LBA range provided for backup is valid */
+	if (blknr + blkcnt - 1 > max_lba) {
+		dev_err(dev->dev, "Invalid LBA range!\n");
+		return -ENXIO;
+	}
 
 	do {
 		if (blkcnt < max_lbas_per_xfer) {
