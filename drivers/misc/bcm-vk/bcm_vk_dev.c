@@ -1026,7 +1026,7 @@ static ssize_t bus_show(struct device *dev,
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 
-#define _BUS_NUM_FMT "[pci_bus] %04x:%02x:%02x.%1d\n"
+#define _BUS_NUM_FMT "%04x:%02x:%02x.%1d\n"
 	dev_dbg(dev, _BUS_NUM_FMT,
 		pci_domain_nr(pdev->bus), pdev->bus->number,
 		PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
