@@ -1157,8 +1157,8 @@ static ssize_t card_state_show(struct device *dev,
 		"  [Low_thre]      : %d Celsius\n"   \
 		"  [High_thre]     : %d Celsius\n"
 
-	pwr_state_str = (pwr_state < ARRAY_SIZE(pwr_state_tab)) ?
-			 (char *) pwr_state_tab[pwr_state] : "n/a";
+	pwr_state_str = ((pwr_state - 1) < ARRAY_SIZE(pwr_state_tab)) ?
+			 (char *) pwr_state_tab[pwr_state - 1] : "n/a";
 	ret = sprintf(buf, _PWR_AND_THRE_FMT, reg, pwr_state, pwr_state_str,
 		      low_temp_thre, high_temp_thre);
 	if (ret < 0)
