@@ -46,14 +46,20 @@
 #define BAR_CARD_ERR_LOG		0x464
 #define BAR_CARD_ERR_MEM		0x468
 #define BAR_CARD_PWR_AND_THRE		0x46C
+#define BAR_BOOTSRC_SELECT		0xC78
 #define BAR_FIRMWARE_TAG		0x220000
 
 #define CODEPUSH_BOOT1_ENTRY		0x00400000
 #define CODEPUSH_BOOT2_ENTRY		0x60000000
 #define CODEPUSH_MASK			0xFFFFF000
 #define CODEPUSH_FASTBOOT		BIT(0)
+
+/* Fastboot progress definitions */
 #define SRAM_OPEN			BIT(16)
 #define DDR_OPEN			BIT(17)
+
+/* BOOTSRC definitions */
+#define BOOTSRC_SOFT_ENABLE		BIT(14)
 
 /* FW_STATUS definitions */
 #define FW_STATUS_RELOCATION_ENTRY	BIT(0)

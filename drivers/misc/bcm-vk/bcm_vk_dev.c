@@ -1430,6 +1430,13 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_kfree_name;
 	}
 
+	/*
+	 * After POR, fastboot fails on A1 because bootrom clears the TCM,
+	 * which is where the images are. Enable VK Soft BOOTSRC so we trick
+	 * bootrom to not clear the TCM.
+	 */
+	vkwrite32(vk, BOOTSRC_SOFT_ENABLE, BAR_0, BAR_BOOTSRC_SELECT);
+
 	dev_info(dev, "create sysfs group for bcm-vk.%d\n", id);
 	err = sysfs_create_group(&pdev->dev.kobj,
 				 &bcm_vk_card_stat_attribute_group);
