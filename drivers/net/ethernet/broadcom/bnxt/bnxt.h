@@ -1615,6 +1615,7 @@ struct bnxt {
 #define BNXT_STATE_FW_RESET_DET 3
 #define BNXT_STATE_IN_FW_RESET	4
 #define BNXT_STATE_ABORT_ERR	5
+#define BNXT_STATE_FW_FATAL_COND	6
 
 	struct bnxt_irq	*irq_tbl;
 	int			total_irqs;
