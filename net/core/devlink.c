@@ -4515,11 +4515,34 @@ devlink_health_reporter_state_update(struct devlink_health_reporter *reporter,
 }
 EXPORT_SYMBOL_GPL(devlink_health_reporter_state_update);
 
+static void __devlink_recover_notify(struct devlink *devlink,
+				     enum devlink_command cmd)
+{
+	struct sk_buff *msg;
+	int err;
+
+	WARN_ON(cmd != DEVLINK_CMD_HEALTH_REPORTER_RECOVER);
+
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!msg)
+		return;
+
+	err = devlink_nl_fill(msg, devlink, cmd, 0, 0, 0);
+	if (err) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	genlmsg_multicast_netns(&devlink_nl_family, devlink_net(devlink),
+				msg, 0, DEVLINK_MCGRP_CONFIG, GFP_KERNEL);
+}
+
 static int
 devlink_health_reporter_recover(struct devlink_health_reporter *reporter,
 				void *priv_ctx)
 {
 	int err;
+	struct sk_buff *msg;
 
 	if (!reporter->ops->recover)
 		return -EOPNOTSUPP;
@@ -4531,6 +4554,9 @@ devlink_health_reporter_recover(struct devlink_health_reporter *reporter,
 	reporter->recovery_count++;
 	reporter->health_state = DEVLINK_HEALTH_REPORTER_STATE_HEALTHY;
 	reporter->last_recovery_ts = jiffies;
+
+	__devlink_recover_notify(reporter->devlink,
+				 DEVLINK_CMD_HEALTH_REPORTER_RECOVER);
 
 	return 0;
 }
