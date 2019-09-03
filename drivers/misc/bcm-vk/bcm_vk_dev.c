@@ -225,6 +225,12 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	mutex_lock(&load_image_mutex);
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
+		/*
+		 * After POR, enable VK soft BOOTSRC so bootrom do not clear
+		 * the pushed image (the TCM memories).
+		 */
+		vkwrite32(vk, BOOTSRC_SOFT_ENABLE, BAR_0, BAR_BOOTSRC_SELECT);
+
 		codepush = CODEPUSH_FASTBOOT + CODEPUSH_BOOT1_ENTRY;
 		offset_codepush = BAR_CODEPUSH_SBL;
 
@@ -1429,13 +1435,6 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		dev_err(dev, "failed to init msg queue info\n");
 		goto err_kfree_name;
 	}
-
-	/*
-	 * After POR, fastboot fails on A1 because bootrom clears the TCM,
-	 * which is where the images are. Enable VK Soft BOOTSRC so we trick
-	 * bootrom to not clear the TCM.
-	 */
-	vkwrite32(vk, BOOTSRC_SOFT_ENABLE, BAR_0, BAR_BOOTSRC_SELECT);
 
 	dev_info(dev, "create sysfs group for bcm-vk.%d\n", id);
 	err = sysfs_create_group(&pdev->dev.kobj,
