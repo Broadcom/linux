@@ -152,10 +152,11 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 				/* if it is specific ctx, log for any stuck */
 				msg = entry->h2vk_msg;
 				dev_err(dev,
-					"Drained: fid %u size %u msg 0x%x ctx 0x%x args:[0x%x 0x%x]",
+					"Drained: fid %u size %u msg 0x%x ctx 0x%x args:[0x%x 0x%x] resp %s",
 					msg->function_id, msg->size,
 					msg->msg_id, msg->context_id,
-					msg->args[0], msg->args[1]);
+					msg->args[0], msg->args[1],
+					entry->vk2h_msg ? "T" : "F");
 				list_del(&entry->node);
 				bcm_vk_free_wkent(dev, entry);
 			}
