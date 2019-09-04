@@ -256,8 +256,7 @@ static int get_set_conduit_method(struct device_node *np)
 
 static void psci_sys_reset(enum reboot_mode reboot_mode, const char *cmd)
 {
-	if ((reboot_mode == REBOOT_WARM || reboot_mode == REBOOT_SOFT ||
-	    (cmd && (!strncmp(cmd, "warm", 4) || !strncmp(cmd, "soft", 4)))) &&
+	if ((reboot_mode == REBOOT_WARM || reboot_mode == REBOOT_SOFT) &&
 	    psci_system_reset2_supported)
 		/*
 		 * reset_type[31] = 0 (architectural)
