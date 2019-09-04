@@ -1207,6 +1207,116 @@ card_state_show_fail:
 	return ret;
 }
 
+static ssize_t alert_ecc_show(struct device *dev,
+			      struct device_attribute *devattr, char *buf)
+{
+	int ret;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg;
+
+	/* if OS is not running, no one will update the value, just return 0 */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+					 "0\n");
+	if (ret)
+		return ret;
+
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
+	return sprintf(buf, "%d\n", reg & ERR_LOG_ALERT_ECC ? 1 : 0);
+}
+
+static ssize_t alert_ssim_busy_show(struct device *dev,
+				    struct device_attribute *devattr, char *buf)
+{
+	int ret;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg;
+
+	/* if OS is not running, no one will update the value, just return 0 */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+					 "0\n");
+	if (ret)
+		return ret;
+
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
+	return sprintf(buf, "%d\n", reg & ERR_LOG_ALERT_SSIM_BUSY ? 1 : 0);
+}
+
+static ssize_t alert_afbc_busy_show(struct device *dev,
+				    struct device_attribute *devattr, char *buf)
+{
+	int ret;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg;
+
+	/* if OS is not running, no one will update the value, just return 0 */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+					 "0\n");
+	if (ret)
+		return ret;
+
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
+	return sprintf(buf, "%d\n", reg & ERR_LOG_ALERT_AFBC_BUSY ? 1 : 0);
+}
+
+static ssize_t alert_high_temp_show(struct device *dev,
+				    struct device_attribute *devattr, char *buf)
+{
+	int ret;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg;
+
+	/* if OS is not running, no one will update the value, just return 0 */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+					 "0\n");
+	if (ret)
+		return ret;
+
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
+	return sprintf(buf, "%d\n", reg & ERR_LOG_HIGH_TEMP_ERR ? 1 : 0);
+}
+
+static ssize_t alert_malloc_fail_warn_show(struct device *dev,
+					   struct device_attribute *devattr,
+					   char *buf)
+{
+	int ret;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg;
+
+	/* if OS is not running, no one will update the value, just return 0 */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+					 "0\n");
+	if (ret)
+		return ret;
+
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
+	return sprintf(buf, "%d\n", reg & ERR_LOG_MEM_ALLOC_FAIL ? 1 : 0);
+}
+
+static ssize_t alert_low_temp_warn_show(struct device *dev,
+					struct device_attribute *devattr,
+					char *buf)
+{
+	int ret;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg;
+
+	/* if OS is not running, no one will update the value, just return 0 */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+					 "0\n");
+	if (ret)
+		return ret;
+
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
+	return sprintf(buf, "%d\n", reg & ERR_LOG_LOW_TEMP_WARN ? 1 : 0);
+}
+
 static ssize_t sotp_common_show(struct device *dev,
 				struct device_attribute *devattr,
 				char *buf, uint32_t tag_offset)
@@ -1301,6 +1411,12 @@ static DEVICE_ATTR_RO(rev_boot2);
 static DEVICE_ATTR_RO(rev_driver);
 static DEVICE_ATTR_RO(bus);
 static DEVICE_ATTR_RO(card_state);
+static DEVICE_ATTR_RO(alert_ecc);
+static DEVICE_ATTR_RO(alert_ssim_busy);
+static DEVICE_ATTR_RO(alert_afbc_busy);
+static DEVICE_ATTR_RO(alert_high_temp);
+static DEVICE_ATTR_RO(alert_malloc_fail_warn);
+static DEVICE_ATTR_RO(alert_low_temp_warn);
 static DEVICE_ATTR_RO(sotp_dauth_1);
 static DEVICE_ATTR_RO(sotp_dauth_1_valid);
 static DEVICE_ATTR_RO(sotp_dauth_2);
@@ -1351,6 +1467,12 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_firmware_status_reg.attr,
 	&dev_attr_fastboot_reg.attr,
 	&dev_attr_pwr_state.attr,
+	&dev_attr_alert_ecc.attr,
+	&dev_attr_alert_ssim_busy.attr,
+	&dev_attr_alert_afbc_busy.attr,
+	&dev_attr_alert_high_temp.attr,
+	&dev_attr_alert_malloc_fail_warn.attr,
+	&dev_attr_alert_low_temp_warn.attr,
 	NULL,
 };
 
