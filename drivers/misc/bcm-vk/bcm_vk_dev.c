@@ -898,6 +898,70 @@ static ssize_t firmware_version_show(struct device *dev,
 	return count;
 }
 
+static ssize_t rev_flash_rom_show(struct device *dev,
+				  struct device_attribute *devattr,
+				  char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_UCODE_VER_TAG,
+				     buf, "%s\n");
+}
+
+static ssize_t rev_boot1_show(struct device *dev,
+			      struct device_attribute *devattr,
+			      char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_BOOT1_VER_TAG,
+				     buf, "%s\n");
+}
+
+static ssize_t rev_boot2_show(struct device *dev,
+			      struct device_attribute *devattr,
+			      char *buf)
+{
+	int ret;
+	uint count = 0;
+	uint loop_count = 0;
+	unsigned long offset = BAR_FIRMWARE_TAG;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	/* Check if FIRMWARE_STATUS_PRE_INIT_DONE */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FIRMWARE_STATUS_PRE_INIT_DONE,
+					 buf, "n/a\n");
+	if (ret)
+		return ret;
+
+	do {
+		buf[count] = vkread8(vk, BAR_1, offset);
+		if (buf[count] == '\0')
+			break;
+		offset++;
+		count++;
+		loop_count++;
+	} while (loop_count != BAR_FIRMWARE_TAG_SIZE);
+
+	if (loop_count == BAR_FIRMWARE_TAG_SIZE)
+		buf[--count] = '\0';
+	buf[count++] = '\n';
+
+	return count;
+}
+
+static ssize_t rev_driver_show(struct device *dev,
+			       struct device_attribute *devattr,
+			       char *buf)
+{
+	return sprintf(buf, "%s_%s-srcversion_%s\n",
+		       DRV_MODULE_NAME, THIS_MODULE->version,
+		       THIS_MODULE->srcversion);
+}
+
 static ssize_t firmware_status_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
@@ -1231,6 +1295,10 @@ static ssize_t sotp_boot2_rev_id_show(struct device *dev,
 
 static DEVICE_ATTR_RO(firmware_status);
 static DEVICE_ATTR_RO(firmware_version);
+static DEVICE_ATTR_RO(rev_flash_rom);
+static DEVICE_ATTR_RO(rev_boot1);
+static DEVICE_ATTR_RO(rev_boot2);
+static DEVICE_ATTR_RO(rev_driver);
 static DEVICE_ATTR_RO(bus);
 static DEVICE_ATTR_RO(card_state);
 static DEVICE_ATTR_RO(sotp_dauth_1);
@@ -1256,6 +1324,10 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 	&dev_attr_chip_id.attr,
 	&dev_attr_firmware_status.attr,
 	&dev_attr_firmware_version.attr,
+	&dev_attr_rev_flash_rom.attr,
+	&dev_attr_rev_boot1.attr,
+	&dev_attr_rev_boot2.attr,
+	&dev_attr_rev_driver.attr,
 	&dev_attr_bus.attr,
 	&dev_attr_card_state.attr,
 	&dev_attr_sotp_dauth_1.attr,
