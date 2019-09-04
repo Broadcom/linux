@@ -10596,7 +10596,7 @@ static void bnxt_fw_reset_task(struct work_struct *work)
 		val = bnxt_fw_health_readl(bp, BNXT_FW_HEALTH_REG);
 		if (!(val & BNXT_FW_STATUS_SHUTDOWN) &&
 		    !time_after(jiffies, bp->fw_reset_timestamp +
-		    (bp->fw_reset_min_dsecs * HZ / 10))) {
+		    (bp->fw_reset_max_dsecs * HZ / 10))) {
 			bnxt_queue_fw_reset_work(bp, HZ / 5);
 			return;
 		}
