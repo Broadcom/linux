@@ -92,15 +92,6 @@ module_param(nr_ib_sgl_blk, uint, 0444);
 MODULE_PARM_DESC(nr_ib_sgl_blk,
 		 "Number of in-band msg blks for short SGL.\n");
 
-/*
- * mutex for download - this is created for temporary fix as the
- * firmware request seems to return corrupted data when run in parallel.
- * A more expensive mutex is used here (vs spinlock) because by design
- * there could more 12 workqueues simultaneously trying to download,
- * and we don't want thread to keep spinning.
- */
-static DEFINE_MUTEX(load_image_mutex);
-
 /* structure that is used to faciliate displaying of register content */
 struct bcm_vk_sysfs_reg_entry {
 	const uint32_t mask;
@@ -222,8 +213,6 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	uint64_t offset_codepush;
 	u32 codepush;
 	u32 value;
-
-	mutex_lock(&load_image_mutex);
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
 		/*
@@ -379,7 +368,6 @@ err_firmware_out:
 	release_firmware(fw);
 
 err_out:
-	mutex_unlock(&load_image_mutex);
 	return ret;
 }
 
@@ -419,7 +407,7 @@ int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
 	const char *curr_name;
 
 	/* log a message to know the relative loading order */
-	dev_info(&vk->pdev->dev, "Load All for device %d\n", vk->misc_devid);
+	dev_info(dev, "Load All for device %d\n", vk->misc_devid);
 
 	for (i = 0; i < ARRAY_SIZE(image_tab); i++) {
 
