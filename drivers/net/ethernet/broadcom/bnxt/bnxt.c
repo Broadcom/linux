@@ -9498,7 +9498,7 @@ static void bnxt_set_rx_mode(struct net_device *dev)
 	bool mc_update = false;
 	bool uc_update;
 
-	if (!netif_running(dev))
+	if (!test_bit(BNXT_STATE_OPEN, &bp->state))
 		return;
 
 	mask &= ~(CFA_L2_SET_RX_MASK_REQ_MASK_PROMISCUOUS |
