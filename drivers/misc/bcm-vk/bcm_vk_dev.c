@@ -1317,6 +1317,52 @@ static ssize_t alert_low_temp_warn_show(struct device *dev,
 	return sprintf(buf, "%d\n", reg & ERR_LOG_LOW_TEMP_WARN ? 1 : 0);
 }
 
+static ssize_t temp_threshold_lower_c_show(struct device *dev,
+					   struct device_attribute *devattr,
+					   char *buf)
+{
+	int ret;
+	uint32_t low_temp_thre;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg;
+
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+					 "0\n");
+	if (ret)
+		return ret;
+
+	reg = vkread32(vk, BAR_0, BAR_CARD_PWR_AND_THRE);
+	BCM_VK_EXTRACT_FIELD(low_temp_thre, reg,
+			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
+			     BCM_VK_LOW_TEMP_THRE_SHIFT);
+
+	return sprintf(buf, "%d\n", low_temp_thre);
+}
+
+static ssize_t temp_threshold_upper_c_show(struct device *dev,
+					   struct device_attribute *devattr,
+					   char *buf)
+{
+	int ret;
+	uint32_t high_temp_thre;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg;
+
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+					 "0\n");
+	if (ret)
+		return ret;
+
+	reg = vkread32(vk, BAR_0, BAR_CARD_PWR_AND_THRE);
+	BCM_VK_EXTRACT_FIELD(high_temp_thre, reg,
+			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
+			     BCM_VK_HIGH_TEMP_THRE_SHIFT);
+
+	return sprintf(buf, "%d\n", high_temp_thre);
+}
+
 static ssize_t sotp_common_show(struct device *dev,
 				struct device_attribute *devattr,
 				char *buf, uint32_t tag_offset)
@@ -1417,6 +1463,8 @@ static DEVICE_ATTR_RO(alert_afbc_busy);
 static DEVICE_ATTR_RO(alert_high_temp);
 static DEVICE_ATTR_RO(alert_malloc_fail_warn);
 static DEVICE_ATTR_RO(alert_low_temp_warn);
+static DEVICE_ATTR_RO(temp_threshold_lower_c);
+static DEVICE_ATTR_RO(temp_threshold_upper_c);
 static DEVICE_ATTR_RO(sotp_dauth_1);
 static DEVICE_ATTR_RO(sotp_dauth_1_valid);
 static DEVICE_ATTR_RO(sotp_dauth_2);
@@ -1446,6 +1494,8 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 	&dev_attr_rev_driver.attr,
 	&dev_attr_bus.attr,
 	&dev_attr_card_state.attr,
+	&dev_attr_temp_threshold_lower_c.attr,
+	&dev_attr_temp_threshold_upper_c.attr,
 	&dev_attr_sotp_dauth_1.attr,
 	&dev_attr_sotp_dauth_1_valid.attr,
 	&dev_attr_sotp_dauth_2.attr,
