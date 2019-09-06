@@ -10,6 +10,7 @@
 #include <linux/irq.h>
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
+#include <linux/tty.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
@@ -36,7 +37,11 @@
 #define BAR_FB_OPEN			0x404
 /* Fastboot request for Secure Boot Image (SBI) */
 #define BAR_CODEPUSH_SBI		0x408
+
 #define BAR_CARD_STATUS			0x410
+/* CARD_STATUS definitions */
+#define CARD_STATUS_TTYVK0_READY	BIT(0)
+#define CARD_STATUS_TTYVK1_READY	BIT(1)
 
 #define BAR_FW_STATUS			0x41C
 /* FW_STATUS definitions */
@@ -153,6 +158,18 @@ enum pci_barno {
 	BAR_2
 };
 
+#define BCM_VK_NUM_TTY 2
+
+struct bcm_vk_tty {
+	struct tty_port port;
+	uint32_t to_offset;	/* bar offset to use */
+	uint32_t to_size;	/* to VK buffer size */
+	uint32_t wr;		/* write offset shadow */
+	uint32_t from_offset;	/* bar offset to use */
+	uint32_t from_size;	/* from VK buffer size */
+	uint32_t rd;		/* read offset shadow */
+};
+
 struct bcm_vk {
 	struct pci_dev *pdev;
 	void __iomem *bar[MAX_BAR];
@@ -165,6 +182,9 @@ struct bcm_vk {
 	struct mutex mutex;
 	struct miscdevice miscdev;
 	int misc_devid; /* dev id allocated */
+
+	struct tty_driver *tty_drv;
+	struct bcm_vk_tty tty[BCM_VK_NUM_TTY];
 
 	/* Reference-counting to handle file operations */
 	struct kref kref;
@@ -246,6 +266,8 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type, pid_t pid);
 void bcm_vk_trigger_reset(struct bcm_vk *vk);
 void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val);
 int bcm_vk_auto_load_all_images(struct bcm_vk *vk);
+int bcm_vk_tty_init(struct bcm_vk *vk, char *name);
+void bcm_vk_tty_exit(struct bcm_vk *vk);
 
 #if BCM_VK_MISC_API
 

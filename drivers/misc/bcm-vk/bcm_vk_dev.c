@@ -1880,17 +1880,25 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 			  VK_BAR1_SCRATCH_SZ_ADDR);
 	}
 
+	snprintf(name, sizeof(name), KBUILD_MODNAME ".%d_ttyVK", id);
+	err = bcm_vk_tty_init(vk, name);
+	if (err)
+		goto err_free_sysfs_entry;
+
 	/*
 	 * lets trigger an auto download.  We don't want to do it serially here
 	 * because at probing time, it is not supposed to block for a long time.
 	 */
 	if (auto_load)
 		if (bcm_vk_trigger_autoload(vk))
-			goto err_free_sysfs_entry;
+			goto err_bcm_vk_tty_exit;
 
 	dev_info(dev, "BCM-VK:%u created, 0x%p\n", id, vk);
 
 	return 0;
+
+err_bcm_vk_tty_exit:
+	bcm_vk_tty_exit(vk);
 
 err_free_sysfs_entry:
 	sysfs_remove_link(&misc_device->this_device->kobj,
@@ -1942,6 +1950,8 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	int i;
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &vk->miscdev;
+
+	bcm_vk_tty_exit(vk);
 
 	/* unregister panic notifier */
 	atomic_notifier_chain_unregister(&panic_notifier_list,
