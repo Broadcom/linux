@@ -1027,7 +1027,7 @@ static ssize_t firmware_status_show(struct device *dev,
 		{FW_STATUS_RESET_DONE, FW_STATUS_RESET_DONE,
 		 "reset_done"},
 		/* reboot reason */
-		{FW_STATUS_RESET_REASON_MASK, 0,
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_SYS_PWRUP,
 		 "R-sys_pwrup"},
 		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_MBOX_DB,
 		 "R-reset_doorbell"},
@@ -1089,6 +1089,73 @@ static ssize_t firmware_status_show(struct device *dev,
 
 fw_status_show_fail:
 	return ret;
+}
+
+static ssize_t reset_reason_show(struct device *dev,
+				 struct device_attribute *devattr, char *buf)
+{
+	uint32_t reg, i;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	static struct bcm_vk_sysfs_reg_entry const tab[] = {
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_SYS_PWRUP,
+		 "sys_pwrup"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_MBOX_DB,
+		 "reset_doorbell"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_M7_WDOG,
+		 "wdog"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_TEMP,
+		 "overheat"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_FLR,
+		 "pci_flr"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_HOT,
+		 "pci_hot"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_WARM,
+		 "pci_warm"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_COLD,
+		 "pci_cold"},
+		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_UNKNOWN,
+		 "unknown"},
+	};
+
+	reg = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	if (BCM_VK_INTF_IS_DOWN(reg))
+		return sprintf(buf, "PCIe Intf Down!\n");
+
+	for (i = 0; i < ARRAY_SIZE(tab); i++) {
+		if ((tab[i].mask & reg) == tab[i].exp_val)
+			return sprintf(buf, "%s\n", tab[i].str);
+	}
+
+	return sprintf(buf, "invalid\n");
+}
+
+static ssize_t os_state_show(struct device *dev,
+			     struct device_attribute *devattr, char *buf)
+{
+	uint32_t reg, i;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	static struct bcm_vk_sysfs_reg_entry const tab[] = {
+		{SRAM_OPEN, SRAM_OPEN,
+		 "wait_boot1"},
+		{FB_BOOT_STATE_MASK, FB_BOOT1_RUNNING,
+		 "wait_boot2"},
+		{FB_BOOT_STATE_MASK, FB_BOOT2_RUNNING,
+		 "boot2_running"},
+	};
+
+	reg = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	if (BCM_VK_INTF_IS_DOWN(reg))
+		return sprintf(buf, "PCIe Intf Down!\n");
+
+	reg = vkread32(vk, BAR_0, BAR_FB_OPEN);
+	for (i = 0; i < ARRAY_SIZE(tab); i++) {
+		if ((tab[i].mask & reg) == tab[i].exp_val)
+			return sprintf(buf, "%s\n", tab[i].str);
+	}
+
+	return sprintf(buf, "invalid\n");
 }
 
 static ssize_t bus_show(struct device *dev,
@@ -1450,6 +1517,8 @@ static ssize_t sotp_boot2_rev_id_show(struct device *dev,
 }
 
 static DEVICE_ATTR_RO(firmware_status);
+static DEVICE_ATTR_RO(reset_reason);
+static DEVICE_ATTR_RO(os_state);
 static DEVICE_ATTR_RO(firmware_version);
 static DEVICE_ATTR_RO(rev_flash_rom);
 static DEVICE_ATTR_RO(rev_boot1);
@@ -1487,6 +1556,8 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 
 	&dev_attr_chip_id.attr,
 	&dev_attr_firmware_status.attr,
+	&dev_attr_reset_reason.attr,
+	&dev_attr_os_state.attr,
 	&dev_attr_firmware_version.attr,
 	&dev_attr_rev_flash_rom.attr,
 	&dev_attr_rev_boot1.attr,
