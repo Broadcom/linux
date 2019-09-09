@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/gpio.h>
 #include <linux/gpio/driver.h>
 #include <linux/ioport.h>
 #include <linux/of_device.h>
@@ -428,6 +429,18 @@ static int iproc_gpio_direction_output(struct gpio_chip *gc, unsigned gpio,
 	dev_dbg(chip->dev, "gpio:%u set output, value:%d\n", gpio, val);
 
 	return 0;
+}
+
+static int iproc_gpio_get_direction(struct gpio_chip *gc, unsigned int gpio)
+{
+	struct iproc_gpio *chip = gpiochip_get_data(gc);
+	unsigned int offset = IPROC_GPIO_REG(gpio, IPROC_GPIO_OUT_EN_OFFSET);
+	unsigned int shift = IPROC_GPIO_SHIFT(gpio);
+
+	if (!!(readl(chip->base + offset) & BIT(shift)))
+		return GPIOF_DIR_OUT;
+	else
+		return GPIOF_DIR_IN;
 }
 
 static void iproc_gpio_set(struct gpio_chip *gc, unsigned gpio, int val)
@@ -980,6 +993,7 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 	gc->free = iproc_gpio_free;
 	gc->direction_input = iproc_gpio_direction_input;
 	gc->direction_output = iproc_gpio_direction_output;
+	gc->get_direction = iproc_gpio_get_direction;
 	gc->set = iproc_gpio_set;
 	gc->get = iproc_gpio_get;
 
