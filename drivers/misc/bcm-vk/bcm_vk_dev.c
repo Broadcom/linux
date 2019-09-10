@@ -748,9 +748,9 @@ static int bcm_vk_sysfs_get_tag(struct bcm_vk *vk, enum pci_barno barno,
 		       (char *)(vk->bar[barno] + offset + sizeof(magic)) : "");
 }
 
-static ssize_t temperature_sensor_1_show(struct device *dev,
-					 struct device_attribute *devattr,
-					 char *buf)
+static ssize_t temperature_sensor_1_c_show(struct device *dev,
+					   struct device_attribute *devattr,
+					   char *buf)
 {
 	unsigned int temperature = 0; /* default if invalid */
 	struct pci_dev *pdev = to_pci_dev(dev);
@@ -1547,7 +1547,7 @@ static DEVICE_ATTR_RO(sotp_dauth_4);
 static DEVICE_ATTR_RO(sotp_dauth_4_valid);
 static DEVICE_ATTR_RO(sotp_boot1_rev_id);
 static DEVICE_ATTR_RO(sotp_boot2_rev_id);
-static DEVICE_ATTR_RO(temperature_sensor_1);
+static DEVICE_ATTR_RO(temperature_sensor_1_c);
 static DEVICE_ATTR_RO(voltage_18_mv);
 static DEVICE_ATTR_RO(voltage_33_mv);
 static DEVICE_ATTR_RO(chip_id);
@@ -1585,7 +1585,7 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 
 static struct attribute *bcm_vk_card_mon_attributes[] = {
 
-	&dev_attr_temperature_sensor_1.attr,
+	&dev_attr_temperature_sensor_1_c.attr,
 	&dev_attr_voltage_18_mv.attr,
 	&dev_attr_voltage_33_mv.attr,
 	&dev_attr_firmware_status_reg.attr,
