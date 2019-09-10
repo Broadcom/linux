@@ -221,6 +221,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	int ret;
 	uint64_t offset_codepush;
 	u32 codepush;
+	u32 value;
 
 	mutex_lock(&load_image_mutex);
 
@@ -229,7 +230,9 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		 * After POR, enable VK soft BOOTSRC so bootrom do not clear
 		 * the pushed image (the TCM memories).
 		 */
-		vkwrite32(vk, BOOTSRC_SOFT_ENABLE, BAR_0, BAR_BOOTSRC_SELECT);
+		value = vkread32(vk, BAR_0, BAR_BOOTSRC_SELECT);
+		value |= BOOTSRC_SOFT_ENABLE;
+		vkwrite32(vk, value, BAR_0, BAR_BOOTSRC_SELECT);
 
 		codepush = CODEPUSH_FASTBOOT + CODEPUSH_BOOT1_ENTRY;
 		offset_codepush = BAR_CODEPUSH_SBL;
