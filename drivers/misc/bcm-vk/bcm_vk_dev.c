@@ -55,8 +55,8 @@ static DEFINE_IDA(bcm_vk_ida);
 
 /* defines for mem err, all fields have same width */
 #define BCM_VK_MEM_ERR_FIELD_MASK	0xFF
-#define BCM_VK_INT_MEM_ERR_SHIFT	0
-#define BCM_VK_EXT_MEM_ERR_SHIFT	8
+#define BCM_VK_ECC_MEM_ERR_SHIFT	0
+#define BCM_VK_UECC_MEM_ERR_SHIFT	8
 
 /* a macro to get an individual field with mask and shift */
 #define BCM_VK_EXTRACT_FIELD(_field, _reg, _mask, _shift) \
@@ -1184,7 +1184,7 @@ static ssize_t card_state_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	uint32_t reg;
 	uint32_t low_temp_thre, high_temp_thre, pwr_state;
-	uint32_t int_mem_err, ext_mem_err;
+	uint32_t ecc_mem_err, uecc_mem_err;
 	char *p_buf = buf;
 	static struct bcm_vk_sysfs_reg_entry const err_log_reg_tab[] = {
 		{ERR_LOG_ALERT_ECC, ERR_LOG_ALERT_ECC,
@@ -1255,26 +1255,74 @@ static ssize_t card_state_show(struct device *dev,
 
 	/* display memory error */
 	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_MEM);
-	BCM_VK_EXTRACT_FIELD(int_mem_err, reg,
+	BCM_VK_EXTRACT_FIELD(ecc_mem_err, reg,
 			     BCM_VK_MEM_ERR_FIELD_MASK,
-			     BCM_VK_INT_MEM_ERR_SHIFT);
-	BCM_VK_EXTRACT_FIELD(ext_mem_err, reg,
+			     BCM_VK_ECC_MEM_ERR_SHIFT);
+	BCM_VK_EXTRACT_FIELD(uecc_mem_err, reg,
 			     BCM_VK_MEM_ERR_FIELD_MASK,
-			     BCM_VK_EXT_MEM_ERR_SHIFT);
+			     BCM_VK_UECC_MEM_ERR_SHIFT);
 
 #define _MEM_ERR_FMT "MemErr: 0x%08x\n"    \
-		"  [internal]      : %d\n" \
-		"  [external]      : %d\n"
-	ret = sprintf(p_buf, _MEM_ERR_FMT, reg, int_mem_err, ext_mem_err);
+		"  [ECC]       : %d\n" \
+		"  [UECC]      : %d\n"
+	ret = sprintf(p_buf, _MEM_ERR_FMT, reg, ecc_mem_err, uecc_mem_err);
 	if (ret < 0)
 		goto card_state_show_fail;
 	p_buf += ret;
-	dev_dbg(dev, _MEM_ERR_FMT, reg, int_mem_err, ext_mem_err);
+	dev_dbg(dev, _MEM_ERR_FMT, reg, ecc_mem_err, uecc_mem_err);
 
 	return (p_buf - buf);
 
 card_state_show_fail:
 	return ret;
+}
+
+static ssize_t mem_ecc_show(struct device *dev,
+			    struct device_attribute *devattr, char *buf)
+{
+	int ret;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg;
+	uint32_t ecc_mem_err;
+
+	/* if OS is not running, no one will update the value */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+					 "0\n");
+	if (ret)
+		return ret;
+
+	/* display memory error */
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_MEM);
+	BCM_VK_EXTRACT_FIELD(ecc_mem_err, reg,
+			     BCM_VK_MEM_ERR_FIELD_MASK,
+			     BCM_VK_ECC_MEM_ERR_SHIFT);
+
+	return sprintf(buf, "%d\n", ecc_mem_err);
+}
+
+static ssize_t mem_uecc_show(struct device *dev,
+			     struct device_attribute *devattr, char *buf)
+{
+	int ret;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg;
+	uint32_t uecc_mem_err;
+
+	/* if OS is not running, no one will update the value */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+					 "0\n");
+	if (ret)
+		return ret;
+
+	/* display memory error */
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_MEM);
+	BCM_VK_EXTRACT_FIELD(uecc_mem_err, reg,
+			     BCM_VK_MEM_ERR_FIELD_MASK,
+			     BCM_VK_UECC_MEM_ERR_SHIFT);
+
+	return sprintf(buf, "%d\n", uecc_mem_err);
 }
 
 static ssize_t alert_ecc_show(struct device *dev,
@@ -1529,6 +1577,8 @@ static DEVICE_ATTR_RO(rev_boot2);
 static DEVICE_ATTR_RO(rev_driver);
 static DEVICE_ATTR_RO(bus);
 static DEVICE_ATTR_RO(card_state);
+static DEVICE_ATTR_RO(mem_ecc);
+static DEVICE_ATTR_RO(mem_uecc);
 static DEVICE_ATTR_RO(alert_ecc);
 static DEVICE_ATTR_RO(alert_ssim_busy);
 static DEVICE_ATTR_RO(alert_afbc_busy);
@@ -1591,6 +1641,8 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_firmware_status_reg.attr,
 	&dev_attr_fastboot_reg.attr,
 	&dev_attr_pwr_state.attr,
+	&dev_attr_mem_ecc.attr,
+	&dev_attr_mem_uecc.attr,
 	&dev_attr_alert_ecc.attr,
 	&dev_attr_alert_ssim_busy.attr,
 	&dev_attr_alert_afbc_busy.attr,
