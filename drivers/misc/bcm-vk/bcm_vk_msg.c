@@ -152,9 +152,10 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 				/* if it is specific ctx, log for any stuck */
 				msg = entry->h2vk_msg;
 				dev_err(dev,
-					"Drained: fid %u size %u msg 0x%x ctx 0x%x args:[0x%x 0x%x] resp %s",
+					"Drained: fid %u size %u msg 0x%x(seq-%x) ctx 0x%x[fd-%d] args:[0x%x 0x%x] resp %s",
 					msg->function_id, msg->size,
-					msg->msg_id, msg->context_id,
+					msg->msg_id, entry->seq_num,
+					msg->context_id, entry->ctx->idx,
 					msg->args[0], msg->args[1],
 					entry->vk2h_msg ? "T" : "F");
 				list_del(&entry->node);
@@ -314,6 +315,7 @@ void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num,
 
 static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 {
+	static uint32_t seq_num;
 	struct bcm_vk_msg_chan *chan = &vk->h2vk_msg_chan;
 	struct device *dev = &vk->pdev->dev;
 	struct vk_msg_blk *src = &entry->h2vk_msg[0];
@@ -346,7 +348,7 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	}
 
 	/* at this point, mutex is taken and there is enough space */
-
+	entry->seq_num = seq_num++; /* update debug seq number */
 	wr_idx = msgq->wr_idx;
 
 	dst = VK_MSGQ_BLK_ADDR(vk->bar[BAR_1], msgq, wr_idx);

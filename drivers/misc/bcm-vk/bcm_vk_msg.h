@@ -88,6 +88,7 @@ struct bcm_vk_wkent {
 	 */
 	uint32_t usr_msg_id;
 	uint32_t h2vk_blks;
+	uint32_t seq_num;
 	struct vk_msg_blk h2vk_msg[0];
 };
 
