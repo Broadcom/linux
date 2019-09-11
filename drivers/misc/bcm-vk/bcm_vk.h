@@ -37,30 +37,8 @@
 /* Fastboot request for Secure Boot Image (SBI) */
 #define BAR_CODEPUSH_SBI		0x408
 #define BAR_CARD_STATUS			0x410
+
 #define BAR_FW_STATUS			0x41C
-#define BAR_METADATA_VERSION		0x440
-#define BAR_FIRMWARE_VERSION		0x444
-#define BAR_CHIP_ID			0x448
-#define BAR_CARD_TEMPERATURE		0x45C
-#define BAR_CARD_VOLTAGE		0x460
-#define BAR_CARD_ERR_LOG		0x464
-#define BAR_CARD_ERR_MEM		0x468
-#define BAR_CARD_PWR_AND_THRE		0x46C
-#define BAR_BOOTSRC_SELECT		0xC78
-#define BAR_FIRMWARE_TAG		0x220000
-
-#define CODEPUSH_BOOT1_ENTRY		0x00400000
-#define CODEPUSH_BOOT2_ENTRY		0x60000000
-#define CODEPUSH_MASK			0xFFFFF000
-#define CODEPUSH_FASTBOOT		BIT(0)
-
-/* Fastboot progress definitions */
-#define SRAM_OPEN			BIT(16)
-#define DDR_OPEN			BIT(17)
-
-/* BOOTSRC definitions */
-#define BOOTSRC_SOFT_ENABLE		BIT(14)
-
 /* FW_STATUS definitions */
 #define FW_STATUS_RELOCATION_ENTRY	BIT(0)
 #define FW_STATUS_RELOCATION_EXIT	BIT(1)
@@ -81,7 +59,6 @@
 					 FW_STATUS_INIT_DONE | \
 					 FW_STATUS_APP_INIT_START | \
 					 FW_STATUS_APP_INIT_DONE)
-
 /* Deinit */
 #define FW_STATUS_APP_DEINIT_START	BIT(23)
 #define FW_STATUS_APP_DEINIT_DONE	BIT(24)
@@ -92,7 +69,6 @@
 					 FW_STATUS_APP_DEINIT_DONE  | \
 					 FW_STATUS_DRV_DEINIT_START | \
 					 FW_STATUS_DRV_DEINIT_DONE)
-
 /* Last nibble for reboot reason */
 #define FW_STATUS_RESET_REASON_SHIFT	28
 #define FW_STATUS_RESET_REASON_MASK	(0xF << FW_STATUS_RESET_REASON_SHIFT)
@@ -106,7 +82,30 @@
 #define FW_STATUS_RESET_PCI_COLD	(0x7 << FW_STATUS_RESET_REASON_SHIFT)
 #define FW_STATUS_RESET_UNKNOWN		(0xF << FW_STATUS_RESET_REASON_SHIFT)
 
-/* FW_STATUS definitions end */
+#define BAR_METADATA_VERSION		0x440
+#define BAR_FIRMWARE_VERSION		0x444
+#define BAR_CHIP_ID			0x448
+#define BAR_CARD_TEMPERATURE		0x45C
+#define BAR_CARD_VOLTAGE		0x460
+#define BAR_CARD_ERR_LOG		0x464
+#define BAR_CARD_ERR_MEM		0x468
+#define BAR_CARD_PWR_AND_THRE		0x46C
+#define BAR_BOOTSRC_SELECT		0xC78
+#define BAR_FIRMWARE_TAG		0x220000
+
+/* Start of ITCM */
+#define CODEPUSH_BOOT1_ENTRY		0x00400000
+/* 64M mapped to BAR2 */
+#define CODEPUSH_BOOT2_ENTRY		0x60000000
+#define CODEPUSH_MASK			0xFFFFF000
+#define CODEPUSH_FASTBOOT		BIT(0)
+
+/* Fastboot progress definitions */
+#define SRAM_OPEN			BIT(16)
+#define DDR_OPEN			BIT(17)
+
+/* BOOTSRC definitions */
+#define BOOTSRC_SOFT_ENABLE		BIT(14)
 
 /* Card OS Firmware version size */
 #define BAR_FIRMWARE_TAG_SIZE		50
