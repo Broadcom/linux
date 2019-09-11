@@ -1198,7 +1198,9 @@ static ssize_t card_state_show(struct device *dev,
 		{ERR_LOG_MEM_ALLOC_FAIL, ERR_LOG_MEM_ALLOC_FAIL,
 		 "malloc_fail warn"},
 		{ERR_LOG_LOW_TEMP_WARN, ERR_LOG_LOW_TEMP_WARN,
-		 "low_temp warn"}
+		 "low_temp warn"},
+		{ERR_LOG_ECC_WARN, ERR_LOG_ECC_WARN,
+		 "ecc_correctable"},
 	};
 	static const char * const pwr_state_tab[] = {
 		"Full", "Reduced", "Lowest"};
@@ -1435,6 +1437,25 @@ static ssize_t alert_low_temp_warn_show(struct device *dev,
 	return sprintf(buf, "%d\n", reg & ERR_LOG_LOW_TEMP_WARN ? 1 : 0);
 }
 
+static ssize_t alert_ecc_warn_show(struct device *dev,
+				   struct device_attribute *devattr,
+				   char *buf)
+{
+	int ret;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg;
+
+	/* if OS is not running, no one will update the value, just return 0 */
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+					 "0\n");
+	if (ret)
+		return ret;
+
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
+	return sprintf(buf, "%d\n", reg & ERR_LOG_ECC_WARN ? 1 : 0);
+}
+
 static ssize_t temp_threshold_lower_c_show(struct device *dev,
 					   struct device_attribute *devattr,
 					   char *buf)
@@ -1585,6 +1606,7 @@ static DEVICE_ATTR_RO(alert_afbc_busy);
 static DEVICE_ATTR_RO(alert_high_temp);
 static DEVICE_ATTR_RO(alert_malloc_fail_warn);
 static DEVICE_ATTR_RO(alert_low_temp_warn);
+static DEVICE_ATTR_RO(alert_ecc_warn);
 static DEVICE_ATTR_RO(temp_threshold_lower_c);
 static DEVICE_ATTR_RO(temp_threshold_upper_c);
 static DEVICE_ATTR_RO(sotp_dauth_1);
@@ -1649,6 +1671,7 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_alert_high_temp.attr,
 	&dev_attr_alert_malloc_fail_warn.attr,
 	&dev_attr_alert_low_temp_warn.attr,
+	&dev_attr_alert_ecc_warn.attr,
 	NULL,
 };
 

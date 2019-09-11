@@ -124,6 +124,7 @@
 #define ERR_LOG_HIGH_TEMP_ERR		BIT(3)
 #define ERR_LOG_MEM_ALLOC_FAIL		BIT(8)
 #define ERR_LOG_LOW_TEMP_WARN		BIT(9)
+#define ERR_LOG_ECC_WARN		BIT(10)
 
 /* Fast boot register derived states */
 #define FB_BOOT_STATE_MASK		0xFFF3FFFF
