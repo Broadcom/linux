@@ -17,6 +17,8 @@
 
 #include "bcm_vk.h"
 
+#define DRV_MODULE_NAME		"bcm-vk"
+
 #define PCI_DEVICE_ID_VALKYRIE	0x5E87
 
 static DEFINE_IDA(bcm_vk_ida);
@@ -860,7 +862,7 @@ static ssize_t firmware_version_show(struct device *dev,
 
 	/* Print driver version first, which is always available */
 	count  = sprintf(buf, "Driver  : %s %s, srcversion %s\n",
-			 KBUILD_MODNAME, THIS_MODULE->version,
+			 DRV_MODULE_NAME, THIS_MODULE->version,
 			 THIS_MODULE->srcversion);
 
 	/* check for ucode and vk-boot1 versions */
@@ -959,7 +961,7 @@ static ssize_t rev_driver_show(struct device *dev,
 			       char *buf)
 {
 	return sprintf(buf, "%s_%s-srcversion_%s\n",
-		       KBUILD_MODNAME, THIS_MODULE->version,
+		       DRV_MODULE_NAME, THIS_MODULE->version,
 		       THIS_MODULE->srcversion);
 }
 
@@ -1735,7 +1737,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		return err;
 	}
 
-	err = pci_request_regions(pdev, KBUILD_MODNAME);
+	err = pci_request_regions(pdev, DRV_MODULE_NAME);
 	if (err) {
 		dev_err(dev, "Cannot obtain PCI resources\n");
 		goto err_disable_pdev;
@@ -1789,7 +1791,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	for (vk->num_irqs = 0; vk->num_irqs < irq; vk->num_irqs++) {
 		err = devm_request_irq(dev, pci_irq_vector(pdev, vk->num_irqs),
 				       bcm_vk_irqhandler,
-				       IRQF_SHARED, KBUILD_MODNAME, vk);
+				       IRQF_SHARED, DRV_MODULE_NAME, vk);
 		if (err) {
 			dev_err(dev, "failed to request IRQ %d for MSIX %d\n",
 				pdev->irq + vk->num_irqs, vk->num_irqs + 1);
@@ -1805,7 +1807,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 
 	vk->misc_devid = id;
-	snprintf(name, sizeof(name), KBUILD_MODNAME ".%d/engine", id);
+	snprintf(name, sizeof(name), DRV_MODULE_NAME ".%d", id);
 	misc_device = &vk->miscdev;
 	misc_device->minor = MISC_DYNAMIC_MINOR;
 	misc_device->name = kstrdup(name, GFP_KERNEL);
@@ -1991,7 +1993,7 @@ static const struct pci_device_id bcm_vk_ids[] = {
 MODULE_DEVICE_TABLE(pci, bcm_vk_ids);
 
 static struct pci_driver pci_driver = {
-	.name     = KBUILD_MODNAME,
+	.name     = DRV_MODULE_NAME,
 	.id_table = bcm_vk_ids,
 	.probe    = bcm_vk_probe,
 	.remove   = bcm_vk_remove,
