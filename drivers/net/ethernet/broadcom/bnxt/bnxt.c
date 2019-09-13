@@ -10034,10 +10034,6 @@ static void bnxt_force_fw_reset(struct bnxt *bp)
 		bp->fw_reset_state = BNXT_FW_RESET_STATE_ENABLE_DEV;
 	}
 
-	if (bp->fw_cap && BNXT_FW_CAP_ERR_RECOVER_RELOAD) {
-		wait_dsecs = 0;
-		bp->fw_reset_state = BNXT_FW_RESET_STATE_POLL_FW_DOWN;
-	}
 	bp->fw_reset_min_dsecs = fw_health->post_reset_wait_dsecs;
 	bp->fw_reset_max_dsecs = fw_health->post_reset_max_wait_dsecs;
 	bnxt_queue_fw_reset_work(bp, wait_dsecs * HZ / 10);
