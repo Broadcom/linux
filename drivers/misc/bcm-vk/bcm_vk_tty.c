@@ -36,6 +36,69 @@ struct bcm_vk_tty_chan {
 #define VK_BAR_CHAN_RD(v, DIR)		VK_BAR_CHAN(v, DIR, rd)
 #define VK_BAR_CHAN_DATA(v, DIR, off)	(VK_BAR_CHAN(v, DIR, data) + off)
 
+/* Poll every 1/10 of second - temp hack till we use MSI interrupt */
+#define SERIAL_TIMER_VALUE (HZ / 10)
+
+static void bcm_vk_tty_poll(struct timer_list *t)
+{
+	struct bcm_vk *vk = from_timer(vk, t, serial_timer);
+	struct bcm_vk_tty *vktty;
+	int card_status;
+	int ready_mask;
+	int count = 0;
+	unsigned char c;
+	int i;
+	int wr;
+
+	spin_lock(&vk->timer_lock);
+
+	card_status = vkread32(vk, BAR_0, BAR_CARD_STATUS);
+
+	for (i = 0; i < BCM_VK_NUM_TTY; i++) {
+		/* Check the card status that the tty channel is ready */
+		ready_mask = BIT(i);
+		if ((card_status & ready_mask) == 0)
+			continue;
+
+		vktty = &vk->tty[i];
+
+		/* Fetch the wr offset in buffer from VK */
+		wr = vkread32(vk, BAR_1, VK_BAR_CHAN_WR(vktty, from));
+		if (wr >= vktty->from_size) {
+			dev_err(&vk->pdev->dev,
+				"ERROR: poll ttyVK%d wr:0x%x > 0x%x\n",
+				i, wr, vktty->from_size);
+			/* Need to signal and close device in this case */
+			goto err_exit;
+		}
+
+		/*
+		 * Simple read of circular buffer and
+		 * insert into tty flip buffer
+		 */
+		while (vk->tty[i].rd != wr) {
+			c = vkread8(vk, BAR_1,
+				    VK_BAR_CHAN_DATA(vktty, from, vktty->rd));
+			vktty->rd++;
+			if (vktty->rd >= vktty->from_size)
+				vktty->rd = 0;
+			tty_insert_flip_char(&vktty->port, c, TTY_NORMAL);
+			count++;
+		}
+	}
+
+	if (count) {
+		tty_flip_buffer_push(&vktty->port);
+
+		/* Update read offset from shadow register to card */
+		vkwrite32(vk, vktty->rd, BAR_1, VK_BAR_CHAN_RD(vktty, from));
+	}
+
+	mod_timer(&vk->serial_timer, jiffies + SERIAL_TIMER_VALUE);
+err_exit:
+	spin_unlock(&vk->timer_lock);
+}
+
 static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 {
 	int card_status;
@@ -76,12 +139,26 @@ static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 	vktty->from_size = vkread32(vk, BAR_1, VK_BAR_CHAN_SIZE(vktty, from));
 	vktty->rd = vkread32(vk, BAR_1,  VK_BAR_CHAN_RD(vktty, from));
 
+	spin_lock_bh(&vk->timer_lock);
+	if (tty->count == 1) {
+		timer_setup(&vk->serial_timer, bcm_vk_tty_poll, 0);
+		mod_timer(&vk->serial_timer, jiffies + SERIAL_TIMER_VALUE);
+	}
+	spin_unlock_bh(&vk->timer_lock);
+
 	return 0;
 }
 
 static void bcm_vk_tty_close(struct tty_struct *tty, struct file *file)
 {
-	/* Nothing to do on close at this point */
+	struct bcm_vk *vk;
+
+	vk = (struct bcm_vk *)dev_get_drvdata(tty->dev);
+
+	spin_lock_bh(&vk->timer_lock);
+	if (tty->count == 1)
+		del_timer_sync(&vk->serial_timer);
+	spin_unlock_bh(&vk->timer_lock);
 }
 
 static int bcm_vk_tty_write(struct tty_struct *tty,
@@ -180,6 +257,8 @@ int bcm_vk_tty_init(struct bcm_vk *vk, char *name)
 		dev_err(dev, "tty_register_driver failed\n");
 		goto err_kfree_tty_name;
 	}
+
+	spin_lock_init(&vk->timer_lock);
 
 	for (i = 0; i < BCM_VK_NUM_TTY; i++) {
 		struct device *tty_dev;
