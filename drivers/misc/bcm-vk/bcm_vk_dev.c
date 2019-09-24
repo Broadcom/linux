@@ -11,8 +11,6 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/pci_regs.h>
-#include <linux/sched/signal.h>
-#include <linux/sizes.h>
 #include <uapi/linux/misc/bcm_vk.h>
 
 #include "bcm_vk.h"

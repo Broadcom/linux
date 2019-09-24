@@ -11,6 +11,15 @@
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
 #include <linux/tty.h>
+#if BCM_VK_LEGACY_API
+#include <linux/pid.h>
+#include <linux/sched.h>
+#include <linux/signal.h>
+#include <linux/sizes.h>
+#define task_pid(_tsk) get_task_pid((_tsk), PIDTYPE_PID)
+#else
+#include <linux/sched/signal.h>
+#endif
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
@@ -141,11 +150,6 @@
 #define VK_MSG_ID_BITMAP_MASK		(VK_MSG_ID_BITMAP_SIZE - 1)
 #define VK_MSG_ID_OVERFLOW		0xFFFF
 
-/*
- * Use legacy way of implementation with older version
- */
-#define BCM_VK_MISC_API  (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
-
 /* VK device supports a maximum of 3 bars */
 #define MAX_BAR	3
 
@@ -193,7 +197,7 @@ struct bcm_vk {
 
 	struct bcm_vk_card_info card_info;
 
-#if BCM_VK_MISC_API
+#if BCM_VK_LEGACY_API
 	struct msix_entry msix[32];
 #endif
 	/* mutex to protect the ioctls */
@@ -290,7 +294,7 @@ int bcm_vk_auto_load_all_images(struct bcm_vk *vk);
 int bcm_vk_tty_init(struct bcm_vk *vk, char *name);
 void bcm_vk_tty_exit(struct bcm_vk *vk);
 
-#if BCM_VK_MISC_API
+#if BCM_VK_LEGACY_API
 
 /*
  * For legacy kernels, the following 2 PCI APIs will be missing, and

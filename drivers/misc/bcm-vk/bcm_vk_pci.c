@@ -12,7 +12,7 @@
  * that are "antique" in a sense that that data structure of msix
  * or the api pci_enable_msix_range() is missing.
  */
-#if BCM_VK_MISC_API
+#if BCM_VK_LEGACY_API
 
 int pci_irq_vector(struct pci_dev *pdev, unsigned int nr)
 {
