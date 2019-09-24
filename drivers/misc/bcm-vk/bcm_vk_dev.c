@@ -49,6 +49,12 @@ static DEFINE_IDA(bcm_vk_ida);
 #define BCM_VK_HIGH_TEMP_THRE_SHIFT	8
 #define BCM_VK_PWR_STATE_SHIFT		16
 
+/* defines for all temperature sensor */
+#define BCM_VK_TEMP_FIELD_MASK		0xFF
+#define BCM_VK_CPU_TEMP_SHIFT		0
+#define BCM_VK_DDR0_TEMP_SHIFT		8
+#define BCM_VK_DDR1_TEMP_SHIFT		16
+
 /* defines for mem err, all fields have same width */
 #define BCM_VK_MEM_ERR_FIELD_MASK	0xFF
 #define BCM_VK_ECC_MEM_ERR_SHIFT	0
@@ -732,18 +738,45 @@ static int bcm_vk_sysfs_get_tag(struct bcm_vk *vk, enum pci_barno barno,
 		       (char *)(vk->bar[barno] + offset + sizeof(magic)) : "");
 }
 
-static ssize_t temperature_sensor_1_c_show(struct device *dev,
-					   struct device_attribute *devattr,
-					   char *buf)
+static ssize_t temperature_sensor_show(struct device *dev,
+				       struct device_attribute *devattr,
+				       char *buf,
+				       const char *tag,
+				       uint offset)
 {
 	unsigned int temperature = 0; /* default if invalid */
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
 	temperature = vkread32(vk, BAR_0, BAR_CARD_TEMPERATURE);
+	temperature = (temperature >> offset) & BCM_VK_TEMP_FIELD_MASK;
 
-	dev_dbg(dev, "Temperature_sensor_1 : %u Celsius\n", temperature);
+	dev_dbg(dev, "Temperature_%s : %u Celsius\n", tag, temperature);
 	return sprintf(buf, "%d\n", temperature);
+}
+
+static ssize_t temperature_sensor_1_c_show(struct device *dev,
+					   struct device_attribute *devattr,
+					   char *buf)
+{
+	return temperature_sensor_show(dev, devattr, buf, "CPU",
+				       BCM_VK_CPU_TEMP_SHIFT);
+}
+
+static ssize_t temperature_sensor_2_c_show(struct device *dev,
+					   struct device_attribute *devattr,
+					   char *buf)
+{
+	return temperature_sensor_show(dev, devattr, buf, "DDR0",
+				       BCM_VK_DDR0_TEMP_SHIFT);
+}
+
+static ssize_t temperature_sensor_3_c_show(struct device *dev,
+					   struct device_attribute *devattr,
+					   char *buf)
+{
+	return temperature_sensor_show(dev, devattr, buf, "DDR1",
+				       BCM_VK_DDR1_TEMP_SHIFT);
 }
 
 static ssize_t voltage_18_mv_show(struct device *dev,
@@ -1604,6 +1637,8 @@ static DEVICE_ATTR_RO(sotp_dauth_4_valid);
 static DEVICE_ATTR_RO(sotp_boot1_rev_id);
 static DEVICE_ATTR_RO(sotp_boot2_rev_id);
 static DEVICE_ATTR_RO(temperature_sensor_1_c);
+static DEVICE_ATTR_RO(temperature_sensor_2_c);
+static DEVICE_ATTR_RO(temperature_sensor_3_c);
 static DEVICE_ATTR_RO(voltage_18_mv);
 static DEVICE_ATTR_RO(voltage_33_mv);
 static DEVICE_ATTR_RO(chip_id);
@@ -1642,6 +1677,8 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 static struct attribute *bcm_vk_card_mon_attributes[] = {
 
 	&dev_attr_temperature_sensor_1_c.attr,
+	&dev_attr_temperature_sensor_2_c.attr,
+	&dev_attr_temperature_sensor_3_c.attr,
 	&dev_attr_voltage_18_mv.attr,
 	&dev_attr_voltage_33_mv.attr,
 	&dev_attr_firmware_status_reg.attr,
