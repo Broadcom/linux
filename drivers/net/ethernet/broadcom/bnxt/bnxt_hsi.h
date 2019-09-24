@@ -176,6 +176,9 @@ struct cmd_nums {
 	#define HWRM_RESERVED6                            0x65UL
 	#define HWRM_VNIC_RSS_COS_LB_CTX_ALLOC            0x70UL
 	#define HWRM_VNIC_RSS_COS_LB_CTX_FREE             0x71UL
+	#define HWRM_QUEUE_MPLS_QCAPS                     0x80UL
+	#define HWRM_QUEUE_MPLSTC2PRI_QCFG                0x81UL
+	#define HWRM_QUEUE_MPLSTC2PRI_CFG                 0x82UL
 	#define HWRM_CFA_L2_FILTER_ALLOC                  0x90UL
 	#define HWRM_CFA_L2_FILTER_FREE                   0x91UL
 	#define HWRM_CFA_L2_FILTER_CFG                    0x92UL
@@ -202,11 +205,13 @@ struct cmd_nums {
 	#define HWRM_PORT_QSTATS_EXT                      0xb4UL
 	#define HWRM_PORT_PHY_MDIO_WRITE                  0xb5UL
 	#define HWRM_PORT_PHY_MDIO_READ                   0xb6UL
+	#define HWRM_PORT_PHY_MDIO_BUS_ACQUIRE            0xb7UL
+	#define HWRM_PORT_PHY_MDIO_BUS_RELEASE            0xb8UL
 	#define HWRM_FW_RESET                             0xc0UL
 	#define HWRM_FW_QSTATUS                           0xc1UL
 	#define HWRM_FW_HEALTH_CHECK                      0xc2UL
 	#define HWRM_FW_SYNC                              0xc3UL
-	#define HWRM_FW_STATE_BUFFER_QCAPS                0xc4UL
+	#define HWRM_FW_STATE_QCAPS                       0xc4UL
 	#define HWRM_FW_STATE_QUIESCE                     0xc5UL
 	#define HWRM_FW_STATE_BACKUP                      0xc6UL
 	#define HWRM_FW_STATE_RESTORE                     0xc7UL
@@ -223,7 +228,10 @@ struct cmd_nums {
 	#define HWRM_PORT_PRBS_TEST                       0xd5UL
 	#define HWRM_PORT_SFP_SIDEBAND_CFG                0xd6UL
 	#define HWRM_PORT_SFP_SIDEBAND_QCFG               0xd7UL
+	#define HWRM_FW_STATE_UNQUIESCE                   0xd8UL
 	#define HWRM_TEMP_MONITOR_QUERY                   0xe0UL
+	#define HWRM_REG_POWER_QUERY                      0xe1UL
+	#define HWRM_CORE_FREQUENCY_QUERY                 0xe2UL
 	#define HWRM_WOL_FILTER_ALLOC                     0xf0UL
 	#define HWRM_WOL_FILTER_FREE                      0xf1UL
 	#define HWRM_WOL_FILTER_QCFG                      0xf2UL
@@ -305,6 +313,7 @@ struct cmd_nums {
 	#define HWRM_ENGINE_STATS_CONFIG                  0x155UL
 	#define HWRM_ENGINE_STATS_CLEAR                   0x156UL
 	#define HWRM_ENGINE_STATS_QUERY                   0x157UL
+	#define HWRM_ENGINE_STATS_QUERY_CONTINUOUS_ERROR  0x158UL
 	#define HWRM_ENGINE_RQ_ALLOC                      0x15eUL
 	#define HWRM_ENGINE_RQ_FREE                       0x15fUL
 	#define HWRM_ENGINE_CQ_ALLOC                      0x160UL
@@ -418,8 +427,8 @@ struct hwrm_err_output {
 #define HWRM_VERSION_MAJOR 1
 #define HWRM_VERSION_MINOR 10
 #define HWRM_VERSION_UPDATE 0
-#define HWRM_VERSION_RSVD 96
-#define HWRM_VERSION_STR "1.10.0.96"
+#define HWRM_VERSION_RSVD 107
+#define HWRM_VERSION_STR "1.10.0.107"
 
 /* hwrm_ver_get_input (size:192b/24B) */
 struct hwrm_ver_get_input {
@@ -634,6 +643,7 @@ struct hwrm_async_event_cmpl {
 	#define ASYNC_EVENT_CMPL_EVENT_ID_EEM_CFG_CHANGE             0x3cUL
 	#define ASYNC_EVENT_CMPL_EVENT_ID_TFLIB_DEFAULT_VNIC_CHANGE  0x3dUL
 	#define ASYNC_EVENT_CMPL_EVENT_ID_TFLIB_LINK_STATUS_CHANGE   0x3eUL
+	#define ASYNC_EVENT_CMPL_EVENT_ID_QUIESCE_DONE               0x3fUL
 	#define ASYNC_EVENT_CMPL_EVENT_ID_FW_TRACE_MSG               0xfeUL
 	#define ASYNC_EVENT_CMPL_EVENT_ID_HWRM_ERROR                 0xffUL
 	#define ASYNC_EVENT_CMPL_EVENT_ID_LAST                      ASYNC_EVENT_CMPL_EVENT_ID_HWRM_ERROR
@@ -1054,32 +1064,33 @@ struct hwrm_func_qcaps_output {
 	__le16	fid;
 	__le16	port_id;
 	__le32	flags;
-	#define FUNC_QCAPS_RESP_FLAGS_PUSH_MODE_SUPPORTED             0x1UL
-	#define FUNC_QCAPS_RESP_FLAGS_GLOBAL_MSIX_AUTOMASKING         0x2UL
-	#define FUNC_QCAPS_RESP_FLAGS_PTP_SUPPORTED                   0x4UL
-	#define FUNC_QCAPS_RESP_FLAGS_ROCE_V1_SUPPORTED               0x8UL
-	#define FUNC_QCAPS_RESP_FLAGS_ROCE_V2_SUPPORTED               0x10UL
-	#define FUNC_QCAPS_RESP_FLAGS_WOL_MAGICPKT_SUPPORTED          0x20UL
-	#define FUNC_QCAPS_RESP_FLAGS_WOL_BMP_SUPPORTED               0x40UL
-	#define FUNC_QCAPS_RESP_FLAGS_TX_RING_RL_SUPPORTED            0x80UL
-	#define FUNC_QCAPS_RESP_FLAGS_TX_BW_CFG_SUPPORTED             0x100UL
-	#define FUNC_QCAPS_RESP_FLAGS_VF_TX_RING_RL_SUPPORTED         0x200UL
-	#define FUNC_QCAPS_RESP_FLAGS_VF_BW_CFG_SUPPORTED             0x400UL
-	#define FUNC_QCAPS_RESP_FLAGS_STD_TX_RING_MODE_SUPPORTED      0x800UL
-	#define FUNC_QCAPS_RESP_FLAGS_GENEVE_TUN_FLAGS_SUPPORTED      0x1000UL
-	#define FUNC_QCAPS_RESP_FLAGS_NVGRE_TUN_FLAGS_SUPPORTED       0x2000UL
-	#define FUNC_QCAPS_RESP_FLAGS_GRE_TUN_FLAGS_SUPPORTED         0x4000UL
-	#define FUNC_QCAPS_RESP_FLAGS_MPLS_TUN_FLAGS_SUPPORTED        0x8000UL
-	#define FUNC_QCAPS_RESP_FLAGS_PCIE_STATS_SUPPORTED            0x10000UL
-	#define FUNC_QCAPS_RESP_FLAGS_ADOPTED_PF_SUPPORTED            0x20000UL
-	#define FUNC_QCAPS_RESP_FLAGS_ADMIN_PF_SUPPORTED              0x40000UL
-	#define FUNC_QCAPS_RESP_FLAGS_LINK_ADMIN_STATUS_SUPPORTED     0x80000UL
-	#define FUNC_QCAPS_RESP_FLAGS_WCB_PUSH_MODE                   0x100000UL
-	#define FUNC_QCAPS_RESP_FLAGS_DYNAMIC_TX_RING_ALLOC           0x200000UL
-	#define FUNC_QCAPS_RESP_FLAGS_HOT_RESET_CAPABLE               0x400000UL
-	#define FUNC_QCAPS_RESP_FLAGS_ERROR_RECOVERY_CAPABLE          0x800000UL
-	#define FUNC_QCAPS_RESP_FLAGS_EXT_STATS_SUPPORTED             0x1000000UL
-	#define FUNC_QCAPS_RESP_FLAGS_ERR_RECOVER_RELOAD              0x2000000UL
+	#define FUNC_QCAPS_RESP_FLAGS_PUSH_MODE_SUPPORTED                   0x1UL
+	#define FUNC_QCAPS_RESP_FLAGS_GLOBAL_MSIX_AUTOMASKING               0x2UL
+	#define FUNC_QCAPS_RESP_FLAGS_PTP_SUPPORTED                         0x4UL
+	#define FUNC_QCAPS_RESP_FLAGS_ROCE_V1_SUPPORTED                     0x8UL
+	#define FUNC_QCAPS_RESP_FLAGS_ROCE_V2_SUPPORTED                     0x10UL
+	#define FUNC_QCAPS_RESP_FLAGS_WOL_MAGICPKT_SUPPORTED                0x20UL
+	#define FUNC_QCAPS_RESP_FLAGS_WOL_BMP_SUPPORTED                     0x40UL
+	#define FUNC_QCAPS_RESP_FLAGS_TX_RING_RL_SUPPORTED                  0x80UL
+	#define FUNC_QCAPS_RESP_FLAGS_TX_BW_CFG_SUPPORTED                   0x100UL
+	#define FUNC_QCAPS_RESP_FLAGS_VF_TX_RING_RL_SUPPORTED               0x200UL
+	#define FUNC_QCAPS_RESP_FLAGS_VF_BW_CFG_SUPPORTED                   0x400UL
+	#define FUNC_QCAPS_RESP_FLAGS_STD_TX_RING_MODE_SUPPORTED            0x800UL
+	#define FUNC_QCAPS_RESP_FLAGS_GENEVE_TUN_FLAGS_SUPPORTED            0x1000UL
+	#define FUNC_QCAPS_RESP_FLAGS_NVGRE_TUN_FLAGS_SUPPORTED             0x2000UL
+	#define FUNC_QCAPS_RESP_FLAGS_GRE_TUN_FLAGS_SUPPORTED               0x4000UL
+	#define FUNC_QCAPS_RESP_FLAGS_MPLS_TUN_FLAGS_SUPPORTED              0x8000UL
+	#define FUNC_QCAPS_RESP_FLAGS_PCIE_STATS_SUPPORTED                  0x10000UL
+	#define FUNC_QCAPS_RESP_FLAGS_ADOPTED_PF_SUPPORTED                  0x20000UL
+	#define FUNC_QCAPS_RESP_FLAGS_ADMIN_PF_SUPPORTED                    0x40000UL
+	#define FUNC_QCAPS_RESP_FLAGS_LINK_ADMIN_STATUS_SUPPORTED           0x80000UL
+	#define FUNC_QCAPS_RESP_FLAGS_WCB_PUSH_MODE                         0x100000UL
+	#define FUNC_QCAPS_RESP_FLAGS_DYNAMIC_TX_RING_ALLOC                 0x200000UL
+	#define FUNC_QCAPS_RESP_FLAGS_HOT_RESET_CAPABLE                     0x400000UL
+	#define FUNC_QCAPS_RESP_FLAGS_ERROR_RECOVERY_CAPABLE                0x800000UL
+	#define FUNC_QCAPS_RESP_FLAGS_EXT_STATS_SUPPORTED                   0x1000000UL
+	#define FUNC_QCAPS_RESP_FLAGS_ERR_RECOVER_RELOAD                    0x2000000UL
+	#define FUNC_QCAPS_RESP_FLAGS_NOTIFY_VF_DEF_VNIC_CHNG_SUPPORTED     0x4000000UL
 	u8	mac_address[6];
 	__le16	max_rsscos_ctx;
 	__le16	max_cmpl_rings;
@@ -1465,6 +1476,7 @@ struct hwrm_func_drv_rgtr_input {
 	#define FUNC_DRV_RGTR_REQ_FLAGS_FLOW_HANDLE_64BIT_MODE     0x8UL
 	#define FUNC_DRV_RGTR_REQ_FLAGS_HOT_RESET_SUPPORT          0x10UL
 	#define FUNC_DRV_RGTR_REQ_FLAGS_ERROR_RECOVERY_SUPPORT     0x20UL
+	#define FUNC_DRV_RGTR_REQ_FLAGS_MASTER_SUPPORT             0x40UL
 	__le32	enables;
 	#define FUNC_DRV_RGTR_REQ_ENABLES_OS_TYPE             0x1UL
 	#define FUNC_DRV_RGTR_REQ_ENABLES_VER                 0x2UL
@@ -3637,6 +3649,7 @@ struct hwrm_port_sfp_sideband_cfg_input {
 	#define PORT_SFP_SIDEBAND_CFG_REQ_ENABLES_MOD_SEL     0x8UL
 	#define PORT_SFP_SIDEBAND_CFG_REQ_ENABLES_RESET_L     0x10UL
 	#define PORT_SFP_SIDEBAND_CFG_REQ_ENABLES_LP_MODE     0x20UL
+	#define PORT_SFP_SIDEBAND_CFG_REQ_ENABLES_PWR_DIS     0x40UL
 	__le32	flags;
 	#define PORT_SFP_SIDEBAND_CFG_REQ_FLAGS_RS0         0x1UL
 	#define PORT_SFP_SIDEBAND_CFG_REQ_FLAGS_RS1         0x2UL
@@ -3644,6 +3657,7 @@ struct hwrm_port_sfp_sideband_cfg_input {
 	#define PORT_SFP_SIDEBAND_CFG_REQ_FLAGS_MOD_SEL     0x8UL
 	#define PORT_SFP_SIDEBAND_CFG_REQ_FLAGS_RESET_L     0x10UL
 	#define PORT_SFP_SIDEBAND_CFG_REQ_FLAGS_LP_MODE     0x20UL
+	#define PORT_SFP_SIDEBAND_CFG_REQ_FLAGS_PWR_DIS     0x40UL
 };
 
 /* hwrm_port_sfp_sideband_cfg_output (size:128b/16B) */
@@ -3684,6 +3698,7 @@ struct hwrm_port_sfp_sideband_qcfg_output {
 	#define PORT_SFP_SIDEBAND_QCFG_RESP_SIDEBAND_SIGNALS_MOD_SEL      0x40UL
 	#define PORT_SFP_SIDEBAND_QCFG_RESP_SIDEBAND_SIGNALS_RESET_L      0x80UL
 	#define PORT_SFP_SIDEBAND_QCFG_RESP_SIDEBAND_SIGNALS_LP_MODE      0x100UL
+	#define PORT_SFP_SIDEBAND_QCFG_RESP_SIDEBAND_SIGNALS_PWR_DIS      0x200UL
 	u8	unused[7];
 	u8	valid;
 };
@@ -5012,6 +5027,15 @@ struct hwrm_vnic_rss_cfg_output {
 	u8	valid;
 };
 
+/* hwrm_vnic_rss_cfg_cmd_err (size:64b/8B) */
+struct hwrm_vnic_rss_cfg_cmd_err {
+	u8      code;
+	#define VNIC_RSS_CFG_CMD_ERR_CODE_UNKNOWN             0x0UL
+	#define VNIC_RSS_CFG_CMD_ERR_CODE_INTERFACE_NOT_READY 0x1UL
+	#define VNIC_RSS_CFG_CMD_ERR_CODE_LAST               VNIC_RSS_CFG_CMD_ERR_CODE_INTERFACE_NOT_READY
+	u8      unused_0[7];
+};
+
 /* hwrm_vnic_plcmodes_cfg_input (size:320b/40B) */
 struct hwrm_vnic_plcmodes_cfg_input {
 	__le16	req_type;
@@ -5839,7 +5863,7 @@ struct hwrm_cfa_encap_record_free_output {
 	u8	valid;
 };
 
-/* hwrm_cfa_ntuple_filter_alloc_input (size:1088b/136B) */
+/* hwrm_cfa_ntuple_filter_alloc_input (size:1024b/128B) */
 struct hwrm_cfa_ntuple_filter_alloc_input {
 	__le16	req_type;
 	__le16	cmpl_ring;
@@ -5847,10 +5871,12 @@ struct hwrm_cfa_ntuple_filter_alloc_input {
 	__le16	target_id;
 	__le64	resp_addr;
 	__le32	flags;
-	#define CFA_NTUPLE_FILTER_ALLOC_REQ_FLAGS_LOOPBACK     0x1UL
-	#define CFA_NTUPLE_FILTER_ALLOC_REQ_FLAGS_DROP         0x2UL
-	#define CFA_NTUPLE_FILTER_ALLOC_REQ_FLAGS_METER        0x4UL
-	#define CFA_NTUPLE_FILTER_ALLOC_REQ_FLAGS_DEST_FID     0x8UL
+	#define CFA_NTUPLE_FILTER_ALLOC_REQ_FLAGS_LOOPBACK              0x1UL
+	#define CFA_NTUPLE_FILTER_ALLOC_REQ_FLAGS_DROP                  0x2UL
+	#define CFA_NTUPLE_FILTER_ALLOC_REQ_FLAGS_METER                 0x4UL
+	#define CFA_NTUPLE_FILTER_ALLOC_REQ_FLAGS_DEST_FID              0x8UL
+	#define CFA_NTUPLE_FILTER_ALLOC_REQ_FLAGS_ARP_REPLY             0x10UL
+	#define CFA_NTUPLE_FILTER_ALLOC_REQ_FLAGS_DEST_RFS_RING_IDX     0x20UL
 	__le32	enables;
 	#define CFA_NTUPLE_FILTER_ALLOC_REQ_ENABLES_L2_FILTER_ID         0x1UL
 	#define CFA_NTUPLE_FILTER_ALLOC_REQ_ENABLES_ETHERTYPE            0x2UL
@@ -5919,8 +5945,6 @@ struct hwrm_cfa_ntuple_filter_alloc_input {
 	__be16	dst_port;
 	__be16	dst_port_mask;
 	__le64	ntuple_filter_id_hint;
-	__le16	rfs_ring_tbl_idx;
-	u8	unused_0[6];
 };
 
 /* hwrm_cfa_ntuple_filter_alloc_output (size:192b/24B) */
@@ -5986,7 +6010,8 @@ struct hwrm_cfa_ntuple_filter_cfg_input {
 	#define CFA_NTUPLE_FILTER_CFG_REQ_ENABLES_NEW_MIRROR_VNIC_ID        0x2UL
 	#define CFA_NTUPLE_FILTER_CFG_REQ_ENABLES_NEW_METER_INSTANCE_ID     0x4UL
 	__le32	flags;
-	#define CFA_NTUPLE_FILTER_CFG_REQ_FLAGS_DEST_FID     0x1UL
+	#define CFA_NTUPLE_FILTER_CFG_REQ_FLAGS_DEST_FID              0x1UL
+	#define CFA_NTUPLE_FILTER_CFG_REQ_FLAGS_DEST_RFS_RING_IDX     0x2UL
 	__le64	ntuple_filter_id;
 	__le32	new_dst_id;
 	__le32	new_mirror_vnic_id;
@@ -6578,6 +6603,8 @@ struct hwrm_cfa_adv_flow_mgnt_qcaps_output {
 	#define CFA_ADV_FLOW_MGNT_QCAPS_RESP_FLAGS_UNTAGGED_VLAN_SUPPORTED               0x200UL
 	#define CFA_ADV_FLOW_MGNT_QCAPS_RESP_FLAGS_XDP_SUPPORTED                         0x400UL
 	#define CFA_ADV_FLOW_MGNT_QCAPS_RESP_FLAGS_L2_HEADER_SOURCE_FIELDS_SUPPORTED     0x800UL
+	#define CFA_ADV_FLOW_MGNT_QCAPS_RESP_FLAGS_NTUPLE_FLOW_RX_ARP_SUPPORTED          0x1000UL
+	#define CFA_ADV_FLOW_MGNT_QCAPS_RESP_FLAGS_RFS_RING_TBL_IDX_V2_SUPPORTED         0x2000UL
 	u8	unused_0[3];
 	u8	valid;
 };
