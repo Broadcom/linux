@@ -26,12 +26,8 @@ static DEFINE_IDA(bcm_vk_ida);
 /* Location of memory base addresses of interest in BAR1 */
 /* Load Boot1 to start of ITCM */
 #define BAR1_CODEPUSH_BASE_BOOT1	0x100000
-/* Load Boot2 to start of DDR0 */
-#define BAR1_CODEPUSH_BASE_BOOT2	0x300000
 /* Allow minimum 1s for Load Image timeout responses */
 #define LOAD_IMAGE_TIMEOUT_MS		1000
-/* Allow extended time for maximum Load Image timeout responses */
-#define LOAD_IMAGE_EXT_TIMEOUT_MS	30000
 
 #define VK_MSIX_IRQ_MAX			3
 
@@ -296,34 +292,34 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
 					  FW_LOADER_ACK_IN_PROGRESS,
 					  FW_LOADER_ACK_IN_PROGRESS,
-					  LOAD_IMAGE_EXT_TIMEOUT_MS);
+					  LOAD_IMAGE_TIMEOUT_MS);
 			if (ret < 0)
 				dev_dbg(dev, "boot2 timeout - transfer in progress\n");
-
-			/* Wait for VK to acknowledge if it received all data */
-			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
-					  FW_LOADER_ACK_RCVD_ALL_DATA,
-					  FW_LOADER_ACK_RCVD_ALL_DATA,
-					  LOAD_IMAGE_EXT_TIMEOUT_MS);
-			if (ret < 0)
-				dev_dbg(dev, "boot2 timeout - received all data\n");
-			else
-				break; /* VK received all data, break out */
 
 			/* Wait for VK to request to send more data */
 			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
 					  FW_LOADER_ACK_SEND_MORE_DATA,
 					  FW_LOADER_ACK_SEND_MORE_DATA,
-					  LOAD_IMAGE_EXT_TIMEOUT_MS);
+					  LOAD_IMAGE_TIMEOUT_MS);
 			if (ret < 0) {
-				dev_err(dev, "boot2 timeout - data send\n");
+				/*
+				 * Wait for VK to acknowledge if it received
+				 * all data
+				 */
+				ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
+						  FW_LOADER_ACK_RCVD_ALL_DATA,
+						  FW_LOADER_ACK_RCVD_ALL_DATA,
+						  LOAD_IMAGE_TIMEOUT_MS);
+				if (ret < 0)
+					dev_dbg(dev, "boot2 timeout - received all data\n");
+				/* break either way: received all or not */
 				break;
 			}
 
 			/* Wait for VK to open BAR space to copy new data */
 			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
 					  DDR_OPEN, DDR_OPEN,
-					  LOAD_IMAGE_EXT_TIMEOUT_MS);
+					  LOAD_IMAGE_TIMEOUT_MS);
 			if (ret == 0) {
 				ret = request_firmware_into_buf(
 							&fw,
