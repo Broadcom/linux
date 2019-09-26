@@ -1,0 +1,17 @@
+* Broadcom TTY Console over PCIe memory
+
+Required properties:
+
+- compatible: "brcm,bcm-bptty-console"
+
+- xmit-addr: Memory offset to write output
+
+- recv-addr: Memory offset to read input
+
+Example:
+
+	uart1: serial@0 {
+		compatible = "brcm,bcm-bptty-console";
+		xmit-addr = <0x5 0xBFF00000>;
+		recv-addr = <0x5 0xBFE00000>;
+	};
