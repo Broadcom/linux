@@ -95,4 +95,11 @@
 			status = "disabled";
 		};
 	};
+
+	uart1: serial@0 {
+		compatible = "brcm,bcm-bptty-console";
+		xmit-addr = <0x5 0xBFF00000>;
+		recv-addr = <0x5 0xBFE00000>;
+		status = "disabled";
+	};
 };
