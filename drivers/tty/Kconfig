@@ -465,4 +465,16 @@ config LDISC_AUTOLOAD
 	  dev.tty.ldisc_autoload sysctl, this configuration option will
 	  only set the default value of this functionality.
 
+config BCM_BPTTY_CONSOLE
+	bool "Broadcom PCIe tty system console"
+	depends on ARCH_BCM_IPROC || COMPILE_TEST
+	depends on PCI
+	default ARCH_BCM_IPROC
+	help
+	   This enables tty system console over PCIe mapped memory.
+	   All the kernel messages will be written to the memory, in additon
+	   any input to the console will also come from the memory. For the
+	   host to print the message it requires mapping of the same memory
+	   and perform read/write via serial application.
+
 endif # TTY

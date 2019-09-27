@@ -20,6 +20,7 @@ obj-$(CONFIG_SERIAL_DEV_BUS)	+= serdev/
 
 # tty drivers
 obj-$(CONFIG_AMIGA_BUILTIN_SERIAL) += amiserial.o
+obj-$(CONFIG_BCM_BPTTY_CONSOLE) += bcm_bptty_con.o
 obj-$(CONFIG_CYCLADES)		+= cyclades.o
 obj-$(CONFIG_ISI)		+= isicom.o
 obj-$(CONFIG_MOXA_INTELLIO)	+= moxa.o
