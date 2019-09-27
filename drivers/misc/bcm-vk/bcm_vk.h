@@ -95,6 +95,7 @@
 #define BAR_CARD_ERR_LOG		0x464
 #define BAR_CARD_ERR_MEM		0x468
 #define BAR_CARD_PWR_AND_THRE		0x46C
+#define BAR_CARD_STATIC_INFO		0x470
 #define BAR_BOOTSRC_SELECT		0xC78
 #define BAR_FIRMWARE_TAG		0x220000
 
@@ -170,10 +171,27 @@ struct bcm_vk_tty {
 	uint32_t rd;		/* read offset shadow */
 };
 
+/* VK device max power state, supports 3, full, reduced and low */
+#define MAX_OPP 3
+#define MAX_CARD_INFO_TAG_SIZE 64
+
+struct bcm_vk_card_info {
+	uint32_t version;
+	char os_tag[MAX_CARD_INFO_TAG_SIZE];
+	char cmpt_tag[MAX_CARD_INFO_TAG_SIZE];
+	uint32_t cpu_freq_mhz;
+	uint32_t cpu_scale[MAX_OPP];
+	uint32_t ddr_freq_mhz;
+	uint32_t ddr_size_MB;
+	uint32_t video_core_freq_mhz;
+};
+
 struct bcm_vk {
 	struct pci_dev *pdev;
 	void __iomem *bar[MAX_BAR];
 	int num_irqs;
+
+	struct bcm_vk_card_info card_info;
 
 #if BCM_VK_MISC_API
 	struct msix_entry msix[32];

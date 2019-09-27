@@ -987,6 +987,8 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	for (i = 0; i < VK_BAR1_SOTP_REVID_MAX; i++)
 		vkwrite32(vk, 0, BAR_1, VK_BAR1_SOTP_REVID_ADDR(i));
 
+	memset(&vk->card_info, 0, sizeof(vk->card_info));
+
 	/*
 	 * When fastboot fails, the CODE_PUSH_OFFSET stays persistent.
 	 * Allowing us to debug the failure. When we call reset,

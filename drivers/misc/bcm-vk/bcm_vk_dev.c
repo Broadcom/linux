@@ -204,6 +204,37 @@ static inline int bcm_vk_wait(struct bcm_vk *vk, enum pci_barno bar,
 	return 0;
 }
 
+static void bcm_vk_get_card_info(struct bcm_vk *vk)
+{
+	struct device *dev = &vk->pdev->dev;
+	uint32_t offset;
+	int i;
+	uint8_t *dst;
+	struct bcm_vk_card_info *info = &vk->card_info;
+
+	/* first read the offset from spare register */
+	offset = vkread32(vk, BAR_0, BAR_CARD_STATIC_INFO);
+	offset &= (pci_resource_len(vk->pdev, BAR_2 * 2) - 1);
+
+	/* based on the offset, read info to internal card info structure */
+	dst = (uint8_t *)info;
+	for (i = 0; i < sizeof(*info); i++)
+		*dst++ = vkread8(vk, BAR_2, offset++);
+
+#define CARD_INFO_LOG_FMT "version   : %x\n" \
+			  "os_tag    : %s\n" \
+			  "cmpt_tag  : %s\n" \
+			  "cpu_freq  : %d MHz\n" \
+			  "cpu_scale : %d full, %d lowest\n" \
+			  "ddr_freq  : %d MHz\n" \
+			  "ddr_size  : %d MB\n" \
+			  "video_freq: %d MHz\n"
+	dev_dbg(dev, CARD_INFO_LOG_FMT, info->version, info->os_tag,
+		info->cmpt_tag, info->cpu_freq_mhz, info->cpu_scale[0],
+		info->cpu_scale[MAX_OPP - 1], info->ddr_freq_mhz,
+		info->ddr_size_MB, info->video_core_freq_mhz);
+}
+
 static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				     const char *filename)
 {
@@ -364,6 +395,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			ret = -EIO;
 			goto err_firmware_out;
 		}
+
 		/*
 		 * Write down scratch addr, which is originally for testing
 		 * but that has been expanded to be part of DMA sync.  For
@@ -378,6 +410,9 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			vkwrite32(vk, nr_scratch_pages * PAGE_SIZE, BAR_1,
 				  VK_BAR1_SCRATCH_SZ_ADDR);
 		}
+
+		/* get static card info, only need to read once */
+		bcm_vk_get_card_info(vk);
 	}
 
 err_firmware_out:
@@ -1533,6 +1568,52 @@ static ssize_t temp_threshold_upper_c_show(struct device *dev,
 	return sprintf(buf, "%d\n", high_temp_thre);
 }
 
+
+static ssize_t freq_core_mhz_show(struct device *dev,
+				  struct device_attribute *devattr,
+				  char *buf)
+{
+	uint32_t card_pwr_and_thre;
+	uint32_t pwr_state;
+	uint32_t scale_f = 0;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	struct bcm_vk_card_info *info = &vk->card_info;
+
+	card_pwr_and_thre = vkread32(vk, BAR_0, BAR_CARD_PWR_AND_THRE);
+	BCM_VK_EXTRACT_FIELD(pwr_state, card_pwr_and_thre,
+			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
+			     BCM_VK_PWR_STATE_SHIFT);
+
+	if (pwr_state && (pwr_state <= MAX_OPP))
+		scale_f = info->cpu_scale[pwr_state - 1];
+
+	return sprintf(buf, "%d\n",
+		       info->cpu_freq_mhz / (scale_f ? scale_f : 1));
+}
+
+static ssize_t freq_mem_mhz_show(struct device *dev,
+				 struct device_attribute *devattr,
+				 char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	struct bcm_vk_card_info *info = &vk->card_info;
+
+	return sprintf(buf, "%d\n", info->ddr_freq_mhz);
+}
+
+static ssize_t mem_size_mb_show(struct device *dev,
+				 struct device_attribute *devattr,
+				 char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	struct bcm_vk_card_info *info = &vk->card_info;
+
+	return sprintf(buf, "%d\n", info->ddr_size_MB);
+}
+
 static ssize_t sotp_common_show(struct device *dev,
 				struct device_attribute *devattr,
 				char *buf, uint32_t tag_offset)
@@ -1640,6 +1721,9 @@ static DEVICE_ATTR_RO(alert_low_temp_warn);
 static DEVICE_ATTR_RO(alert_ecc_warn);
 static DEVICE_ATTR_RO(temp_threshold_lower_c);
 static DEVICE_ATTR_RO(temp_threshold_upper_c);
+static DEVICE_ATTR_RO(freq_core_mhz);
+static DEVICE_ATTR_RO(freq_mem_mhz);
+static DEVICE_ATTR_RO(mem_size_mb);
 static DEVICE_ATTR_RO(sotp_dauth_1);
 static DEVICE_ATTR_RO(sotp_dauth_1_valid);
 static DEVICE_ATTR_RO(sotp_dauth_2);
@@ -1675,6 +1759,9 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 	&dev_attr_card_state.attr,
 	&dev_attr_temp_threshold_lower_c.attr,
 	&dev_attr_temp_threshold_upper_c.attr,
+	&dev_attr_freq_core_mhz.attr,
+	&dev_attr_freq_mem_mhz.attr,
+	&dev_attr_mem_size_mb.attr,
 	&dev_attr_sotp_dauth_1.attr,
 	&dev_attr_sotp_dauth_1_valid.attr,
 	&dev_attr_sotp_dauth_2.attr,
