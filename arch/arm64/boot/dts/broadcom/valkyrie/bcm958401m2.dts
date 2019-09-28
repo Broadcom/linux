@@ -17,12 +17,11 @@
 	model = "Valkyrie (BCM958401M2) card";
 
 	aliases {
-		serial0 = &uart0;
+		serial0 = &uart1;
 	};
 
 	chosen {
-		bootargs = "root=/dev/ram rw console=ttyS0,57600n8 \
-			   earlycon=uart8250,mmio32,0x48100000 maxcpus=1";
+		bootargs = "root=/dev/ram rw maxcpus=1";
 
 		stdout-path = "serial0:57600n8";
 		linux,initrd-start = <0x5 0x64000000>;
@@ -36,6 +35,6 @@
 
 };
 
-&uart0 {
+&uart1 {
 	status = "okay";
 };
