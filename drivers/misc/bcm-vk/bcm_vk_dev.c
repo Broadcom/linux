@@ -364,6 +364,20 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			ret = -EIO;
 			goto err_firmware_out;
 		}
+		/*
+		 * Write down scratch addr, which is originally for testing
+		 * but that has been expanded to be part of DMA sync.  For
+		 * signed part, BAR1 is accessible only after boot2 has come
+		 * up, so do a write here.
+		 */
+		if (vk->tdma_addr) {
+			vkwrite32(vk, vk->tdma_addr >> 32, BAR_1,
+				  VK_BAR1_SCRATCH_OFF_LO);
+			vkwrite32(vk, (uint32_t)vk->tdma_addr, BAR_1,
+				  VK_BAR1_SCRATCH_OFF_HI);
+			vkwrite32(vk, nr_scratch_pages * PAGE_SIZE, BAR_1,
+				  VK_BAR1_SCRATCH_SZ_ADDR);
+		}
 	}
 
 err_firmware_out:
@@ -1890,16 +1904,6 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	vk->panic_nb.notifier_call = bcm_vk_on_panic;
 	atomic_notifier_chain_register(&panic_notifier_list,
 				       &vk->panic_nb);
-
-	/* pass down scratch mem info */
-	if (vk->tdma_addr) {
-		vkwrite32(vk, vk->tdma_addr >> 32, BAR_1,
-			  VK_BAR1_SCRATCH_OFF_LO);
-		vkwrite32(vk, (uint32_t)vk->tdma_addr, BAR_1,
-			  VK_BAR1_SCRATCH_OFF_HI);
-		vkwrite32(vk, nr_scratch_pages * PAGE_SIZE, BAR_1,
-			  VK_BAR1_SCRATCH_SZ_ADDR);
-	}
 
 	snprintf(name, sizeof(name), KBUILD_MODNAME ".%d_ttyVK", id);
 	err = bcm_vk_tty_init(vk, name);
