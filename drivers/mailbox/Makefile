@@ -27,6 +27,8 @@ obj-$(CONFIG_BCM_FS4_MBOX_TEST) += bcm-fs4-test.o
 
 obj-$(CONFIG_BCM_IPROC_MBOX)	+= bcm-iproc-mailbox.o
 
+obj-$(CONFIG_BCM_VK_MBOX)	+= bcm-vk-mailbox.o
+
 obj-$(CONFIG_STI_MBOX)		+= mailbox-sti.o
 
 obj-$(CONFIG_TI_MESSAGE_MANAGER) += ti-msgmgr.o

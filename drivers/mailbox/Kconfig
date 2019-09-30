@@ -112,6 +112,18 @@ config BCM_FS4_MBOX_TEST
 	help
 	  Test mailbox client for FlexSparx4 offload engines.
 
+config BCM_VK_MBOX
+	bool "Broadcom Valkyrie Mailbox"
+	depends on ARCH_BCM_IPROC || COMPILE_TEST
+	default ARCH_BCM_IPROC
+	help
+	  Broadcom Valkyrie SoC family has Cortex-M7 processor which needs
+	  to communicate with Cortex-A processor complex. This mailbox driver
+	  provides bi-directional messaging mechanism between the processor
+	  blocks. Valkyrie SoC provides 4 hardware mailboxes, two in either
+	  direction. The mailbox driver pairs them into two bi-directional
+	  mailbox 'channels' transferring 64-bit messages.
+
 config STI_MBOX
 	tristate "STI Mailbox framework support"
 	depends on ARCH_STI && OF
