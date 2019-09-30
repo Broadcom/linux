@@ -1,0 +1,19 @@
+* Broadcom Valkyrie SoC Mailbox Controller
+
+Required properties:
+- compatible: Must be "brcm,vk-mailbox"
+- reg: defines base address of mailbox device registers
+- interrupts: mailbox interrupt numbers for instances 0 and 1.
+- interrupt-names: interrupt names for mailbox instances 0 and 1.
+- #mbox-cells: Must be 1.
+
+Example:
+
+	mailbox: mailbox@40070000 {
+		compatible = "brcm,vk-mailbox";
+		reg = <0x40070000 0x1000>,
+		interrupt-names = "vk_mailbox0", "vk_mailbox1";
+		interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <1>;
+	};
