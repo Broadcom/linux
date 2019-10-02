@@ -170,7 +170,7 @@ static long bcm_vk_get_metadata(struct bcm_vk *vk, struct vk_metadata *arg)
 	dev_dbg(dev, "version=0x%x\n", metadata.version);
 	metadata.card_status = vkread32(vk, BAR_0, BAR_CARD_STATUS);
 	dev_dbg(dev, "card_status=0x%x\n", metadata.card_status);
-	metadata.firmware_version = vkread32(vk, BAR_0, BAR_FIRMWARE_VERSION);
+	metadata.firmware_version = vk->card_info.version;
 	dev_dbg(dev, "firmware_version=0x%x\n", metadata.firmware_version);
 	metadata.fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
 	dev_dbg(dev, "fw_status=0x%x\n", metadata.fw_status);
@@ -233,6 +233,32 @@ static void bcm_vk_get_card_info(struct bcm_vk *vk)
 		info->cmpt_tag, info->cpu_freq_mhz, info->cpu_scale[0],
 		info->cpu_scale[MAX_OPP - 1], info->ddr_freq_mhz,
 		info->ddr_size_MB, info->video_core_freq_mhz);
+}
+
+static int bcm_vk_sync_card_info(struct bcm_vk *vk)
+{
+	/* check for marker */
+	if (!bcm_vk_msgq_marker_valid(vk))
+		return -EINVAL;
+
+	/*
+	 * Write down scratch addr which is used for DMA. For
+	 * signed part, BAR1 is accessible only after boot2 has come
+	 * up
+	 */
+	if (vk->tdma_addr) {
+		vkwrite32(vk, vk->tdma_addr >> 32, BAR_1,
+			  VK_BAR1_SCRATCH_OFF_LO);
+		vkwrite32(vk, (uint32_t)vk->tdma_addr, BAR_1,
+			  VK_BAR1_SCRATCH_OFF_HI);
+		vkwrite32(vk, nr_scratch_pages * PAGE_SIZE, BAR_1,
+			  VK_BAR1_SCRATCH_SZ_ADDR);
+	}
+
+	/* get static card info, only need to read once */
+	bcm_vk_get_card_info(vk);
+
+	return 0;
 }
 
 static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
@@ -390,29 +416,19 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		}
 
 		/* sync queues when card os is up */
-		if (bcm_vk_sync_msgq(vk)) {
+		ret = bcm_vk_sync_msgq(vk);
+		if (ret) {
 			dev_err(dev, "Boot2 Error reading comm msg Q info\n");
 			ret = -EIO;
 			goto err_firmware_out;
 		}
 
-		/*
-		 * Write down scratch addr, which is originally for testing
-		 * but that has been expanded to be part of DMA sync.  For
-		 * signed part, BAR1 is accessible only after boot2 has come
-		 * up, so do a write here.
-		 */
-		if (vk->tdma_addr) {
-			vkwrite32(vk, vk->tdma_addr >> 32, BAR_1,
-				  VK_BAR1_SCRATCH_OFF_LO);
-			vkwrite32(vk, (uint32_t)vk->tdma_addr, BAR_1,
-				  VK_BAR1_SCRATCH_OFF_HI);
-			vkwrite32(vk, nr_scratch_pages * PAGE_SIZE, BAR_1,
-				  VK_BAR1_SCRATCH_SZ_ADDR);
+		/* sync & channel other info */
+		ret = bcm_vk_sync_card_info(vk);
+		if (ret) {
+			dev_err(dev, "Syncing Card Info failure\n");
+			goto err_firmware_out;
 		}
-
-		/* get static card info, only need to read once */
-		bcm_vk_get_card_info(vk);
 	}
 
 err_firmware_out:
@@ -919,11 +935,9 @@ static ssize_t firmware_version_show(struct device *dev,
 				     char *buf)
 {
 	int count = 0;
-	unsigned long offset = BAR_FIRMWARE_TAG;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	uint32_t chip_id;
-	uint32_t loop_count = 0;
 	int ret;
 
 	/* Print driver version first, which is always available */
@@ -947,23 +961,7 @@ static ssize_t firmware_version_show(struct device *dev,
 	/* retrieve chip id for display */
 	chip_id = vkread32(vk, BAR_0, BAR_CHIP_ID);
 	count += sprintf(&buf[count], "Chip id : 0x%x\n", chip_id);
-
-	count += sprintf(&buf[count], "Card os  : ");
-
-	do {
-		buf[count] = vkread8(vk, BAR_1, offset);
-		if (buf[count] == '\0')
-			break;
-		offset++;
-		count++;
-		loop_count++;
-	} while (loop_count != BAR_FIRMWARE_TAG_SIZE);
-
-	if (loop_count == BAR_FIRMWARE_TAG_SIZE)
-		buf[--count] = '\0';
-
-	buf[count++] = '\n'; /* append a CR */
-	dev_dbg(dev, "FW version: %s", buf);
+	count += sprintf(&buf[count], "Card os : %s\n", vk->card_info.os_tag);
 	return count;
 }
 
@@ -994,9 +992,6 @@ static ssize_t rev_boot2_show(struct device *dev,
 			      char *buf)
 {
 	int ret;
-	uint count = 0;
-	uint loop_count = 0;
-	unsigned long offset = BAR_FIRMWARE_TAG;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
@@ -1006,20 +1001,7 @@ static ssize_t rev_boot2_show(struct device *dev,
 	if (ret)
 		return ret;
 
-	do {
-		buf[count] = vkread8(vk, BAR_1, offset);
-		if (buf[count] == '\0')
-			break;
-		offset++;
-		count++;
-		loop_count++;
-	} while (loop_count != BAR_FIRMWARE_TAG_SIZE);
-
-	if (loop_count == BAR_FIRMWARE_TAG_SIZE)
-		buf[--count] = '\0';
-	buf[count++] = '\n';
-
-	return count;
+	return sprintf(buf, "%s\n", vk->card_info.os_tag);
 }
 
 static ssize_t rev_driver_show(struct device *dev,
@@ -1950,6 +1932,9 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		dev_err(dev, "failed to init msg queue info\n");
 		goto err_kfree_name;
 	}
+
+	/* sync other info */
+	bcm_vk_sync_card_info(vk);
 
 	dev_info(dev, "create sysfs group for bcm-vk.%d\n", id);
 	err = sysfs_create_group(&pdev->dev.kobj,

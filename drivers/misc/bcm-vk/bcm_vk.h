@@ -88,7 +88,6 @@
 #define FW_STATUS_RESET_UNKNOWN		(0xF << FW_STATUS_RESET_REASON_SHIFT)
 
 #define BAR_METADATA_VERSION		0x440
-#define BAR_FIRMWARE_VERSION		0x444
 #define BAR_CHIP_ID			0x448
 #define BAR_CARD_TEMPERATURE		0x45C
 #define BAR_CARD_VOLTAGE		0x460
@@ -97,7 +96,6 @@
 #define BAR_CARD_PWR_AND_THRE		0x46C
 #define BAR_CARD_STATIC_INFO		0x470
 #define BAR_BOOTSRC_SELECT		0xC78
-#define BAR_FIRMWARE_TAG		0x220000
 
 /* Start of ITCM */
 #define CODEPUSH_BOOT1_ENTRY		0x00400000
@@ -282,6 +280,7 @@ irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id);
 int bcm_vk_msg_init(struct bcm_vk *vk);
 void bcm_vk_msg_remove(struct bcm_vk *vk);
 int bcm_vk_sync_msgq(struct bcm_vk *vk);
+bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk);
 int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type, pid_t pid);
 void bcm_vk_trigger_reset(struct bcm_vk *vk);
 void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val);
