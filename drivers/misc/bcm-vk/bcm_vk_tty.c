@@ -82,15 +82,7 @@ static void bcm_vk_tty_poll(struct timer_list *t)
 			vktty->rd++;
 			if (vktty->rd >= vktty->from_size)
 				vktty->rd = 0;
-			if (c == '\n') {
-				tty_insert_flip_char(&vktty->port, '\r',
-						     TTY_NORMAL);
-				tty_insert_flip_char(&vktty->port, '\n',
-						     TTY_NORMAL);
-				tty_flip_buffer_push(&vktty->port);
-			} else
-				tty_insert_flip_char(&vktty->port, c,
-						     TTY_NORMAL);
+			tty_insert_flip_char(&vktty->port, c, TTY_NORMAL);
 			count++;
 		}
 	}
