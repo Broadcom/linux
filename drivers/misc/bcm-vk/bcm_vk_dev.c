@@ -108,6 +108,47 @@ struct bcm_vk_sysfs_reg_list {
 	const char *hdr;
 };
 
+/*
+ * table structure for all shutdown related info in fw status register
+ */
+static struct bcm_vk_sysfs_reg_entry const fw_shutdown_reg_tab[] = {
+	{FW_STATUS_APP_DEINIT_START, FW_STATUS_APP_DEINIT_START,
+	 "app_deinit_st"},
+	{FW_STATUS_APP_DEINIT_DONE, FW_STATUS_APP_DEINIT_DONE,
+	 "app_deinited"},
+	{FW_STATUS_DRV_DEINIT_START, FW_STATUS_DRV_DEINIT_START,
+	 "drv_deinit_st"},
+	{FW_STATUS_DRV_DEINIT_DONE, FW_STATUS_DRV_DEINIT_DONE,
+	 "drv_deinited"},
+	{FW_STATUS_RESET_DONE, FW_STATUS_RESET_DONE,
+	 "reset_done"},
+	 /* reboot reason */
+	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_SYS_PWRUP,
+	 "sys_pwrup"},
+	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_MBOX_DB,
+	 "reset_doorbell"},
+	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_M7_WDOG,
+	 "wdog"},
+	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_TEMP,
+	 "overheat"},
+	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_FLR,
+	 "pci_flr"},
+	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_HOT,
+	 "pci_hot"},
+	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_WARM,
+	 "pci_warm" },
+	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_COLD,
+	 "pci_cold" },
+	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_L1,
+	 "L1_reset" },
+	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_L0,
+	 "L0_reset" },
+	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_UNKNOWN,
+	 "unknown" },
+};
+/* define for the start of the reboot reason */
+#define FW_STAT_RB_REASON_START 5
+
 static int bcm_vk_sysfs_dump_reg(uint32_t reg_val,
 				 struct bcm_vk_sysfs_reg_entry const *entry_tab,
 				 const uint32_t table_size, char *buf)
@@ -1062,41 +1103,6 @@ static ssize_t firmware_status_show(struct device *dev,
 		{FB_BOOT_STATE_MASK, FB_BOOT2_RUNNING,
 		 "boot2_running"},
 	};
-	/*
-	 * shut down is lumped with fw-status register, but we use a different
-	 * table to isolate it out.
-	 */
-	static struct bcm_vk_sysfs_reg_entry const fw_shutdown_reg_tab[] = {
-		{FW_STATUS_APP_DEINIT_START, FW_STATUS_APP_DEINIT_START,
-		 "app_deinit_st"},
-		{FW_STATUS_APP_DEINIT_DONE, FW_STATUS_APP_DEINIT_DONE,
-		 "app_deinited"},
-		{FW_STATUS_DRV_DEINIT_START, FW_STATUS_DRV_DEINIT_START,
-		 "drv_deinit_st"},
-		{FW_STATUS_DRV_DEINIT_DONE, FW_STATUS_DRV_DEINIT_DONE,
-		 "drv_deinited"},
-		{FW_STATUS_RESET_DONE, FW_STATUS_RESET_DONE,
-		 "reset_done"},
-		/* reboot reason */
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_SYS_PWRUP,
-		 "R-sys_pwrup"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_MBOX_DB,
-		 "R-reset_doorbell"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_M7_WDOG,
-		 "R-wdog"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_TEMP,
-		 "R-overheat"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_FLR,
-		 "R-pci_flr"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_HOT,
-		 "R-pci_hot"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_WARM,
-		 "R-pci_warm" },
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_COLD,
-		 "R-pci_cold" },
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_UNKNOWN,
-		 "R-unknown" },
-	};
 	/* list of registers */
 	static struct bcm_vk_sysfs_reg_list const fw_status_reg_list[] = {
 		{BAR_FW_STATUS, fw_status_reg_tab,
@@ -1148,32 +1154,16 @@ static ssize_t reset_reason_show(struct device *dev,
 	uint32_t reg, i;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	static struct bcm_vk_sysfs_reg_entry const tab[] = {
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_SYS_PWRUP,
-		 "sys_pwrup"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_MBOX_DB,
-		 "reset_doorbell"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_M7_WDOG,
-		 "wdog"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_TEMP,
-		 "overheat"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_FLR,
-		 "pci_flr"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_HOT,
-		 "pci_hot"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_WARM,
-		 "pci_warm"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_COLD,
-		 "pci_cold"},
-		{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_UNKNOWN,
-		 "unknown"},
-	};
+	static struct bcm_vk_sysfs_reg_entry const *tab =
+		&fw_shutdown_reg_tab[FW_STAT_RB_REASON_START];
 
 	reg = vkread32(vk, BAR_0, BAR_FW_STATUS);
 	if (BCM_VK_INTF_IS_DOWN(reg))
 		return sprintf(buf, "PCIe Intf Down!\n");
 
-	for (i = 0; i < ARRAY_SIZE(tab); i++) {
+	for (i = 0;
+	     i < (ARRAY_SIZE(fw_shutdown_reg_tab) - FW_STAT_RB_REASON_START);
+	     i++) {
 		if ((tab[i].mask & reg) == tab[i].exp_val)
 			return sprintf(buf, "%s\n", tab[i].str);
 	}
