@@ -21,8 +21,7 @@
 	};
 
 	chosen {
-		bootargs = "root=/dev/ram rw maxcpus=1";
-
+		bootargs = "root=/dev/ram rw console=ttyBP0,57600n8 maxcpus=1";
 		stdout-path = "serial0:57600n8";
 		linux,initrd-start = <0x5 0x64000000>;
 		linux,initrd-end = <0x5 0x64c00000>;
