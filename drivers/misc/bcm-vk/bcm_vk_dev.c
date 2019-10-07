@@ -20,6 +20,7 @@
 #define DRV_MODULE_NAME		"bcm-vk"
 
 #define PCI_DEVICE_ID_VALKYRIE	0x5E87
+#define PCI_DEVICE_ID_VIPER	0x5E88
 
 static DEFINE_IDA(bcm_vk_ida);
 
@@ -2085,6 +2086,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 
 static const struct pci_device_id bcm_vk_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_VALKYRIE), },
+	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_VIPER), },
 	{ }
 };
 MODULE_DEVICE_TABLE(pci, bcm_vk_ids);
