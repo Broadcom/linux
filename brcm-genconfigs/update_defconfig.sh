@@ -83,8 +83,9 @@ main() {
 
 	# 64 bit platforms
 	# iproc_defconfig, for Stingray
-	# for uses when Stingray run standalone without NB host
+	# vk_defconfig, for Valkyrie
 	do_update ${ARCH64} iproc $iproc_defconfig
+	do_update ${ARCH64} vk $vk_defconfig
 
 	#Cleanup 64 bit
 	make ARCH=${ARCH64} mrproper > /dev/null

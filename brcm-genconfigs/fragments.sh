@@ -23,3 +23,13 @@ iproc_defconfig="base-arm64 stingray \
     tmon                                 \
     uio usb usbd                         \
     vfio vhost virtio watchdog"
+
+vk_defconfig="base-arm64 \
+    blk                                  \
+    clocksource                          \
+    dbg dma                              \
+    efi fs hwmon                         \
+    mailbox misc                         \
+    perf profiling                       \
+    uio                                  \
+    vfio vhost virtio watchdog"
