@@ -24,12 +24,12 @@ iproc_defconfig="base-arm64 stingray \
     uio usb usbd                         \
     vfio vhost virtio watchdog"
 
-vk_defconfig="base-arm64 \
+vk_defconfig="base-arm64 valkyrie \
     blk                                  \
     clocksource                          \
     dbg dma                              \
-    efi fs hwmon                         \
-    mailbox misc                         \
+    efi                                  \
+    mailbox                              \
     perf profiling                       \
     uio                                  \
-    vfio vhost virtio watchdog"
+    vfio vhost watchdog"
