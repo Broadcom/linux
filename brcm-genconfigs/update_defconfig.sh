@@ -82,8 +82,8 @@ main() {
 	fi
 
 	# 64 bit platforms
-	# iproc_defconfig, for both NS2 and Stingray
-	# for uses when NS2/Stingray run standalone without NB host
+	# iproc_defconfig, for Stingray
+	# for uses when Stingray run standalone without NB host
 	do_update ${ARCH64} iproc $iproc_defconfig
 
 	#Cleanup 64 bit

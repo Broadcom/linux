@@ -6,7 +6,7 @@ arm64_defconfigs="iproc_defconfig"
 
 # Defines the fragments that apply to each defconfig. Variable name must be the
 # same as the defconfig file.
-iproc_defconfig="base-arm64 ns2 stingray \
+iproc_defconfig="base-arm64 stingray \
     ata blk bpf                          \
     clocksource crypto crashdump         \
     dbg dma                              \
