@@ -22,6 +22,28 @@
 
 static DEFINE_IDA(bcm_vk_ida);
 
+struct _load_image_tab {
+		const uint32_t image_type;
+		const char *image_name;
+};
+
+enum soc_idx {
+	VALKYRIE = 0,
+	VIPER
+};
+
+#define NUM_BOOT_STAGES 2
+const struct _load_image_tab image_tab[][NUM_BOOT_STAGES] = {
+	[VALKYRIE] = {
+		{VK_IMAGE_TYPE_BOOT1, VK_BOOT1_DEF_VALKYRIE_FILENAME},
+		{VK_IMAGE_TYPE_BOOT2, VK_BOOT2_DEF_VALKYRIE_FILENAME}
+	},
+	[VIPER] = {
+		{VK_IMAGE_TYPE_BOOT1, VK_BOOT1_DEF_VIPER_FILENAME},
+		{VK_IMAGE_TYPE_BOOT2, VK_BOOT2_DEF_VIPER_FILENAME}
+	}
+};
+
 /* Location of memory base addresses of interest in BAR1 */
 /* Load Boot1 to start of ITCM */
 #define BAR1_CODEPUSH_BASE_BOOT1	0x100000
@@ -502,28 +524,33 @@ static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
 
 int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
 {
-	int ret = 0;
+	int i, id, ret = -1;
 	struct device *dev = &vk->pdev->dev;
-	static struct _load_image_tab {
-		const uint32_t image_type;
-		const char *image_name;
-	} image_tab[] = {
-		{VK_IMAGE_TYPE_BOOT1, VK_BOOT1_DEF_FILENAME},
-		{VK_IMAGE_TYPE_BOOT2, VK_BOOT2_DEF_FILENAME},
-	};
-	uint32_t i;
+	struct pci_dev *pdev = to_pci_dev(dev);
 	uint32_t curr_type;
 	const char *curr_name;
+
+	switch (pdev->device) {
+	case PCI_DEVICE_ID_VALKYRIE:
+		id = VALKYRIE;
+		break;
+
+	case PCI_DEVICE_ID_VIPER:
+		id = VIPER;
+		break;
+
+	default:
+		dev_err(dev, "no images for 0x%x\n", pdev->device);
+		goto bcm_vk_auto_load_all_exit;
+	}
 
 	/* log a message to know the relative loading order */
 	dev_info(dev, "Load All for device %d\n", vk->misc_devid);
 
-	for (i = 0; i < ARRAY_SIZE(image_tab); i++) {
-
-		curr_type = image_tab[i].image_type;
+	for (i = 0; i < NUM_BOOT_STAGES; i++) {
+		curr_type = image_tab[id][i].image_type;
 		if (bcm_vk_next_boot_image(vk) == curr_type) {
-
-			curr_name = image_tab[i].image_name;
+			curr_name = image_tab[id][i].image_name;
 			ret = bcm_vk_load_image_by_type(vk, curr_type,
 							curr_name);
 			dev_info(dev, "Auto load %s, ret %d\n",
@@ -539,7 +566,6 @@ int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
 
 bcm_vk_auto_load_all_exit:
 	return ret;
-
 }
 
 static int bcm_vk_trigger_autoload(struct bcm_vk *vk)
