@@ -277,9 +277,11 @@ static void bcm_vk_get_card_info(struct bcm_vk *vk)
 
 static int bcm_vk_sync_card_info(struct bcm_vk *vk)
 {
-	/* check for marker */
+	uint32_t rdy_marker = vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
+
+	/* check for marker, but allow diags mode to skip sync */
 	if (!bcm_vk_msgq_marker_valid(vk))
-		return -EINVAL;
+		return (rdy_marker == VK_BAR1_DIAG_RDY_MARKER ? 0 : -EINVAL);
 
 	/*
 	 * Write down scratch addr which is used for DMA. For

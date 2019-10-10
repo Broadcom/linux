@@ -138,8 +138,10 @@ struct bcm_vk_msg_chan {
 
 /* indicate if msgq ctrl in BAR1 is populated */
 #define VK_BAR1_MSGQ_DEF_RDY		0x60c0
-/* ready marker value for the above location */
+/* ready marker value for the above location, normal boot2 */
 #define VK_BAR1_MSGQ_RDY_MARKER		0xbeefcafe
+/* ready marker value for the above location, normal boot2 */
+#define VK_BAR1_DIAG_RDY_MARKER		0xdeadcafe
 /* number of msgqs in BAR1 */
 #define VK_BAR1_MSGQ_NR			0x60c4
 /* BAR1 queue control structure offset */
