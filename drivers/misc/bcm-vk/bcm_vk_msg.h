@@ -167,6 +167,11 @@ struct bcm_vk_msg_chan {
 #define VK_BAR1_SOTP_REVID_ADDR(x) \
 		(VK_BAR1_SOTP_REVID_BASE_ADDR + (x) * VK_BAR1_SOTP_REVID_SIZE)
 
+/* Memory to hold the DMA buffer memory address allocated for boot2 download */
+#define VK_BAR1_DMA_BUF_OFF_HI		0x61e0
+#define VK_BAR1_DMA_BUF_OFF_LO		(VK_BAR1_DMA_BUF_OFF_HI + 4)
+#define VK_BAR1_DMA_BUF_SZ		(VK_BAR1_DMA_BUF_OFF_HI + 8)
+
 /* Scratch memory allocated on host for VK */
 #define VK_BAR1_SCRATCH_OFF_LO		0x61f0
 #define VK_BAR1_SCRATCH_OFF_HI		(VK_BAR1_SCRATCH_OFF_LO + 4)
