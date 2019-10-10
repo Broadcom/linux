@@ -39,6 +39,19 @@
 
 / {
 	model = "Overlake";
+
+	reserved-memory {
+		/* GIC LPI tables */
+		gic_lpi {
+			reg = <0x0 0x8ad70000 0x0 0x90000>;
+		};
+
+		/* Nitro FW, nitro Crash, Bl31, Bl32 and elog */
+		misc_reserve {
+			reg = <0x0 0x8ae00000 0x0 0x4413000>;
+			no-map;
+		};
+	};
 };
 
 &sdio0 {
