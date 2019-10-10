@@ -39,7 +39,7 @@ struct bcm_vk_tty_chan {
 /* Poll every 1/10 of second - temp hack till we use MSI interrupt */
 #define SERIAL_TIMER_VALUE (HZ / 10)
 
-#if BCM_VK_LEGACY_API
+#if defined(BCM_VK_LEGACY_API)
 
 /* No support in legacy case, and do a dummy init and exit */
 int bcm_vk_tty_init(struct bcm_vk *vk, char *name)
