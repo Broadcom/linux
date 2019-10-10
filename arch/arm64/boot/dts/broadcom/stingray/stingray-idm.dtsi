@@ -1,0 +1,192 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *Copyright(c) 2018 Broadcom
+ */
+
+iproc-idm {
+	compatible = "simple-bus";
+	dma-ranges;
+	ranges = <0x0 0x0 0x0 0xffffffff>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	idm-paxb0-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-paxb0-axi";
+		reg = <0x58000900 0x200>;
+		interrupts = <GIC_SPI 473 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-paxb1-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-paxb1-axi";
+		reg = <0x58001900 0x200>;
+		interrupts = <GIC_SPI 474 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-paxb2-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-paxb2-axi";
+		reg = <0x58002900 0x200>;
+		interrupts = <GIC_SPI 475 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-paxb3-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-paxb3-axi";
+		reg = <0x58003900 0x200>;
+		interrupts = <GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-pcie-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-pcie-axi";
+		reg = <0x58004900 0x200>;
+		interrupts = <GIC_SPI 517 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-paxb4-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-paxb4-axi";
+		reg = <0x58006900 0x200>;
+		interrupts = <GIC_SPI 477 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-paxb5-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-paxb5-axi";
+		reg = <0x58007900 0x200>;
+		interrupts = <GIC_SPI 478 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-paxb6-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-paxb6-axi";
+		reg = <0x58008900 0x200>;
+		interrupts = <GIC_SPI 479 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-paxb7-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-paxb7-axi";
+		reg = <0x58009900 0x200>;
+		interrupts = <GIC_SPI 480 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-mhb-nitro-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-mhb-nitro-axi";
+		reg = <0x60403900 0x200>;
+		interrupts = <GIC_SPI 515 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-mhb-pcie-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-mhb-pcie-axi";
+		reg = <0x60404900 0x200>;
+		interrupts = <GIC_SPI 517 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-mhb-ep-apb {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-mhb-ep-apb";
+		reg = <0x60405900 0x200>;
+		interrupts = <GIC_SPI 514 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-mhb-paxc-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-mhb-paxc-axi";
+		reg = <0x60406900 0x200>;
+		interrupts = <GIC_SPI 516 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-mhb-apb {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-mhb-apb";
+		reg = <0x60407900 0x200>;
+		interrupts = <GIC_SPI 513 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-mhb-paxc-apb {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-mhb-paxc-apb";
+		reg = <0x60408900 0x200>;
+		interrupts = <GIC_SPI 512 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-pcie0 {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-pcie0";
+		reg = <0x66080900 0x200>;
+		interrupts = <GIC_SPI 812 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-pcie1 {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-pcie1";
+		reg = <0x66081900 0x200>;
+		interrupts = <GIC_SPI 813 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-paxc {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-paxc";
+		reg = <0x66082900 0x200>;
+		interrupts = <GIC_SPI 814 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-fs {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-fs";
+		reg = <0x66083900 0x200>;
+		interrupts = <GIC_SPI 815 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-hsls {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-hsls";
+		reg = <0x66084900 0x200>;
+		interrupts = <GIC_SPI 816 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-crmu {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-crmu";
+		reg = <0x66085900 0x200>;
+		interrupts = <GIC_SPI 817 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-usb {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-usb";
+		reg = <0x66086900 0x200>;
+		interrupts = <GIC_SPI 826 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-axi2apb-div4 {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-axi2apb-div4";
+		reg = <0x66087900 0x200>;
+		interrupts = <GIC_SPI 818 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-axi2apb-div4-emem {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-axi2apb-div4-emem";
+		reg = <0x66088900 0x200>;
+		interrupts = <GIC_SPI 819 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-axi2apb-cssys {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-axi2apb-cssys";
+		reg = <0x66089900 0x200>;
+		interrupts = <GIC_SPI 820 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-smmu {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-smmu";
+		reg = <0x6608a900 0x200>;
+		interrupts = <GIC_SPI 821 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-gic500 {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-gic500";
+		reg = <0x6608b900 0x200>;
+		interrupts = <GIC_SPI 822 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-sata {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-sata";
+		reg = <0x6608c900 0x200>;
+		interrupts = <GIC_SPI 824 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-cssys-stm-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-cssys-stm-axi";
+		reg = <0x6608d900 0x200>;
+		interrupts = <GIC_SPI 825 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-ds0 {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-scr-ds0";
+		reg = <0x6608e900 0x200>;
+		interrupts = <GIC_SPI 823 IRQ_TYPE_LEVEL_HIGH>;
+	};
+};

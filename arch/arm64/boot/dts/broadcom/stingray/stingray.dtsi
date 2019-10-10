@@ -374,6 +374,7 @@
 	};
 
 	#include "stingray-fs4.dtsi"
+	#include "stingray-idm.dtsi"
 	#include "stingray-sata.dtsi"
 	#include "stingray-usb.dtsi"
 	#include "stingray-optee.dtsi"
