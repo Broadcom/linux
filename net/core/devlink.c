@@ -4724,14 +4724,14 @@ EXPORT_SYMBOL_GPL(devlink_health_reporter_recovery_done);
 
 static int
 devlink_health_reporter_recover(struct devlink_health_reporter *reporter,
-				void *priv_ctx)
+				void *priv_ctx, struct netlink_ext_ack *extack)
 {
 	int err;
 
 	if (!reporter->ops->recover)
 		return -EOPNOTSUPP;
 
-	err = reporter->ops->recover(reporter, priv_ctx);
+	err = reporter->ops->recover(reporter, priv_ctx, extack);
 	if (err)
 		return err;
 
@@ -4751,7 +4751,8 @@ devlink_health_dump_clear(struct devlink_health_reporter *reporter)
 }
 
 static int devlink_health_do_dump(struct devlink_health_reporter *reporter,
-				  void *priv_ctx)
+				  void *priv_ctx,
+				  struct netlink_ext_ack *extack)
 {
 	int err;
 
@@ -4772,7 +4773,7 @@ static int devlink_health_do_dump(struct devlink_health_reporter *reporter,
 		goto dump_err;
 
 	err = reporter->ops->dump(reporter, reporter->dump_fmsg,
-				  priv_ctx);
+				  priv_ctx, extack);
 	if (err)
 		goto dump_err;
 
@@ -4820,11 +4821,12 @@ int devlink_health_report(struct devlink_health_reporter *reporter,
 
 	mutex_lock(&reporter->dump_lock);
 	/* store current dump of current error, for later analysis */
-	devlink_health_do_dump(reporter, priv_ctx);
+	devlink_health_do_dump(reporter, priv_ctx, NULL);
 	mutex_unlock(&reporter->dump_lock);
 
 	if (reporter->auto_recover)
-		return devlink_health_reporter_recover(reporter, priv_ctx);
+		return devlink_health_reporter_recover(reporter,
+						       priv_ctx, NULL);
 
 	return 0;
 }
@@ -5122,7 +5124,7 @@ static int devlink_nl_cmd_health_reporter_recover_doit(struct sk_buff *skb,
 	if (!reporter)
 		return -EINVAL;
 
-	err = devlink_health_reporter_recover(reporter, NULL);
+	err = devlink_health_reporter_recover(reporter, NULL, info->extack);
 
 	devlink_health_reporter_put(reporter);
 	return err;
@@ -5155,7 +5157,7 @@ static int devlink_nl_cmd_health_reporter_diagnose_doit(struct sk_buff *skb,
 	if (err)
 		goto out;
 
-	err = reporter->ops->diagnose(reporter, fmsg);
+	err = reporter->ops->diagnose(reporter, fmsg, info->extack);
 	if (err)
 		goto out;
 
@@ -5190,7 +5192,7 @@ devlink_nl_cmd_health_reporter_dump_get_dumpit(struct sk_buff *skb,
 	}
 	mutex_lock(&reporter->dump_lock);
 	if (!start) {
-		err = devlink_health_do_dump(reporter, NULL);
+		err = devlink_health_do_dump(reporter, NULL, cb->extack);
 		if (err)
 			goto unlock;
 		cb->args[1] = reporter->dump_ts;
