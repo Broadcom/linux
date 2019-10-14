@@ -14,3 +14,19 @@ config BCM_VK
 	  devices.
 
 	  If unsure, say N.
+
+if BCM_VK
+
+config BCM_VK_H2VK_VERIFY_AND_RETRY
+	bool "Host To Valkyrie Verifiy Data and Retry"
+	help
+	  Turn on to verify the data passed down to VK is good,
+	  and if not, do a retry until it succeeds.
+	  This is a debug/workaround on FPGA PCIe timing issues
+	  but may be found useful for debugging other PCIe hardware issues.
+	  Small performance loss by enabling this debug config.
+	  For properly operating PCIe hardware no need to enable this.
+
+	  If unsure, say N.
+
+endif
