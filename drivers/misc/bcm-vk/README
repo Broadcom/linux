@@ -1,29 +1,81 @@
 Valkyrie Card Status using SysFS
 ================================
 
-The bcm-vk driver supports the query of the Valkyrie card status using the
-SysFs entry.
+The bcm-vk driver supports the query of the Valkyrie card status or
+monitoring sense points using the SysFs entry.
 
-A Group attribute is created to report the valkyrie card status
-(vk-card-status) and different status values are consolidated under the
-card status group.
+Two Group attributes are created for the valkyrie card;
 
-The organization of the card status is given below.
+vk-card-status
+	- all card related status values.
+vk-card-mon
+	- card monitoring points.  Each entry under this group will report
+	a single value representing the particular measurement point value.
 
-The group is created under the following : /sysfs/devices/<pci device number>/
+The organization of the vk-card-status or vk-card-mon is given below.
+
+The group is created under the following :
+	/sysfs/devices/<pci device number>/
+Alternatively, these groups could be accessed through :
+	/sys/class/misc/bcm-vk.x/pci/
+, where x is the device id and "pci" is a symbolic link to the corresponding
+<pci device number> directory.
 
 vk-card-status/
-	firmware-status
-	firmware-version
-	voltage		---> reports the 1.8v and 3.3v voltage rail readings
-	temperature	---> reports the current temperature of the soc
+	bus			---> device PCIe bus
+	card_state		---> summary of current card states
+	chip_id
+	firmware-status		---> summary of all firmware status
+	firmware-version	---> summary of all firmware versions
+	freq_core_mhz		---> running frequency in mHz
+	freq_mem_mhz		---> memory frequency in mHz
+	mem_size_mb		---> memory size in MByte
+	os_state		---> current running state
+	reset_reason		---> last reset reason
+	rev_boot1		---> boot1 firmware revision
+	rev_boot2		---> boot2 firmware revision
+	rev_driver		---> host driver revision
+	rev_flash_rom		---> Flash ROM revision
+	sotp_boot1_rev_id	---> minimum boot1 revision required
+	sotp_boot2_rev_id	---> minimum boot2 revision required
+	sotp_dauth_1		---> authentication key hash
+	sotp_dauth_1_valid	---> authentication key validity
+	sotp_dauth_2
+	sotp_dauth_2_valid
+	sotp_dauth_3
+	sotp_dauth_3_valid
+	sotp_dauth_4
+	sotp_dauth_4_valid
+	temp_threshold_lower_c	---> thermal low threshold in Celsius
+	temp_threshold_upper_c	---> thermal high threshold in Celsius
+
+vk-card-mon/
+	alert_afbc_busy		---> AFBC block stuck
+	alert_ecc		---> uncorrectable ECC error(s) occurred
+	alert_ecc_warn		---> correctable ECC error(s) occurred
+	alert_high_temp		---> high temperature threshold crossed
+	alert_low_temp_warn	---> low temperature threshold crossed
+	alert_malloc_fail_warn	---> mem allocation failure(s) occurred
+	alert_ssim_busy		---> ssim block busy
+	fastboot_reg
+	firmware_status_reg
+	mem_ecc			---> correctable ECC error count
+	mem_uecc		---> uncorrectable ECC error count
+	pwr_state		---> power state, 1-full, 2-reduced, 3-lowest
+	temperature_sensor_1_c	---> CPU die temperature in Celsius
+	temperature_sensor_2_c	---> DDR0 temperature in Celsius
+	temperature_sensor_3_c	---> DDR1 temperature in Celsius
+	voltage_18_mv		---> 1.8v voltage rail in mv
+	voltage_33_mv		---> 3.3v voltage rail in mv
 
 The sysfs entry supports only the read operation.
 
 Example:
-To read the temperature from a PCIe device at 65:00.0:
-cat /sys/devices/pci0000:64/0000:64:00.0/0000:65:00.0/vk-card-status/voltage
+To read the temperature from a PCIe device (bcm-vk.0) at 65:00.0:
+cat /sys/devices/pci0000:64/0000:64:00.0/0000:65:00.0/vk-mon-status/voltage_18_mv
+or
+cat /sys/class/misc/bcm-vk.0/pci/vk-mon-status/voltage_18_mv
 
 where
 	/sys/devices/pci0000:64/0000:64:00.0/0000:65:00.0/ --> path of bcm-vk device
-	vk-card-status/voltage --> current voltage reading from the card
+	vk-card-mon/voltage_18_mv --> current voltage reading from the card
