@@ -47,8 +47,10 @@ const struct _load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 /* Location of memory base addresses of interest in BAR1 */
 /* Load Boot1 to start of ITCM */
 #define BAR1_CODEPUSH_BASE_BOOT1	0x100000
+#ifndef LOAD_IMAGE_TIMEOUT_MS
 /* Allow minimum 1s for Load Image timeout responses */
 #define LOAD_IMAGE_TIMEOUT_MS		1000
+#endif
 
 #define VK_MSIX_IRQ_MAX			3
 
