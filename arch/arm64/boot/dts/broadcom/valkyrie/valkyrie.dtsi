@@ -51,11 +51,25 @@
 			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
 	};
 
+	uio_shmem: uio_pdrv_genirq@20808000 {
+		compatible = "generic-uio";
+		reg = <0x0 0x20808000 0x0 0x4000>;
+		status = "disabled";
+	};
+
 	scr {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x40000000 0x04000000>;
+
+		uio_mbox: uio_pdrv_genirq@40070000 {
+			compatible = "generic-uio";
+			reg = <0x00070000 0x1000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
 
 		gic: interrupt-controller@42700000 {
 			compatible = "arm,gic-v3";
