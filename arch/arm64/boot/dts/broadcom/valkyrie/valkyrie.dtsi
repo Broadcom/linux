@@ -57,15 +57,6 @@
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x40000000 0x04000000>;
 
-		mailbox: mailbox@70000 {
-			compatible = "brcm,vk-mailbox";
-			reg = <0x00070000 0x1000>;
-			interrupt-names = "vk_mailbox0", "vk_mailbox1";
-			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
-			#mbox-cells = <1>;
-		};
-
 		gic: interrupt-controller@42700000 {
 			compatible = "arm,gic-v3";
 			#interrupt-cells = <3>;
