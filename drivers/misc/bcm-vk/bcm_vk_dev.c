@@ -470,7 +470,6 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			}
 		} while (1);
 
-		/* Initialize Message Q if we are loading boot2 */
 		/* wait for fw status bits to indicate app ready */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_FW_STATUS,
 				  FW_STATUS_READY,
@@ -481,7 +480,12 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			goto err_firmware_out;
 		}
 
-		/* sync queues when card os is up */
+		/*
+		 * Next, initialize Message Q if we are loading boot2.
+		 * Set msgq_inited to be false to force a msgq resync
+		 * when card os is up
+		 */
+		vk->msgq_inited = false;
 		ret = bcm_vk_sync_msgq(vk);
 		if (ret) {
 			dev_err(dev, "Boot2 Error reading comm msg Q info\n");
