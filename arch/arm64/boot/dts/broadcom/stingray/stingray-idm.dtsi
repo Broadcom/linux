@@ -5,7 +5,7 @@
 
 reserved-memory {
 	elog {
-		reg = <0x8f130000 0x10000>;
+		reg = <0x0 0x8f130000 0x0 0x10000>;
 	};
 };
 
