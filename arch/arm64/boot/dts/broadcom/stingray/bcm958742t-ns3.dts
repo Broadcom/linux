@@ -50,6 +50,10 @@
 			reg = <0x0 0x8ae00000 0x0 0x4413000>;
 			no-map;
 		};
+
+		elog {
+			status = "disabled";
+		};
 	};
 };
 
