@@ -215,6 +215,10 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 {
 	uint32_t num;
 	struct bcm_vk_wkent *entry, *tmp;
+	struct bcm_vk *vk;
+
+	if (ctx)
+		vk = container_of(ctx->miscdev, struct bcm_vk, miscdev);
 
 	spin_lock(&chan->pendq_lock);
 	for (num = 0; num < chan->q_nr; num++) {
@@ -235,6 +239,7 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 					msg->args[0], msg->args[1],
 					entry->vk2h_msg ? "T" : "F");
 				list_del(&entry->node);
+				bitmap_clear(vk->bmap, msg->msg_id, 1);
 				bcm_vk_free_wkent(dev, entry);
 			}
 		}
