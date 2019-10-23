@@ -91,6 +91,15 @@ static void bcm_vk_h2vk_verify_blk
 }
 #endif
 
+static void bcm_vk_msgid_bitmap_clear(struct bcm_vk *vk,
+				      unsigned int start,
+				      unsigned int nbits)
+{
+	spin_lock(&vk->msg_id_lock);
+	bitmap_clear(vk->bmap, start, nbits);
+	spin_unlock(&vk->msg_id_lock);
+}
+
 /*
  * allocate a ctx per file struct
  */
@@ -239,7 +248,7 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 					msg->args[0], msg->args[1],
 					entry->vk2h_msg ? "T" : "F");
 				list_del(&entry->node);
-				bitmap_clear(vk->bmap, msg->msg_id, 1);
+				bcm_vk_msgid_bitmap_clear(vk, msg->msg_id, 1);
 				bcm_vk_free_wkent(dev, entry);
 			}
 		}
@@ -540,10 +549,10 @@ int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *ppid)
 	return rc;
 }
 
-static struct bcm_vk_wkent *bcm_vk_find_pending(struct bcm_vk_msg_chan *chan,
+static struct bcm_vk_wkent *bcm_vk_find_pending(struct bcm_vk *vk,
+						struct bcm_vk_msg_chan *chan,
 						uint16_t q_num,
-						uint16_t msg_id,
-						unsigned long *map)
+						uint16_t msg_id)
 {
 	bool found = false;
 	struct bcm_vk_wkent *entry;
@@ -554,7 +563,7 @@ static struct bcm_vk_wkent *bcm_vk_find_pending(struct bcm_vk_msg_chan *chan,
 		if (entry->h2vk_msg[0].msg_id == msg_id) {
 			list_del(&entry->node);
 			found = true;
-			bitmap_clear(map, msg_id, 1);
+			bcm_vk_msgid_bitmap_clear(vk, msg_id, 1);
 			break;
 		}
 	}
@@ -646,10 +655,10 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 			}
 
 			/* lookup original message in h2vk direction */
-			entry = bcm_vk_find_pending(&vk->h2vk_msg_chan,
+			entry = bcm_vk_find_pending(vk,
+						    &vk->h2vk_msg_chan,
 						    q_num,
-						    data->msg_id,
-						    vk->bmap);
+						    data->msg_id);
 
 			/*
 			 * if there is message to does not have prior send,
@@ -966,17 +975,17 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		dev_err(dev, "Fail to enqueue msg to h2vk queue\n");
 
 		/* remove message from pending list */
-		entry = bcm_vk_find_pending(&vk->h2vk_msg_chan,
+		entry = bcm_vk_find_pending(vk,
+					    &vk->h2vk_msg_chan,
 					    entry->h2vk_msg[0].queue_id,
-					    entry->h2vk_msg[0].msg_id,
-					    vk->bmap);
+					    entry->h2vk_msg[0].msg_id);
 		goto bcm_vk_write_free_msgid;
 	}
 
 	return count;
 
 bcm_vk_write_free_msgid:
-	bitmap_clear(vk->bmap, entry->h2vk_msg[0].msg_id, 1);
+	bcm_vk_msgid_bitmap_clear(vk, entry->h2vk_msg[0].msg_id, 1);
 bcm_vk_write_free_ent:
 	kfree(entry);
 bcm_vk_write_err:
