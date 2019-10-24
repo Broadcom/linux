@@ -4,6 +4,9 @@
  */
 
 reserved-memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
 	elog {
 		reg = <0x0 0x8f130000 0x0 0x10000>;
 	};
