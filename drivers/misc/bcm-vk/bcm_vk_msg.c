@@ -15,7 +15,7 @@
 #include "bcm_vk_msg.h"
 #include "bcm_vk_sg.h"
 
-#if CONFIG_BCM_VK_H2VK_VERIFY_AND_RETRY
+#if defined(CONFIG_BCM_VK_H2VK_VERIFY_AND_RETRY)
 /*
  * Turn on the following to verify the data passed down to VK is good, and
  * if not, do retry.  This is a debug/workaround on FPGA PCIe timing issues
