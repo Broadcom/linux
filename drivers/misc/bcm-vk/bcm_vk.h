@@ -287,6 +287,7 @@ int bcm_vk_msg_init(struct bcm_vk *vk);
 void bcm_vk_msg_remove(struct bcm_vk *vk);
 int bcm_vk_sync_msgq(struct bcm_vk *vk);
 bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk);
+void bcm_vk_blk_drv_access(struct bcm_vk *vk);
 int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type, pid_t pid);
 void bcm_vk_trigger_reset(struct bcm_vk *vk);
 void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val);

@@ -314,6 +314,8 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 
 	for (i = 0; i < ARRAY_SIZE(chan_list); i++) {
 		chan = chan_list[i];
+		memset(chan->sync_qinfo, 0, sizeof(chan->sync_qinfo));
+
 		for (j = 0; j < num_q; j++) {
 			chan->msgq[j] = msgq;
 
@@ -327,6 +329,13 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 				 chan->msgq[j]->wr_idx,
 				 chan->msgq[j]->size,
 				 chan->msgq[j]->nxt);
+
+			/* formulate and record static info */
+			chan->sync_qinfo[j].q_start =
+				vk->bar[BAR_1] + chan->msgq[j]->start;
+			chan->sync_qinfo[j].q_size = chan->msgq[j]->size;
+			chan->sync_qinfo[j].q_mask =
+				chan->sync_qinfo[j].q_size - 1;
 
 			msgq = (struct bcm_vk_msgq *)
 				((char *)msgq + sizeof(*msgq) + msgq->nxt);
@@ -412,6 +421,7 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 
 	volatile struct vk_msg_blk *dst;
 	struct bcm_vk_msgq *msgq;
+	struct bcm_vk_sync_qinfo *qinfo;
 	uint32_t q_num = src->queue_id;
 	uint32_t wr_idx; /* local copy */
 	uint32_t i;
@@ -427,12 +437,13 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	}
 
 	msgq = chan->msgq[q_num];
+	qinfo = &chan->sync_qinfo[q_num];
 
 	rmb(); /* start with a read barrier */
 	mutex_lock(&chan->msgq_mutex);
 
 	/* if not enough space, return EAGAIN and let app handles it */
-	if (VK_MSGQ_AVAIL_SPACE(msgq) < entry->h2vk_blks) {
+	if (VK_MSGQ_AVAIL_SPACE(msgq, qinfo) < entry->h2vk_blks) {
 		mutex_unlock(&chan->msgq_mutex);
 		return -EAGAIN;
 	}
@@ -441,15 +452,22 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	entry->seq_num = seq_num++; /* update debug seq number */
 	wr_idx = msgq->wr_idx;
 
-	dst = VK_MSGQ_BLK_ADDR(vk->bar[BAR_1], msgq, wr_idx);
+	if (wr_idx >= qinfo->q_size) {
+		dev_crit(dev, "Invalid wr_idx 0x%x => max 0x%x!",
+			 wr_idx, qinfo->q_size);
+		bcm_vk_blk_drv_access(vk);
+		goto idx_err;
+	}
+
+	dst = VK_MSGQ_BLK_ADDR(qinfo, wr_idx);
 	for (i = 0; i < entry->h2vk_blks; i++) {
 		*dst = *src;
 
 		bcm_vk_h2vk_verify_blk(dev, src, dst);
 
 		src++;
-		wr_idx = VK_MSGQ_INC(msgq, wr_idx, 1);
-		dst = VK_MSGQ_BLK_ADDR(vk->bar[BAR_1], msgq, wr_idx);
+		wr_idx = VK_MSGQ_INC(qinfo, wr_idx, 1);
+		dst = VK_MSGQ_BLK_ADDR(qinfo, wr_idx);
 	}
 
 	/* flush the write pointer */
@@ -463,19 +481,17 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 		"MsgQ[%d] [Rd Wr] = [%d %d] blks inserted %d - Q = [u-%d a-%d]/%d\n",
 		msgq->num,
 		msgq->rd_idx, msgq->wr_idx, entry->h2vk_blks,
-		VK_MSGQ_OCCUPIED(msgq),
-		VK_MSGQ_AVAIL_SPACE(msgq),
+		VK_MSGQ_OCCUPIED(msgq, qinfo),
+		VK_MSGQ_AVAIL_SPACE(msgq, qinfo),
 		msgq->size);
-
-	mutex_unlock(&chan->msgq_mutex);
-
 	/*
 	 * press door bell based on queue number. 1 is added to the wr_idx
 	 * to avoid the value of 0 appearing on the VK side to distinguish
 	 * from initial value.
 	 */
 	bcm_h2vk_doorbell(vk, q_num, wr_idx + 1);
-
+idx_err:
+	mutex_unlock(&chan->msgq_mutex);
 	return 0;
 }
 
@@ -579,6 +595,7 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 	volatile struct vk_msg_blk *src;
 	struct vk_msg_blk *dst;
 	struct bcm_vk_msgq *msgq;
+	struct bcm_vk_sync_qinfo *qinfo;
 	struct bcm_vk_wkent *entry;
 	uint32_t rd_idx;
 	uint32_t q_num, j;
@@ -595,19 +612,33 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 	rmb(); /* start with a read barrier */
 	for (q_num = 0; q_num < chan->q_nr; q_num++) {
 		msgq = chan->msgq[q_num];
+		qinfo = &chan->sync_qinfo[q_num];
 
 		while (!VK_MSGQ_EMPTY(msgq)) {
 
-			/* make a local copy */
+			/*
+			 * Make a local copy and get pointer to src blk
+			 * The rd_idx is masked before getting the pointer to
+			 * avoid out of bound access in case the interface goes
+			 * down.  It will end up pointing to the last block in
+			 * the buffer, but subsequent src->size check would be
+			 * able to catch this.
+			 */
 			rd_idx = msgq->rd_idx;
+			src = VK_MSGQ_BLK_ADDR(qinfo,
+					     rd_idx & VK_MSGQ_SIZE_MASK(qinfo));
 
-			/* look at the first block and decide the size */
-			src = VK_MSGQ_BLK_ADDR(vk->bar[BAR_1], msgq, rd_idx);
+			if ((rd_idx >= qinfo->q_size)
+			    || (src->size > (qinfo->q_size - 1))) {
+				dev_crit(dev,
+					 "Invalid rd_idx 0x%x or size 0x%x => max 0x%x!",
+					 rd_idx, src->size, qinfo->q_size);
+				bcm_vk_blk_drv_access(vk);
+				goto idx_err;
+			}
 
 			num_blks = src->size + 1;
-
 			data = kzalloc(num_blks * VK_MSGQ_BLK_SIZE, GFP_KERNEL);
-
 			if (data) {
 				/* copy messages and linearize it */
 				dst = data;
@@ -615,16 +646,14 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 					*dst = *src;
 
 					dst++;
-					rd_idx = VK_MSGQ_INC(msgq, rd_idx, 1);
-					src = VK_MSGQ_BLK_ADDR(vk->bar[BAR_1],
-							       msgq,
-							       rd_idx);
+					rd_idx = VK_MSGQ_INC(qinfo, rd_idx, 1);
+					src = VK_MSGQ_BLK_ADDR(qinfo, rd_idx);
 				}
 				total++;
 			} else {
 				dev_crit(dev, "Error allocating memory\n");
 				/* just keep draining..... */
-				rd_idx = VK_MSGQ_INC(msgq, rd_idx, num_blks);
+				rd_idx = VK_MSGQ_INC(qinfo, rd_idx, num_blks);
 			}
 
 			/* flush rd pointer after a message is dequeued */
@@ -639,8 +668,8 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 				"MsgQ[%d] [Rd Wr] = [%d %d] blks extracted %d - Q = [u-%d a-%d]/%d\n",
 				msgq->num,
 				msgq->rd_idx, msgq->wr_idx, num_blks,
-				VK_MSGQ_OCCUPIED(msgq),
-				VK_MSGQ_AVAIL_SPACE(msgq),
+				VK_MSGQ_OCCUPIED(msgq, qinfo),
+				VK_MSGQ_AVAIL_SPACE(msgq, qinfo),
 				msgq->size);
 
 			/*
@@ -679,6 +708,7 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 
 		}
 	}
+idx_err:
 	mutex_unlock(&chan->msgq_mutex);
 	dev_dbg(dev, "total %d drained from queues\n", total);
 
@@ -1072,7 +1102,6 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	/* clean up before pressing the door bell */
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, NULL);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, NULL);
-	vk->msgq_inited = false;
 	vkwrite32(vk, 0, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
 	/* make tag '\0' terminated */
 	vkwrite32(vk, 0, BAR_1, VK_BAR1_BOOT1_VER_TAG);

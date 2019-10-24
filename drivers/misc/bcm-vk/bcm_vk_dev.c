@@ -327,6 +327,34 @@ static int bcm_vk_sync_card_info(struct bcm_vk *vk)
 	return 0;
 }
 
+void bcm_vk_blk_drv_access(struct bcm_vk *vk)
+{
+	int i;
+
+	/* first set msgq_inited to false so that all rd/wr will be blocked */
+	vk->msgq_inited = false;
+
+	/*
+	 * kill all the apps except for the process that is resetting.
+	 * If not called during reset, reset_ppid == NULL, and all will be
+	 * killed.
+	 */
+	spin_lock(&vk->ctx_lock);
+	for (i = 0; i < VK_PID_HT_SZ; i++) {
+		struct bcm_vk_ctx *ctx;
+
+		list_for_each_entry(ctx, &vk->pid_ht[i].head, node) {
+			if (ctx->ppid != vk->reset_ppid) {
+				dev_dbg(&vk->pdev->dev,
+					"Send kill signal to pid %d\n",
+					task_pid_nr(ctx->ppid));
+				kill_pid(task_pid(ctx->ppid), SIGKILL, 1);
+			}
+		}
+	}
+	spin_unlock(&vk->ctx_lock);
+}
+
 static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				     const char *filename)
 {
@@ -722,7 +750,6 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	struct device *dev = &vk->pdev->dev;
 	struct vk_reset reset;
 	int ret = 0;
-	int i;
 
 	if (copy_from_user(&reset, arg, sizeof(struct vk_reset))) {
 		ret = -EACCES;
@@ -756,23 +783,7 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	/* sleep time as specified by user in seconds, which is arg2 */
 	msleep(reset.arg2 * MSEC_PER_SEC);
 
-	spin_lock(&vk->ctx_lock);
-	for (i = 0; i < VK_PID_HT_SZ; i++) {
-
-		struct bcm_vk_ctx *ctx;
-
-		list_for_each_entry(ctx, &vk->pid_ht[i].head, node) {
-			if (ctx->ppid != vk->reset_ppid) {
-				dev_dbg(dev, "Send kill signal to pid %d\n",
-					task_pid_nr(ctx->ppid));
-				kill_pid(task_pid(ctx->ppid), SIGKILL, 1);
-			}
-		}
-	}
-	spin_unlock(&vk->ctx_lock);
-	if (ret)
-		goto err_out;
-
+	bcm_vk_blk_drv_access(vk);
 	bcm_vk_trigger_reset(vk);
 
 	/*

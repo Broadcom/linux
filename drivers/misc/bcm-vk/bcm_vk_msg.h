@@ -26,6 +26,16 @@ struct bcm_vk_msgq {
 			 */
 };
 
+/*
+ * Structure to record static info from the msgq sync.  We keep local copy
+ * for some of these variables for both performance + checking purpose.
+ */
+struct bcm_vk_sync_qinfo {
+	void __iomem *q_start;
+	uint32_t q_size;
+	uint32_t q_mask;
+};
+
 #define VK_MSGQ_MAX_NR 4 /* Maximum number of message queues */
 
 /*
@@ -37,22 +47,22 @@ struct bcm_vk_msgq {
 /* shift for fast division of basic msg blk size */
 #define VK_MSGQ_BLK_SZ_SHIFT 4
 
-#define VK_MSGQ_EMPTY(q) (q->rd_idx == q->wr_idx)
+#define VK_MSGQ_EMPTY(_msgq) ((_msgq)->rd_idx == (_msgq)->wr_idx)
 
-#define VK_MSGQ_SIZE_MASK(q) (q->size - 1)
+#define VK_MSGQ_SIZE_MASK(_qinfo) ((_qinfo)->q_mask)
 
-#define VK_MSGQ_INC(q, idx, inc) (((idx) + (inc)) & VK_MSGQ_SIZE_MASK(q))
+#define VK_MSGQ_INC(_qinfo, _idx, _inc) \
+	(((_idx) + (_inc)) & VK_MSGQ_SIZE_MASK(_qinfo))
 
-#define VK_MSGQ_FULL(q) (VK_MSGQ_INC(q, q->wr_idx, 1) == q->rd_idx)
+#define VK_MSGQ_BLK_ADDR(_qinfo, _idx) \
+	(volatile struct vk_msg_blk *)((_qinfo)->q_start + \
+				       (VK_MSGQ_BLK_SIZE * (_idx)))
 
-#define VK_MSGQ_OFFSET(q, idx) (q->start + VK_MSGQ_BLK_SIZE * (idx))
+#define VK_MSGQ_OCCUPIED(_msgq, _qinfo) \
+	(((_msgq)->wr_idx - (_msgq)->rd_idx) & VK_MSGQ_SIZE_MASK(_qinfo))
 
-#define VK_MSGQ_BLK_ADDR(base, q, idx) \
-	 (volatile struct vk_msg_blk *)(base + VK_MSGQ_OFFSET(q, idx))
-
-#define VK_MSGQ_OCCUPIED(q) ((q->wr_idx - q->rd_idx) & VK_MSGQ_SIZE_MASK(q))
-
-#define VK_MSGQ_AVAIL_SPACE(q) (q->size - VK_MSGQ_OCCUPIED(q) - 1)
+#define VK_MSGQ_AVAIL_SPACE(_msgq, _qinfo) \
+	((_qinfo)->q_size - VK_MSGQ_OCCUPIED(_msgq, _qinfo) - 1)
 
 /* context per session opening of sysfs */
 struct bcm_vk_ctx {
@@ -102,7 +112,8 @@ struct bcm_vk_msg_chan {
 	spinlock_t pendq_lock;
 	/* for temporary storing pending items, one for each queue */
 	struct list_head pendq[VK_MSGQ_MAX_NR];
-
+	/* static queue info from the sync */
+	struct bcm_vk_sync_qinfo sync_qinfo[VK_MSGQ_MAX_NR];
 };
 
 /* TO_DO: some of the following defines may need to be adjusted */
