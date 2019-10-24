@@ -46,3 +46,15 @@
 &uio_shmem {
 	status = "okay";
 };
+
+&uio_ddr0 {
+	status = "okay";
+};
+
+&uio_ddr1 {
+	status = "okay";
+};
+
+&uio_ddr2 {
+	status = "okay";
+};

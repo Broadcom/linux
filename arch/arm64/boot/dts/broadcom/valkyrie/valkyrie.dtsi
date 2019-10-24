@@ -110,6 +110,24 @@
 		};
 	};
 
+	uio_ddr0: uio_pdrv_genirq@60000000 {
+		compatible = "generic-uio";
+		reg = <0x0 0x60000000 0x0 0x80000000>;
+		status = "disabled";
+	};
+
+	uio_ddr1: uio_pdrv_genirq@480000000 {
+		compatible = "generic-uio";
+		reg = <0x4 0x80000000 0x0 0xE0000000>;
+		status = "disabled";
+	};
+
+	uio_ddr2: uio_pdrv_genirq@57fe000000 {
+		compatible = "generic-uio";
+		reg = <0x5 0x7fe00000 0x0 0x40000000>;
+		status = "disabled";
+	};
+
 	uart1: serial@0 {
 		compatible = "brcm,bcm-bptty-console";
 		xmit-addr = <0x5 0xBFF00000>;
