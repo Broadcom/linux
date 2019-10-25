@@ -197,9 +197,14 @@ static int bcm_vk_sysfs_dump_reg(uint32_t reg_val,
 	return (p_buf - buf);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+#if defined LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) || \
+    defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
+
+#define REQUEST_FIRMWARE_INTO_BUF(fw, name, dev, buf, size, offset, flags) \
+		request_firmware_into_buf_priv(fw, name, dev, buf, size, offset, flags)
+
 #define KERNEL_PREAD_FLAG_PART	0x0001 /* Allow reading part of file */
-static int request_firmware_into_buf(const struct firmware **firmware_p,
+static int request_firmware_into_buf_priv(const struct firmware **firmware_p,
 				     const char *name, struct device *device,
 				     void *buf, size_t size,
 				     size_t offset, unsigned int pread_flags)
@@ -412,7 +417,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		goto err_out;
 	}
 
-	ret = request_firmware_into_buf(&fw, filename, dev,
+	ret = REQUEST_FIRMWARE_INTO_BUF(&fw, filename, dev,
 					bufp, max_buf, 0,
 					KERNEL_PREAD_FLAG_PART);
 	if (ret) {
@@ -478,7 +483,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 					  DDR_OPEN, DDR_OPEN,
 					  LOAD_IMAGE_TIMEOUT_MS);
 			if (ret == 0) {
-				ret = request_firmware_into_buf(
+				ret = REQUEST_FIRMWARE_INTO_BUF(
 							&fw,
 							filename,
 							dev, bufp,
