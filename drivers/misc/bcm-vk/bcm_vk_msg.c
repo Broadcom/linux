@@ -731,13 +731,22 @@ static void bcm_vk_wq_handler(struct work_struct *work)
 	struct device *dev = &vk->pdev->dev;
 	uint32_t tot;
 
-	/* check wq offload bit map and see if auto download is requested */
-	if (test_bit(BCM_VK_WQ_DWNLD_AUTO, &vk->wq_offload)) {
+	/* check wq offload bit map to perform various operations */
+	if (test_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload)) {
+		/* clear bit right the way for notification */
+		clear_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload);
+		/* for now, just log */
+		dev_info(dev, "Get Notification from VK\n");
+	}
+	if (test_bit(BCM_VK_WQ_DWNLD_AUTO, vk->wq_offload)) {
 		bcm_vk_auto_load_all_images(vk);
 
-		/* at the end of operation, clear AUTO bit and pending bit */
-		clear_bit(BCM_VK_WQ_DWNLD_AUTO, &vk->wq_offload);
-		clear_bit(BCM_VK_WQ_DWNLD_PEND, &vk->wq_offload);
+		/*
+		 * at the end of operation, clear AUTO bit and pending
+		 * bit
+		 */
+		clear_bit(BCM_VK_WQ_DWNLD_AUTO, vk->wq_offload);
+		clear_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload);
 	}
 
 	/* next, try to drain */
@@ -772,7 +781,7 @@ static int bcm_vk_data_init(struct bcm_vk *vk)
 	return rc;
 }
 
-irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id)
+irqreturn_t bcm_vk_msgq_irqhandler(int irq, void *dev_id)
 {
 	struct bcm_vk *vk = dev_id;
 

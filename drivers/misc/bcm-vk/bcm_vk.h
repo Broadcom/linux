@@ -228,7 +228,7 @@ struct bcm_vk {
 
 	struct workqueue_struct *wq_thread;
 	struct work_struct wq_work; /* work queue for deferred job */
-	unsigned long wq_offload; /* various flags on wq requested */
+	unsigned long wq_offload[1]; /* various flags on wq requested */
 	void *tdma_vaddr; /* test dma segment virtual addr */
 	dma_addr_t tdma_addr; /* test dma segment bus addr */
 
@@ -237,8 +237,11 @@ struct bcm_vk {
 };
 
 /* wq offload work items bits definitions */
-#define BCM_VK_WQ_DWNLD_PEND	0
-#define BCM_VK_WQ_DWNLD_AUTO	1
+enum bcm_vk_wq_offload_flags {
+	BCM_VK_WQ_DWNLD_PEND = 0,
+	BCM_VK_WQ_DWNLD_AUTO = 1,
+	BCM_VK_WQ_NOTF_PEND  = 2,
+};
 
 static inline u32 vkread32(struct bcm_vk *vk,
 			   enum pci_barno bar,
@@ -283,7 +286,8 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		     size_t count, loff_t *f_pos);
 int bcm_vk_release(struct inode *inode, struct file *p_file);
 void bcm_vk_release_data(struct kref *kref);
-irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id);
+irqreturn_t bcm_vk_msgq_irqhandler(int irq, void *dev_id);
+irqreturn_t bcm_vk_notf_irqhandler(int irq, void *dev_id);
 int bcm_vk_msg_init(struct bcm_vk *vk);
 void bcm_vk_msg_remove(struct bcm_vk *vk);
 int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync);

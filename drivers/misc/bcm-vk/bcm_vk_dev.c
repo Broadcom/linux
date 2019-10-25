@@ -52,7 +52,9 @@ const struct _load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 #define LOAD_IMAGE_TIMEOUT_MS		1000
 #endif
 
-#define VK_MSIX_IRQ_MAX			3
+#define VK_MSIX_MSGQ_MAX		3
+#define VK_MSIX_NOTF_MAX		1
+#define VK_MSIX_IRQ_MAX			(VK_MSIX_MSGQ_MAX + VK_MSIX_NOTF_MAX)
 
 #define BCM_VK_DMA_BITS			64
 
@@ -171,6 +173,17 @@ static struct bcm_vk_sysfs_reg_entry const fw_shutdown_reg_tab[] = {
 };
 /* define for the start of the reboot reason */
 #define FW_STAT_RB_REASON_START 5
+
+irqreturn_t bcm_vk_notf_irqhandler(int irq, void *dev_id)
+{
+	struct bcm_vk *vk = dev_id;
+
+	/* if notification is not pending, set bit and schedule work */
+	if (test_and_set_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload) == 0)
+		queue_work(vk->wq_thread, &vk->wq_work);
+
+	return IRQ_HANDLED;
+}
 
 static int bcm_vk_sysfs_dump_reg(uint32_t reg_val,
 				 struct bcm_vk_sysfs_reg_entry const *entry_tab,
@@ -611,10 +624,10 @@ bcm_vk_auto_load_all_exit:
 
 static int bcm_vk_trigger_autoload(struct bcm_vk *vk)
 {
-	if (test_and_set_bit(BCM_VK_WQ_DWNLD_PEND, &vk->wq_offload) != 0)
+	if (test_and_set_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload) != 0)
 		return -EPERM;
 
-	set_bit(BCM_VK_WQ_DWNLD_AUTO, &vk->wq_offload);
+	set_bit(BCM_VK_WQ_DWNLD_AUTO, vk->wq_offload);
 	queue_work(vk->wq_thread, &vk->wq_work);
 
 	return 0;
@@ -646,13 +659,13 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	 * for now when the driver is being loaded, or if someone has issued
 	 * another download command in another shell.
 	 */
-	if (test_and_set_bit(BCM_VK_WQ_DWNLD_PEND, &vk->wq_offload) != 0) {
+	if (test_and_set_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload) != 0) {
 		dev_err(dev, "Download operation already pending.\n");
 		return -EPERM;
 	}
 
 	ret = bcm_vk_load_image_by_type(vk, image.type, image.filename);
-	clear_bit(BCM_VK_WQ_DWNLD_PEND, &vk->wq_offload);
+	clear_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload);
 
 bcm_vk_load_image_exit:
 	return ret;
@@ -1933,16 +1946,28 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		}
 	}
 
-	for (vk->num_irqs = 0; vk->num_irqs < irq; vk->num_irqs++) {
+	for (vk->num_irqs = 0;
+	     vk->num_irqs < VK_MSIX_MSGQ_MAX;
+	     vk->num_irqs++) {
 		err = devm_request_irq(dev, pci_irq_vector(pdev, vk->num_irqs),
-				       bcm_vk_irqhandler,
+				       bcm_vk_msgq_irqhandler,
 				       IRQF_SHARED, DRV_MODULE_NAME, vk);
 		if (err) {
-			dev_err(dev, "failed to request IRQ %d for MSIX %d\n",
+			dev_err(dev, "failed to request msgq IRQ %d for MSIX %d\n",
 				pdev->irq + vk->num_irqs, vk->num_irqs + 1);
 			goto err_irq;
 		}
 	}
+	/* one irq for notification from VK */
+	err = devm_request_irq(dev, pci_irq_vector(pdev, vk->num_irqs),
+			       bcm_vk_notf_irqhandler,
+			       IRQF_SHARED, DRV_MODULE_NAME, vk);
+	if (err) {
+		dev_err(dev, "failed to request notf IRQ %d for MSIX %d\n",
+			pdev->irq + vk->num_irqs, vk->num_irqs + 1);
+		goto err_irq;
+	}
+	vk->num_irqs++;
 
 	id = ida_simple_get(&bcm_vk_ida, 0, 0, GFP_KERNEL);
 	if (id < 0) {
