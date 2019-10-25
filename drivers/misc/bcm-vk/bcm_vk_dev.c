@@ -339,15 +339,16 @@ void bcm_vk_blk_drv_access(struct bcm_vk *vk)
 {
 	int i;
 
-	/* first set msgq_inited to false so that all rd/wr will be blocked */
-	vk->msgq_inited = false;
-
 	/*
 	 * kill all the apps except for the process that is resetting.
 	 * If not called during reset, reset_ppid == NULL, and all will be
 	 * killed.
 	 */
 	spin_lock(&vk->ctx_lock);
+
+	/* set msgq_inited to 0 so that all rd/wr will be blocked */
+	atomic_set(&vk->msgq_inited, 0);
+
 	for (i = 0; i < VK_PID_HT_SZ; i++) {
 		struct bcm_vk_ctx *ctx;
 
@@ -518,11 +519,9 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 
 		/*
 		 * Next, initialize Message Q if we are loading boot2.
-		 * Set msgq_inited to be false to force a msgq resync
-		 * when card os is up
+		 * Do a force sync
 		 */
-		vk->msgq_inited = false;
-		ret = bcm_vk_sync_msgq(vk);
+		ret = bcm_vk_sync_msgq(vk, true);
 		if (ret) {
 			dev_err(dev, "Boot2 Error reading comm msg Q info\n");
 			ret = -EIO;

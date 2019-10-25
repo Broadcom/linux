@@ -6,6 +6,7 @@
 #ifndef BCM_VK_H
 #define BCM_VK_H
 
+#include <asm/atomic.h>
 #include <linux/pci.h>
 #include <linux/irq.h>
 #include <linux/miscdevice.h>
@@ -221,7 +222,7 @@ struct bcm_vk {
 	struct bcm_vk_ht_entry pid_ht[VK_PID_HT_SZ];
 	struct task_struct *reset_ppid; /* process that issue reset */
 
-	bool msgq_inited; /* indicate if info has been synced with vk */
+	atomic_t msgq_inited; /* indicate if info has been synced with vk */
 	struct bcm_vk_msg_chan h2vk_msg_chan;
 	struct bcm_vk_msg_chan vk2h_msg_chan;
 
@@ -285,7 +286,7 @@ void bcm_vk_release_data(struct kref *kref);
 irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id);
 int bcm_vk_msg_init(struct bcm_vk *vk);
 void bcm_vk_msg_remove(struct bcm_vk *vk);
-int bcm_vk_sync_msgq(struct bcm_vk *vk);
+int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync);
 bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk);
 void bcm_vk_blk_drv_access(struct bcm_vk *vk);
 int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type, pid_t pid);

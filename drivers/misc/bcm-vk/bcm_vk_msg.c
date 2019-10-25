@@ -91,6 +91,11 @@ static void bcm_vk_h2vk_verify_blk
 }
 #endif
 
+static bool bcm_vk_drv_access_ok(struct bcm_vk *vk)
+{
+	return (!!atomic_read(&vk->msgq_inited));
+}
+
 static void bcm_vk_msgid_bitmap_clear(struct bcm_vk *vk,
 				      unsigned int start,
 				      unsigned int nbits)
@@ -272,7 +277,7 @@ bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
 /*
  * Function to sync up the messages queue info that is provided by BAR1
  */
-int bcm_vk_sync_msgq(struct bcm_vk *vk)
+int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 {
 	struct bcm_vk_msgq *msgq = NULL;
 	struct device *dev = &vk->pdev->dev;
@@ -282,15 +287,7 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 					       &vk->vk2h_msg_chan};
 	struct bcm_vk_msg_chan *chan = NULL;
 	int i, j;
-
-	/*
-	 * if this function is called when it is already inited,
-	 * something is wrong
-	 */
-	if (vk->msgq_inited) {
-		dev_err(dev, "Msgq info already in sync\n");
-		return -EPERM;
-	}
+	int ret = 0;
 
 	/*
 	 * If the driver is loaded at startup where vk OS is not up yet,
@@ -300,7 +297,7 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 	 */
 	if (!bcm_vk_msgq_marker_valid(vk)) {
 		dev_info(dev, "BAR1 msgq marker not initialized.\n");
-		return 0;
+		return ret;
 	}
 
 	msgq_off = vkread32(vk, BAR_1, VK_BAR1_MSGQ_CTRL_OFF);
@@ -311,6 +308,16 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 
 	/* first msgq location */
 	msgq = (struct bcm_vk_msgq *)(vk->bar[BAR_1] + msgq_off);
+
+	/*
+	 * if this function is called when it is already inited,
+	 * something is wrong
+	 */
+	if (bcm_vk_drv_access_ok(vk) && (!force_sync)) {
+		dev_err(dev, "Msgq info already in sync\n");
+		ret = -EPERM;
+		goto already_inited;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(chan_list); i++) {
 		chan = chan_list[i];
@@ -343,10 +350,10 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk)
 			rmb(); /* do a read mb to guarantee */
 		}
 	}
+	atomic_set(&vk->msgq_inited, 1);
 
-	vk->msgq_inited = true;
-
-	return 0;
+already_inited:
+	return ret;
 }
 
 static int bcm_vk_msg_chan_init(struct bcm_vk_msg_chan *chan)
@@ -546,7 +553,7 @@ int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *ppid)
 	 * don't send down or do anything if message queue is not initialized
 	 * and if it is the reset session, clear it.
 	 */
-	if (!vk->msgq_inited) {
+	if (!bcm_vk_drv_access_ok(vk)) {
 
 		if (vk->reset_ppid == ppid)
 			vk->reset_ppid = NULL;
@@ -769,7 +776,7 @@ irqreturn_t bcm_vk_irqhandler(int irq, void *dev_id)
 {
 	struct bcm_vk *vk = dev_id;
 
-	if (!vk->msgq_inited) {
+	if (!bcm_vk_drv_access_ok(vk)) {
 		dev_err(&vk->pdev->dev,
 			"Interrupt %d received when msgq not inited\n", irq);
 		goto skip_schedule_work;
@@ -826,11 +833,10 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 	uint32_t rsp_length;
 	bool found = false;
 
-	dev_dbg(dev, "Buf count %ld, msgq_inited %d\n", count, vk->msgq_inited);
-
-	if (!vk->msgq_inited)
+	if (!bcm_vk_drv_access_ok(vk))
 		return -EPERM;
 
+	dev_dbg(dev, "Buf count %ld\n", count);
 	found = false;
 
 	/*
@@ -894,10 +900,10 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	struct bcm_vk_wkent *entry;
 	uint32_t sgl_extra_blks;
 
-	dev_dbg(dev, "Msg count %ld, msg_inited %d\n", count, vk->msgq_inited);
-
-	if (!vk->msgq_inited)
+	if (!bcm_vk_drv_access_ok(vk))
 		return -EPERM;
+
+	dev_dbg(dev, "Msg count %ld\n", count);
 
 	/* first, do sanity check where count should be multiple of basic blk */
 	if (count & (VK_MSGQ_BLK_SIZE - 1)) {
@@ -1074,7 +1080,7 @@ int bcm_vk_msg_init(struct bcm_vk *vk)
 	}
 
 	/* read msgq info */
-	if (bcm_vk_sync_msgq(vk)) {
+	if (bcm_vk_sync_msgq(vk, false)) {
 		dev_err(dev, "Error reading comm msg Q info\n");
 		err = -EIO;
 		goto err_out;
@@ -1086,12 +1092,12 @@ err_out:
 
 void bcm_vk_msg_remove(struct bcm_vk *vk)
 {
+	bcm_vk_blk_drv_access(vk);
 	destroy_workqueue(vk->wq_thread);
 
 	/* drain all pending items */
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, NULL);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->vk2h_msg_chan, NULL);
-	vk->msgq_inited = false;
 }
 
 void bcm_vk_trigger_reset(struct bcm_vk *vk)
