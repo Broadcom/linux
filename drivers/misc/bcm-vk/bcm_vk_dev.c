@@ -197,7 +197,7 @@ static int bcm_vk_sysfs_dump_reg(uint32_t reg_val,
 	return (p_buf - buf);
 }
 
-#if defined LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) || \
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) || \
     defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
 
 #define REQUEST_FIRMWARE_INTO_BUF(fw, name, dev, buf, size, offset, flags) \
@@ -227,6 +227,9 @@ static int request_firmware_into_buf_priv(const struct firmware **firmware_p,
 
 	return ret;
 }
+#else
+#define REQUEST_FIRMWARE_INTO_BUF(fw, name, dev, buf, size, offset, flags) \
+		request_firmware_into_buf(fw, name, dev, buf, size, offset, flags)
 #endif
 
 static long bcm_vk_get_metadata(struct bcm_vk *vk, struct vk_metadata *arg)
