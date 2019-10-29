@@ -48,6 +48,7 @@ vk-card-status/
 	sotp_dauth_4_valid
 	temp_threshold_lower_c	---> thermal low threshold in Celsius
 	temp_threshold_upper_c	---> thermal high threshold in Celsius
+	uptime_s		---> os up time in seconds
 
 vk-card-mon/
 	alert_afbc_busy		---> AFBC block stuck

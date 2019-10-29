@@ -1381,6 +1381,19 @@ card_state_show_fail:
 	return ret;
 }
 
+static ssize_t uptime_s_show(struct device *dev,
+			     struct device_attribute *devattr, char *buf)
+{
+	unsigned int uptime_s;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	uptime_s = vkread32(vk, BAR_0, BAR_OS_UPTIME);
+
+	dev_dbg(dev, "up_time : %u s\n", uptime_s);
+	return sprintf(buf, "%d\n", uptime_s);
+}
+
 static ssize_t mem_ecc_show(struct device *dev,
 			    struct device_attribute *devattr, char *buf)
 {
@@ -1746,6 +1759,7 @@ static DEVICE_ATTR_RO(rev_boot2);
 static DEVICE_ATTR_RO(rev_driver);
 static DEVICE_ATTR_RO(bus);
 static DEVICE_ATTR_RO(card_state);
+static DEVICE_ATTR_RO(uptime_s);
 static DEVICE_ATTR_RO(mem_ecc);
 static DEVICE_ATTR_RO(mem_uecc);
 static DEVICE_ATTR_RO(alert_ecc);
@@ -1793,6 +1807,7 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 	&dev_attr_rev_driver.attr,
 	&dev_attr_bus.attr,
 	&dev_attr_card_state.attr,
+	&dev_attr_uptime_s.attr,
 	&dev_attr_temp_threshold_lower_c.attr,
 	&dev_attr_temp_threshold_upper_c.attr,
 	&dev_attr_freq_core_mhz.attr,

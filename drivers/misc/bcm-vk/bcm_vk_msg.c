@@ -1145,6 +1145,9 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	vkwrite32(vk, FW_STATUS_RESET_MBOX_DB, BAR_0, BAR_FW_STATUS);
 	bcm_h2vk_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_SOFT);
 
+	/* clear the uptime register after reset pressed */
+	vkwrite32(vk, 0, BAR_0, BAR_OS_UPTIME);
+
 	/* clear 4096 bits of bitmap */
 	bitmap_clear(vk->bmap, 0, VK_MSG_ID_BITMAP_SIZE);
 }
