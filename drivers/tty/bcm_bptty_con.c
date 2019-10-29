@@ -59,28 +59,27 @@ static void receive_poll(struct timer_list *unused)
 	struct bptty_chnl *recv_ch = state->ch[BPTTY_RECV_CH];
 	struct circ_buf *recv = &state->xmits[BPTTY_RECV_CH];
 	unsigned char c;
-	unsigned int count, i;
+	unsigned int count = 0;
 
 	if (!recv->buf)
 		return;
 
 	/* reset head to new write index */
 	recv->head = recv_ch->wr;
-	count = CIRC_CNT(recv->head, recv->tail, recv_ch->size);
 
-	for (i = 0; i < count; i++) {
+	while (recv->tail != recv->head) {
 		c = readb(recv->buf + recv->tail);
 
 		recv->tail++;
-
 		tty_insert_flip_char(port, c, TTY_NORMAL);
+		count++;
 
 		if (recv->tail >= recv_ch->size)
 			recv->tail = 0;
 	}
 	recv_ch->rd = recv->tail;
 
-	if (i)
+	if (count)
 		tty_flip_buffer_push(port);
 
 	mod_timer(&state->timer, jiffies + DELAY_TIME);
@@ -281,6 +280,15 @@ exit:
 	return wrote;
 }
 
+static inline int space_get(struct circ_buf *buf, unsigned int size)
+{
+	if (buf->tail < buf->head)
+		return (buf->head - buf->tail - 1);
+
+	/* for case: tail >= head */
+	return ((size - buf->tail) + buf->head - 1);
+}
+
 static int update_xmit_rd_index(struct bptty_state *state, unsigned int count)
 {
 	int space_left;
@@ -289,7 +297,7 @@ static int update_xmit_rd_index(struct bptty_state *state, unsigned int count)
 
 	xmit->tail = xmit_ch->rd;
 
-	space_left = CIRC_SPACE(xmit->head, xmit->tail, xmit_ch->size);
+	space_left = space_get(xmit, xmit_ch->size);
 
 	/*
 	 * In case where read not performed by remote host, tail will not
@@ -304,7 +312,7 @@ static int update_xmit_rd_index(struct bptty_state *state, unsigned int count)
 		xmit_ch->rd = xmit->tail;
 
 		/* recalculate with adjusted tail */
-		space_left = CIRC_SPACE(xmit->head, xmit->tail, xmit_ch->size);
+		space_left = space_get(xmit, xmit_ch->size);
 	}
 	return space_left;
 }
