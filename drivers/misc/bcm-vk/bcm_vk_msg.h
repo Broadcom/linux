@@ -161,7 +161,16 @@ struct bcm_vk_msg_chan {
 #define VK_BAR1_UCODE_VER_TAG		0x6170
 #define VK_BAR1_BOOT1_VER_TAG		0x61b0
 #define VK_BAR1_VER_TAG_SIZE		64
-/* BAR1 SOTP AUTH and REVID info */
+/* Memory to hold the DMA buffer memory address allocated for boot2 download */
+#define VK_BAR1_DMA_BUF_OFF_HI		0x61e0
+#define VK_BAR1_DMA_BUF_OFF_LO		(VK_BAR1_DMA_BUF_OFF_HI + 4)
+#define VK_BAR1_DMA_BUF_SZ		(VK_BAR1_DMA_BUF_OFF_HI + 8)
+/* Scratch memory allocated on host for VK */
+#define VK_BAR1_SCRATCH_OFF_LO		0x61f0
+#define VK_BAR1_SCRATCH_OFF_HI		(VK_BAR1_SCRATCH_OFF_LO + 4)
+#define VK_BAR1_SCRATCH_SZ_ADDR		(VK_BAR1_SCRATCH_OFF_LO + 8)
+#define VK_BAR1_SCRATCH_DEF_NR_PAGES	32
+  /* BAR1 SOTP AUTH and REVID info */
 #define VK_BAR1_DAUTH_BASE_ADDR		0x6200
 #define VK_BAR1_DAUTH_STORE_SIZE	0x48
 #define VK_BAR1_DAUTH_VALID_SIZE	0x8
@@ -177,11 +186,5 @@ struct bcm_vk_msg_chan {
 #define VK_BAR1_SOTP_REVID_MAX		2
 #define VK_BAR1_SOTP_REVID_ADDR(x) \
 		(VK_BAR1_SOTP_REVID_BASE_ADDR + (x) * VK_BAR1_SOTP_REVID_SIZE)
-
-/* Scratch memory allocated on host for VK */
-#define VK_BAR1_SCRATCH_OFF_LO		0x61f0
-#define VK_BAR1_SCRATCH_OFF_HI		(VK_BAR1_SCRATCH_OFF_LO + 4)
-#define VK_BAR1_SCRATCH_SZ_ADDR		(VK_BAR1_SCRATCH_OFF_LO + 8)
-#define VK_BAR1_SCRATCH_DEF_NR_PAGES	32
 
 #endif

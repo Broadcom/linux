@@ -51,6 +51,8 @@ const struct _load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 /* Allow minimum 1s for Load Image timeout responses */
 #define LOAD_IMAGE_TIMEOUT_MS		1000
 #endif
+/* 1 ms wait for checking the transfer complete status */
+#define TXFR_COMPLETE_TIMEOUT_MS	1
 
 #define VK_MSIX_MSGQ_MAX		3
 #define VK_MSIX_NOTF_MAX		1
@@ -455,6 +457,17 @@ void bcm_vk_blk_drv_access(struct bcm_vk *vk)
 	spin_unlock(&vk->ctx_lock);
 }
 
+static void bcm_vk_buf_notify(struct bcm_vk *vk, void *bufp,
+			      dma_addr_t host_buf_addr, uint32_t buf_size)
+{
+	/* update the dma address to the card */
+	vkwrite32(vk, host_buf_addr >> 32, BAR_1,
+		  VK_BAR1_DMA_BUF_OFF_HI);
+	vkwrite32(vk, (uint32_t)host_buf_addr, BAR_1,
+		  VK_BAR1_DMA_BUF_OFF_LO);
+	vkwrite32(vk, buf_size, BAR_1, VK_BAR1_DMA_BUF_SZ);
+}
+
 static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				     const char *filename)
 {
@@ -466,6 +479,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	uint64_t offset_codepush;
 	u32 codepush;
 	u32 value;
+	dma_addr_t boot2_dma_addr;
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
 		/*
@@ -504,8 +518,17 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			goto err_out;
 		}
 
-		bufp = vk->bar[BAR_2];
-		max_buf = SZ_64M;
+		max_buf = SZ_4M;
+		bufp = dma_alloc_coherent(dev,
+					  max_buf,
+					  &boot2_dma_addr, GFP_KERNEL);
+		if (!bufp) {
+			dev_err(dev, "Error allocating 0x%x\n", max_buf);
+			ret = -ENOMEM;
+			goto err_out;
+		}
+
+		bcm_vk_buf_notify(vk, bufp, boot2_dma_addr, max_buf);
 	} else {
 		dev_err(dev, "Error invalid image type 0x%x\n", load_type);
 		ret = -EINVAL;
@@ -543,40 +566,36 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		}
 
 	} else if (load_type == VK_IMAGE_TYPE_BOOT2) {
+		unsigned long timeout = jiffies + msecs_to_jiffies(
+					LOAD_IMAGE_TIMEOUT_MS);
+
 		/* To send more data to VK than max_buf allowed at a time */
 		do {
-			/* Wait for VK to move data from BAR space */
+			/*
+			 * Check for ack from card. when Ack is received,
+			 * it means all the data is received by card.
+			 * Exit the loop after ack is received.
+			 */
 			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
-					  FW_LOADER_ACK_IN_PROGRESS,
-					  FW_LOADER_ACK_IN_PROGRESS,
-					  LOAD_IMAGE_TIMEOUT_MS);
-			if (ret < 0)
-				dev_dbg(dev, "boot2 timeout - transfer in progress\n");
-
-			/* Wait for VK to request to send more data */
-			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
-					  FW_LOADER_ACK_SEND_MORE_DATA,
-					  FW_LOADER_ACK_SEND_MORE_DATA,
-					  LOAD_IMAGE_TIMEOUT_MS);
-			if (ret < 0) {
-				/*
-				 * Wait for VK to acknowledge if it received
-				 * all data
-				 */
-				ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
-						  FW_LOADER_ACK_RCVD_ALL_DATA,
-						  FW_LOADER_ACK_RCVD_ALL_DATA,
-						  LOAD_IMAGE_TIMEOUT_MS);
-				if (ret < 0)
-					dev_dbg(dev, "boot2 timeout - received all data\n");
-				/* break either way: received all or not */
+					  FW_LOADER_ACK_RCVD_ALL_DATA,
+					  FW_LOADER_ACK_RCVD_ALL_DATA,
+					  TXFR_COMPLETE_TIMEOUT_MS);
+			if (ret == 0) {
+				dev_info(dev, "Exit boot2 download\n");
 				break;
 			}
 
+			/* exit the loop, if there is no response from card */
+			if (time_after(jiffies, timeout)) {
+				dev_err(dev, "Error. No reply from card\n");
+				ret = -ETIMEDOUT;
+				goto err_firmware_out;
+			}
+
 			/* Wait for VK to open BAR space to copy new data */
-			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
-					  DDR_OPEN, DDR_OPEN,
-					  LOAD_IMAGE_TIMEOUT_MS);
+			ret = bcm_vk_wait(vk, BAR_0, offset_codepush,
+					  codepush, 0,
+					  TXFR_COMPLETE_TIMEOUT_MS);
 			if (ret == 0) {
 				ret = REQUEST_FIRMWARE_INTO_BUF(
 							&fw,
@@ -595,6 +614,9 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				dev_dbg(dev, "Signaling 0x%x to 0x%llx\n",
 					codepush, offset_codepush);
 				vkwrite32(vk, codepush, BAR_0, offset_codepush);
+				/* reload timeout after every codepush */
+				timeout = jiffies + msecs_to_jiffies(
+					  LOAD_IMAGE_TIMEOUT_MS);
 			}
 		} while (1);
 
@@ -631,6 +653,9 @@ err_firmware_out:
 	release_firmware(fw);
 
 err_out:
+	if (load_type == VK_IMAGE_TYPE_BOOT2)
+		dma_free_coherent(dev, PAGE_SIZE, bufp, boot2_dma_addr);
+
 	return ret;
 }
 
