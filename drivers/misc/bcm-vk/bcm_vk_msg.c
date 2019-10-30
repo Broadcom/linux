@@ -10,6 +10,7 @@
 #include <linux/list.h>
 #include <linux/sizes.h>
 #include <linux/spinlock.h>
+#include <linux/timer.h>
 
 #include "bcm_vk.h"
 #include "bcm_vk_msg.h"
@@ -95,6 +96,94 @@ static bool bcm_vk_drv_access_ok(struct bcm_vk *vk)
 {
 	return (!!atomic_read(&vk->msgq_inited));
 }
+
+#if defined(BCM_VK_LEGACY_API)
+/*
+ * legacy does not support heartbeat mechanism
+ */
+static void bcm_vk_hb_init(struct bcm_vk *vk)
+{
+	dev_info(&vk->pdev->dev, "skipped\n");
+}
+
+static void bcm_vk_hb_deinit(struct bcm_vk *vk)
+{
+	dev_info(&vk->pdev->dev, "skipped\n");
+}
+#else
+
+/*
+ * Heartbeat related defines
+ * The heartbeat from host is a last resort.  If stuck condition happens
+ * on the card, firmware is supposed to detect it.  Therefore, the heartbeat
+ * values used will be more relaxed on the driver, which need to be bigger
+ * than the watchdog timeout on the card.
+ */
+#define BCM_VK_HB_TIMER_S 3
+#define BCM_VK_HB_TIMER_VALUE (BCM_VK_HB_TIMER_S * HZ)
+#define BCM_VK_HB_LOST_MAX 4
+
+static void bcm_vk_hb_poll(struct timer_list *t)
+{
+	uint32_t uptime_s;
+	struct bcm_vk_hb_ctrl *hb = container_of(t, struct bcm_vk_hb_ctrl,
+						 timer);
+	struct bcm_vk *vk = container_of(hb, struct bcm_vk, hb_ctrl);
+
+	if (bcm_vk_drv_access_ok(vk)) {
+		/* read uptime from register and compare */
+		uptime_s = vkread32(vk, BAR_0, BAR_OS_UPTIME);
+
+		if (uptime_s == hb->last_uptime)
+			hb->lost_cnt++;
+
+		dev_dbg(&vk->pdev->dev, "Last uptime %d current %d, lost %d\n",
+			hb->last_uptime, uptime_s, hb->lost_cnt);
+
+		/*
+		 * if the interface goes down without any activity, a value
+		 * of 0xFFFFFFFF will be continuously read, and the detection
+		 * will be happened eventually.
+		 */
+		hb->last_uptime = uptime_s;
+	} else {
+		/* reset heart beat lost cnt */
+		hb->lost_cnt = 0;
+	}
+
+	/* next, check if heartbeat exceeds limit */
+	if (hb->lost_cnt > BCM_VK_HB_LOST_MAX) {
+		dev_err(&vk->pdev->dev, "Heartbeat Misses %d times, %d s!\n",
+			BCM_VK_HB_LOST_MAX,
+			BCM_VK_HB_LOST_MAX * BCM_VK_HB_TIMER_S);
+		/*
+		 * set bit and schedule worker to pick up if further
+		 * processing is required.
+		 */
+		vk->host_alert.alert_flags |= ERR_LOG_HOST_ALERT_HB_FAIL;
+		if (test_and_set_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload) == 0)
+			queue_work(vk->wq_thread, &vk->wq_work);
+	} else {
+		/* re-arm timer */
+		mod_timer(&hb->timer, jiffies + BCM_VK_HB_TIMER_VALUE);
+	}
+}
+
+void bcm_vk_hb_init(struct bcm_vk *vk)
+{
+	struct bcm_vk_hb_ctrl *hb = &vk->hb_ctrl;
+
+	timer_setup(&hb->timer, bcm_vk_hb_poll, 0);
+	mod_timer(&hb->timer, jiffies + BCM_VK_HB_TIMER_VALUE);
+}
+
+void bcm_vk_hb_deinit(struct bcm_vk *vk)
+{
+	struct bcm_vk_hb_ctrl *hb = &vk->hb_ctrl;
+
+	del_timer(&hb->timer);
+}
+#endif
 
 static void bcm_vk_msgid_bitmap_clear(struct bcm_vk *vk,
 				      unsigned int start,
@@ -1145,8 +1234,9 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	vkwrite32(vk, FW_STATUS_RESET_MBOX_DB, BAR_0, BAR_FW_STATUS);
 	bcm_h2vk_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_SOFT);
 
-	/* clear the uptime register after reset pressed */
+	/* clear the uptime register after reset pressed and alert record */
 	vkwrite32(vk, 0, BAR_0, BAR_OS_UPTIME);
+	memset(&vk->host_alert, 0, sizeof(vk->host_alert));
 
 	/* clear 4096 bits of bitmap */
 	bitmap_clear(vk->bmap, 0, VK_MSG_ID_BITMAP_SIZE);

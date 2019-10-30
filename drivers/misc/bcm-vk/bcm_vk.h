@@ -142,6 +142,9 @@
 #define ERR_LOG_LOW_TEMP_WARN		BIT(9)
 #define ERR_LOG_ECC_WARN		BIT(10)
 
+/* Alert bit definitions detectd on host */
+#define ERR_LOG_HOST_ALERT_HB_FAIL	BIT(0)
+
 /* Fast boot register derived states */
 #define FB_BOOT_STATE_MASK		0xFFF3FFFF
 #define FB_BOOT1_RUNNING		(DDR_OPEN | 0x6)
@@ -192,6 +195,17 @@ struct bcm_vk_card_info {
 	uint32_t video_core_freq_mhz;
 };
 
+struct bcm_vk_hb_ctrl {
+	struct timer_list timer;
+	uint32_t last_uptime;
+	uint32_t lost_cnt;
+};
+
+struct bcm_vk_alert {
+	uint16_t latch_flags;
+	uint16_t alert_flags;
+};
+
 struct bcm_vk {
 	struct pci_dev *pdev;
 	void __iomem *bar[MAX_BAR];
@@ -235,6 +249,11 @@ struct bcm_vk {
 
 	struct notifier_block panic_nb;
 	uint32_t ib_sgl_size; /* size allocated for inband sgl insertion */
+
+	/* heart beat mechanism control structure */
+	struct bcm_vk_hb_ctrl hb_ctrl;
+	/* house-keeping variable of error logs */
+	struct bcm_vk_alert host_alert;
 };
 
 /* wq offload work items bits definitions */
@@ -300,6 +319,8 @@ void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val);
 int bcm_vk_auto_load_all_images(struct bcm_vk *vk);
 int bcm_vk_tty_init(struct bcm_vk *vk, char *name);
 void bcm_vk_tty_exit(struct bcm_vk *vk);
+void bcm_vk_hb_init(struct bcm_vk *vk);
+void bcm_vk_hb_deinit(struct bcm_vk *vk);
 
 #if defined(BCM_VK_LEGACY_API)
 

@@ -2071,6 +2071,9 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		if (bcm_vk_trigger_autoload(vk))
 			goto err_bcm_vk_tty_exit;
 
+	/* enable hb */
+	bcm_vk_hb_init(vk);
+
 	dev_info(dev, "BCM-VK:%u created, 0x%p\n", id, vk);
 
 	return 0;
@@ -2129,6 +2132,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &vk->miscdev;
 
+	bcm_vk_hb_deinit(vk);
 	bcm_vk_tty_exit(vk);
 
 	/* unregister panic notifier */
