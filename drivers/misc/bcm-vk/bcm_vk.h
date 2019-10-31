@@ -138,12 +138,14 @@
 #define ERR_LOG_ALERT_SSIM_BUSY		BIT(1)
 #define ERR_LOG_ALERT_AFBC_BUSY		BIT(2)
 #define ERR_LOG_HIGH_TEMP_ERR		BIT(3)
+#define ERR_LOG_WDOG_TIMEOUT		BIT(4)
 #define ERR_LOG_MEM_ALLOC_FAIL		BIT(8)
 #define ERR_LOG_LOW_TEMP_WARN		BIT(9)
 #define ERR_LOG_ECC_WARN		BIT(10)
 
 /* Alert bit definitions detectd on host */
 #define ERR_LOG_HOST_ALERT_HB_FAIL	BIT(0)
+#define ERR_LOG_HOST_ALERT_PCIE_DWN	BIT(1)
 
 /* Fast boot register derived states */
 #define FB_BOOT_STATE_MASK		0xFFF3FFFF
@@ -253,7 +255,9 @@ struct bcm_vk {
 	/* heart beat mechanism control structure */
 	struct bcm_vk_hb_ctrl hb_ctrl;
 	/* house-keeping variable of error logs */
+	spinlock_t host_alert_lock; /* protection to access host_alert struct */
 	struct bcm_vk_alert host_alert;
+	struct bcm_vk_alert peer_alert; /* bits set by the card */
 };
 
 /* wq offload work items bits definitions */
@@ -321,6 +325,7 @@ int bcm_vk_tty_init(struct bcm_vk *vk, char *name);
 void bcm_vk_tty_exit(struct bcm_vk *vk);
 void bcm_vk_hb_init(struct bcm_vk *vk);
 void bcm_vk_hb_deinit(struct bcm_vk *vk);
+void bcm_vk_handle_notf(struct bcm_vk *vk);
 
 #if defined(BCM_VK_LEGACY_API)
 

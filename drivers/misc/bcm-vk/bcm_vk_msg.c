@@ -97,6 +97,20 @@ static bool bcm_vk_drv_access_ok(struct bcm_vk *vk)
 	return (!!atomic_read(&vk->msgq_inited));
 }
 
+static void bcm_vk_set_host_alert(struct bcm_vk *vk, uint32_t bit_mask)
+{
+	struct bcm_vk_alert *alert = &vk->host_alert;
+	unsigned long flags;
+
+	/* use irqsave version as this maybe called inside timer interrupt */
+	spin_lock_irqsave(&vk->host_alert_lock, flags);
+	alert->alert_flags |= bit_mask;
+	spin_unlock_irqrestore(&vk->host_alert_lock, flags);
+
+	if (test_and_set_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload) == 0)
+		queue_work(vk->wq_thread, &vk->wq_work);
+}
+
 #if defined(BCM_VK_LEGACY_API)
 /*
  * legacy does not support heartbeat mechanism
@@ -156,13 +170,9 @@ static void bcm_vk_hb_poll(struct timer_list *t)
 		dev_err(&vk->pdev->dev, "Heartbeat Misses %d times, %d s!\n",
 			BCM_VK_HB_LOST_MAX,
 			BCM_VK_HB_LOST_MAX * BCM_VK_HB_TIMER_S);
-		/*
-		 * set bit and schedule worker to pick up if further
-		 * processing is required.
-		 */
-		vk->host_alert.alert_flags |= ERR_LOG_HOST_ALERT_HB_FAIL;
-		if (test_and_set_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload) == 0)
-			queue_work(vk->wq_thread, &vk->wq_work);
+
+		bcm_vk_blk_drv_access(vk);
+		bcm_vk_set_host_alert(vk, ERR_LOG_HOST_ALERT_HB_FAIL);
 	} else {
 		/* re-arm timer */
 		mod_timer(&hb->timer, jiffies + BCM_VK_HB_TIMER_VALUE);
@@ -552,6 +562,7 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 		dev_crit(dev, "Invalid wr_idx 0x%x => max 0x%x!",
 			 wr_idx, qinfo->q_size);
 		bcm_vk_blk_drv_access(vk);
+		bcm_vk_set_host_alert(vk, ERR_LOG_HOST_ALERT_PCIE_DWN);
 		goto idx_err;
 	}
 
@@ -730,6 +741,8 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 					 "Invalid rd_idx 0x%x or size 0x%x => max 0x%x!",
 					 rd_idx, src->size, qinfo->q_size);
 				bcm_vk_blk_drv_access(vk);
+				bcm_vk_set_host_alert(
+					vk, ERR_LOG_HOST_ALERT_PCIE_DWN);
 				goto idx_err;
 			}
 
@@ -824,8 +837,7 @@ static void bcm_vk_wq_handler(struct work_struct *work)
 	if (test_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload)) {
 		/* clear bit right the way for notification */
 		clear_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload);
-		/* for now, just log */
-		dev_info(dev, "Get Notification from VK\n");
+		bcm_vk_handle_notf(vk);
 	}
 	if (test_bit(BCM_VK_WQ_DWNLD_AUTO, vk->wq_offload)) {
 		bcm_vk_auto_load_all_images(vk);
@@ -860,6 +872,7 @@ static int bcm_vk_data_init(struct bcm_vk *vk)
 		vk->ctx[i].miscdev = NULL;
 	}
 	spin_lock_init(&vk->msg_id_lock);
+	spin_lock_init(&vk->host_alert_lock);
 	vk->msg_id = 0;
 
 	/* initialize hash table */
@@ -1237,6 +1250,7 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	/* clear the uptime register after reset pressed and alert record */
 	vkwrite32(vk, 0, BAR_0, BAR_OS_UPTIME);
 	memset(&vk->host_alert, 0, sizeof(vk->host_alert));
+	memset(&vk->peer_alert, 0, sizeof(vk->peer_alert));
 
 	/* clear 4096 bits of bitmap */
 	bitmap_clear(vk->bmap, 0, VK_MSG_ID_BITMAP_SIZE);

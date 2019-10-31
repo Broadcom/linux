@@ -174,6 +174,25 @@ static struct bcm_vk_sysfs_reg_entry const fw_shutdown_reg_tab[] = {
 /* define for the start of the reboot reason */
 #define FW_STAT_RB_REASON_START 5
 
+/*
+ * alerts that could be generated from peer
+ */
+static struct bcm_vk_sysfs_reg_entry const peer_err_log_reg_tab[] = {
+	{ERR_LOG_ALERT_ECC, ERR_LOG_ALERT_ECC, "ecc"},
+	{ERR_LOG_ALERT_SSIM_BUSY, ERR_LOG_ALERT_SSIM_BUSY, "ssim_busy"},
+	{ERR_LOG_ALERT_AFBC_BUSY, ERR_LOG_ALERT_AFBC_BUSY, "afbc_busy"},
+	{ERR_LOG_HIGH_TEMP_ERR, ERR_LOG_HIGH_TEMP_ERR, "high_temp"},
+	{ERR_LOG_WDOG_TIMEOUT, ERR_LOG_WDOG_TIMEOUT, "wdog_timeout"},
+	{ERR_LOG_MEM_ALLOC_FAIL, ERR_LOG_MEM_ALLOC_FAIL, "malloc_fail warn"},
+	{ERR_LOG_LOW_TEMP_WARN, ERR_LOG_LOW_TEMP_WARN, "low_temp warn"},
+	{ERR_LOG_ECC_WARN, ERR_LOG_ECC_WARN, "ecc_correctable"},
+};
+/* alerts detected by the host */
+static struct bcm_vk_sysfs_reg_entry const host_err_log_reg_tab[] = {
+	{ERR_LOG_HOST_ALERT_PCIE_DWN, ERR_LOG_HOST_ALERT_PCIE_DWN, "PCIe_down"},
+	{ERR_LOG_HOST_ALERT_HB_FAIL, ERR_LOG_HOST_ALERT_HB_FAIL, "hb_fail"},
+};
+
 irqreturn_t bcm_vk_notf_irqhandler(int irq, void *dev_id)
 {
 	struct bcm_vk *vk = dev_id;
@@ -183,6 +202,64 @@ irqreturn_t bcm_vk_notf_irqhandler(int irq, void *dev_id)
 		queue_work(vk->wq_thread, &vk->wq_work);
 
 	return IRQ_HANDLED;
+}
+
+static void bcm_vk_log_notf(struct bcm_vk *vk,
+			    struct bcm_vk_alert *alert,
+			    struct bcm_vk_sysfs_reg_entry const *entry_tab,
+			    const uint32_t table_size)
+{
+	uint32_t i;
+	uint32_t masked_val, latched_val;
+	struct bcm_vk_sysfs_reg_entry const *entry;
+
+	for (i = 0; i < table_size; i++) {
+		entry = &entry_tab[i];
+		masked_val = entry->mask & alert->alert_flags;
+		latched_val = entry->mask & alert->latch_flags;
+
+		if (masked_val != latched_val)
+			/* print a log as info */
+			dev_info(&vk->pdev->dev, "ALERT! %s.%d %s %s\n",
+				 DRV_MODULE_NAME, vk->misc_devid, entry->str,
+				 masked_val ? "RAISED" : "CLEARED");
+	}
+}
+
+void bcm_vk_handle_notf(struct bcm_vk *vk)
+{
+	uint32_t reg;
+	struct bcm_vk_alert alert;
+	bool intf_down;
+	unsigned long flags;
+
+	/* handle peer alerts and then locally detected ones */
+	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
+	intf_down = BCM_VK_INTF_IS_DOWN(reg);
+	if (!intf_down) {
+		vk->peer_alert.alert_flags = reg;
+		bcm_vk_log_notf(vk, &vk->peer_alert, peer_err_log_reg_tab,
+				ARRAY_SIZE(peer_err_log_reg_tab));
+		vk->peer_alert.latch_flags = vk->peer_alert.alert_flags;
+	} else {
+		/* turn off access */
+		bcm_vk_blk_drv_access(vk);
+	}
+
+	/* check and make copy of alert with lock and then free lock */
+	spin_lock_irqsave(&vk->host_alert_lock, flags);
+	if (intf_down)
+		vk->host_alert.alert_flags |= ERR_LOG_HOST_ALERT_PCIE_DWN;
+
+	alert = vk->host_alert;
+	vk->host_alert.latch_flags = vk->host_alert.alert_flags;
+	spin_unlock_irqrestore(&vk->host_alert_lock, flags);
+
+	/* call display with copy */
+	bcm_vk_log_notf(vk, &alert, host_err_log_reg_tab,
+			ARRAY_SIZE(host_err_log_reg_tab));
+
+	/* Add any specific handling after this if needed */
 }
 
 static int bcm_vk_sysfs_dump_reg(uint32_t reg_val,
@@ -1288,31 +1365,54 @@ static ssize_t card_state_show(struct device *dev,
 	uint32_t low_temp_thre, high_temp_thre, pwr_state;
 	uint32_t ecc_mem_err, uecc_mem_err;
 	char *p_buf = buf;
-	static struct bcm_vk_sysfs_reg_entry const err_log_reg_tab[] = {
-		{ERR_LOG_ALERT_ECC, ERR_LOG_ALERT_ECC,
-		 "ecc"},
-		{ERR_LOG_ALERT_SSIM_BUSY, ERR_LOG_ALERT_SSIM_BUSY,
-		 "ssim_busy"},
-		{ERR_LOG_ALERT_AFBC_BUSY, ERR_LOG_ALERT_AFBC_BUSY,
-		 "afbc_busy"},
-		{ERR_LOG_HIGH_TEMP_ERR, ERR_LOG_HIGH_TEMP_ERR,
-		 "high_temp"},
-		{ERR_LOG_MEM_ALLOC_FAIL, ERR_LOG_MEM_ALLOC_FAIL,
-		 "malloc_fail warn"},
-		{ERR_LOG_LOW_TEMP_WARN, ERR_LOG_LOW_TEMP_WARN,
-		 "low_temp warn"},
-		{ERR_LOG_ECC_WARN, ERR_LOG_ECC_WARN,
-		 "ecc_correctable"},
-	};
 	static const char * const pwr_state_tab[] = {
 		"Full", "Reduced", "Lowest"};
 	char *pwr_state_str;
 
+	/*
+	 * host detected alerts are available even if FW has gone down,
+	 * display first.
+	 */
+	reg = vk->host_alert.latch_flags;
+	ret = sprintf(p_buf, "Host Alerts: 0x%08x\n", reg);
+	if (ret < 0)
+		goto card_state_show_fail;
+
+	dev_dbg(dev, "%s", p_buf);
+	p_buf += ret;
+
+	ret = bcm_vk_sysfs_dump_reg(reg,
+				    host_err_log_reg_tab,
+				    ARRAY_SIZE(host_err_log_reg_tab),
+				    p_buf);
+	if (ret < 0)
+		goto card_state_show_fail;
+	p_buf += ret;
+
+	/* next, see if there is any peer latched alert */
+	reg = vk->peer_alert.latch_flags;
+	ret = sprintf(p_buf, "Peer Alerts: 0x%08x\n", reg);
+	if (ret < 0)
+		goto card_state_show_fail;
+
+	dev_dbg(dev, "%s", p_buf);
+	p_buf += ret;
+
+	ret = bcm_vk_sysfs_dump_reg(reg,
+				    peer_err_log_reg_tab,
+				    ARRAY_SIZE(peer_err_log_reg_tab),
+				    p_buf);
+	if (ret < 0)
+		goto card_state_show_fail;
+	p_buf += ret;
+
 	/* if OS is not running, no one will update the value */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, p_buf,
 					 "card_state: n/a (fw not running)\n");
-	if (ret)
-		return ret;
+	if (ret) {
+		p_buf += ret;
+		return (p_buf - buf);
+	}
 
 	/* First, get power state and the threshold */
 	reg = vkread32(vk, BAR_0, BAR_CARD_PWR_AND_THRE);
@@ -1333,29 +1433,13 @@ static ssize_t card_state_show(struct device *dev,
 
 	pwr_state_str = ((pwr_state - 1) < ARRAY_SIZE(pwr_state_tab)) ?
 			 (char *) pwr_state_tab[pwr_state - 1] : "n/a";
-	ret = sprintf(buf, _PWR_AND_THRE_FMT, reg, pwr_state, pwr_state_str,
+	ret = sprintf(p_buf, _PWR_AND_THRE_FMT, reg, pwr_state, pwr_state_str,
 		      low_temp_thre, high_temp_thre);
 	if (ret < 0)
 		goto card_state_show_fail;
 	p_buf += ret;
 	dev_dbg(dev, _PWR_AND_THRE_FMT, reg, pwr_state, pwr_state_str,
 		low_temp_thre, high_temp_thre);
-
-	/* next, see if there is any alert, also display them */
-	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
-	ret = sprintf(p_buf, "Alerts: 0x%08x\n", reg);
-	if (ret < 0)
-		goto card_state_show_fail;
-	p_buf += ret;
-
-	dev_dbg(dev, "Alerts: 0x%08x\n", reg);
-	ret = bcm_vk_sysfs_dump_reg(reg,
-				    err_log_reg_tab,
-				    ARRAY_SIZE(err_log_reg_tab),
-				    p_buf);
-	if (ret < 0)
-		goto card_state_show_fail;
-	p_buf += ret;
 
 	/* display memory error */
 	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_MEM);
