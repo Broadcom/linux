@@ -489,14 +489,3 @@ config SERIAL_OF_PLATFORM
 	  are probed through devicetree, including Open Firmware based
 	  PowerPC systems and embedded systems on architectures using the
 	  flattened device tree format.
-
-config SERIAL_8250_EARLYLOG
-	bool "Early logging of 8250/16550 earlycon"
-	depends on SERIAL_8250
-	help
-	  Say Y to enable logging support of the 8250 earlycon console output
-
-	  You can set this using a kernel command line option such as:
-	  "earlycon=uart8250_log,mmio32,0x68A10000"
-
-	  If unsure, say N.
