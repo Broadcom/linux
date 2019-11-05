@@ -24,7 +24,10 @@
 #define ENABLE_MDIO	1
 #define ENABLE_ENET	1
 
+#ifndef NUM_PAXB
 #define NUM_PAXB	1
+#define ENABLE_PCIE0	1
+#endif
 
 #ifndef ENABLE_PAXC
 #define ENABLE_PAXC	1

@@ -14,10 +14,6 @@
 #define ENABLE_PCIE7	1
 #endif
 
-#if (NUM_PAXB == 1)
-#define ENABLE_PCIE0	1
-#endif
-
 	pcie0: pcie@48000000 {
 		compatible = "brcm,iproc-pcie-paxb-v2";
 		reg = <0 0x48000000 0 0x4000>;

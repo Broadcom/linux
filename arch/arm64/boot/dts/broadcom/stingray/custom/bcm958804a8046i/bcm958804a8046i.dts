@@ -15,6 +15,11 @@
 #define ENABLE_SSP0	1
 #define ENABLE_SSP1	1
 
+#ifndef NUM_PAXB
+#define NUM_PAXB	1
+#define ENABLE_PCIE7	1
+#endif
+
 #include "../../stingray-board-base.dtsi"
 
 / {
