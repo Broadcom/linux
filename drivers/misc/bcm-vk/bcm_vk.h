@@ -204,8 +204,8 @@ struct bcm_vk_hb_ctrl {
 };
 
 struct bcm_vk_alert {
-	uint16_t latch_flags;
-	uint16_t alert_flags;
+	uint16_t flags;
+	uint16_t notfs;
 };
 
 struct bcm_vk {

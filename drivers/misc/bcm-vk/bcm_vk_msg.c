@@ -104,7 +104,7 @@ static void bcm_vk_set_host_alert(struct bcm_vk *vk, uint32_t bit_mask)
 
 	/* use irqsave version as this maybe called inside timer interrupt */
 	spin_lock_irqsave(&vk->host_alert_lock, flags);
-	alert->alert_flags |= bit_mask;
+	alert->notfs |= bit_mask;
 	spin_unlock_irqrestore(&vk->host_alert_lock, flags);
 
 	if (test_and_set_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload) == 0)

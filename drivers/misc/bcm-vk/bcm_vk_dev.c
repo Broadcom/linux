@@ -215,8 +215,8 @@ static void bcm_vk_log_notf(struct bcm_vk *vk,
 
 	for (i = 0; i < table_size; i++) {
 		entry = &entry_tab[i];
-		masked_val = entry->mask & alert->alert_flags;
-		latched_val = entry->mask & alert->latch_flags;
+		masked_val = entry->mask & alert->notfs;
+		latched_val = entry->mask & alert->flags;
 
 		if (masked_val != latched_val)
 			/* print a log as info */
@@ -237,10 +237,10 @@ void bcm_vk_handle_notf(struct bcm_vk *vk)
 	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
 	intf_down = BCM_VK_INTF_IS_DOWN(reg);
 	if (!intf_down) {
-		vk->peer_alert.alert_flags = reg;
+		vk->peer_alert.notfs = reg;
 		bcm_vk_log_notf(vk, &vk->peer_alert, peer_err_log_reg_tab,
 				ARRAY_SIZE(peer_err_log_reg_tab));
-		vk->peer_alert.latch_flags = vk->peer_alert.alert_flags;
+		vk->peer_alert.flags = vk->peer_alert.notfs;
 	} else {
 		/* turn off access */
 		bcm_vk_blk_drv_access(vk);
@@ -249,10 +249,10 @@ void bcm_vk_handle_notf(struct bcm_vk *vk)
 	/* check and make copy of alert with lock and then free lock */
 	spin_lock_irqsave(&vk->host_alert_lock, flags);
 	if (intf_down)
-		vk->host_alert.alert_flags |= ERR_LOG_HOST_ALERT_PCIE_DWN;
+		vk->host_alert.notfs |= ERR_LOG_HOST_ALERT_PCIE_DWN;
 
 	alert = vk->host_alert;
-	vk->host_alert.latch_flags = vk->host_alert.alert_flags;
+	vk->host_alert.flags = vk->host_alert.notfs;
 	spin_unlock_irqrestore(&vk->host_alert_lock, flags);
 
 	/* call display with copy */
@@ -1373,7 +1373,7 @@ static ssize_t card_state_show(struct device *dev,
 	 * host detected alerts are available even if FW has gone down,
 	 * display first.
 	 */
-	reg = vk->host_alert.latch_flags;
+	reg = vk->host_alert.flags;
 	ret = sprintf(p_buf, "Host Alerts: 0x%08x\n", reg);
 	if (ret < 0)
 		goto card_state_show_fail;
@@ -1390,7 +1390,7 @@ static ssize_t card_state_show(struct device *dev,
 	p_buf += ret;
 
 	/* next, see if there is any peer latched alert */
-	reg = vk->peer_alert.latch_flags;
+	reg = vk->peer_alert.flags;
 	ret = sprintf(p_buf, "Peer Alerts: 0x%08x\n", reg);
 	if (ret < 0)
 		goto card_state_show_fail;
@@ -1529,130 +1529,74 @@ static ssize_t mem_uecc_show(struct device *dev,
 static ssize_t alert_ecc_show(struct device *dev,
 			      struct device_attribute *devattr, char *buf)
 {
-	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
 
-	/* if OS is not running, no one will update the value, just return 0 */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
-					 "0\n");
-	if (ret)
-		return ret;
-
-	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
-	return sprintf(buf, "%d\n", reg & ERR_LOG_ALERT_ECC ? 1 : 0);
+	return sprintf(buf, "%d\n", vk->peer_alert.flags
+				    & ERR_LOG_ALERT_ECC ? 1 : 0);
 }
 
 static ssize_t alert_ssim_busy_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
-	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
 
-	/* if OS is not running, no one will update the value, just return 0 */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
-					 "0\n");
-	if (ret)
-		return ret;
-
-	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
-	return sprintf(buf, "%d\n", reg & ERR_LOG_ALERT_SSIM_BUSY ? 1 : 0);
+	return sprintf(buf, "%d\n", vk->peer_alert.flags
+				    & ERR_LOG_ALERT_SSIM_BUSY ? 1 : 0);
 }
 
 static ssize_t alert_afbc_busy_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
-	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
 
-	/* if OS is not running, no one will update the value, just return 0 */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
-					 "0\n");
-	if (ret)
-		return ret;
-
-	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
-	return sprintf(buf, "%d\n", reg & ERR_LOG_ALERT_AFBC_BUSY ? 1 : 0);
+	return sprintf(buf, "%d\n", vk->peer_alert.flags
+				    & ERR_LOG_ALERT_AFBC_BUSY ? 1 : 0);
 }
 
 static ssize_t alert_high_temp_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
-	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
 
-	/* if OS is not running, no one will update the value, just return 0 */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
-					 "0\n");
-	if (ret)
-		return ret;
-
-	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
-	return sprintf(buf, "%d\n", reg & ERR_LOG_HIGH_TEMP_ERR ? 1 : 0);
+	return sprintf(buf, "%d\n", vk->peer_alert.flags
+				    & ERR_LOG_HIGH_TEMP_ERR ? 1 : 0);
 }
 
 static ssize_t alert_malloc_fail_warn_show(struct device *dev,
 					   struct device_attribute *devattr,
 					   char *buf)
 {
-	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
 
-	/* if OS is not running, no one will update the value, just return 0 */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
-					 "0\n");
-	if (ret)
-		return ret;
-
-	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
-	return sprintf(buf, "%d\n", reg & ERR_LOG_MEM_ALLOC_FAIL ? 1 : 0);
+	return sprintf(buf, "%d\n", vk->peer_alert.flags
+				    & ERR_LOG_MEM_ALLOC_FAIL ? 1 : 0);
 }
 
 static ssize_t alert_low_temp_warn_show(struct device *dev,
 					struct device_attribute *devattr,
 					char *buf)
 {
-	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
 
-	/* if OS is not running, no one will update the value, just return 0 */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
-					 "0\n");
-	if (ret)
-		return ret;
-
-	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
-	return sprintf(buf, "%d\n", reg & ERR_LOG_LOW_TEMP_WARN ? 1 : 0);
+	return sprintf(buf, "%d\n", vk->peer_alert.flags
+				    & ERR_LOG_LOW_TEMP_WARN ? 1 : 0);
 }
 
 static ssize_t alert_ecc_warn_show(struct device *dev,
 				   struct device_attribute *devattr,
 				   char *buf)
 {
-	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
 
-	/* if OS is not running, no one will update the value, just return 0 */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
-					 "0\n");
-	if (ret)
-		return ret;
-
-	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
-	return sprintf(buf, "%d\n", reg & ERR_LOG_ECC_WARN ? 1 : 0);
+	return sprintf(buf, "%d\n", vk->peer_alert.flags
+				    & ERR_LOG_ECC_WARN ? 1 : 0);
 }
 
 static ssize_t temp_threshold_lower_c_show(struct device *dev,
