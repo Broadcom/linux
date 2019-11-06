@@ -98,8 +98,6 @@
 
 #define IPROC_PCIE_REG_INVALID		0xffff
 
-#define NUM_INTX                     4
-
 /**
  * iProc PCIe outbound mapping controller specific parameters
  *
@@ -945,8 +943,8 @@ static void iproc_pcie_isr(struct irq_desc *desc)
 	/* go through INTx A, B, C, D until all interrupts are handled */
 	do {
 		status = iproc_pcie_read_reg(pcie, IPROC_PCIE_INTX_CSR);
-		for_each_set_bit(bit, &status, NUM_INTX) {
-			virq = irq_find_mapping(pcie->irq_domain, bit + 1);
+		for_each_set_bit(bit, &status, PCI_NUM_INTX) {
+			virq = irq_find_mapping(pcie->irq_domain, bit);
 			if (virq)
 				generic_handle_irq(virq);
 			else
@@ -980,7 +978,7 @@ static int iproc_pcie_intx_enable(struct iproc_pcie *pcie)
 	irq_set_chained_handler_and_data(pcie->irq, iproc_pcie_isr, pcie);
 
 	/* add IRQ domain for INTx */
-	pcie->irq_domain = irq_domain_add_linear(node, NUM_INTX + 1,
+	pcie->irq_domain = irq_domain_add_linear(node, PCI_NUM_INTX,
 						 &intx_domain_ops, pcie);
 	if (!pcie->irq_domain) {
 		dev_err(dev, "failed to add INTx IRQ domain\n");
