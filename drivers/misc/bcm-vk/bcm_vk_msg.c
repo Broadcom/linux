@@ -345,12 +345,13 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 				/* if it is specific ctx, log for any stuck */
 				msg = entry->h2vk_msg;
 				dev_err(dev,
-					"Drained: fid %u size %u msg 0x%x(seq-%x) ctx 0x%x[fd-%d] args:[0x%x 0x%x] resp %s",
+					"Drained: fid %u size %u msg 0x%x(seq-%x) ctx 0x%x[fd-%d] args:[0x%x 0x%x] resp %s, bmap %d\n",
 					msg->function_id, msg->size,
 					msg->msg_id, entry->seq_num,
 					msg->context_id, entry->ctx->idx,
 					msg->args[0], msg->args[1],
-					entry->vk2h_msg ? "T" : "F");
+					entry->vk2h_msg ? "T" : "F",
+					test_bit(msg->msg_id, vk->bmap));
 				list_del(&entry->node);
 				bcm_vk_msgid_bitmap_clear(vk, msg->msg_id, 1);
 				bcm_vk_free_wkent(dev, entry);
@@ -810,8 +811,9 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 
 			} else {
 				dev_crit(dev,
-					 "Could not find MsgId[0x%x] for resp func %d\n",
-					 data->msg_id, data->function_id);
+					 "Could not find MsgId[0x%x] for resp func %d bmap %d\n",
+					 data->msg_id, data->function_id,
+					 test_bit(data->msg_id, vk->bmap));
 				kfree(data);
 			}
 
