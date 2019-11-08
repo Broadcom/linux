@@ -1567,6 +1567,27 @@ static ssize_t alert_high_temp_show(struct device *dev,
 				    & ERR_LOG_HIGH_TEMP_ERR ? 1 : 0);
 }
 
+static ssize_t alert_wdog_timeout_show(struct device *dev,
+				       struct device_attribute *devattr,
+				       char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%d\n", vk->peer_alert.flags
+				    & ERR_LOG_WDOG_TIMEOUT ? 1 : 0);
+}
+
+static ssize_t alert_sys_fault_show(struct device *dev,
+				    struct device_attribute *devattr, char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%d\n", vk->peer_alert.flags
+				    & ERR_LOG_SYS_FAULT ? 1 : 0);
+}
+
 static ssize_t alert_malloc_fail_warn_show(struct device *dev,
 					   struct device_attribute *devattr,
 					   char *buf)
@@ -1598,6 +1619,27 @@ static ssize_t alert_ecc_warn_show(struct device *dev,
 
 	return sprintf(buf, "%d\n", vk->peer_alert.flags
 				    & ERR_LOG_ECC_WARN ? 1 : 0);
+}
+
+static ssize_t alert_pcie_down_show(struct device *dev,
+				    struct device_attribute *devattr, char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%d\n", vk->host_alert.flags
+				    & ERR_LOG_HOST_ALERT_PCIE_DWN ? 1 : 0);
+}
+
+static ssize_t alert_heartbeat_fail_show(struct device *dev,
+					 struct device_attribute *devattr,
+					 char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%d\n", vk->host_alert.flags
+				    & ERR_LOG_HOST_ALERT_HB_FAIL ? 1 : 0);
 }
 
 static ssize_t temp_threshold_lower_c_show(struct device *dev,
@@ -1795,9 +1837,13 @@ static DEVICE_ATTR_RO(alert_ecc);
 static DEVICE_ATTR_RO(alert_ssim_busy);
 static DEVICE_ATTR_RO(alert_afbc_busy);
 static DEVICE_ATTR_RO(alert_high_temp);
+static DEVICE_ATTR_RO(alert_wdog_timeout);
+static DEVICE_ATTR_RO(alert_sys_fault);
 static DEVICE_ATTR_RO(alert_malloc_fail_warn);
 static DEVICE_ATTR_RO(alert_low_temp_warn);
 static DEVICE_ATTR_RO(alert_ecc_warn);
+static DEVICE_ATTR_RO(alert_pcie_down);
+static DEVICE_ATTR_RO(alert_heartbeat_fail);
 static DEVICE_ATTR_RO(temp_threshold_lower_c);
 static DEVICE_ATTR_RO(temp_threshold_upper_c);
 static DEVICE_ATTR_RO(freq_core_mhz);
@@ -1871,9 +1917,13 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_alert_ssim_busy.attr,
 	&dev_attr_alert_afbc_busy.attr,
 	&dev_attr_alert_high_temp.attr,
+	&dev_attr_alert_wdog_timeout.attr,
+	&dev_attr_alert_sys_fault.attr,
 	&dev_attr_alert_malloc_fail_warn.attr,
 	&dev_attr_alert_low_temp_warn.attr,
 	&dev_attr_alert_ecc_warn.attr,
+	&dev_attr_alert_pcie_down.attr,
+	&dev_attr_alert_heartbeat_fail.attr,
 	NULL,
 };
 

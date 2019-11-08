@@ -54,10 +54,15 @@ vk-card-mon/
 	alert_afbc_busy		---> AFBC block stuck
 	alert_ecc		---> uncorrectable ECC error(s) occurred
 	alert_ecc_warn		---> correctable ECC error(s) occurred
+	alert_heartbeat_fail	---> host detects heartbeat discontinuation
+				     from card
 	alert_high_temp		---> high temperature threshold crossed
 	alert_low_temp_warn	---> low temperature threshold crossed
 	alert_malloc_fail_warn	---> mem allocation failure(s) occurred
+	alert_pcie_down		---> host detect pcie intf going down
 	alert_ssim_busy		---> ssim block busy
+	alert_sys_fault		---> system fault
+	alert_wdog_timeout	---> watchdog timeout
 	fastboot_reg
 	firmware_status_reg
 	mem_ecc			---> correctable ECC error count
