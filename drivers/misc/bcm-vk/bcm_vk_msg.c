@@ -173,10 +173,9 @@ static void bcm_vk_hb_poll(struct timer_list *t)
 
 		bcm_vk_blk_drv_access(vk);
 		bcm_vk_set_host_alert(vk, ERR_LOG_HOST_ALERT_HB_FAIL);
-	} else {
-		/* re-arm timer */
-		mod_timer(&hb->timer, jiffies + BCM_VK_HB_TIMER_VALUE);
 	}
+	/* re-arm timer */
+	mod_timer(&hb->timer, jiffies + BCM_VK_HB_TIMER_VALUE);
 }
 
 void bcm_vk_hb_init(struct bcm_vk *vk)
