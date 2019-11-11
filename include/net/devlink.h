@@ -723,6 +723,8 @@ int devlink_health_report(struct devlink_health_reporter *reporter,
 void
 devlink_health_reporter_state_update(struct devlink_health_reporter *reporter,
 				     enum devlink_health_reporter_state state);
+void
+devlink_health_reporter_recovery_done(struct devlink_health_reporter *reporter);
 
 void devlink_compat_running_version(struct net_device *dev,
 				    char *buf, size_t len);
