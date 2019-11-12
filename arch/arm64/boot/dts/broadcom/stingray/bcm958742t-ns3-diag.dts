@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2019 Broadcom
+ */
+
+/dts-v1/;
+
+#define NUM_PAXB 0
+
+#include "bcm958742t-ns3.dts"
+#include "stingray-diag.dtsi"
