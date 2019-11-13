@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
 /*
- *  Copyright(c) 2018 Broadcom
+ *  Copyright(c) 2019 Broadcom
  */
-
-/dts-v1/;
-
 
 #define NUM_CRYPTO	0
 #define NUM_RAID	0
@@ -14,8 +11,6 @@
 #define ENABLE_SSP1	0
 #define ENABLE_SDCARD	0
 #define ENABLE_PWM	0
-#define ENABLE_ENET	0
-#define ENABLE_MDIO	0
 #define ENABLE_USB1	0
 #define ENABLE_UART2	0
 #define ENABLE_UART3	0
@@ -24,6 +19,8 @@
 #define ENABLE_I2C1	1
 #define ENABLE_EMMC	1
 #define ENABLE_OPTEE	1
+#define ENABLE_MDIO	1
+#define ENABLE_ENET	1
 
 #ifndef NUM_PAXB
 #define NUM_PAXB	1
@@ -38,11 +35,9 @@
 #define ENABLE_PAXC_IOMMU	1
 #define ENABLE_FS4_IOMMU	0
 
-#include "../../stingray-board-base.dtsi"
+#include "bcm958742-base.dtsi"
 
 / {
-	model = "Overlake";
-
 	reserved-memory {
 		/* GIC LPI tables */
 		gic_lpi {
@@ -55,6 +50,7 @@
 			no-map;
 		};
 
+		/* Static allocated IOMMU page tables for CRMU */
 		crmu_pg_tbl {
 			reg = <0x8 0x80000000 0x0 0x100000>;
 			no-map;
@@ -66,21 +62,22 @@
 	};
 };
 
-&sdio0 {
-	mmc-hs200-1_8v;
+&i2c0 {
+	pca9505: pca9505@20 {
+		interrupts = <111 1 1>;
+	};
 };
 
-&i2c0 {
-	tca9535@20 {
-		compatible = "nxp,pca9535";
-		reg = <0x20>;
-		gpio-controller;
-		#gpio-cells = <2>;
-	};
+&sdio0 {
+	mmc-ddr-1_8v;
 };
 
 &qspi {
 	status = "okay";
+	flash: w25q64@0 {
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+	};
 };
 
 &pci_lpm_region {

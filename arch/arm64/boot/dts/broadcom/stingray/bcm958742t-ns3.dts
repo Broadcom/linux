@@ -5,91 +5,12 @@
 
 /dts-v1/;
 
-#define NUM_CRYPTO	0
-#define NUM_RAID	0
-#define NUM_SATA	0
-#define ENABLE_NAND	0
-#define ENABLE_SSP0	0
-#define ENABLE_SSP1	0
-#define ENABLE_SDCARD	0
-#define ENABLE_PWM	0
-#define ENABLE_USB1	0
-#define ENABLE_UART2	0
-#define ENABLE_UART3	0
-
-#define ENABLE_I2C0	1
-#define ENABLE_I2C1	1
-#define ENABLE_EMMC	1
-#define ENABLE_OPTEE	1
-#define ENABLE_MDIO	1
-#define ENABLE_ENET	1
-
-#ifndef NUM_PAXB
-#define NUM_PAXB	1
-#define ENABLE_PCIE0	1
-#endif
-
-#ifndef ENABLE_PAXC
-#define ENABLE_PAXC	1
-#endif
-
-#define ENABLE_PAXB_IOMMU	1
-#define ENABLE_PAXC_IOMMU	1
-#define ENABLE_FS4_IOMMU	0
-
-#include "bcm958742-base.dtsi"
+#include "ns3-base.dtsi"
 
 / {
 	model = "NS3 (BCM958742T)";
-
-	reserved-memory {
-		/* GIC LPI tables */
-		gic_lpi {
-			reg = <0x0 0x8ad70000 0x0 0x90000>;
-		};
-
-		/* Nitro FW, nitro Crash, Bl31, Bl32 and elog */
-		misc_reserve {
-			reg = <0x0 0x8ae00000 0x0 0x4413000>;
-			no-map;
-		};
-
-		elog {
-			status = "disabled";
-		};
-	};
-};
-
-&i2c0 {
-	pca9505: pca9505@20 {
-		interrupts = <111 1 1>;
-	};
 };
 
 &gphy0 {
 	enet-phy-lane-swap;
-};
-
-&sdio0 {
-	mmc-ddr-1_8v;
-};
-
-&qspi {
-	status = "okay";
-	flash: w25q64@0 {
-		spi-tx-bus-width = <1>;
-		spi-rx-bus-width = <4>;
-	};
-};
-
-&pci_lpm_region {
-	status = "disabled";
-};
-
-&crypto_mbox {
-	status = "disabled";
-};
-
-&raid_mbox {
-	status = "disabled";
 };
