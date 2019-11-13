@@ -229,6 +229,40 @@ static void bcm_vk_log_notf(struct bcm_vk *vk,
 	}
 }
 
+static void bcm_vk_dump_peer_log(struct bcm_vk *vk)
+{
+	struct bcm_vk_peer_log log, *p_ctl;
+	char loc_buf[BCM_VK_PEER_LOG_LINE_MAX];
+	int cnt;
+	struct device *dev = &vk->pdev->dev;
+	uint data_offset;
+
+	p_ctl = vk->bar[BAR_2] + vk->peerlog_off;
+	log = *p_ctl;
+	/* do a rmb() to make sure log is updated */
+	rmb();
+
+	dev_dbg(dev, "Peer PANIC: Size 0x%x(0x%x), [Rd Wr] = [%d %d]\n",
+		log.buf_size, log.mask, log.rd_idx, log.wr_idx);
+
+	cnt = 0;
+	data_offset = vk->peerlog_off + sizeof(struct bcm_vk_peer_log);
+	while (log.rd_idx != log.wr_idx) {
+		loc_buf[cnt] = vkread8(vk, BAR_2, data_offset + log.rd_idx);
+
+		if ((loc_buf[cnt] == '\0') ||
+		    (cnt == (BCM_VK_PEER_LOG_LINE_MAX - 1))) {
+			dev_err(dev, "%s", loc_buf);
+			cnt = 0;
+		} else {
+			cnt++;
+		}
+		log.rd_idx = (log.rd_idx + 1) & log.mask;
+	}
+	/* update rd idx at the end */
+	vkwrite32(vk, log.rd_idx, BAR_2, vk->peerlog_off);
+}
+
 void bcm_vk_handle_notf(struct bcm_vk *vk)
 {
 	uint32_t reg;
@@ -262,7 +296,14 @@ void bcm_vk_handle_notf(struct bcm_vk *vk)
 	bcm_vk_log_notf(vk, &alert, host_err_log_reg_tab,
 			ARRAY_SIZE(host_err_log_reg_tab));
 
-	/* Add any specific handling after this if needed */
+	/*
+	 * If it is a sys fault or heartbeat timeout, we would like extract
+	 * log msg from the card so that we would know what is the last fault
+	 */
+	if ((!intf_down) &&
+	    ((vk->host_alert.flags & ERR_LOG_HOST_ALERT_HB_FAIL) ||
+	     (vk->peer_alert.flags & ERR_LOG_SYS_FAULT)))
+		bcm_vk_dump_peer_log(vk);
 }
 
 static int bcm_vk_sysfs_dump_reg(uint32_t reg_val,
@@ -398,6 +439,9 @@ static void bcm_vk_get_card_info(struct bcm_vk *vk)
 		info->cmpt_tag, info->cpu_freq_mhz, info->cpu_scale[0],
 		info->cpu_scale[MAX_OPP - 1], info->ddr_freq_mhz,
 		info->ddr_size_MB, info->video_core_freq_mhz);
+
+	/* get the peer log pointer, only need the offset */
+	vk->peerlog_off = offset;
 }
 
 static int bcm_vk_sync_card_info(struct bcm_vk *vk)

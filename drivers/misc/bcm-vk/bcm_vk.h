@@ -198,6 +198,20 @@ struct bcm_vk_card_info {
 	uint32_t video_core_freq_mhz;
 };
 
+/*
+ * Control structure of logging messages from the card.  This
+ * buffer is for logmsg that comes from vk
+ */
+struct bcm_vk_peer_log {
+	uint32_t rd_idx;
+	uint32_t wr_idx;
+	uint32_t buf_size;
+	uint32_t mask;
+	char data[0];
+};
+/* max size per line of peer log */
+#define BCM_VK_PEER_LOG_LINE_MAX  256
+
 struct bcm_vk_hb_ctrl {
 	struct timer_list timer;
 	uint32_t last_uptime;
@@ -259,6 +273,9 @@ struct bcm_vk {
 	spinlock_t host_alert_lock; /* protection to access host_alert struct */
 	struct bcm_vk_alert host_alert;
 	struct bcm_vk_alert peer_alert; /* bits set by the card */
+
+	/* offset of the peer log control in BAR2 */
+	uint32_t peerlog_off;
 };
 
 /* wq offload work items bits definitions */
