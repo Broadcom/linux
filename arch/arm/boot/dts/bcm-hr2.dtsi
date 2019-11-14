@@ -300,10 +300,10 @@
 
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 1 &pcie0_intc 1>,
-				<0 0 0 2 &pcie0_intc 2>,
-				<0 0 0 3 &pcie0_intc 3>,
-				<0 0 0 4 &pcie0_intc 4>;
+		interrupt-map = <0 0 0 1 &pcie0_intc 0>,
+				<0 0 0 2 &pcie0_intc 1>,
+				<0 0 0 3 &pcie0_intc 2>,
+				<0 0 0 4 &pcie0_intc 3>;
 
 		linux,pci-domain = <0>;
 
@@ -347,10 +347,10 @@
 
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 1 &pcie1_intc 1>,
-				<0 0 0 2 &pcie1_intc 2>,
-				<0 0 0 3 &pcie1_intc 3>,
-				<0 0 0 4 &pcie1_intc 4>;
+		interrupt-map = <0 0 0 1 &pcie1_intc 0>,
+				<0 0 0 2 &pcie1_intc 1>,
+				<0 0 0 3 &pcie1_intc 2>,
+				<0 0 0 4 &pcie1_intc 3>;
 
 		linux,pci-domain = <1>;
 
