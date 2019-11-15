@@ -90,7 +90,11 @@
 	status = "okay";
 };
 
-&uio_mbox {
+&uio_itcm {
+	status = "okay";
+};
+
+&uio_dtcm {
 	status = "okay";
 };
 
@@ -98,15 +102,11 @@
 	status = "okay";
 };
 
-&uio_ddr0 {
+&uio_sram {
 	status = "okay";
 };
 
-&uio_ddr1 {
-	status = "okay";
-};
-
-&uio_ddr2 {
+&uio_mbox {
 	status = "okay";
 };
 
