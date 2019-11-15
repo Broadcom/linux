@@ -1,0 +1,90 @@
+* User space mappable DMA buffer
+* Ported from https://github.com/ikwzm/udmabuf
+* 	branch: u-dma-buf-master
+* 	SHA: 3af280a66d1483dfb20defd9a4ceb71a51fa750c
+* 	Date: Nov 22, 2019
+
+Required properties:
+- compatible: should be "dma-pubuf"
+- size: set the capacity of the DMA buffer in bytes
+
+Optional properties:
+- minor-number:
+         valid range is 0 to 255, when not specified driver automatically
+         assigns one appropriately
+- device-name:
+      The device name is determined as follow:
+         1) If device-name property is specified, the value of device-name
+            property is used.
+         2) If device-name property is not present, and if minor-number
+            property is specified, sprintf("udmabuf%d", minor-number) is used.
+         3) If device-name and minor-number are not present then the
+            name of the device tree is used as device name.
+- sync-mode:
+      Used to configure the behavior when it is opened with the O_SYNC flag.
+         1) sync-mode=<1>: If O_SYNC is specified or sync-always property is
+                           specified, CPU cache is disabled.
+                           Otherwise CPU cache is enabled.
+         2) sync-mode=<2>: If O_SYNC is specified or sync-always property is
+                           specified, CPU cache is disabled but CPU uses
+                           write-combine when writing data to DMA buffer
+                           improves performance by combining multiple write
+                           accesses. Otherwise CPU cache is enabled.
+         3) sync-mode=<3>: If O_SYNC is specified or sync-always property is
+                           specified, DMA coherency mode is used.
+                           Otherwise CPU cache is enabled.
+         Default is sync-mode = <1>
+- sync-always:
+      Used to specify that the operation specified by the sync-mode property
+      will always be performed regardless of O_SYNC specification.
+- sync-offset:
+      It is used to set the start of the buffer range when manually controlling
+      the cache of dmapubuf. When it is not specified, sync-offset is set to <0>
+- sync-size:
+      It is used to set the size of the buffer range when manually controlling
+      the cache of dmapubuf. When it is not specified, sync-size is set to <0>.
+- sync-direction:
+      It is used to set the direction of DMA when manually controlling the cache
+      of dmapubuf.
+         sync-direction=<0>: DMA_BIDIRECTIONAL
+         sync-direction=<1>: DMA_TO_DEVICE
+         sync-direction=<2>: DMA_FROM_DEVICE
+      By default sync-direction is set to <0>
+- dma-coherent:
+      It is used to indicate that coherency between DMA buffer and CPU cache can
+      be guaranteed by hardware.
+      When it is not specified, it indicates that coherency between DMA buffer
+      and CPU cache can not be guaranteed by hardware.
+- memory-region:
+      Linux can specify the reserved memory area in the device tree. The kernel
+      excludes normal memory allocation from the physical memory space specified
+      by reserved-memory property. In order to access this reserved memory area,
+      it is nessasary to use a general-purpose memory access driver such as
+      /dev/mem, or associate it with the device driver in the device tree.
+
+      By the memory-region property, the reserved memory area is associated
+      with dmapubuf.
+
+
+Example:
+      reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		reservedbuf: buffer@580000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000005 0x80000000 0x00000000 0x3FC00000>;
+			reusable;
+		};
+      };
+
+      dmapubuf0: dmapubuf@0x0 {
+		compatible = "dma-pubuf";
+		size = <0x100000>;
+		device-name = "dmapubuf0";
+		sync-mode = <2>;
+		sync-always;
+		dma-coherent;
+		memory-region = <&reservedbuf>;
+      };
