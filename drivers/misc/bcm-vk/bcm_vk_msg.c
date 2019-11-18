@@ -115,12 +115,12 @@ static void bcm_vk_set_host_alert(struct bcm_vk *vk, uint32_t bit_mask)
 /*
  * legacy does not support heartbeat mechanism
  */
-static void bcm_vk_hb_init(struct bcm_vk *vk)
+void bcm_vk_hb_init(struct bcm_vk *vk)
 {
 	dev_info(&vk->pdev->dev, "skipped\n");
 }
 
-static void bcm_vk_hb_deinit(struct bcm_vk *vk)
+void bcm_vk_hb_deinit(struct bcm_vk *vk)
 {
 	dev_info(&vk->pdev->dev, "skipped\n");
 }
