@@ -150,7 +150,7 @@ module_param(info_enable, int, 0644);
 MODULE_PARM_DESC(info_enable, "dmapubuf install/uninstall information enable");
 
 /* dma_mask_bit module parameter */
-static int dma_mask_bit = 32;
+static int dma_mask_bit = 39;
 module_param(dma_mask_bit, int, 0644);
 MODULE_PARM_DESC(dma_mask_bit, "dmapubuf dma mask bit(default=32)");
 
