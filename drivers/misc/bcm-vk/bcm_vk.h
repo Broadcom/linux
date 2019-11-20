@@ -134,19 +134,19 @@
 #define FW_LOADER_ACK_RCVD_ALL_DATA	BIT(20)
 
 /* Error log register bit definition - register for error alerts */
-#define ERR_LOG_ALERT_ECC		BIT(0)
-#define ERR_LOG_ALERT_SSIM_BUSY		BIT(1)
-#define ERR_LOG_ALERT_AFBC_BUSY		BIT(2)
+#define ERR_LOG_UECC			BIT(0)
+#define ERR_LOG_SSIM_BUSY		BIT(1)
+#define ERR_LOG_AFBC_BUSY		BIT(2)
 #define ERR_LOG_HIGH_TEMP_ERR		BIT(3)
 #define ERR_LOG_WDOG_TIMEOUT		BIT(4)
 #define ERR_LOG_SYS_FAULT		BIT(5)
 #define ERR_LOG_MEM_ALLOC_FAIL		BIT(8)
 #define ERR_LOG_LOW_TEMP_WARN		BIT(9)
-#define ERR_LOG_ECC_WARN		BIT(10)
+#define ERR_LOG_ECC			BIT(10)
 
 /* Alert bit definitions detectd on host */
-#define ERR_LOG_HOST_ALERT_HB_FAIL	BIT(0)
-#define ERR_LOG_HOST_ALERT_PCIE_DWN	BIT(1)
+#define ERR_LOG_HOST_HB_FAIL		BIT(0)
+#define ERR_LOG_HOST_PCIE_DWN		BIT(1)
 
 /* Fast boot register derived states */
 #define FB_BOOT_STATE_MASK		0xFFF3FFFF
@@ -223,6 +223,12 @@ struct bcm_vk_alert {
 	uint16_t notfs;
 };
 
+/* some alert counters that the driver will keep track */
+struct bcm_vk_alert_cnts {
+	uint16_t ecc;
+	uint16_t uecc;
+};
+
 struct bcm_vk {
 	struct pci_dev *pdev;
 	void __iomem *bar[MAX_BAR];
@@ -273,6 +279,7 @@ struct bcm_vk {
 	spinlock_t host_alert_lock; /* protection to access host_alert struct */
 	struct bcm_vk_alert host_alert;
 	struct bcm_vk_alert peer_alert; /* bits set by the card */
+	struct bcm_vk_alert_cnts alert_cnts;
 
 	/* offset of the peer log control in BAR2 */
 	uint32_t peerlog_off;

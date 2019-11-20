@@ -87,6 +87,10 @@ const struct _load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 #define BCM_VK_ECC_MEM_ERR_SHIFT	0
 #define BCM_VK_UECC_MEM_ERR_SHIFT	8
 
+/* threshold of event occurrence and logs start to come out */
+#define BCM_VK_ECC_THRESHOLD		10
+#define BCM_VK_UECC_THRESHOLD		1
+
 /* a macro to get an individual field with mask and shift */
 #define BCM_VK_EXTRACT_FIELD(_field, _reg, _mask, _shift) \
 	(_field = (((_reg) >> (_shift)) & (_mask)))
@@ -180,20 +184,20 @@ static struct bcm_vk_sysfs_reg_entry const fw_shutdown_reg_tab[] = {
  * alerts that could be generated from peer
  */
 static struct bcm_vk_sysfs_reg_entry const peer_err_log_reg_tab[] = {
-	{ERR_LOG_ALERT_ECC, ERR_LOG_ALERT_ECC, "ecc"},
-	{ERR_LOG_ALERT_SSIM_BUSY, ERR_LOG_ALERT_SSIM_BUSY, "ssim_busy"},
-	{ERR_LOG_ALERT_AFBC_BUSY, ERR_LOG_ALERT_AFBC_BUSY, "afbc_busy"},
+	{ERR_LOG_UECC, ERR_LOG_UECC, "uecc"},
+	{ERR_LOG_SSIM_BUSY, ERR_LOG_SSIM_BUSY, "ssim_busy"},
+	{ERR_LOG_AFBC_BUSY, ERR_LOG_AFBC_BUSY, "afbc_busy"},
 	{ERR_LOG_HIGH_TEMP_ERR, ERR_LOG_HIGH_TEMP_ERR, "high_temp"},
 	{ERR_LOG_WDOG_TIMEOUT, ERR_LOG_WDOG_TIMEOUT, "wdog_timeout"},
 	{ERR_LOG_SYS_FAULT, ERR_LOG_SYS_FAULT, "sys_fault"},
 	{ERR_LOG_MEM_ALLOC_FAIL, ERR_LOG_MEM_ALLOC_FAIL, "malloc_fail warn"},
 	{ERR_LOG_LOW_TEMP_WARN, ERR_LOG_LOW_TEMP_WARN, "low_temp warn"},
-	{ERR_LOG_ECC_WARN, ERR_LOG_ECC_WARN, "ecc_correctable"},
+	{ERR_LOG_ECC, ERR_LOG_ECC, "ecc"},
 };
 /* alerts detected by the host */
 static struct bcm_vk_sysfs_reg_entry const host_err_log_reg_tab[] = {
-	{ERR_LOG_HOST_ALERT_PCIE_DWN, ERR_LOG_HOST_ALERT_PCIE_DWN, "PCIe_down"},
-	{ERR_LOG_HOST_ALERT_HB_FAIL, ERR_LOG_HOST_ALERT_HB_FAIL, "hb_fail"},
+	{ERR_LOG_HOST_PCIE_DWN, ERR_LOG_HOST_PCIE_DWN, "PCIe_down"},
+	{ERR_LOG_HOST_HB_FAIL, ERR_LOG_HOST_HB_FAIL, "hb_fail"},
 };
 
 irqreturn_t bcm_vk_notf_irqhandler(int irq, void *dev_id)
@@ -215,17 +219,48 @@ static void bcm_vk_log_notf(struct bcm_vk *vk,
 	uint32_t i;
 	uint32_t masked_val, latched_val;
 	struct bcm_vk_sysfs_reg_entry const *entry;
+	uint32_t reg;
+	uint16_t ecc_mem_err, uecc_mem_err;
+	struct device *dev = &vk->pdev->dev;
 
 	for (i = 0; i < table_size; i++) {
 		entry = &entry_tab[i];
 		masked_val = entry->mask & alert->notfs;
 		latched_val = entry->mask & alert->flags;
 
-		if (masked_val != latched_val)
+		if (masked_val == ERR_LOG_UECC) {
+			/*
+			 * if there is difference between stored cnt and it
+			 * is greater than threshold, log it.
+			 */
+			reg = vkread32(vk, BAR_0, BAR_CARD_ERR_MEM);
+			BCM_VK_EXTRACT_FIELD(uecc_mem_err, reg,
+					     BCM_VK_MEM_ERR_FIELD_MASK,
+					     BCM_VK_UECC_MEM_ERR_SHIFT);
+			if ((uecc_mem_err != vk->alert_cnts.uecc) &&
+			    (uecc_mem_err >= BCM_VK_UECC_THRESHOLD))
+				dev_info(dev,
+					 "ALERT! %s.%d uecc RAISED - ErrCnt %d\n",
+					 DRV_MODULE_NAME, vk->misc_devid,
+					 uecc_mem_err);
+			vk->alert_cnts.uecc = uecc_mem_err;
+		} else if (masked_val == ERR_LOG_ECC) {
+			reg = vkread32(vk, BAR_0, BAR_CARD_ERR_MEM);
+			BCM_VK_EXTRACT_FIELD(ecc_mem_err, reg,
+					     BCM_VK_MEM_ERR_FIELD_MASK,
+					     BCM_VK_ECC_MEM_ERR_SHIFT);
+			if ((ecc_mem_err != vk->alert_cnts.ecc) &&
+			    (ecc_mem_err >= BCM_VK_ECC_THRESHOLD))
+				dev_info(dev, "ALERT! %s.%d ecc RAISED - ErrCnt %d\n",
+					 DRV_MODULE_NAME, vk->misc_devid,
+					 ecc_mem_err);
+			vk->alert_cnts.ecc = ecc_mem_err;
+		} else if (masked_val != latched_val) {
 			/* print a log as info */
-			dev_info(&vk->pdev->dev, "ALERT! %s.%d %s %s\n",
+			dev_info(dev, "ALERT! %s.%d %s %s\n",
 				 DRV_MODULE_NAME, vk->misc_devid, entry->str,
 				 masked_val ? "RAISED" : "CLEARED");
+		}
 	}
 }
 
@@ -286,7 +321,7 @@ void bcm_vk_handle_notf(struct bcm_vk *vk)
 	/* check and make copy of alert with lock and then free lock */
 	spin_lock_irqsave(&vk->host_alert_lock, flags);
 	if (intf_down)
-		vk->host_alert.notfs |= ERR_LOG_HOST_ALERT_PCIE_DWN;
+		vk->host_alert.notfs |= ERR_LOG_HOST_PCIE_DWN;
 
 	alert = vk->host_alert;
 	vk->host_alert.flags = vk->host_alert.notfs;
@@ -301,7 +336,7 @@ void bcm_vk_handle_notf(struct bcm_vk *vk)
 	 * log msg from the card so that we would know what is the last fault
 	 */
 	if ((!intf_down) &&
-	    ((vk->host_alert.flags & ERR_LOG_HOST_ALERT_HB_FAIL) ||
+	    ((vk->host_alert.flags & ERR_LOG_HOST_HB_FAIL) ||
 	     (vk->peer_alert.flags & ERR_LOG_SYS_FAULT)))
 		bcm_vk_dump_peer_log(vk);
 }
@@ -1603,7 +1638,7 @@ static ssize_t alert_ecc_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
 	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_ALERT_ECC ? 1 : 0);
+				    & ERR_LOG_UECC ? 1 : 0);
 }
 
 static ssize_t alert_ssim_busy_show(struct device *dev,
@@ -1613,7 +1648,7 @@ static ssize_t alert_ssim_busy_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
 	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_ALERT_SSIM_BUSY ? 1 : 0);
+				    & ERR_LOG_SSIM_BUSY ? 1 : 0);
 }
 
 static ssize_t alert_afbc_busy_show(struct device *dev,
@@ -1623,7 +1658,7 @@ static ssize_t alert_afbc_busy_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
 	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_ALERT_AFBC_BUSY ? 1 : 0);
+				    & ERR_LOG_AFBC_BUSY ? 1 : 0);
 }
 
 static ssize_t alert_high_temp_show(struct device *dev,
@@ -1687,7 +1722,7 @@ static ssize_t alert_ecc_warn_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
 	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_ECC_WARN ? 1 : 0);
+				    & ERR_LOG_ECC ? 1 : 0);
 }
 
 static ssize_t alert_pcie_down_show(struct device *dev,
@@ -1697,7 +1732,7 @@ static ssize_t alert_pcie_down_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
 	return sprintf(buf, "%d\n", vk->host_alert.flags
-				    & ERR_LOG_HOST_ALERT_PCIE_DWN ? 1 : 0);
+				    & ERR_LOG_HOST_PCIE_DWN ? 1 : 0);
 }
 
 static ssize_t alert_heartbeat_fail_show(struct device *dev,
@@ -1708,7 +1743,7 @@ static ssize_t alert_heartbeat_fail_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
 	return sprintf(buf, "%d\n", vk->host_alert.flags
-				    & ERR_LOG_HOST_ALERT_HB_FAIL ? 1 : 0);
+				    & ERR_LOG_HOST_HB_FAIL ? 1 : 0);
 }
 
 static ssize_t temp_threshold_lower_c_show(struct device *dev,

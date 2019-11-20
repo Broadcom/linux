@@ -172,7 +172,7 @@ static void bcm_vk_hb_poll(struct timer_list *t)
 			BCM_VK_HB_LOST_MAX * BCM_VK_HB_TIMER_S);
 
 		bcm_vk_blk_drv_access(vk);
-		bcm_vk_set_host_alert(vk, ERR_LOG_HOST_ALERT_HB_FAIL);
+		bcm_vk_set_host_alert(vk, ERR_LOG_HOST_HB_FAIL);
 	}
 	/* re-arm timer */
 	mod_timer(&hb->timer, jiffies + BCM_VK_HB_TIMER_VALUE);
@@ -562,7 +562,7 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 		dev_crit(dev, "Invalid wr_idx 0x%x => max 0x%x!",
 			 wr_idx, qinfo->q_size);
 		bcm_vk_blk_drv_access(vk);
-		bcm_vk_set_host_alert(vk, ERR_LOG_HOST_ALERT_PCIE_DWN);
+		bcm_vk_set_host_alert(vk, ERR_LOG_HOST_PCIE_DWN);
 		goto idx_err;
 	}
 
@@ -742,7 +742,7 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 					 rd_idx, src->size, qinfo->q_size);
 				bcm_vk_blk_drv_access(vk);
 				bcm_vk_set_host_alert(
-					vk, ERR_LOG_HOST_ALERT_PCIE_DWN);
+					vk, ERR_LOG_HOST_PCIE_DWN);
 				goto idx_err;
 			}
 
@@ -1232,6 +1232,7 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 		vkwrite32(vk, 0, BAR_1, VK_BAR1_SOTP_REVID_ADDR(i));
 
 	memset(&vk->card_info, 0, sizeof(vk->card_info));
+	memset(&vk->alert_cnts, 0, sizeof(vk->alert_cnts));
 
 	/*
 	 * When fastboot fails, the CODE_PUSH_OFFSET stays persistent.
