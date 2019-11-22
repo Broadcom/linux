@@ -293,7 +293,7 @@ int bcm_vk_tty_init(struct bcm_vk *vk, char *name)
 		if (IS_ERR(tty_dev)) {
 			int j;
 
-			for (j = 0; j > i; j++)
+			for (j = 0; j < i; j++)
 				tty_port_unregister_device(&vk->tty[j].port,
 							   tty_drv,
 							   j);
