@@ -133,7 +133,7 @@ static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 	vk = (struct bcm_vk *)dev_get_drvdata(tty->dev);
 	index = tty->index;
 
-	if (index > BCM_VK_NUM_TTY)
+	if (index >= BCM_VK_NUM_TTY)
 		return -EINVAL;
 
 	vktty = &vk->tty[index];
