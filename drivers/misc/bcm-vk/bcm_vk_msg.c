@@ -660,7 +660,7 @@ int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *ppid)
 		return -EPERM;
 	}
 
-	dev_info(dev, "No more sessions, shut down pid %d\n", pid);
+	dev_dbg(dev, "No more sessions, shut down pid %d\n", pid);
 
 	/* only need to do it if it is not the reset process */
 	if (vk->reset_ppid != ppid)
