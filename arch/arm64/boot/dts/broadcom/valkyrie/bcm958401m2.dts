@@ -9,7 +9,7 @@
  * Reserve BL31 image area. In absence of A72 ROM,
  * Linux reboot enters at stand-alone BL31.
  */
-/memreserve/ 0x562000000 0x00100000;
+/memreserve/ 0x562000000 0x00010000;
 
 #include "valkyrie.dtsi"
 
