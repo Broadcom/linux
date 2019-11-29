@@ -50,9 +50,6 @@
 /* Jumbo Frame Registers */
 #define B53_JUMBO_PAGE			0x40
 
-/* BPM Registers */
-#define B53_BPM_PAGE			0x73
-
 /* EEE Control Registers Page */
 #define B53_EEE_PAGE			0x92
 
@@ -113,10 +110,6 @@
 /* Switch control (8 bit) */
 #define B53_SWITCH_CTRL			0x22
 #define  B53_MII_DUMB_FWDG_EN		BIT(6)
-
-/* Reserved Multicast control (8 bit) */
-#define B53_RSV_MCAST_CTRL		0x2f
-#define  B53_EN_MUL_1			BIT(1) /* 0 = LLDP forward enable */
 
 /* (16 bit) */
 #define B53_UC_FLOOD_MASK		0x32
@@ -480,13 +473,6 @@
 #define B53_JUMBO_MAX_SIZE_63XX		0x08
 #define   JMS_MIN_SIZE			1518
 #define   JMS_MAX_SIZE			9724
-
-/*************************************************************************
- * BPM Page Registers
- *************************************************************************/
-
-/* BPM Spare 0 register (32 bit) */
-#define B53_BPM_REG_SPARE0		0x60
 
 /*************************************************************************
  * EEE Configuration Page Registers

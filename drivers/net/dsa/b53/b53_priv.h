@@ -100,9 +100,6 @@ struct b53_vlan {
 	bool valid;
 };
 
-/* Warm reset sequence */
-#define B53_WARM_RESET_SEQ	0x1111
-
 struct b53_device {
 	struct dsa_switch *ds;
 	struct b53_platform_data *pdata;
@@ -138,7 +135,6 @@ struct b53_device {
 
 	/* run time configuration */
 	bool enable_jumbo;
-	u8 cold_boot;
 
 	unsigned int num_vlans;
 	struct b53_vlan *vlans;
@@ -146,8 +142,6 @@ struct b53_device {
 	bool vlan_filtering_enabled;
 	unsigned int num_ports;
 	struct b53_port *ports;
-	/* Reboot notifier handler */
-	struct notifier_block b53_reboot_notifier;
 };
 
 #define b53_for_each_port(dev, i) \

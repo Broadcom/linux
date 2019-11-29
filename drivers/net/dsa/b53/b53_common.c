@@ -27,7 +27,6 @@
 #include <linux/platform_data/b53.h>
 #include <linux/phy.h>
 #include <linux/phylink.h>
-#include <linux/reboot.h>
 #include <linux/etherdevice.h>
 #include <linux/if_bridge.h>
 #include <net/dsa.h>
@@ -225,31 +224,6 @@ static const struct b53_mib_desc b53_mibs_58xx[] = {
 	{ 4, 0xe4, "TxPkts1024toMaxPktOcets" },
 };
 
-static bool b53_cold_boot_check(struct b53_device *dev)
-{
-	u32 rst_seq = 0;
-
-	if (dev->chip_id == BCM583XX_DEVICE_ID)
-		b53_read32(dev, B53_BPM_PAGE, B53_BPM_REG_SPARE0, &rst_seq);
-
-	return (rst_seq != B53_WARM_RESET_SEQ);
-}
-
-static int b53_reboot_handler(struct notifier_block *nb,
-			      unsigned long event, void *ptr)
-{
-	struct b53_device *dev = container_of(nb, struct b53_device,
-					      b53_reboot_notifier);
-
-	/* Write unique sequence into spare switch register before shutdown.
-	 * As the register content is preserved only during warm reboot,
-	 * reading same sequence on boot up indicates warm reboot.
-	 */
-	b53_write32(dev, B53_BPM_PAGE, B53_BPM_REG_SPARE0, B53_WARM_RESET_SEQ);
-
-	return NOTIFY_OK;
-}
-
 #define B53_MIBS_58XX_SIZE	ARRAY_SIZE(b53_mibs_58xx)
 
 static int b53_do_vlan_op(struct b53_device *dev, u8 op)
@@ -368,13 +342,6 @@ static void b53_set_forwarding(struct b53_device *dev, int enable)
 	b53_read8(dev, B53_CTRL_PAGE, B53_SWITCH_CTRL, &mgmt);
 	mgmt |= B53_MII_DUMB_FWDG_EN;
 	b53_write8(dev, B53_CTRL_PAGE, B53_SWITCH_CTRL, mgmt);
-
-	if (!(is5325(dev) || is5365(dev))) {
-		/* Forward LLDP packets */
-		b53_read8(dev, B53_CTRL_PAGE, B53_RSV_MCAST_CTRL, &mgmt);
-		mgmt &= ~B53_EN_MUL_1;
-		b53_write8(dev, B53_CTRL_PAGE, B53_RSV_MCAST_CTRL, mgmt);
-	}
 }
 
 static void b53_enable_vlan(struct b53_device *dev, bool enable,
@@ -556,20 +523,15 @@ int b53_enable_port(struct dsa_switch *ds, int port, struct phy_device *phy)
 	/* Clear the Rx and Tx disable bits and set to no spanning tree */
 	b53_write8(dev, B53_CTRL_PAGE, B53_PORT_CTRL(port), 0);
 
-	if (dev->cold_boot) {
-		/* Set this port, and only this one to be in the default VLAN,
-		 * if member of a bridge, restore its membership prior to
-		 * bringing down this port.
-		 */
-
-		b53_read16(dev, B53_PVLAN_PAGE,
-			   B53_PVLAN_PORT_MASK(port), &pvlan);
-		pvlan &= ~0x1ff;
-		pvlan |= BIT(port);
-		pvlan |= dev->ports[port].vlan_ctl_mask;
-		b53_write16(dev, B53_PVLAN_PAGE,
-			    B53_PVLAN_PORT_MASK(port), pvlan);
-	}
+	/* Set this port, and only this one to be in the default VLAN,
+	 * if member of a bridge, restore its membership prior to
+	 * bringing down this port.
+	 */
+	b53_read16(dev, B53_PVLAN_PAGE, B53_PVLAN_PORT_MASK(port), &pvlan);
+	pvlan &= ~0x1ff;
+	pvlan |= BIT(port);
+	pvlan |= dev->ports[port].vlan_ctl_mask;
+	b53_write16(dev, B53_PVLAN_PAGE, B53_PVLAN_PORT_MASK(port), pvlan);
 
 	b53_imp_vlan_setup(ds, cpu_port);
 
@@ -2460,18 +2422,7 @@ int b53_switch_register(struct b53_device *dev)
 
 	pr_info("found switch: %s, rev %i\n", dev->name, dev->core_rev);
 
-	dev->cold_boot = b53_cold_boot_check(dev);
-
-	ret = dsa_register_switch(dev->ds);
-	if (ret)
-		return ret;
-
-	if (dev->chip_id == BCM583XX_DEVICE_ID &&
-	    !(dev->b53_reboot_notifier.notifier_call)) {
-		dev->b53_reboot_notifier.notifier_call = b53_reboot_handler;
-		register_reboot_notifier(&dev->b53_reboot_notifier);
-	}
-	return ret;
+	return dsa_register_switch(dev->ds);
 }
 EXPORT_SYMBOL(b53_switch_register);
 
