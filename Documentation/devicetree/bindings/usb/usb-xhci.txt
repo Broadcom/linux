@@ -40,8 +40,6 @@ Optional properties:
   - usb3-lpm-capable: determines if platform is USB3 LPM capable
   - quirk-broken-port-ped: set if the controller has broken port disable mechanism
   - imod-interval-ns: default interrupt moderation interval is 5000ns
-  - needs-reset-on-resume : boolean, set this to force XHCI reset after resume
-  - usb-phy-port-reset: set this to do USB PORT PHY reset while disconnect
   - phys : see usb-hcd.txt in the current directory
 
 additionally the properties from usb-hcd.txt (in the current directory) are

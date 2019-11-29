@@ -159,12 +159,14 @@ MODULE_DEVICE_TABLE(of, usb_xhci_of_match);
 
 static int xhci_plat_probe(struct platform_device *pdev)
 {
-	const struct of_device_id *match;
+	const struct xhci_plat_priv *priv_match;
 	const struct hc_driver	*driver;
 	struct device		*sysdev, *tmpdev;
 	struct xhci_hcd		*xhci;
 	struct resource         *res;
 	struct usb_hcd		*hcd;
+	struct clk              *clk;
+	struct clk              *reg_clk;
 	int			ret;
 	int			irq;
 
@@ -233,35 +235,33 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	hcd->rsrc_start = res->start;
 	hcd->rsrc_len = resource_size(res);
 
-	xhci = hcd_to_xhci(hcd);
-
 	/*
 	 * Not all platforms have clks so it is not an error if the
 	 * clock do not exist.
 	 */
-	xhci->reg_clk = devm_clk_get_optional(&pdev->dev, "reg");
-	if (IS_ERR(xhci->reg_clk)) {
-		ret = PTR_ERR(xhci->reg_clk);
+	reg_clk = devm_clk_get(&pdev->dev, "reg");
+	if (!IS_ERR(reg_clk)) {
+		ret = clk_prepare_enable(reg_clk);
+		if (ret)
+			goto put_hcd;
+	} else if (PTR_ERR(reg_clk) == -EPROBE_DEFER) {
+		ret = -EPROBE_DEFER;
 		goto put_hcd;
 	}
 
-	ret = clk_prepare_enable(xhci->reg_clk);
-	if (ret)
-		goto put_hcd;
-
-	xhci->clk = devm_clk_get_optional(&pdev->dev, NULL);
-	if (IS_ERR(xhci->clk)) {
-		ret = PTR_ERR(xhci->clk);
+	clk = devm_clk_get(&pdev->dev, NULL);
+	if (!IS_ERR(clk)) {
+		ret = clk_prepare_enable(clk);
+		if (ret)
+			goto disable_reg_clk;
+	} else if (PTR_ERR(clk) == -EPROBE_DEFER) {
+		ret = -EPROBE_DEFER;
 		goto disable_reg_clk;
 	}
 
-	ret = clk_prepare_enable(xhci->clk);
-	if (ret)
-		goto disable_reg_clk;
-
-	match = of_match_node(usb_xhci_of_match, pdev->dev.of_node);
-	if (match) {
-		const struct xhci_plat_priv *priv_match = match->data;
+	xhci = hcd_to_xhci(hcd);
+	priv_match = of_device_get_match_data(&pdev->dev);
+	if (priv_match) {
 		struct xhci_plat_priv *priv = hcd_to_xhci_priv(hcd);
 
 		/* Just copy data for now */
@@ -271,6 +271,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	device_wakeup_enable(hcd->self.controller);
 
+	xhci->clk = clk;
+	xhci->reg_clk = reg_clk;
 	xhci->main_hcd = hcd;
 	xhci->shared_hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
 			dev_name(&pdev->dev), hcd);
@@ -288,17 +290,11 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		if (device_property_read_bool(tmpdev, "usb2-lpm-disable"))
 			xhci->quirks |= XHCI_HW_LPM_DISABLE;
 
-		if (device_property_read_bool(&pdev->dev, "needs-reset-on-resume"))
-			xhci->quirks |= XHCI_RESET_ON_RESUME;
-
 		if (device_property_read_bool(tmpdev, "usb3-lpm-capable"))
 			xhci->quirks |= XHCI_LPM_SUPPORT;
 
 		if (device_property_read_bool(tmpdev, "quirk-broken-port-ped"))
 			xhci->quirks |= XHCI_BROKEN_PORT_PED;
-
-		if (device_property_read_bool(tmpdev, "usb-phy-port-reset"))
-			xhci->quirks |= XHCI_RESET_PHY_ON_DISCONNECT;
 
 		device_property_read_u32(tmpdev, "imod-interval-ns",
 					 &xhci->imod_interval);
@@ -314,6 +310,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		ret = usb_phy_init(hcd->usb_phy);
 		if (ret)
 			goto put_usb3_hcd;
+		hcd->skip_phy_initialization = 1;
 	}
 
 	hcd->tpl_support = of_usb_host_tpl_support(sysdev->of_node);
@@ -351,10 +348,10 @@ put_usb3_hcd:
 	usb_put_hcd(xhci->shared_hcd);
 
 disable_clk:
-	clk_disable_unprepare(xhci->clk);
+	clk_disable_unprepare(clk);
 
 disable_reg_clk:
-	clk_disable_unprepare(xhci->reg_clk);
+	clk_disable_unprepare(reg_clk);
 
 put_hcd:
 	usb_put_hcd(hcd);

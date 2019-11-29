@@ -286,19 +286,6 @@ config USB_SNP_UDC_PLAT
 	  and Cygnus SoCs.
 
 	  If unsure, say N.
-
-config USB_SNP_UDC
-	tristate "Synopsys USB 2.0 Device controller"
-	select USB_GADGET_DUALSPEED
-	depends on COMPILE_TEST || USB_GADGET
-	default ARCH_BCM_IPROC
-	help
-	  This adds Device support for Synopsys Designware core
-	  AHB subsystem USB2.0 Device Controller(UDC) .
-
-	  This driver works with Synopsys UDC20 products.
-	  If unsure, say N.
-
 #
 # Controllers available in both integrated and discrete versions
 #
