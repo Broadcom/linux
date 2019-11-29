@@ -102,6 +102,20 @@ struct bcm_vk_wkent {
 	struct vk_msg_blk h2vk_msg[0];
 };
 
+/* queue stats counters */
+struct bcm_vk_qs_cnts {
+	uint32_t cnt; /* general counter, used to limit output */
+	uint32_t acc_sum;
+	uint32_t max_occ; /* max during a sampling period */
+	uint32_t max_abs; /* the abs max since reset */
+};
+
+/* stats structure */
+struct bcm_vk_qstats {
+	uint32_t q_num;
+	struct bcm_vk_qs_cnts qcnts;
+};
+
 /* control channel structure for either h2vk or vk2h communication */
 struct bcm_vk_msg_chan {
 	uint32_t q_nr;
@@ -114,6 +128,10 @@ struct bcm_vk_msg_chan {
 	struct list_head pendq[VK_MSGQ_MAX_NR];
 	/* static queue info from the sync */
 	struct bcm_vk_sync_qinfo sync_qinfo[VK_MSGQ_MAX_NR];
+#if defined(CONFIG_BCM_VK_QSTATS)
+	/* qstats */
+	struct bcm_vk_qstats qstats[VK_MSGQ_MAX_NR];
+#endif
 };
 
 /* TO_DO: some of the following defines may need to be adjusted */

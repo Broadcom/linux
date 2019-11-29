@@ -92,6 +92,42 @@ static void bcm_vk_h2vk_verify_blk
 }
 #endif
 
+#if defined(CONFIG_BCM_VK_QSTATS)
+
+/* Use default value of 20000 rd/wr per update */
+#if !defined(BCM_VK_QSTATS_ACC_CNT)
+#define BCM_VK_QSTATS_ACC_CNT 20000
+#endif
+
+void bcm_vk_update_qstats(struct bcm_vk *vk, const char *tag,
+			  struct bcm_vk_qstats *qstats, uint32_t occupancy)
+{
+	struct bcm_vk_qs_cnts *qcnts = &qstats->qcnts;
+
+	if (occupancy > qcnts->max_occ) {
+		qcnts->max_occ = occupancy;
+		if (occupancy > qcnts->max_abs)
+			qcnts->max_abs = occupancy;
+	}
+
+	qcnts->acc_sum += occupancy;
+	if (++qcnts->cnt >= BCM_VK_QSTATS_ACC_CNT) {
+		/* log average and clear counters */
+		dev_info(&vk->pdev->dev,
+			 "%s[%d]: Max: [%3d/%3d] Acc %d num %d, Aver %d\n",
+			 tag, qstats->q_num,
+			 qcnts->max_occ, qcnts->max_abs,
+			 qcnts->acc_sum,
+			 qcnts->cnt,
+			 qcnts->acc_sum / qcnts->cnt);
+
+		qcnts->cnt = 0;
+		qcnts->max_occ = 0;
+		qcnts->acc_sum = 0;
+	}
+}
+#endif
+
 static bool bcm_vk_drv_access_ok(struct bcm_vk *vk)
 {
 	return (!!atomic_read(&vk->msgq_inited));
@@ -462,8 +498,12 @@ static int bcm_vk_msg_chan_init(struct bcm_vk_msg_chan *chan)
 
 	mutex_init(&chan->msgq_mutex);
 	spin_lock_init(&chan->pendq_lock);
-	for (i = 0; i < VK_MSGQ_MAX_NR; i++)
+	for (i = 0; i < VK_MSGQ_MAX_NR; i++) {
 		INIT_LIST_HEAD(&chan->pendq[i]);
+#if defined(CONFIG_BCM_VK_QSTATS)
+		chan->qstats[i].q_num = i;
+#endif
+	}
 
 	return rc;
 }
@@ -531,6 +571,7 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	uint32_t q_num = src->queue_id;
 	uint32_t wr_idx; /* local copy */
 	uint32_t i;
+	uint32_t avail;
 
 	if (entry->h2vk_blks != src->size + 1) {
 		dev_err(dev, "number of blks %d not matching %d MsgId[0x%x]: func %d ctx 0x%x\n",
@@ -548,8 +589,14 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	rmb(); /* start with a read barrier */
 	mutex_lock(&chan->msgq_mutex);
 
+	avail = VK_MSGQ_AVAIL_SPACE(msgq, qinfo);
+
+#if defined(CONFIG_BCM_VK_QSTATS)
+	bcm_vk_update_qstats(vk, "h2vk", &chan->qstats[q_num],
+			     qinfo->q_size - avail);
+#endif
 	/* if not enough space, return EAGAIN and let app handles it */
-	if (VK_MSGQ_AVAIL_SPACE(msgq, qinfo) < entry->h2vk_blks) {
+	if (avail < entry->h2vk_blks) {
 		mutex_unlock(&chan->msgq_mutex);
 		return -EAGAIN;
 	}
@@ -746,6 +793,10 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 				goto idx_err;
 			}
 
+#if defined(CONFIG_BCM_VK_QSTATS)
+			bcm_vk_update_qstats(vk, "vk2h", &chan->qstats[q_num],
+					     VK_MSGQ_OCCUPIED(msgq, qinfo));
+#endif
 			num_blks = src->size + 1;
 			data = kzalloc(num_blks * VK_MSGQ_BLK_SIZE, GFP_KERNEL);
 			if (data) {
@@ -1253,7 +1304,15 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	vkwrite32(vk, 0, BAR_0, BAR_OS_UPTIME);
 	memset(&vk->host_alert, 0, sizeof(vk->host_alert));
 	memset(&vk->peer_alert, 0, sizeof(vk->peer_alert));
-
+#if defined(CONFIG_BCM_VK_QSTATS)
+	/* clear qstats */
+	for (i = 0; i < VK_MSGQ_MAX_NR; i++) {
+		memset(&vk->h2vk_msg_chan.qstats[i].qcnts, 0,
+		       sizeof(vk->h2vk_msg_chan.qstats[i].qcnts));
+		memset(&vk->vk2h_msg_chan.qstats[i].qcnts, 0,
+		       sizeof(vk->vk2h_msg_chan.qstats[i].qcnts));
+	}
+#endif
 	/* clear 4096 bits of bitmap */
 	bitmap_clear(vk->bmap, 0, VK_MSG_ID_BITMAP_SIZE);
 }
