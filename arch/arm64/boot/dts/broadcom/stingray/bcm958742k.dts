@@ -36,7 +36,6 @@
 #define NUM_RAID	8
 #define ENABLE_I2C0	1
 #define ENABLE_I2C1	1
-#define ENABLE_RTC	1
 #define ENABLE_SSP0	1
 #define ENABLE_SSP1	1
 #define ENABLE_UART2	1

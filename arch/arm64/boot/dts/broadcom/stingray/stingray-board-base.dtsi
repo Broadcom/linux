@@ -259,9 +259,3 @@
 		spi-max-frequency = <12500000>;
 	};
 };
-
-&rtc {
-#if (ENABLE_RTC == 1)
-	status = "okay";
-#endif
-};

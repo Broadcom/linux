@@ -717,12 +717,6 @@
 		};
 	};
 
-	rtc: rtc {
-		compatible = "brcm,iproc-rtc";
-		interrupts = <GIC_SPI 219 IRQ_TYPE_EDGE_RISING>;
-		status = "disabled";
-	};
-
 	tmons {
 		compatible = "simple-bus";
 		#address-cells = <1>;
