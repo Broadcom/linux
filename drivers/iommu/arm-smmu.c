@@ -212,9 +212,6 @@ struct arm_smmu_device {
 
 	u32				num_global_irqs;
 	u32				num_context_irqs;
-	u32				reserved_context_banks;
-	u32				reserved_s2_context_banks;
-	u32				reserved_mapping_groups;
 	unsigned int			*irqs;
 	struct clk_bulk_data		*clks;
 	int				num_clks;
@@ -1890,12 +1887,6 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	if (id & ID0_SMS) {
 		smmu->features |= ARM_SMMU_FEAT_STREAM_MATCH;
 		size = (id >> ID0_NUMSMRG_SHIFT) & ID0_NUMSMRG_MASK;
-		if (size < smmu->reserved_mapping_groups) {
-			dev_err(smmu->dev,
-				"invalid reserved mapping groups!\n");
-			return -ENODEV;
-		}
-		size -= smmu->reserved_mapping_groups;
 		if (size == 0) {
 			dev_err(smmu->dev,
 				"stream-matching supported, but no SMRs present!\n");
@@ -1942,17 +1933,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 			size * 2, (smmu->cb_base - gr0_base) * 2);
 
 	smmu->num_s2_context_banks = (id >> ID1_NUMS2CB_SHIFT) & ID1_NUMS2CB_MASK;
-	if (smmu->num_s2_context_banks < smmu->reserved_s2_context_banks) {
-		dev_err(smmu->dev, "invalid reserved S2 context banks!\n");
-		return -ENODEV;
-	}
-	smmu->num_s2_context_banks -= smmu->reserved_s2_context_banks;
 	smmu->num_context_banks = (id >> ID1_NUMCB_SHIFT) & ID1_NUMCB_MASK;
-	if (smmu->num_context_banks < smmu->reserved_context_banks) {
-		dev_err(smmu->dev, "invalid reserved context banks!\n");
-		return -ENODEV;
-	}
-	smmu->num_context_banks -= smmu->reserved_context_banks;
 	if (smmu->num_s2_context_banks > smmu->num_context_banks) {
 		dev_err(smmu->dev, "impossible number of S2 context banks!\n");
 		return -ENODEV;
@@ -2146,18 +2127,6 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev,
 		dev_err(dev, "missing #global-interrupts property\n");
 		return -ENODEV;
 	}
-
-	if (of_property_read_u32(dev->of_node, "reserved-context-banks",
-				 &smmu->reserved_context_banks))
-		smmu->reserved_context_banks = 0;
-
-	if (of_property_read_u32(dev->of_node, "reserved-s2-context-banks",
-				 &smmu->reserved_s2_context_banks))
-		smmu->reserved_s2_context_banks = 0;
-
-	if (of_property_read_u32(dev->of_node, "reserved-mapping-groups",
-				 &smmu->reserved_mapping_groups))
-		smmu->reserved_mapping_groups = 0;
 
 	data = of_device_get_match_data(dev);
 	smmu->version = data->version;
