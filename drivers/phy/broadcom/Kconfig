@@ -1,15 +1,6 @@
 #
 # Phy drivers for Broadcom platforms
 #
-config PHY_CYGNUS_PCIE
-	tristate "Broadcom Cygnus PCIe PHY driver"
-	depends on OF && (ARCH_BCM_CYGNUS || COMPILE_TEST)
-	select GENERIC_PHY
-	default ARCH_BCM_CYGNUS
-	help
-	  Enable this to support the Broadcom Cygnus PCIe PHY.
-	  If unsure, say N.
-
 config PHY_SR_PCIE_DIAG
 	tristate "Broadcom Stingray PCIe PHY Diag driver"
 	depends on OF && (ARCH_BCM_IPROC || COMPILE_TEST)
@@ -26,6 +17,15 @@ config PHY_STINGRAY_SATA_PRBS
 	default ARCH_BCM_IPROC
 	help
 	  Enable this to support the Broadcom Stingray SATA PHY PRBS test.
+	  If unsure, say N.
+
+config PHY_CYGNUS_PCIE
+	tristate "Broadcom Cygnus PCIe PHY driver"
+	depends on OF && (ARCH_BCM_CYGNUS || COMPILE_TEST)
+	select GENERIC_PHY
+	default ARCH_BCM_CYGNUS
+	help
+	  Enable this to support the Broadcom Cygnus PCIe PHY.
 	  If unsure, say N.
 
 config PHY_BCM_SR_USB
