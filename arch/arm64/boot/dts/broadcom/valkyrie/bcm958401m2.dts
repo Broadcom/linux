@@ -10,6 +10,12 @@
  * Linux reboot enters at stand-alone BL31.
  */
 /memreserve/ 0x562000000 0x00010000;
+/* high memory pool region */
+/memreserve/ 0x580000000 0x3FC00000;
+/* high memory pool region */
+/memreserve/ 0x480000000 0xE0000000;
+/* low memory pool region */
+/memreserve/ 0x066000000 0x7A000000;
 
 #include "valkyrie.dtsi"
 
@@ -28,11 +34,20 @@
 		linux,initrd-end = <0x5 0x66000000>;
 	};
 
-	memory: memory@560000000 {
+	memory@66000000 {
 		device_type = "memory";
-		reg = <0x5 0x60000000 0x0 0x1FE00000>;
+		reg = <0x0 0x66000000 0x0 0x7A000000>;
 	};
 
+	memory@480000000 {
+		device_type = "memory";
+		reg = <0x4 0x80000000 0x0 0xE0000000>;
+	};
+
+	memory@560000000 {
+		device_type = "memory";
+		reg = <0x5 0x60000000 0x0 0x5FE00000>;
+	};
 };
 
 &uart1 {
