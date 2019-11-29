@@ -46,7 +46,7 @@
 
 		/* Nitro FW, nitro Crash, Bl31, Bl32 and elog */
 		misc_reserve {
-			reg = <0x0 0x8ae00000 0x0 0x4413000>;
+			reg = <0x0 0x8ae00000 0x0 0x4423000>;
 			no-map;
 		};
 
@@ -60,6 +60,10 @@
 			status = "disabled";
 		};
 	};
+};
+
+&idm_elog {
+	reg = <0x8f213000 0x10000>;
 };
 
 &i2c0 {
