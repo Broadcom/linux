@@ -319,6 +319,8 @@ static int bnxt_hwrm_cfa_flow_free(struct bnxt *bp,
 	if (rc)
 		netdev_info(bp->dev, "%s: Error rc=%d", __func__, rc);
 
+	if (rc)
+		rc = -EIO;
 	return rc;
 }
 
@@ -513,6 +515,11 @@ static int bnxt_hwrm_cfa_flow_alloc(struct bnxt *bp, struct bnxt_tc_flow *flow,
 		}
 	}
 	mutex_unlock(&bp->hwrm_cmd_lock);
+
+	if (rc == HWRM_ERR_CODE_RESOURCE_ALLOC_ERROR)
+		rc = -ENOSPC;
+	else if (rc)
+		rc = -EIO;
 	return rc;
 }
 
@@ -584,6 +591,8 @@ static int hwrm_cfa_decap_filter_alloc(struct bnxt *bp,
 	}
 	mutex_unlock(&bp->hwrm_cmd_lock);
 
+	if (rc)
+		rc = -EIO;
 	return rc;
 }
 
@@ -600,6 +609,8 @@ static int hwrm_cfa_decap_filter_free(struct bnxt *bp,
 	if (rc)
 		netdev_info(bp->dev, "%s: Error rc=%d", __func__, rc);
 
+	if (rc)
+		rc = -EIO;
 	return rc;
 }
 
@@ -649,6 +660,8 @@ static int hwrm_cfa_encap_record_alloc(struct bnxt *bp,
 	}
 	mutex_unlock(&bp->hwrm_cmd_lock);
 
+	if (rc)
+		rc = -EIO;
 	return rc;
 }
 
@@ -665,6 +678,8 @@ static int hwrm_cfa_encap_record_free(struct bnxt *bp,
 	if (rc)
 		netdev_info(bp->dev, "%s: Error rc=%d", __func__, rc);
 
+	if (rc)
+		rc = -EIO;
 	return rc;
 }
 
@@ -1221,7 +1236,7 @@ static int __bnxt_tc_del_flow(struct bnxt *bp,
 static void bnxt_tc_set_flow_dir(struct bnxt *bp, struct bnxt_tc_flow *flow,
 				 u16 src_fid)
 {
-	flow->l2_key.dir = (bp->pf.fw_fid == src_fid) ? BNXT_DIR_RX : BNXT_DIR_TX;
+	flow->dir = (bp->pf.fw_fid == src_fid) ? BNXT_DIR_RX : BNXT_DIR_TX;
 }
 
 static void bnxt_tc_set_src_fid(struct bnxt *bp, struct bnxt_tc_flow *flow,
@@ -1270,7 +1285,9 @@ static int bnxt_tc_add_flow(struct bnxt *bp, u16 src_fid,
 		goto free_node;
 
 	bnxt_tc_set_src_fid(bp, flow, src_fid);
-	bnxt_tc_set_flow_dir(bp, flow, flow->src_fid);
+
+	if (bp->fw_cap & BNXT_FW_CAP_OVS_64BIT_HANDLE)
+		bnxt_tc_set_flow_dir(bp, flow, src_fid);
 
 	if (!bnxt_tc_can_offload(bp, flow)) {
 		rc = -EOPNOTSUPP;
@@ -1390,7 +1407,7 @@ static void bnxt_fill_cfa_stats_req(struct bnxt *bp,
 		 * 2. 15th bit of flow_handle must specify the flow
 		 *    direction (TX/RX).
 		 */
-		if (flow_node->flow.l2_key.dir == BNXT_DIR_RX)
+		if (flow_node->flow.dir == BNXT_DIR_RX)
 			handle = CFA_FLOW_INFO_REQ_FLOW_HANDLE_DIR_RX |
 				 CFA_FLOW_INFO_REQ_FLOW_HANDLE_MAX_MASK;
 		else
@@ -1442,6 +1459,8 @@ bnxt_hwrm_cfa_flow_stats_get(struct bnxt *bp, int num_flows,
 	}
 	mutex_unlock(&bp->hwrm_cmd_lock);
 
+	if (rc)
+		rc = -EIO;
 	return rc;
 }
 
