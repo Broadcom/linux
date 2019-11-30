@@ -59,15 +59,10 @@
 
 /* drive strength control for ASIU GPIO */
 #define IPROC_GPIO_ASIU_DRV0_CTRL_OFFSET 0x58
-#define IPROC_GPIO_ASIU_HYST_CTRL_OFFSET 0x54
 
 /* pinconf for CCM GPIO */
-#define IPROC_GPIO_HYST_CTRL_OFFSET  0x0c
 #define IPROC_GPIO_PULL_DN_OFFSET    0x10
 #define IPROC_GPIO_PULL_UP_OFFSET    0x14
-
-/* pinconf for CRMU(aon) GPIO */
-#define AON_GPIO_HYST_CTRL_OFFSET    0x10
 
 /* pinconf for CRMU(aon) GPIO and CCM GPIO*/
 #define IPROC_GPIO_DRV_CTRL_OFFSET  0x00
@@ -88,7 +83,6 @@ enum iproc_pinconf_param {
 	IPROC_PINCONF_BIAS_DISABLE,
 	IPROC_PINCONF_BIAS_PULL_UP,
 	IPROC_PINCONF_BIAS_PULL_DOWN,
-	IPROC_PINCONF_INPUT_SCHMITT_ENABLE,
 	IPROC_PINCON_MAX,
 };
 
@@ -474,7 +468,6 @@ static const enum pin_config_param iproc_pinconf_disable_map[] = {
 	[IPROC_PINCONF_BIAS_DISABLE] = PIN_CONFIG_BIAS_DISABLE,
 	[IPROC_PINCONF_BIAS_PULL_UP] = PIN_CONFIG_BIAS_PULL_UP,
 	[IPROC_PINCONF_BIAS_PULL_DOWN] = PIN_CONFIG_BIAS_PULL_DOWN,
-	[IPROC_PINCONF_INPUT_SCHMITT_ENABLE] = PIN_CONFIG_INPUT_SCHMITT_ENABLE,
 };
 
 static bool iproc_pinconf_param_is_disabled(struct iproc_gpio *chip,
@@ -694,65 +687,6 @@ static int iproc_gpio_get_strength(struct iproc_gpio *chip, unsigned gpio,
 	return 0;
 }
 
-
-static int iproc_gpio_set_schmitt(struct iproc_gpio *chip, unsigned int gpio,
-				  bool enable)
-{
-	void __iomem *base;
-	unsigned int offset, shift;
-	unsigned long flags;
-	u32 val;
-
-	if (chip->io_ctrl) {
-		base = chip->io_ctrl;
-		offset = chip->io_ctrl_type == IOCTRL_TYPE_CDRU ?
-				IPROC_GPIO_HYST_CTRL_OFFSET :
-				AON_GPIO_HYST_CTRL_OFFSET;
-	} else {
-		base = chip->base;
-		offset = IPROC_GPIO_REG(gpio,
-					IPROC_GPIO_ASIU_HYST_CTRL_OFFSET);
-	}
-
-	dev_dbg(chip->dev, "gpio:%u set hysteresis:%d\n", gpio, enable);
-
-	shift = IPROC_GPIO_SHIFT(gpio);
-	raw_spin_lock_irqsave(&chip->lock, flags);
-	val = readl(base + offset);
-	val |= enable << shift;
-	writel(val, base + offset);
-	raw_spin_unlock_irqrestore(&chip->lock, flags);
-
-	return 0;
-}
-
-static void iproc_gpio_get_schmitt(struct iproc_gpio *chip, unsigned int gpio,
-				   bool *enable)
-
-{
-	void __iomem *base;
-	unsigned int offset, shift;
-	unsigned long flags;
-	u32 val;
-
-	if (chip->io_ctrl) {
-		base = chip->io_ctrl;
-		offset = (chip->io_ctrl_type == IOCTRL_TYPE_CDRU) ?
-				IPROC_GPIO_HYST_CTRL_OFFSET :
-				AON_GPIO_HYST_CTRL_OFFSET;
-	} else {
-		base = chip->base;
-		offset = IPROC_GPIO_REG(gpio,
-					IPROC_GPIO_ASIU_HYST_CTRL_OFFSET);
-	}
-
-	shift = IPROC_GPIO_SHIFT(gpio);
-	raw_spin_lock_irqsave(&chip->lock, flags);
-	val = readl(base + offset) & BIT(shift);
-	*enable = !!(val >> shift);
-	raw_spin_unlock_irqrestore(&chip->lock, flags);
-}
-
 static int iproc_pin_config_get(struct pinctrl_dev *pctldev, unsigned pin,
 				 unsigned long *config)
 {
@@ -760,7 +694,7 @@ static int iproc_pin_config_get(struct pinctrl_dev *pctldev, unsigned pin,
 	enum pin_config_param param = pinconf_to_config_param(*config);
 	unsigned gpio = iproc_pin_to_gpio(pin);
 	u16 arg;
-	bool enable, disable, pull_up;
+	bool disable, pull_up;
 	int ret;
 
 	if (iproc_pinconf_param_is_disabled(chip, param))
@@ -795,13 +729,6 @@ static int iproc_pin_config_get(struct pinctrl_dev *pctldev, unsigned pin,
 		*config = pinconf_to_config_packed(param, arg);
 
 		return 0;
-
-	case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
-		iproc_gpio_get_schmitt(chip, gpio, &enable);
-		if (enable)
-			return 0;
-		else
-			return -EINVAL;
 
 	default:
 		return -ENOTSUPP;
@@ -848,12 +775,6 @@ static int iproc_pin_config_set(struct pinctrl_dev *pctldev, unsigned pin,
 
 		case PIN_CONFIG_DRIVE_STRENGTH:
 			ret = iproc_gpio_set_strength(chip, gpio, arg);
-			if (ret < 0)
-				goto out;
-			break;
-
-		case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
-			ret = iproc_gpio_set_schmitt(chip, gpio, arg);
 			if (ret < 0)
 				goto out;
 			break;
@@ -936,10 +857,9 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 	bool no_pinconf = false;
 	enum iproc_pinconf_ctrl_type io_ctrl_type = IOCTRL_TYPE_INVALID;
 
-	/* NSP does not support drive strength and input schmitt config */
+	/* NSP does not support drive strength config */
 	if (of_device_is_compatible(dev->of_node, "brcm,iproc-nsp-gpio"))
-		pinconf_disable_mask = BIT(IPROC_PINCONF_DRIVE_STRENGTH) |
-				       BIT(IPROC_PINCONF_INPUT_SCHMITT_ENABLE);
+		pinconf_disable_mask = BIT(IPROC_PINCONF_DRIVE_STRENGTH);
 	/* Stingray does not support pinconf in this controller */
 	else if (of_device_is_compatible(dev->of_node,
 					 "brcm,iproc-stingray-gpio"))
