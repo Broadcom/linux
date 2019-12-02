@@ -740,8 +740,12 @@ err_out:
 
 static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
 {
-	uint32_t fb_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
+	uint32_t fb_open;
+	uint32_t fw_status;
 	u32 load_type = 0;  /* default for unknown */
+
+	fb_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
+	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
 
 	if (!BCM_VK_INTF_IS_DOWN(fb_open) && (fb_open & SRAM_OPEN))
 		load_type = VK_IMAGE_TYPE_BOOT1;
@@ -752,8 +756,9 @@ static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
 	 * TO_FIX: For now, like to know what value we get everytime
 	 *         for debugging.
 	 */
-	dev_info(&vk->pdev->dev, "FB_OPEN value on deciding next image: 0x%x\n",
-		 fb_open);
+	dev_info(&vk->pdev->dev,
+		 "FB_OPEN value for next image: 0x%x : fw-status 0x%x\n",
+		 fb_open, fw_status);
 
 	return load_type;
 }
