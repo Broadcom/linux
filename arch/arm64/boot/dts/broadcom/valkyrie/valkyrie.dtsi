@@ -134,4 +134,36 @@
 		recv-addr = <0x5 0xBFE00000>;
 		status = "disabled";
 	};
+
+	dmapubuf0: dmapubuf0@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf0";
+		size = <0x7F000000>;
+		memory-region = <&highmembuf0>;
+		status = "disabled";
+	};
+
+	dmapubuf1: dmapubuf1@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf1";
+		size = <0x61000000>;
+		memory-region = <&highmembuf0>;
+		status = "disabled";
+	};
+
+	dmapubuf2: dmapubuf2@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf2";
+		size = <0x40000000>;
+		memory-region = <&highmembuf1>;
+		status = "disabled";
+	};
+
+	dmapubuf3: dmapubuf3@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf3";
+		size = <0x7A000000>;
+		memory-region = <&lowmembuf0>;
+		status = "disabled";
+	};
 };
