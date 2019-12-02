@@ -97,3 +97,19 @@
 &uio_ddr2 {
 	status = "okay";
 };
+
+&dmapubuf0 {
+	status = "okay";
+};
+
+&dmapubuf1 {
+	status = "okay";
+};
+
+&dmapubuf2 {
+	status = "okay";
+};
+
+&dmapubuf3 {
+	status = "okay";
+};
