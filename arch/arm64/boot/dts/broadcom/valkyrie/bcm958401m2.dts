@@ -11,7 +11,7 @@
  */
 /memreserve/ 0x562000000 0x00010000;
 /* high memory pool region */
-/memreserve/ 0x580000000 0x3FC00000;
+/memreserve/ 0x57FC00000 0x40000000;
 /* high memory pool region */
 /memreserve/ 0x480000000 0xE0000000;
 /* low memory pool region */
