@@ -35,7 +35,7 @@
 #include <linux/cdev.h>
 #include <linux/clk.h>
 #include <linux/device.h>
-#include <linux/dma-mapping.h>
+#include <linux/dma-noncoherent.h>
 #include <linux/fs.h>
 #include <linux/idr.h>
 #include <linux/init.h>
@@ -330,7 +330,7 @@ DEF_ATTR_SHOW(sync_for_cpu, "%llu\n", this->sync_for_cpu);
 DEF_ATTR_SET(sync_for_cpu, 0, U64_MAX,  NO_ACTION, dmapubuf_sync_for_cpu);
 DEF_ATTR_SHOW(sync_for_device, "%llu\n", this->sync_for_device);
 DEF_ATTR_SET(sync_for_device, 0, U64_MAX, NO_ACTION, dmapubuf_sync_for_device);
-DEF_ATTR_SHOW(dma_coherent, "%d\n", is_device_dma_coherent(this->dma_dev));
+DEF_ATTR_SHOW(dma_coherent, "%d\n", dev_is_dma_coherent(this->dma_dev));
 #if DMAPUBUF_DEBUG == 1
 DEF_ATTR_SHOW(debug_vma, "%d\n", this->debug_vma);
 DEF_ATTR_SET(debug_vma, 0, 1, NO_ACTION, NO_ACTION);
@@ -938,7 +938,7 @@ static void dmapubuf_device_info(struct dmapubuf_device_data *this)
 	dev_info(this->sys_dev, "dma device     = %s\n",
 		 dev_name(this->dma_dev));
 	dev_info(this->sys_dev, "dma coherent   = %d\n",
-		 is_device_dma_coherent(this->dma_dev));
+		 dev_is_dma_coherent(this->dma_dev));
 }
 
 /**
