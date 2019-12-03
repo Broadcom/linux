@@ -54,7 +54,19 @@
 		#size-cells = <2>;
 		ranges;
 
-		lowmembuf0: buffer@66000000 {
+		lowmembuf0: buffer@60000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000000 0x60000000 0x00000000 0x02000000>;
+			reusable;
+		};
+
+		lowmembuf1: buffer@64000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000000 0x64000000 0x00000000 0x01000000>;
+			reusable;
+		};
+
+		lowmembuf2: buffer@66000000 {
 			compatible = "shared-dma-pool";
 			reg = <0x00000000 0x66000000 0x00000000 0x7A000000>;
 			reusable;
@@ -111,5 +123,13 @@
 };
 
 &dmapubuf3 {
+	status = "okay";
+};
+
+&dmapubuf4 {
+	status = "okay";
+};
+
+&dmapubuf5 {
 	status = "okay";
 };

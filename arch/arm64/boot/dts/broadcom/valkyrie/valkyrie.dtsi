@@ -163,7 +163,23 @@
 		compatible = "dma-pubuf";
 		device-name = "dmapubuf3";
 		size = <0x7A000000>;
+		memory-region = <&lowmembuf2>;
+		status = "disabled";
+	};
+
+	dmapubuf4: dmapubuf4@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf4";
+		size = <0x02000000>;
 		memory-region = <&lowmembuf0>;
+		status = "disabled";
+	};
+
+	dmapubuf5: dmapubuf5@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf5";
+		size = <0x01000000>;
+		memory-region = <&lowmembuf1>;
 		status = "disabled";
 	};
 };
