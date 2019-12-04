@@ -51,6 +51,12 @@ const struct _load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 /* Allow minimum 1s for Load Image timeout responses */
 #define LOAD_IMAGE_TIMEOUT_MS		1000
 #endif
+/*
+ * Boot2 image will need to accommodate A72 and M7, and will use a
+ * longer timeout
+ */
+#define BOOT2_STARTUP_TIMEOUT_MS	10000
+
 /* 1 ms wait for checking the transfer complete status */
 #define TXFR_COMPLETE_TIMEOUT_MS	1
 
@@ -703,7 +709,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		ret = bcm_vk_wait(vk, BAR_0, BAR_FW_STATUS,
 				  FW_STATUS_READY,
 				  FW_STATUS_READY,
-				  LOAD_IMAGE_TIMEOUT_MS);
+				  BOOT2_STARTUP_TIMEOUT_MS);
 		if (ret < 0) {
 			dev_err(dev, "Boot2 not ready - timeout\n");
 			goto err_firmware_out;
