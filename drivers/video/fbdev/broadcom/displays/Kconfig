@@ -1,5 +1,0 @@
-config FB_BRCM_PANEL_WINTEK_WDF6448X
-	tristate "Wintek LCD panel init support"
-	depends on SPI
-	help
-	  LCD Panel used in BRCM's ENTPHN boards
