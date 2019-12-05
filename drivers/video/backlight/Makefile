@@ -17,7 +17,6 @@ obj-$(CONFIG_LCD_PLATFORM)		+= platform_lcd.o
 obj-$(CONFIG_LCD_TDO24M)		+= tdo24m.o
 obj-$(CONFIG_LCD_TOSA)			+= tosa_lcd.o
 obj-$(CONFIG_LCD_VGG2432A4)		+= vgg2432a4.o
-obj-$(CONFIG_LCD_WDF6448XEFLWC)		+= wd_f6448x_eflwc.o
 
 obj-$(CONFIG_BACKLIGHT_88PM860X)	+= 88pm860x_bl.o
 obj-$(CONFIG_BACKLIGHT_AAT2870)		+= aat2870_bl.o

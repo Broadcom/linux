@@ -75,14 +75,6 @@ config LCD_ILI9320
 	  If you have a panel based on the ILI9320 controller chip
 	  then say y to include a power driver for it.
 
-config LCD_WDF6448XEFLWC
-	tristate "Wintek WDF6448XEFLWC LCD panel support"
-	depends on SPI_MASTER
-	default n
-	help
-	  If you have a Wintek WDF6448XEFLWC panel then say y to include
-	  a power control driver for it.
-
 config LCD_TDO24M
 	tristate "Toppoly TDO24M  and TDO35S LCD Panels support"
 	depends on SPI_MASTER
