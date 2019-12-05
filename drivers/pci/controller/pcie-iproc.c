@@ -997,10 +997,18 @@ err_rm_handler_data:
 
 static void iproc_pcie_intx_disable(struct iproc_pcie *pcie)
 {
+	uint32_t offset, virq;
+
 	iproc_pcie_write_reg(pcie, IPROC_PCIE_INTX_EN, 0x0);
 
 	if (pcie->irq <= 0)
 		return;
+
+	for (offset = 0; offset < PCI_NUM_INTX; offset++) {
+		virq = irq_find_mapping(pcie->irq_domain, offset);
+		if (virq)
+			irq_dispose_mapping(virq);
+	}
 
 	irq_domain_remove(pcie->irq_domain);
 	irq_set_chained_handler_and_data(pcie->irq, NULL, NULL);
