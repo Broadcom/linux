@@ -129,18 +129,3 @@ config PINCTRL_NSP_MUX
 	  The Broadcom Northstar Plus IOMUX driver supports pin based IOMUX
 	  configuration, with certain individual pins can be overridden
 	  to GPIO function.
-
-config PINCTRL_OMEGA_GPIO
-	bool "Broadcom Omega PINCONF and GPIO driver"
-	depends on OF_GPIO && (ARCH_BCM_IPROC || COMPILE_TEST)
-	select GPIOLIB_IRQCHIP
-	select PINCONF
-	select GENERIC_PINCONF
-	default ARCH_BCM_IPROC
-	help
-	  Say yes here to enable Broadcom Omega pinconf and gpio driver.
-
-	  The Broadcom Omega pinconf/gpio driver supports PINCONF functions such
-	  as bias pull up, pull down, drive strength, slew rate, hysteresis and
-	  input disable. Each pin's pinconf can be independently configured, and
-	  they apply to all mux configurations.
