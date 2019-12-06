@@ -286,8 +286,8 @@ static int nvme_identify_controller(struct nvme_ctrl *ctrl,
 	return nvme_submit_cmd_sync(&c, q, NULL);
 }
 
-static int nvme_set_features(struct nvme_ctrl *ctrl, unsigned int fid,
-			     unsigned int dword11, u32 *result)
+static int nvme_set_feature(struct nvme_ctrl *ctrl, unsigned int fid,
+			    unsigned int dword11, u32 *result)
 {
 	struct nvme_command c;
 	struct nvme_dev *dev = to_nvme_dev(ctrl);
@@ -314,7 +314,7 @@ static int nvme_set_qcount(struct nvme_ctrl *ctrl, int *count)
 	int nr_io_queues;
 
 	dev_info(ctrl->dev, "requested Qs: %d", *count);
-	ret = nvme_set_features(ctrl, NVME_FEAT_NUM_QUEUES, q_count, &result);
+	ret = nvme_set_feature(ctrl, NVME_FEAT_NUM_QUEUES, q_count, &result);
 
 	if (ret < 0) {
 		dev_err(ctrl->dev, "Could not set queue count (%d)\n", *count);
@@ -606,8 +606,7 @@ static int nvme_setup_io_queues(struct nvme_dev *dev)
 static int nvme_ctrl_init_identify(struct nvme_ctrl *ctrl,
 				   struct nvme_id_ctrl **id)
 {
-	u64 cap;
-	int ret, page_shift;
+	int ret;
 
 	ret = ctrl->ops->reg_read32(ctrl, NVME_REG_VS, &ctrl->vs);
 	if (ret) {
@@ -616,14 +615,7 @@ static int nvme_ctrl_init_identify(struct nvme_ctrl *ctrl,
 	}
 
 	if (ctrl->vs >= NVME_VS(1, 1, 0))
-		ctrl->subsystem = NVME_CAP_NSSRC(cap);
-
-	ret = ctrl->ops->reg_read64(ctrl, NVME_REG_CAP, &cap);
-	if (ret) {
-		dev_err(ctrl->dev, "Reading CAP failed (%d)\n", ret);
-		return ret;
-	}
-	page_shift = NVME_CAP_MPSMIN(cap) + 12;
+		ctrl->subsystem = NVME_CAP_NSSRC(ctrl->cap);
 
 	ret = nvme_identify_controller(ctrl, id);
 	if (ret) {
@@ -651,7 +643,7 @@ static int nvme_pci_configure_admin_queue(struct nvme_dev *dev)
 	    (readl(dev->bar + NVME_REG_CSTS) & NVME_CSTS_NSSRO))
 		writel(NVME_CSTS_NSSRO, dev->bar + NVME_REG_CSTS);
 
-	result = nvme_disable_ctrl(&dev->ctrl, dev->ctrl.cap);
+	result = nvme_disable_ctrl(&dev->ctrl);
 	if (result < 0)
 		return result;
 
@@ -669,7 +661,7 @@ static int nvme_pci_configure_admin_queue(struct nvme_dev *dev)
 	lo_hi_writeq(nvmeq->sq_dma_addr, dev->bar + NVME_REG_ASQ);
 	lo_hi_writeq(nvmeq->cq_dma_addr, dev->bar + NVME_REG_ACQ);
 
-	result = nvme_enable_ctrl(&dev->ctrl, dev->ctrl.cap);
+	result = nvme_enable_ctrl(&dev->ctrl);
 	if (result)
 		return result;
 
@@ -751,7 +743,7 @@ static void nvme_dev_disable(struct nvme_dev *dev, bool shutdown)
 	if (shutdown)
 		nvme_shutdown_ctrl(&dev->ctrl);
 	else
-		nvme_disable_ctrl(&dev->ctrl, dev->ctrl.cap);
+		nvme_disable_ctrl(&dev->ctrl);
 
 	nvme_pci_disable(dev);
 }
