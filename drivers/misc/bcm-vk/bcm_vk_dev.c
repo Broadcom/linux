@@ -210,10 +210,17 @@ irqreturn_t bcm_vk_notf_irqhandler(int irq, void *dev_id)
 {
 	struct bcm_vk *vk = dev_id;
 
+	if (!bcm_vk_drv_access_ok(vk)) {
+		dev_err(&vk->pdev->dev,
+			"Interrupt %d received when msgq not inited\n", irq);
+		goto skip_schedule_work;
+	}
+
 	/* if notification is not pending, set bit and schedule work */
 	if (test_and_set_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload) == 0)
 		queue_work(vk->wq_thread, &vk->wq_work);
 
+skip_schedule_work:
 	return IRQ_HANDLED;
 }
 
@@ -2340,7 +2347,6 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_card_mon_attribute_group);
 	sysfs_remove_group(&pdev->dev.kobj, &bcm_vk_card_stat_attribute_group);
 
-	cancel_work_sync(&vk->wq_work);
 	bcm_vk_msg_remove(vk);
 
 	if (vk->tdma_vaddr)
@@ -2358,6 +2364,9 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 
 	pci_disable_msix(pdev);
 	pci_disable_msi(pdev);
+
+	cancel_work_sync(&vk->wq_work);
+	destroy_workqueue(vk->wq_thread);
 
 	for (i = 0; i < MAX_BAR; i++) {
 		if (vk->bar[i])

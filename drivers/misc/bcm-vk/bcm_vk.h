@@ -351,6 +351,7 @@ void bcm_vk_tty_exit(struct bcm_vk *vk);
 void bcm_vk_hb_init(struct bcm_vk *vk);
 void bcm_vk_hb_deinit(struct bcm_vk *vk);
 void bcm_vk_handle_notf(struct bcm_vk *vk);
+bool bcm_vk_drv_access_ok(struct bcm_vk *vk);
 
 #if defined(BCM_VK_LEGACY_API)
 

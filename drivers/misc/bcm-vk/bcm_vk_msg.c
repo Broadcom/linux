@@ -128,7 +128,7 @@ void bcm_vk_update_qstats(struct bcm_vk *vk, const char *tag,
 }
 #endif
 
-static bool bcm_vk_drv_access_ok(struct bcm_vk *vk)
+bool bcm_vk_drv_access_ok(struct bcm_vk *vk)
 {
 	return (!!atomic_read(&vk->msgq_inited));
 }
@@ -1256,7 +1256,6 @@ err_out:
 void bcm_vk_msg_remove(struct bcm_vk *vk)
 {
 	bcm_vk_blk_drv_access(vk);
-	destroy_workqueue(vk->wq_thread);
 
 	/* drain all pending items */
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->h2vk_msg_chan, NULL);
