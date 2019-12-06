@@ -74,3 +74,16 @@ config NVME_TCP
 	  from https://github.com/linux-nvme/nvme-cli.
 
 	  If unsure, say N.
+
+config NVME_LPM_BACKUP
+	tristate "NVM Express low power mode memory backup host driver"
+	depends on ARCH_BCM_IPROC || COMPILE_TEST
+	depends on HAS_DMA
+	select NVME_CORE
+	select NVME_LPM_SSR
+	help
+	  This provides support for the NVMe low power mode memory backup.
+	  This allows you to backup specified contiguous memory to specified
+	  location on NVMe.
+
+	  If unsure, say N.
