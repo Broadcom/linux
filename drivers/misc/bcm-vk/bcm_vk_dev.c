@@ -746,7 +746,7 @@ err_firmware_out:
 
 err_out:
 	if (load_type == VK_IMAGE_TYPE_BOOT2)
-		dma_free_coherent(dev, PAGE_SIZE, bufp, boot2_dma_addr);
+		dma_free_coherent(dev, max_buf, bufp, boot2_dma_addr);
 
 	return ret;
 }
@@ -2350,8 +2350,8 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	bcm_vk_msg_remove(vk);
 
 	if (vk->tdma_vaddr)
-		dma_free_coherent(&pdev->dev, PAGE_SIZE, vk->tdma_vaddr,
-				  vk->tdma_addr);
+		dma_free_coherent(&pdev->dev, nr_scratch_pages * PAGE_SIZE,
+				  vk->tdma_vaddr, vk->tdma_addr);
 
 	/* remove if name is set which means misc dev registered */
 	if (misc_device->name) {
