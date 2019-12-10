@@ -135,6 +135,7 @@
 		status = "disabled";
 	};
 
+#if (USE_DDR_PUDMA == 1)
 	dmapubuf0: dmapubuf0@0x0 {
 		compatible = "dma-pubuf";
 		device-name = "dmapubuf0";
@@ -182,4 +183,23 @@
 		memory-region = <&lowmembuf1>;
 		status = "disabled";
 	};
+#else
+	uio_ddr0: uio_pdrv_genirq@0x60000000 {
+		compatible = "generic-uio";
+		reg = <0x0 0x60000000 0x0 0x80000000>;
+		status = "disabled";
+	};
+
+	uio_ddr1: uio_pdrv_genirq@0x480000000 {
+		compatible = "generic-uio";
+		reg = <0x4 0x80000000 0x0 0xE0000000>;
+		status = "disabled";
+	};
+
+	uio_ddr2: uio_pdrv_genirq@0x57FC00000 {
+		compatible = "generic-uio";
+		reg = <0x5 0x7FC00000 0x0 0x40000000>;
+		status = "disabled";
+	};
+#endif
 };
