@@ -98,17 +98,6 @@ config POWER_RESET_HISI
 	help
 	  Reboot support for Hisilicon boards.
 
-config POWER_RESET_IPROC
-	bool "Broadcom iproc reset and power-off driver"
-	depends on BCM_IPROC_MBOX && POWER_RESET && (ARCH_BCM_IPROC || COMPILE_TEST)
-	default ARCH_BCM_IPROC
-	help
-	  Power off and reset support for the iproc architected SoC's. This
-	  driver requires the iproc mailbox driver in order to
-	  communicate with the M0 processor.
-
-	  Say Y here to enable board reset and power off
-
 config POWER_RESET_MSM
 	bool "Qualcomm MSM power-off driver"
 	depends on ARCH_QCOM
