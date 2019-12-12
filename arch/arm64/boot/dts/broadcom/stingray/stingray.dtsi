@@ -660,6 +660,7 @@
 			reg-names = "amac_base";
 			dma-coherent;
 			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>;
+			iommus = <&smmu 0x6004 0x0000>;
 			status= "disabled";
 		};
 
