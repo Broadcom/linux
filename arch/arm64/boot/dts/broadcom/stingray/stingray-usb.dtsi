@@ -28,6 +28,7 @@
 			phys = <&usbphy0 1>, <&usbphy0 0>;
 			phy-names = "phy0", "phy1";
 			usb-phy-port-reset;
+			iommus = <&smmu 0x6800 0x0000>;
 #if (USB_DMA_COHERENT == 1)
 			dma-coherent;
 #endif
@@ -44,6 +45,7 @@
 			interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usbphy0 0>, <&usbphy0 1>;
 			phy-names = "phy0", "phy1";
+			iommus = <&smmu 0x6800 0x0000>;
 #if (USB_DMA_COHERENT == 1)
 			dma-coherent;
 #endif
@@ -92,6 +94,7 @@
 #else
 			status = "disabled";
 #endif
+			iommus = <&smmu 0x6801 0x0000>;
 		};
 
 		bdc1: usb@21000 {
@@ -108,5 +111,6 @@
 #else
 			status = "disabled";
 #endif
+			iommus = <&smmu 0x6802 0x0000>;
 		};
 	};
