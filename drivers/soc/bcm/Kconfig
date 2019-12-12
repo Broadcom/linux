@@ -21,15 +21,6 @@ config RASPBERRYPI_POWER
 	  This enables support for the RPi power domains which can be enabled
 	  or disabled via the RPi firmware.
 
-config SOC_BCMOMEGA
-	bool "Omega ICFG driver"
-	depends on ARCH_BCM_IPROC || COMPILE_TEST
-	default ARCH_BCM_IPROC
-	help
-	  Enables drivers for the Broadcom Omega chipset.
-	  This option alone enables initialization only, while the drivers
-	  can be enabled individually.
-
 config SOC_BRCMSTB
 	bool "Broadcom STB SoC drivers"
 	depends on ARM || ARM64 || BMIPS_GENERIC || COMPILE_TEST
@@ -51,7 +42,6 @@ config SOC_BRCM_IPROC
 	  If unsure, say N.
 
 source "drivers/soc/bcm/brcmstb/Kconfig"
-source "drivers/soc/bcm/omega/Kconfig"
 source "drivers/soc/bcm/iproc/Kconfig"
 
 endmenu

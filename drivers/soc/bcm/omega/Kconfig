@@ -1,7 +1,0 @@
-config OMEGA_SCP
-	bool "Omega System Control Processor driver"
-	depends on (ARCH_BCM_IPROC || COMPILE_TEST) && OF
-	default ARCH_BCM_IPROC
-	help
-	  Enables support for Omega System Control Processor, used for power
-	  management, system control, and low power processing tasks
