@@ -145,8 +145,8 @@
 #define ERR_LOG_ECC			BIT(10)
 
 /* Alert bit definitions detectd on host */
-#define ERR_LOG_HOST_HB_FAIL		BIT(0)
-#define ERR_LOG_HOST_PCIE_DWN		BIT(1)
+#define ERR_LOG_HOST_HB_FAIL		BIT(14)
+#define ERR_LOG_HOST_PCIE_DWN		BIT(15)
 
 /* Fast boot register derived states */
 #define FB_BOOT_STATE_MASK		0xFFF3FFFF
