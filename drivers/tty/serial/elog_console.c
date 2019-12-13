@@ -165,7 +165,7 @@ static struct console console_elog = {
 	.data = &elog_data,
 };
 
-static int elog_console_init(void)
+static int __init elog_console_init(void)
 {
 	struct console_elog_data *elog = console_elog.data;
 
