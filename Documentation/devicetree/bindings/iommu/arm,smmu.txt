@@ -81,24 +81,6 @@ conditions.
                   or using stream matching with #iommu-cells = <2>, and
                   may be ignored if present in such cases.
 
-- reserved-context-banks: Number of S1 context banks (from end) to be
-                  reserved for non-secure bootloader (or firmware). The
-                  bootloader (or firmware) can use these reserved context
-                  banks for devices requiring System MMU configuration
-                  at boot time.
-
-- reserved-s2-context-banks: Number of S2 context banks (from end) to
-                  be reserved for non-secure bootloader (or firmware).
-                  The bootloader (or firmware) can use these reserved
-                  S2 context banks for devices requiring System MMU
-                  configuration at boot time.
-
-- reserved-mapping-groups: Number of SMRs and S2CRs (from end) to be
-                  reserved for non-secure bootloader (or firmware).
-                  The bootloader (or firmware) can use these reserved
-                  SMRs and S2CRs for devices requiring System MMU
-                  configuration at boot time.
-
 - clock-names:    List of the names of clocks input to the device. The
                   required list depends on particular implementation and
                   is as follows:
