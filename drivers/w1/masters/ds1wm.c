@@ -116,12 +116,65 @@ struct ds1wm_data {
 static inline void ds1wm_write_register(struct ds1wm_data *ds1wm_data, u32 reg,
 					u8 val)
 {
-	__raw_writeb(val, ds1wm_data->map + (reg << ds1wm_data->bus_shift));
+	if (ds1wm_data->is_hw_big_endian) {
+		switch (ds1wm_data->bus_shift) {
+		case 0:
+			iowrite8(val, ds1wm_data->map + (reg << 0));
+			break;
+		case 1:
+			iowrite16be((u16)val, ds1wm_data->map + (reg << 1));
+			break;
+		case 2:
+			iowrite32be((u32)val, ds1wm_data->map + (reg << 2));
+			break;
+		}
+	} else {
+		switch (ds1wm_data->bus_shift) {
+		case 0:
+			iowrite8(val, ds1wm_data->map + (reg << 0));
+			break;
+		case 1:
+			iowrite16((u16)val, ds1wm_data->map + (reg << 1));
+			break;
+		case 2:
+			iowrite32((u32)val, ds1wm_data->map + (reg << 2));
+			break;
+		}
+	}
 }
 
 static inline u8 ds1wm_read_register(struct ds1wm_data *ds1wm_data, u32 reg)
 {
-	return __raw_readb(ds1wm_data->map + (reg << ds1wm_data->bus_shift));
+	u32 val = 0;
+
+	if (ds1wm_data->is_hw_big_endian) {
+		switch (ds1wm_data->bus_shift) {
+		case 0:
+			val = ioread8(ds1wm_data->map + (reg << 0));
+			break;
+		case 1:
+			val = ioread16be(ds1wm_data->map + (reg << 1));
+			break;
+		case 2:
+			val = ioread32be(ds1wm_data->map + (reg << 2));
+			break;
+		}
+	} else {
+		switch (ds1wm_data->bus_shift) {
+		case 0:
+			val = ioread8(ds1wm_data->map + (reg << 0));
+			break;
+		case 1:
+			val = ioread16(ds1wm_data->map + (reg << 1));
+			break;
+		case 2:
+			val = ioread32(ds1wm_data->map + (reg << 2));
+			break;
+		}
+	}
+	dev_dbg(&ds1wm_data->pdev->dev,
+		"ds1wm_read_register reg: %d, 32 bit val:%x\n", reg, val);
+	return (u8)val;
 }
 
 
