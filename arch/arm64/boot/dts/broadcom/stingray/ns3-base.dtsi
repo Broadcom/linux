@@ -95,3 +95,9 @@
 &raid_mbox {
 	status = "disabled";
 };
+
+#if (ENABLE_I2C0 == 1)
+&sdio1_vddo_ctrl_reg {
+	status = "disabled";
+};
+#endif
