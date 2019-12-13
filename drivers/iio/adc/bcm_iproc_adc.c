@@ -258,11 +258,11 @@ static int iproc_adc_do_read(struct iio_dev *indio_dev,
 					channel),
 					IPROC_ADC_CHANNEL_WTRMRK_INTR_MASK,
 					IPROC_ADC_WATER_MARK_INTR_ENABLE);
+	regmap_read(adc_priv->regmap, IPROC_INTERRUPT_MASK, &val);
 
 	/* Enable ADC interrupt for a channel */
-	regmap_update_bits(adc_priv->regmap, IPROC_INTERRUPT_MASK,
-			IPROC_ADC_INTR_MASK,
-			BIT(channel) << IPROC_ADC_INTR);
+	val |= (BIT(channel) << IPROC_ADC_INTR);
+	regmap_write(adc_priv->regmap, IPROC_INTERRUPT_MASK, val);
 
 	/*
 	 * There seems to be a very rare issue where writing to this register
@@ -272,8 +272,7 @@ static int iproc_adc_do_read(struct iio_dev *indio_dev,
 	 * hit the full count.
 	 */
 	regmap_read(adc_priv->regmap, IPROC_INTERRUPT_MASK, &val_check);
-	while (((val_check & (BIT(channel) << IPROC_ADC_INTR)) >>
-		IPROC_ADC_INTR) != (BIT(channel))) {
+	while (val_check != val) {
 		failed_cnt++;
 
 		if (failed_cnt > IPROC_ADC_INTMASK_RETRY_ATTEMPTS)
@@ -282,7 +281,8 @@ static int iproc_adc_do_read(struct iio_dev *indio_dev,
 		udelay(10);
 		regmap_update_bits(adc_priv->regmap, IPROC_INTERRUPT_MASK,
 				IPROC_ADC_INTR_MASK,
-				(BIT(channel) << IPROC_ADC_INTR));
+				((0x1 << channel) <<
+				IPROC_ADC_INTR));
 
 		regmap_read(adc_priv->regmap, IPROC_INTERRUPT_MASK, &val_check);
 	}
@@ -297,6 +297,7 @@ static int iproc_adc_do_read(struct iio_dev *indio_dev,
 			goto adc_err;
 		};
 	}
+	regmap_read(adc_priv->regmap, IPROC_INTERRUPT_MASK, &val_check);
 
 	if (wait_for_completion_timeout(&adc_priv->completion,
 		IPROC_ADC_READ_TIMEOUT) > 0) {
@@ -315,9 +316,6 @@ static int iproc_adc_do_read(struct iio_dev *indio_dev,
 		read_len = -ETIMEDOUT;
 		goto adc_err;
 	}
-	regmap_update_bits(adc_priv->regmap, IPROC_INTERRUPT_MASK,
-			   IPROC_ADC_INTR_MASK,
-			   ((0x0 << channel) << IPROC_ADC_INTR));
 	mutex_unlock(&adc_priv->mutex);
 
 	return read_len;
