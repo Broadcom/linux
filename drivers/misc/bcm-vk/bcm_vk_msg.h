@@ -34,6 +34,7 @@ struct bcm_vk_sync_qinfo {
 	void __iomem *q_start;
 	uint32_t q_size;
 	uint32_t q_mask;
+	uint32_t q_low;
 };
 
 #define VK_MSGQ_MAX_NR 4 /* Maximum number of message queues */

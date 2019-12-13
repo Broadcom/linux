@@ -128,6 +128,10 @@ void bcm_vk_update_qstats(struct bcm_vk *vk, const char *tag,
 }
 #endif
 
+/* number of retries when enqueue message fails before returning EAGAIN */
+#define BCM_VK_H2VK_ENQ_RETRY 2
+#define BCM_VK_H2VK_ENQ_RETRY_DELAY_MS 5
+
 bool bcm_vk_drv_access_ok(struct bcm_vk *vk)
 {
 	return (!!atomic_read(&vk->msgq_inited));
@@ -476,6 +480,9 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 			chan->sync_qinfo[j].q_start =
 				vk->bar[BAR_1] + chan->msgq[j]->start;
 			chan->sync_qinfo[j].q_size = chan->msgq[j]->size;
+			/* set low threshold as 50% or 1/2 */
+			chan->sync_qinfo[j].q_low =
+				chan->sync_qinfo[j].q_size >> 1;
 			chan->sync_qinfo[j].q_mask =
 				chan->sync_qinfo[j].q_size - 1;
 
@@ -524,8 +531,23 @@ static uint32_t bcm_vk_append_ib_sgl(struct bcm_vk *vk,
 	unsigned int i;
 	unsigned int item_cnt = 0;
 	struct device *dev = &vk->pdev->dev;
+	struct bcm_vk_msg_chan *chan = &vk->h2vk_msg_chan;
+	struct vk_msg_blk *msg = &entry->h2vk_msg[0];
+	struct bcm_vk_msgq *msgq;
+	struct bcm_vk_sync_qinfo *qinfo;
 	uint32_t ib_sgl_size = 0;
 	uint8_t *buf = (uint8_t *)&entry->h2vk_msg[entry->h2vk_blks];
+	uint32_t avail;
+
+	/* check if high watermark is hit, and if so, skip */
+	msgq = chan->msgq[msg->queue_id];
+	qinfo = &chan->sync_qinfo[msg->queue_id];
+	avail = VK_MSGQ_AVAIL_SPACE(msgq, qinfo);
+	if (avail < qinfo->q_low) {
+		dev_dbg(dev, "Skip inserting inband SGL, [0x%x/0x%x]\n",
+			avail, qinfo->q_size);
+		return ib_sgl_size;
+	}
 
 	for (i = 0; i < num_planes; i++) {
 		if (data[i].address &&
@@ -572,6 +594,7 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	uint32_t wr_idx; /* local copy */
 	uint32_t i;
 	uint32_t avail;
+	uint32_t retry;
 
 	if (entry->h2vk_blks != src->size + 1) {
 		dev_err(dev, "number of blks %d not matching %d MsgId[0x%x]: func %d ctx 0x%x\n",
@@ -596,7 +619,16 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 			     qinfo->q_size - avail);
 #endif
 	/* if not enough space, return EAGAIN and let app handles it */
-	if (avail < entry->h2vk_blks) {
+	retry = 0;
+	while ((avail < entry->h2vk_blks)
+	       && (retry++ < BCM_VK_H2VK_ENQ_RETRY)) {
+		mutex_unlock(&chan->msgq_mutex);
+
+		msleep(BCM_VK_H2VK_ENQ_RETRY_DELAY_MS);
+		mutex_lock(&chan->msgq_mutex);
+		avail = VK_MSGQ_AVAIL_SPACE(msgq, qinfo);
+	}
+	if (retry > BCM_VK_H2VK_ENQ_RETRY) {
 		mutex_unlock(&chan->msgq_mutex);
 		return -EAGAIN;
 	}
