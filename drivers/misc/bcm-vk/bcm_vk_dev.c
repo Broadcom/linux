@@ -615,7 +615,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 					  max_buf,
 					  &boot2_dma_addr, GFP_KERNEL);
 		if (!bufp) {
-			dev_err(dev, "Error allocating 0x%x\n", max_buf);
+			dev_err(dev, "Error allocating 0x%zx\n", max_buf);
 			ret = -ENOMEM;
 			goto err_out;
 		}
