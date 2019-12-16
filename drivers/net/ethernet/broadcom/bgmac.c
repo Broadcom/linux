@@ -1598,8 +1598,6 @@ int bgmac_enet_resume(struct bgmac *bgmac)
 	if (!netif_running(bgmac->net_dev))
 		return 0;
 
-	bgmac_clk_enable(bgmac, 0);
-
 	rc = bgmac_dma_init(bgmac);
 	if (rc)
 		return rc;
