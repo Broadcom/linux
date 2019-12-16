@@ -642,41 +642,12 @@ static int b53_srab_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int b53_srab_suspend(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct b53_device *b53_dev = platform_get_drvdata(pdev);
-
-	if (b53_dev) {
-		b53_switch_remove(b53_dev);
-		b53_dev->ds->slave_mii_bus = NULL;
-	}
-	return 0;
-}
-
-static int b53_srab_resume(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct b53_device *b53_dev = platform_get_drvdata(pdev);
-	int ret = 0;
-
-	if (b53_dev)
-		ret =  b53_switch_register(b53_dev);
-	return ret;
-}
-#endif
-
-static SIMPLE_DEV_PM_OPS(b53_srab_pm_ops,
-			 b53_srab_suspend, b53_srab_resume);
-
 static struct platform_driver b53_srab_driver = {
 	.probe = b53_srab_probe,
 	.remove = b53_srab_remove,
 	.driver = {
 		.name = "b53-srab-switch",
 		.of_match_table = b53_srab_of_match,
-		.pm = &b53_srab_pm_ops,
 	},
 };
 
