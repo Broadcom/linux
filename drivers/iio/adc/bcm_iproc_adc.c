@@ -143,6 +143,30 @@ static void iproc_adc_reg_dump(struct iio_dev *indio_dev)
 	iproc_adc_dbg_reg(dev, adc_priv, IPROC_SOFT_BYPASS_DATA);
 }
 
+static irqreturn_t iproc_adc_interrupt_thread(int irq, void *data)
+{
+	u32 channel_intr_status;
+	u32 intr_status;
+	u32 intr_mask;
+	struct iio_dev *indio_dev = data;
+	struct iproc_adc_priv *adc_priv = iio_priv(indio_dev);
+
+	/*
+	 * This interrupt is shared with the touchscreen driver.
+	 * Make sure this interrupt is intended for us.
+	 * Handle only ADC channel specific interrupts.
+	 */
+	regmap_read(adc_priv->regmap, IPROC_INTERRUPT_STATUS, &intr_status);
+	regmap_read(adc_priv->regmap, IPROC_INTERRUPT_MASK, &intr_mask);
+	intr_status = intr_status & intr_mask;
+	channel_intr_status = (intr_status & IPROC_ADC_INTR_MASK) >>
+				IPROC_ADC_INTR;
+	if (channel_intr_status)
+		return IRQ_WAKE_THREAD;
+
+	return IRQ_NONE;
+}
+
 static irqreturn_t iproc_adc_interrupt_handler(int irq, void *data)
 {
 	irqreturn_t retval = IRQ_NONE;
@@ -540,8 +564,9 @@ static int iproc_adc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = devm_request_irq(&pdev->dev, adc_priv->irqno,
+	ret = devm_request_threaded_irq(&pdev->dev, adc_priv->irqno,
 				iproc_adc_interrupt_handler,
+				iproc_adc_interrupt_thread,
 				IRQF_SHARED, "iproc-adc", indio_dev);
 	if (ret) {
 		dev_err(&pdev->dev, "request_irq error %d\n", ret);
