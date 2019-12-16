@@ -13,7 +13,7 @@
 
 #define DRIVER_NAME	"tee-bnxt-fw"
 
-#define MAX_SHM_MEM_SZ	SZ_4M
+#define MAX_SHM_MEM_SZ	SZ_4K
 
 enum ta_cmd {
 /*
