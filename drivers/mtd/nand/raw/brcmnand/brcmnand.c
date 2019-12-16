@@ -1479,30 +1479,22 @@ static void brcmnand_read_buf(struct nand_chip *chip, uint8_t *buf, int len)
 		*buf = brcmnand_read_byte(chip);
 }
 
-static void brcmnand_write_byte(struct nand_chip *chip, uint8_t byte)
+static void brcmnand_write_buf(struct nand_chip *chip, const uint8_t *buf,
+			       int len)
 {
+	int i;
 	struct brcmnand_host *host = nand_get_controller_data(chip);
 
 	switch (host->last_cmd) {
 	case NAND_CMD_SET_FEATURES:
-		brcmnand_low_level_op(host, LL_OP_WR, byte,
-				      host->last_byte ==
-				      ONFI_SUBFEATURE_PARAM_LEN - 1);
+		for (i = 0; i < len; i++)
+			brcmnand_low_level_op(host, LL_OP_WR, buf[i],
+						  (i + 1) == len);
 		break;
 	default:
 		BUG();
 		break;
 	}
-	host->last_byte++;
-}
-
-static void brcmnand_write_buf(struct nand_chip *chip, const uint8_t *buf,
-			       int len)
-{
-	int i;
-
-	for (i = 0; i < len; i++, buf++)
-		brcmnand_write_byte(chip, *buf);
 }
 
 /**
@@ -2283,7 +2275,6 @@ static int brcmnand_init_cs(struct brcmnand_host *host, struct device_node *dn)
 	chip->legacy.waitfunc = brcmnand_waitfunc;
 	chip->legacy.read_byte = brcmnand_read_byte;
 	chip->legacy.read_buf = brcmnand_read_buf;
-	chip->legacy.write_byte = brcmnand_write_byte;
 	chip->legacy.write_buf = brcmnand_write_buf;
 
 	chip->ecc.mode = NAND_ECC_HW;
@@ -2295,11 +2286,6 @@ static int brcmnand_init_cs(struct brcmnand_host *host, struct device_node *dn)
 	chip->ecc.read_oob_raw = brcmnand_read_oob_raw;
 	chip->ecc.read_oob = brcmnand_read_oob;
 	chip->ecc.write_oob = brcmnand_write_oob;
-
-	if (ctrl->soc->quirks & BRCMNAND_SOC_QUIRK_GET_SET_FEATURE_BROKEN) {
-		chip->legacy.set_features = nand_get_set_features_notsupp;
-		chip->legacy.get_features = nand_get_set_features_notsupp;
-	}
 
 	chip->controller = &ctrl->controller;
 
