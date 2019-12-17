@@ -34,4 +34,4 @@ dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040-pcie-iommu.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += ps250.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += ps410t.dtb
 
-subdir-y	:= custom emulator
+subdir-y	:= custom
