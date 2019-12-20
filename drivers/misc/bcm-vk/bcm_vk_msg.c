@@ -129,8 +129,8 @@ void bcm_vk_update_qstats(struct bcm_vk *vk, const char *tag,
 #endif
 
 /* number of retries when enqueue message fails before returning EAGAIN */
-#define BCM_VK_H2VK_ENQ_RETRY 2
-#define BCM_VK_H2VK_ENQ_RETRY_DELAY_MS 5
+#define BCM_VK_H2VK_ENQ_RETRY 10
+#define BCM_VK_H2VK_ENQ_RETRY_DELAY_MS 50
 
 bool bcm_vk_drv_access_ok(struct bcm_vk *vk)
 {
