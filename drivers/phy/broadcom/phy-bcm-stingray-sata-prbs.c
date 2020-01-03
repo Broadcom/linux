@@ -100,6 +100,7 @@ enum sata_phy_regs tx0_data_rate;
 #define SR_PLL1_ACTRL4_MAGIC		0x3e8
 #define SR_PLL0_ACTRL6_MAGIC		0xa
 
+#define SATA_TEST_GEN_LEN		6
 
 struct sata_prbs_test {
 	struct device *dev;
@@ -109,7 +110,7 @@ struct sata_prbs_test {
 	unsigned int test_retries;
 	unsigned int err_status;
 	unsigned int prbs_order;
-	char sata_test_gen[4];
+	char sata_test_gen[SATA_TEST_GEN_LEN];
 };
 
 static void sata_phy_write(void __iomem *pcb_base, u32 bank,
@@ -546,7 +547,7 @@ static int stingray_sata_phy_probe(struct platform_device *pdev)
 	test->test_start = 0;
 	test->err_status = 0;
 	test->prbs_order = 7;
-	strcpy(test->sata_test_gen, "gen3");
+	strncpy(test->sata_test_gen, "gen3", (sizeof(test->sata_test_gen) - 1));
 
 	dev_info(dev, "SATA PHY initialized for PRBS test\n");
 
