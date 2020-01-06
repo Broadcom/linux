@@ -1109,7 +1109,7 @@ static int async_tx_test_type_set(const char *val,
 		return -EINVAL;
 	}
 
-	strncpy(test_type, ops->name, sizeof(ops->name));
+	strncpy(test_type, ops->name, (sizeof(test_type) - 1));
 
 	mutex_unlock(&test_lock);
 
