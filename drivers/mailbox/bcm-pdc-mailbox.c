@@ -253,7 +253,6 @@ struct pdc_regs {
 struct pdc_ring_alloc {
 	dma_addr_t  dmabase; /* DMA address of start of ring */
 	void	   *vbase;   /* base kernel virtual address of ring */
-	u32	    size;    /* ring allocation size in bytes */
 };
 
 /*
