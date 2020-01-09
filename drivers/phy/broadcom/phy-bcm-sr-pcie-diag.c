@@ -559,17 +559,12 @@ static u16 uc_ram_read16(struct pcie_prbs_dev *pd, u32 ram_addr)
 	return lsw;
 }
 
-static int uc_ram_read(struct pcie_prbs_dev *pd, u32 *buf, u32 ram_addr,
-		       u32 len)
+static u32 uc_ram_read32(struct pcie_prbs_dev *pd, u32 ram_addr)
 {
-	u32 i, paddr;
+	u32 paddr, data;
 	u16 val, lsw, wsw;
 
-	if (!buf)
-		return -EINVAL;
-
 	ram_addr = ALIGN_DOWN(ram_addr, SZ_4);
-	len = ALIGN_DOWN(len, SZ_4);
 
 	paddr = pmi_addr(UC_A_AHB_CTRL0, pd->lane);
 	val = UC_AUTO_INC_RADDR_EN | (UC_RSIZE_32 << UC_RSIZE_SHIFT);
@@ -580,13 +575,26 @@ static int uc_ram_read(struct pcie_prbs_dev *pd, u32 *buf, u32 ram_addr,
 	paddr = pmi_addr(UC_A_AHB_RADDR_LSW, pd->lane);
 	pmi_write(pd, paddr, ram_addr & UC_WORD_MASK);
 
-	for (i = 0; i < len; i += SZ_4, buf++) {
-		paddr = pmi_addr(UC_A_AHB_RDATA_MSW, pd->lane);
-		pmi_read(pd, paddr, &wsw);
-		paddr = pmi_addr(UC_A_AHB_RDATA_LSW, pd->lane);
-		pmi_read(pd, paddr, &lsw);
-		*buf = (wsw << UC_WORD_SIZE) | lsw;
-	}
+	paddr = pmi_addr(UC_A_AHB_RDATA_MSW, pd->lane);
+	pmi_read(pd, paddr, &wsw);
+	paddr = pmi_addr(UC_A_AHB_RDATA_LSW, pd->lane);
+	pmi_read(pd, paddr, &lsw);
+	data = (wsw << UC_WORD_SIZE) | lsw;
+
+	return data;
+}
+
+static int uc_ram_read(struct pcie_prbs_dev *pd, u32 *buf, u32 ram_addr,
+		       u32 len)
+{
+	unsigned int i;
+
+	if (!buf)
+		return -EINVAL;
+
+	len = ALIGN_DOWN(len, SZ_4);
+	for (i = 0; i < len; i += SZ_4)
+		buf[i] = uc_ram_read32(pd, ram_addr);
 
 	return 0;
 }
@@ -664,20 +672,20 @@ static int uc_get_info(struct pcie_prbs_dev *pd)
 	memset(info, 0, sizeof(*info));
 
 	/* validate signature from uc */
-	uc_ram_read(pd, &val, UC_SIGNATURE_OFFSET, SZ_4);
+	val = uc_ram_read32(pd, UC_SIGNATURE_OFFSET);
 	info->signature = val;
 	if ((info->signature & UC_SIGNATURE_MASK) != UC_SIGNATURE)
 		return -ENODEV;
 
 	info->version = (val >> UC_VERSION_SHIFT) & UC_VERSION_MASK;
 
-	uc_ram_read(pd, &val, UC_OTHER_SIZE_OFFSET, SZ_4);
+	val = uc_ram_read32(pd, UC_OTHER_SIZE_OFFSET);
 	info->lane_count = (val >> UC_LANE_SIZE_SHIFT) & UC_LANE_SIZE_MASK;
 	info->trace_mem_desc_writes = !!(val & UC_TR_MEM_DESC_WR_MASK);
 	info->core_var_ram_size = (val >> UC_CORE_VAR_RAM_SIZE_SHIFT) &
 				  UC_CORE_VAR_RAM_SIZE_MASK;
 
-	uc_ram_read(pd, &val, UC_TRACE_LANE_MEM_SIZE_OFFSET, SZ_4);
+	val = uc_ram_read32(pd, UC_TRACE_LANE_MEM_SIZE_OFFSET);
 	info->lane_var_ram_size = (val >> UC_LANE_VAR_RAM_SIZE_SHIFT) &
 				  UC_LANE_VAR_RAM_SIZE_MASK;
 	if (info->lane_var_ram_size != LANE_VAR_RAM_SIZE)
@@ -687,17 +695,17 @@ static int uc_get_info(struct pcie_prbs_dev *pd)
 				  info->lane_count;
 	info->trace_mem_ram_size = val & UC_TRACE_MEM_SIZE_MASK;
 
-	uc_ram_read(pd, &val, UC_TRACE_MEM_PTR_OFFSET, SZ_4);
+	val = uc_ram_read32(pd, UC_TRACE_MEM_PTR_OFFSET);
 	info->diag_mem_ram_base = val;
 	info->trace_mem_ram_base = info->diag_mem_ram_base;
 
-	uc_ram_read(pd, &val, UC_CORE_MEM_PTR_OFFSET, SZ_4);
+	val = uc_ram_read32(pd, UC_CORE_MEM_PTR_OFFSET);
 	info->core_var_ram_base = val;
 
-	uc_ram_read(pd, &val, UC_MICRO_MEM_PTR_OFFSET, SZ_4);
+	val = uc_ram_read32(pd, UC_MICRO_MEM_PTR_OFFSET);
 	info->micro_var_ram_base = val;
 
-	uc_ram_read(pd, &val, UC_OTHER_SIZE_2_OFFSET, SZ_4);
+	val = uc_ram_read32(pd, UC_OTHER_SIZE_2_OFFSET);
 	info->micro_var_ram_size = (val >> UC_MICRO_MEM_SIZE_SHIFT) &
 				   UC_MICRO_MEM_SIZE_MASK;
 
@@ -707,7 +715,7 @@ static int uc_get_info(struct pcie_prbs_dev *pd)
 	else
 		info->micro_count = val & UC_MICRO_CNT_MASK;
 
-	uc_ram_read(pd, &val, UC_LANE_MEM_PTR_OFFSET, SZ_4);
+	val = uc_ram_read32(pd, UC_LANE_MEM_PTR_OFFSET);
 	info->lane_var_ram_base = val;
 
 	pr_info("Microcode info for Lane[%u]:", pd->lane);
