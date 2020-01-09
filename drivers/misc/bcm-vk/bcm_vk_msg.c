@@ -368,36 +368,48 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 	uint32_t num;
 	struct bcm_vk_wkent *entry, *tmp;
 	struct bcm_vk *vk;
+	struct list_head del_q;
 
 	if (ctx)
 		vk = container_of(ctx->miscdev, struct bcm_vk, miscdev);
 
+	INIT_LIST_HEAD(&del_q);
 	spin_lock(&chan->pendq_lock);
 	for (num = 0; num < chan->q_nr; num++) {
 		list_for_each_entry_safe(entry, tmp, &chan->pendq[num], node) {
 			if (ctx == NULL) {
 				list_del(&entry->node);
-				bcm_vk_free_wkent(dev, entry);
+				list_add_tail(&entry->node, &del_q);
 			} else if (entry->ctx->idx == ctx->idx) {
 				struct vk_msg_blk *msg;
 
 				/* if it is specific ctx, log for any stuck */
 				msg = entry->h2vk_msg;
-				dev_err(dev,
-					"Drained: fid %u size %u msg 0x%x(seq-%x) ctx 0x%x[fd-%d] args:[0x%x 0x%x] resp %s, bmap %d\n",
-					msg->function_id, msg->size,
-					msg->msg_id, entry->seq_num,
-					msg->context_id, entry->ctx->idx,
-					msg->args[0], msg->args[1],
-					entry->vk2h_msg ? "T" : "F",
-					test_bit(msg->msg_id, vk->bmap));
+				dev_info(dev,
+					 "Drained: fid %u size %u msg 0x%x(seq-%x) ctx 0x%x[fd-%d] args:[0x%x 0x%x] resp %s, bmap %d\n",
+					 msg->function_id, msg->size,
+					 msg->msg_id, entry->seq_num,
+					 msg->context_id, entry->ctx->idx,
+					 msg->args[0], msg->args[1],
+					 entry->vk2h_msg ? "T" : "F",
+					 test_bit(msg->msg_id, vk->bmap));
 				list_del(&entry->node);
+				list_add_tail(&entry->node, &del_q);
 				bcm_vk_msgid_bitmap_clear(vk, msg->msg_id, 1);
-				bcm_vk_free_wkent(dev, entry);
 			}
 		}
 	}
 	spin_unlock(&chan->pendq_lock);
+
+	/* batch clean up */
+	num = 0;
+	list_for_each_entry_safe(entry, tmp, &del_q, node) {
+		list_del(&entry->node);
+		bcm_vk_free_wkent(dev, entry);
+		num++;
+	}
+	if (num)
+		dev_info(dev, "Total drained items %d\n", num);
 }
 
 bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
