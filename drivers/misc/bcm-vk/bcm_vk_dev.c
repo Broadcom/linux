@@ -2089,6 +2089,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct bcm_vk *vk;
 	struct device *dev = &pdev->dev;
 	struct miscdevice *misc_device;
+	uint32_t fb_reg;
 
 	/* allocate vk structure which is tied to kref for freeing */
 	vk = kzalloc(sizeof(*vk), GFP_KERNEL);
@@ -2268,9 +2269,17 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	 * lets trigger an auto download.  We don't want to do it serially here
 	 * because at probing time, it is not supposed to block for a long time.
 	 */
-	if (auto_load)
-		if (bcm_vk_trigger_autoload(vk))
-			goto err_bcm_vk_tty_exit;
+	fb_reg = vkread32(vk, BAR_0, BAR_FB_OPEN);
+	if (auto_load) {
+		if ((fb_reg & FB_BOOT_STATE_MASK) == FB_BROM_RUNNING) {
+			if (bcm_vk_trigger_autoload(vk))
+				goto err_bcm_vk_tty_exit;
+		} else {
+			dev_info(dev,
+				 "Auto-load skipped - BROM not in proper state (0x%x)\n",
+				 fb_reg);
+		}
+	}
 
 	/* enable hb */
 	bcm_vk_hb_init(vk);
