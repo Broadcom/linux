@@ -251,7 +251,6 @@ struct bcm_vk {
 
 	struct tty_driver *tty_drv;
 	struct timer_list serial_timer;
-	spinlock_t timer_lock;
 	struct bcm_vk_tty tty[BCM_VK_NUM_TTY];
 
 	/* Reference-counting to handle file operations */
