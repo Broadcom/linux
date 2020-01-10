@@ -169,7 +169,7 @@
 #define GEN1_PRBS_VAL			0x4
 #define GEN2_PRBS_VAL			0x5
 #define GEN3_PRBS_VAL			0x6
-#define GEN_STR_LEN			4
+#define GEN_STR_LEN			6
 #define MAX_LANE_RETRIES		10
 #define PMI_PASS_STATUS			0x8000
 
@@ -2164,7 +2164,7 @@ static int stingray_pcie_phy_probe(struct platform_device *pdev)
 	pd->pcie_mode = PCIE_MODE_DEFAULT;
 	pd->slot_num = 0;
 	pd->ber_sampling_time = BER_DFT_SAMPLING_TIME;
-	strncpy(pd->test_gen, "gen2", GEN_STR_LEN);
+	strncpy(pd->test_gen, "gen2", (sizeof(pd->test_gen) - 1));
 	dev_info(dev, "%d PCIe PHYs registered\n", pd->phy_count);
 	return 0;
 
