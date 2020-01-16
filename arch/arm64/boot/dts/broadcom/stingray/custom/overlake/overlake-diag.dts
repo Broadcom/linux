@@ -5,6 +5,7 @@
 
 #include "overlake.dts"
 
+#undef NUM_PAXB
 #define NUM_PAXB 0
 
 #include "../../stingray-diag.dtsi"
