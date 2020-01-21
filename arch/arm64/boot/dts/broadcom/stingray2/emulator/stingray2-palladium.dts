@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2020 Broadcom
+ */
+
+/dts-v1/;
+
+/* HACK: Reserve initrd location
+ * The memreserve entry for initrd is supposed
+ * to be updated in DTB by bootloader before
+ * handing over DTB to Linux kernel.
+ */
+/memreserve/ 0x81000000 0x00800000;
+
+/* HACK: Reserve bl31 location
+ * The memreserve entry for bl31 is supposed to
+ * be updated in DTB by bootloader before handing
+ * over DTB to Linux kernel. This is so because
+ * only firmware (or bootloader) know the correct
+ * location of bl31 and bl31 location in DDR can
+ * also change in-future.
+ */
+/memreserve/ 0x8f000000 0x00100000;
+
+#include "../stingray2.dtsi"
+
+/ {
+	model = "Broadcom Stingray2 palladium";
+
+	aliases {
+		serial0 = &uart1;
+	};
+
+	chosen { /* HACK: hard-code kernel args and initrd location */
+		bootargs = "root=/dev/ram rw console=ttyAMA1,1200n8 \
+			    earlycon=pl011,mmio32,0x68a10000 cma=64M \
+			    maxcpus=1";
+		linux,initrd-start = <0x0 0x81000000>;
+		linux,initrd-end = <0x0 0x81800000>;
+		stdout-path = "serial0:1200n8";
+	};
+
+	memory: memory@80000000 {
+		device_type = "memory";
+		reg = <0x00000000 0x80000000 0 0x40000000>;
+	};
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&sdio0 {
+	non-removable;
+	no-sdio;
+	no-sd;
+	no-1-8-v;
+	status = "okay";
+};
+
+&sdio1 {
+	non-removable;
+	no-sdio;
+	no-sd;
+	no-1-8-v;
+	status = "okay";
+};
