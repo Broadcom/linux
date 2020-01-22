@@ -382,20 +382,26 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 				list_add_tail(&entry->node, &del_q);
 			} else if (entry->ctx->idx == ctx->idx) {
 				struct vk_msg_blk *msg;
+				int bit_set;
+				bool responded;
 
 				/* if it is specific ctx, log for any stuck */
 				msg = entry->h2vk_msg;
+				bit_set = test_bit(msg->msg_id, vk->bmap);
+				responded = entry->vk2h_msg ? true : false;
 				dev_info(dev,
 					 "Drained: fid %u size %u msg 0x%x(seq-%x) ctx 0x%x[fd-%d] args:[0x%x 0x%x] resp %s, bmap %d\n",
 					 msg->function_id, msg->size,
 					 msg->msg_id, entry->seq_num,
 					 msg->context_id, entry->ctx->idx,
 					 msg->args[0], msg->args[1],
-					 entry->vk2h_msg ? "T" : "F",
-					 test_bit(msg->msg_id, vk->bmap));
+					 responded ? "T" : "F", bit_set);
 				list_del(&entry->node);
 				list_add_tail(&entry->node, &del_q);
-				bcm_vk_msgid_bitmap_clear(vk, msg->msg_id, 1);
+				if (!responded && bit_set)
+					bcm_vk_msgid_bitmap_clear(vk,
+								  msg->msg_id,
+								  1);
 			}
 		}
 	}
@@ -1222,7 +1228,7 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 					    &vk->h2vk_msg_chan,
 					    entry->h2vk_msg[0].queue_id,
 					    entry->h2vk_msg[0].msg_id);
-		goto bcm_vk_write_free_msgid;
+		goto bcm_vk_write_free_ent;
 	}
 
 	return count;
