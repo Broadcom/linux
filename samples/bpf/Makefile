@@ -294,6 +294,3 @@ $(obj)/%.o: $(src)/%.c
 ifeq ($(DWARF2BTF),y)
 	$(BTF_PAHOLE) -J $@
 endif
-install:
-		cp -f $(hostprogs-y) $(DESTDIR)
-		cp -f *_kern.o $(DESTDIR)
