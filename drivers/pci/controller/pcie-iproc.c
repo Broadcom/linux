@@ -672,12 +672,6 @@ static void __iomem *iproc_pcie_map_cfg_bus(struct iproc_pcie *pcie,
 			return (pcie->base + offset);
 	}
 
-	if (pcie->ep_is_internal) {
-		/* only enumerate up to supported number of PFs */
-		if (pcie->nr_pf && fn >= pcie->nr_pf)
-			return NULL;
-	}
-
 	return iproc_pcie_map_ep_cfg_reg(pcie, busno, slot, fn, where);
 }
 
@@ -1602,7 +1596,6 @@ int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 		regs = iproc_pcie_reg_paxc;
 		pcie->ep_is_internal = true;
 		pcie->rej_unconfig_pf = true;
-		pcie->nr_pf = 4;
 		break;
 	case IPROC_PCIE_PAXC_V2:
 		regs = iproc_pcie_reg_paxc_v2;

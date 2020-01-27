@@ -14,9 +14,6 @@
  *
  * PAXC is the wrapper used in root complex dedicated for internal emulated
  * endpoint devices.
- *
- * PAXC v2 is the second generation of root complex wrapper dedicated for
- * internal emulated endpoint devices.
  */
 enum iproc_pcie_type {
 	IPROC_PCIE_PAXB_BCMA = 0,
@@ -61,8 +58,6 @@ struct iproc_msi;
  * @phy: optional PHY device that controls the Serdes
  * @map_irq: function callback to map interrupts
  * @ep_is_internal: indicates an internal emulated endpoint device is connected
- * @nr_pf: number of physical functions (only valid for internally emulated
- * EPs)
  * @iproc_cfg_read: indicates the iProc config read function should be used
  * @rej_unconfig_pf: indicates the root complex needs to detect and reject
  * enumeration against unconfigured physical functions emulated in the ASIC
@@ -97,7 +92,6 @@ struct iproc_pcie {
 	struct phy *phy;
 	int (*map_irq)(const struct pci_dev *, u8, u8);
 	bool ep_is_internal;
-	unsigned int nr_pf;
 	bool iproc_cfg_read;
 	bool rej_unconfig_pf;
 	bool has_apb_err_disable;
