@@ -125,8 +125,6 @@ int iproc_pcie_remove(struct iproc_pcie *pcie);
 #ifdef CONFIG_PCIE_IPROC_MSI
 int iproc_msi_init(struct iproc_pcie *pcie, struct device_node *node);
 void iproc_msi_exit(struct iproc_pcie *pcie);
-void iproc_msi_enable(struct iproc_msi *msi);
-void iproc_msi_disable(struct iproc_msi *msi);
 #else
 static inline int iproc_msi_init(struct iproc_pcie *pcie,
 				 struct device_node *node)
@@ -134,12 +132,6 @@ static inline int iproc_msi_init(struct iproc_pcie *pcie,
 	return -ENODEV;
 }
 static inline void iproc_msi_exit(struct iproc_pcie *pcie)
-{
-}
-static inline void iproc_msi_enable(struct iproc_msi *msi)
-{
-}
-static inline void iproc_msi_disable(struct iproc_msi *msi)
 {
 }
 #endif
