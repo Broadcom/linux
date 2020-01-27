@@ -312,7 +312,6 @@ config BCM_CYGNUS_PHY
 	depends on ARCH_BCM_IPROC || COMPILE_TEST
 	depends on MDIO_BCM_IPROC
 	select BCM_NET_PHYLIB
-	default ARCH_BCM_CYGNUS
 	---help---
 	  This PHY driver is for the 1G internal PHYs of the Broadcom
 	  Cygnus and Omega Family SoC.
