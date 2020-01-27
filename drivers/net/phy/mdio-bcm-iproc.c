@@ -60,7 +60,6 @@ static inline void iproc_mdio_config_clk(void __iomem *base)
 
 	val = (IPROC_GPHY_MDCDIV << MII_CTRL_DIV_SHIFT) |
 		  BIT(MII_CTRL_PRE_SHIFT);
-
 	writel(val, base + MII_CTRL_OFFSET);
 }
 
