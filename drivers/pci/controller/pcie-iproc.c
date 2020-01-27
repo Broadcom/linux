@@ -183,40 +183,6 @@ struct iproc_pcie_ib_map {
 	u16 imap_window_offset;
 };
 
-static const struct iproc_pcie_ib_map paxb_ib_map[] = {
-	{
-		/* IARR0/IMAP0 */
-		.type = IPROC_PCIE_IB_MAP_IO,
-		.size_unit = SZ_1K,
-		.region_sizes = { 32 },
-		.nr_sizes = 1,
-		.nr_windows = 8,
-		.imap_addr_offset = 0x40,
-		.imap_window_offset = 0x4,
-	},
-	{
-		/* IARR1/IMAP1 */
-		.type = IPROC_PCIE_IB_MAP_MEM,
-		.size_unit = SZ_1M,
-		.region_sizes = { 8 },
-		.nr_sizes = 1,
-		.nr_windows = 8,
-		.imap_addr_offset = 0x4,
-		.imap_window_offset = 0x8,
-	},
-	{
-		/* IARR2/IMAP2 */
-		.type = IPROC_PCIE_IB_MAP_MEM,
-		.size_unit = SZ_1M,
-		.region_sizes = { 64, 128, 256, 512, 1024, 2048, 4096, 8192,
-				  16384 },
-		.nr_sizes = 9,
-		.nr_windows = 1,
-		.imap_addr_offset = 0x4,
-		.imap_window_offset = 0x8,
-	},
-};
-
 static const struct iproc_pcie_ib_map paxb_v2_ib_map[] = {
 	{
 		/* IARR0/IMAP0 */
@@ -369,12 +335,6 @@ static const u16 iproc_pcie_reg_paxb[] = {
 	[IPROC_PCIE_OMAP0]		= 0xd40,
 	[IPROC_PCIE_OARR1]		= 0xd28,
 	[IPROC_PCIE_OMAP1]		= 0xd48,
-	[IPROC_PCIE_IARR0]		= 0xd00,
-	[IPROC_PCIE_IMAP0]		= 0xc00,
-	[IPROC_PCIE_IARR1]		= 0xd08,
-	[IPROC_PCIE_IMAP1]		= 0xd70,
-	[IPROC_PCIE_IARR2]		= 0xd10,
-	[IPROC_PCIE_IMAP2]		= 0xcc0,
 	[IPROC_PCIE_LINK_STATUS]	= 0xf0c,
 	[IPROC_PCIE_APB_ERR_EN]		= 0xf40,
 };
@@ -1623,8 +1583,6 @@ int iproc_pcie_rev_init(struct iproc_pcie *pcie)
 			pcie->ob_map = paxb_ob_map;
 			pcie->ob.nr_windows = ARRAY_SIZE(paxb_ob_map);
 		}
-		pcie->ib.nr_regions = ARRAY_SIZE(paxb_ib_map);
-		pcie->ib_map = paxb_ib_map;
 		break;
 	case IPROC_PCIE_PAXB_V2:
 		regs = iproc_pcie_reg_paxb_v2;
