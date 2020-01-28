@@ -5123,9 +5123,9 @@ int pci_try_reset_function(struct pci_dev *dev)
 
 	pci_dev_save_and_disable(dev);
 	rc = __pci_reset_function_locked(dev);
+	pci_dev_restore(dev);
 	pci_dev_unlock(dev);
 
-	pci_dev_restore(dev);
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pci_try_reset_function);
