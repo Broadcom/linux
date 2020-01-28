@@ -72,16 +72,12 @@
 #define PHY_BRCM_EN_MASTER_MODE		0x00010000
 
 /* Broadcom B502X0X_542XXXXCT RDB register definations */
-#define BCM_542XX_RDB_ADDR		0x1e	/* RDB indirect address reg */
-#define BCM_542XX_RDB_DATA		0x1f	/* RDB indirect data reg */
-#define BCM_542XX_RDB_ADDR_MASK		0x0fff	/* RDB indirect address mask */
-#define BCM_542XX_RDB_PHY_ECR		0x0	/* extended control reg */
-#define BCM_542XX_RDB_PHY_ISR		0x00a	/* interrupt status reg */
-#define BCM_542XX_RDB_PHY_IMR		0x00b	/* interrupt mask reg */
+#define BCM_542XX_RDB_ADDR		0x1e
+#define BCM_542XX_RDB_DATA		0x1f
+#define BCM_542XX_RDB_ADDR_MASK		0x0fff
 #define BCM_542XX_RDB_CLK_ALIGN_CTRL	0x013
 #define BCM_542XX_RDB_MODE_CTRL		0x021
 #define BCM_542XX_RDB_COPPER_MISC_CTRL	0x02f
-#define BCM_542XX_RDB_SGMII_SLAVE	0x235
 #define BCM_542XX_RDB_AUTODET_MEDIUM	0x23e
 #define BCM_542XX_RDB_TOP_LEVEL_CONFIG	0x810
 
@@ -90,13 +86,13 @@
 #define BCM_542XX_GTXCLK_INT_DELAY	BIT(9)
 #define BCM_542XX_TOP_LEVEL_CONFIG	0x00b0
 #define BCM_542XX_RGMII_3P3V		BCM_542XX_TOP_LEVEL_CONFIG
-#define BCM_542XX_MODE_SEL		0x6
-#define BCM_542XX_1000BASEX		BIT(1)
+#define BCM_542XX_MODE_SEL		0xfff9
+#define BCM_542XX_1000BASEX		((BCM_542XX_MODE_SEL |\
+					BIT(1)) & ~BIT(2))
 #define BCM_542XX_REG_1000X_EN		BIT(0)
 #define BCM_542XX_RGMII_AUTO_DET_MED_EN	BIT(0)
 #define BCM_542XX_POWER_DOWN		BIT(11)
 #define BCM_542XX_FIBER_LED		BIT(6)
-#define BCM_542XX_SGMII_SLAVE_MODE_EN	BIT(1)
 
 /* Broadcom BCM7xxx specific workarounds */
 #define PHY_BRCM_7XXX_REV(x)		(((x) >> 8) & 0xff)
