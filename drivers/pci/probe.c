@@ -1017,7 +1017,6 @@ static struct pci_bus *pci_alloc_child_bus(struct pci_bus *parent,
 	child->dev.parent = child->bridge;
 	pci_set_bus_of_node(child);
 	pci_set_bus_speed(child);
-	mutex_init(&bridge->bridge_lock);
 
 	/*
 	 * Check whether extended config space is accessible on the child

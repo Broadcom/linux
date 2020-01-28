@@ -1642,9 +1642,7 @@ static void pci_enable_bridge(struct pci_dev *dev)
 {
 	struct pci_dev *bridge;
 	int retval;
-	struct mutex *lock = &dev->bridge_lock;
 
-	mutex_lock(lock);
 	bridge = pci_upstream_bridge(dev);
 	if (bridge)
 		pci_enable_bridge(bridge);
@@ -1652,7 +1650,6 @@ static void pci_enable_bridge(struct pci_dev *dev)
 	if (pci_is_enabled(dev)) {
 		if (!dev->is_busmaster)
 			pci_set_master(dev);
-		mutex_unlock(lock);
 		return;
 	}
 
@@ -1661,7 +1658,6 @@ static void pci_enable_bridge(struct pci_dev *dev)
 		pci_err(dev, "Error enabling bridge (%d), continuing\n",
 			retval);
 	pci_set_master(dev);
-	mutex_unlock(lock);
 }
 
 static int pci_enable_device_flags(struct pci_dev *dev, unsigned long flags)
