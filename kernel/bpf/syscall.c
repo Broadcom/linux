@@ -1340,7 +1340,7 @@ static void __bpf_prog_put_noref(struct bpf_prog *prog, bool deferred)
 
 static void __bpf_prog_put(struct bpf_prog *prog, bool do_idr_lock)
 {
-	if (atomic64_dec_and_test(&prog->aux->refcnt)) {
+	if (atomic_dec_and_test(&prog->aux->refcnt)) {
 		perf_event_bpf_event(prog, PERF_BPF_EVENT_PROG_UNLOAD, 0);
 		/* bpf_prog_free_id() must be called first */
 		bpf_prog_free_id(prog, do_idr_lock);
@@ -1446,9 +1446,16 @@ static struct bpf_prog *____bpf_prog_get(struct fd f)
 	return f.file->private_data;
 }
 
-void bpf_prog_add(struct bpf_prog *prog, int i)
+/* prog's refcnt limit */
+#define BPF_MAX_REFCNT 32768
+
+struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i)
 {
-	atomic64_add(i, &prog->aux->refcnt);
+	if (atomic_add_return(i, &prog->aux->refcnt) > BPF_MAX_REFCNT) {
+		atomic_sub(i, &prog->aux->refcnt);
+		return ERR_PTR(-EBUSY);
+	}
+	return prog;
 }
 EXPORT_SYMBOL_GPL(bpf_prog_add);
 
@@ -1459,13 +1466,13 @@ void bpf_prog_sub(struct bpf_prog *prog, int i)
 	 * path holds a reference to the program, thus atomic_sub() can
 	 * be safely used in such cases!
 	 */
-	WARN_ON(atomic64_sub_return(i, &prog->aux->refcnt) == 0);
+	WARN_ON(atomic_sub_return(i, &prog->aux->refcnt) == 0);
 }
 EXPORT_SYMBOL_GPL(bpf_prog_sub);
 
-void bpf_prog_inc(struct bpf_prog *prog)
+struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
 {
-	atomic64_inc(&prog->aux->refcnt);
+	return bpf_prog_add(prog, 1);
 }
 EXPORT_SYMBOL_GPL(bpf_prog_inc);
 
@@ -1474,7 +1481,12 @@ struct bpf_prog *bpf_prog_inc_not_zero(struct bpf_prog *prog)
 {
 	int refold;
 
-	refold = atomic64_fetch_add_unless(&prog->aux->refcnt, 1, 0);
+	refold = atomic_fetch_add_unless(&prog->aux->refcnt, 1, 0);
+
+	if (refold >= BPF_MAX_REFCNT) {
+		__bpf_prog_put(prog, false);
+		return ERR_PTR(-EBUSY);
+	}
 
 	if (!refold)
 		return ERR_PTR(-ENOENT);
@@ -1512,7 +1524,7 @@ static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *attach_type,
 		goto out;
 	}
 
-	bpf_prog_inc(prog);
+	prog = bpf_prog_inc(prog);
 out:
 	fdput(f);
 	return prog;
@@ -1678,7 +1690,7 @@ static int bpf_prog_load(union bpf_attr *attr, union bpf_attr __user *uattr)
 	prog->orig_prog = NULL;
 	prog->jited = 0;
 
-	atomic64_set(&prog->aux->refcnt, 1);
+	atomic_set(&prog->aux->refcnt, 1);
 	prog->gpl_compatible = is_gpl ? 1 : 0;
 
 	if (bpf_prog_is_dev_bound(prog->aux)) {
