@@ -186,6 +186,24 @@ static struct bcm_vk_sysfs_reg_entry const fw_shutdown_reg_tab[] = {
 /* define for the start of the reboot reason */
 #define FW_STAT_RB_REASON_START 5
 
+/* table for all fast boot register related items */
+static struct bcm_vk_sysfs_reg_entry const boot_reg_tab[] = {
+	/* download status */
+	{FW_LOADER_ACK_SEND_MORE_DATA, FW_LOADER_ACK_SEND_MORE_DATA,
+	 "bt1_needs_data"},
+	{FW_LOADER_ACK_IN_PROGRESS, FW_LOADER_ACK_IN_PROGRESS,
+	 "bt1_inprog"},
+	{FW_LOADER_ACK_RCVD_ALL_DATA, FW_LOADER_ACK_RCVD_ALL_DATA,
+	 "bt2_dload_done"},
+	/* running state */
+	{BOOT_STATE_MASK, BROM_NOT_RUN,  "ucode_not_run"},
+	{BOOT_STATE_MASK, BROM_RUNNING,  "wait_boot1"},
+	{BOOT_STATE_MASK, BOOT1_RUNNING, "wait_boot2"},
+	{BOOT_STATE_MASK, BOOT2_RUNNING, "boot2_running"},
+};
+/* define for the start of OS state */
+#define OS_STATE_START 3
+
 /*
  * alerts that could be generated from peer
  */
@@ -589,8 +607,8 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		vkwrite32(vk, CODEPUSH_FASTBOOT, BAR_0, offset_codepush);
 
 		/* Wait for VK to respond */
-		ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN, SRAM_OPEN, SRAM_OPEN,
-				  LOAD_IMAGE_TIMEOUT_MS);
+		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS, SRAM_OPEN,
+				  SRAM_OPEN, LOAD_IMAGE_TIMEOUT_MS);
 		if (ret < 0) {
 			dev_err(dev, "boot1 timeout\n");
 			goto err_out;
@@ -603,8 +621,8 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		offset_codepush = BAR_CODEPUSH_SBI;
 
 		/* Wait for VK to respond */
-		ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN, DDR_OPEN, DDR_OPEN,
-				  LOAD_IMAGE_TIMEOUT_MS);
+		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS, DDR_OPEN,
+				  DDR_OPEN, LOAD_IMAGE_TIMEOUT_MS);
 		if (ret < 0) {
 			dev_err(dev, "boot2 timeout\n");
 			goto err_out;
@@ -646,9 +664,9 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		msleep(2 * MSEC_PER_SEC);
 
 		/* wait until done */
-		ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
-				  FB_BOOT1_RUNNING,
-				  FB_BOOT1_RUNNING,
+		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS,
+				  BOOT1_RUNNING,
+				  BOOT1_RUNNING,
 				  BCM_VK_BOOT1_STARTUP_TIME_MS);
 		if (ret) {
 			dev_err(dev,
@@ -668,7 +686,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			 * it means all the data is received by card.
 			 * Exit the loop after ack is received.
 			 */
-			ret = bcm_vk_wait(vk, BAR_0, BAR_FB_OPEN,
+			ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS,
 					  FW_LOADER_ACK_RCVD_ALL_DATA,
 					  FW_LOADER_ACK_RCVD_ALL_DATA,
 					  TXFR_COMPLETE_TIMEOUT_MS);
@@ -753,16 +771,16 @@ err_out:
 
 static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
 {
-	uint32_t fb_open;
+	uint32_t boot_status;
 	uint32_t fw_status;
 	u32 load_type = 0;  /* default for unknown */
 
-	fb_open = vkread32(vk, BAR_0, BAR_FB_OPEN);
+	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
 	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
 
-	if (!BCM_VK_INTF_IS_DOWN(fb_open) && (fb_open & SRAM_OPEN))
+	if (!BCM_VK_INTF_IS_DOWN(boot_status) && (boot_status & SRAM_OPEN))
 		load_type = VK_IMAGE_TYPE_BOOT1;
-	else if (fb_open == FB_BOOT1_RUNNING)
+	else if (boot_status == BOOT1_RUNNING)
 		load_type = VK_IMAGE_TYPE_BOOT2;
 
 	/*
@@ -770,8 +788,8 @@ static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
 	 *         for debugging.
 	 */
 	dev_info(&vk->pdev->dev,
-		 "FB_OPEN value for next image: 0x%x : fw-status 0x%x\n",
-		 fb_open, fw_status);
+		 "boot-status value for next image: 0x%x : fw-status 0x%x\n",
+		 boot_status, fw_status);
 
 	return load_type;
 }
@@ -1205,17 +1223,17 @@ static ssize_t firmware_status_reg_show(struct device *dev,
 	return sprintf(buf, "0x%x\n", fw_status);
 }
 
-static ssize_t fastboot_reg_show(struct device *dev,
-				 struct device_attribute *devattr,
-				 char *buf)
+static ssize_t boot_status_reg_show(struct device *dev,
+				   struct device_attribute *devattr,
+				   char *buf)
 {
-	uint32_t fb_reg;
+	uint32_t boot_status;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	fb_reg = vkread32(vk, BAR_0, BAR_FB_OPEN);
+	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
 
-	return sprintf(buf, "0x%x\n", fb_reg);
+	return sprintf(buf, "0x%x\n", boot_status);
 }
 
 static ssize_t pwr_state_show(struct device *dev,
@@ -1352,29 +1370,14 @@ static ssize_t firmware_status_show(struct device *dev,
 		{FW_STATUS_APP_INIT_DONE, FW_STATUS_APP_INIT_DONE,
 		 "app_inited"},
 	};
-	/* for FB register */
-	static struct bcm_vk_sysfs_reg_entry const fb_open_reg_tab[] = {
-		{FW_LOADER_ACK_SEND_MORE_DATA, FW_LOADER_ACK_SEND_MORE_DATA,
-		 "bt1_needs_data"},
-		{FW_LOADER_ACK_IN_PROGRESS, FW_LOADER_ACK_IN_PROGRESS,
-		 "bt1_inprog"},
-		{FW_LOADER_ACK_RCVD_ALL_DATA, FW_LOADER_ACK_RCVD_ALL_DATA,
-		 "bt2_dload_done"},
-		{SRAM_OPEN, SRAM_OPEN,
-		 "wait_boot1"},
-		{FB_BOOT_STATE_MASK, FB_BOOT1_RUNNING,
-		 "wait_boot2"},
-		{FB_BOOT_STATE_MASK, FB_BOOT2_RUNNING,
-		 "boot2_running"},
-	};
 	/* list of registers */
 	static struct bcm_vk_sysfs_reg_list const fw_status_reg_list[] = {
 		{BAR_FW_STATUS, fw_status_reg_tab,
 		 ARRAY_SIZE(fw_status_reg_tab),
 		 "FW status"},
-		{BAR_FB_OPEN, fb_open_reg_tab,
-		 ARRAY_SIZE(fb_open_reg_tab),
-		 "FastBoot status"},
+		{BAR_BOOT_STATUS, boot_reg_tab,
+		 ARRAY_SIZE(boot_reg_tab),
+		 "Boot status"},
 		{BAR_FW_STATUS, fw_shutdown_reg_tab,
 		 ARRAY_SIZE(fw_shutdown_reg_tab),
 		 "Last Reset status"},
@@ -1441,23 +1444,15 @@ static ssize_t os_state_show(struct device *dev,
 	uint32_t reg, i;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	static struct bcm_vk_sysfs_reg_entry const tab[] = {
-		{SRAM_OPEN, SRAM_OPEN,
-		 "wait_boot1"},
-		{FB_BOOT_STATE_MASK, FB_BOOT1_RUNNING,
-		 "wait_boot2"},
-		{FB_BOOT_STATE_MASK, FB_BOOT2_RUNNING,
-		 "boot2_running"},
-	};
 
 	reg = vkread32(vk, BAR_0, BAR_FW_STATUS);
 	if (BCM_VK_INTF_IS_DOWN(reg))
 		return sprintf(buf, "PCIe Intf Down!\n");
 
-	reg = vkread32(vk, BAR_0, BAR_FB_OPEN);
-	for (i = 0; i < ARRAY_SIZE(tab); i++) {
-		if ((tab[i].mask & reg) == tab[i].exp_val)
-			return sprintf(buf, "%s\n", tab[i].str);
+	reg = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
+	for (i = OS_STATE_START; i < ARRAY_SIZE(boot_reg_tab); i++) {
+		if ((boot_reg_tab[i].mask & reg) == boot_reg_tab[i].exp_val)
+			return sprintf(buf, "%s\n", boot_reg_tab[i].str);
 	}
 
 	return sprintf(buf, "invalid\n");
@@ -1988,7 +1983,7 @@ static DEVICE_ATTR_RO(voltage_18_mv);
 static DEVICE_ATTR_RO(voltage_33_mv);
 static DEVICE_ATTR_RO(chip_id);
 static DEVICE_ATTR_RO(firmware_status_reg);
-static DEVICE_ATTR_RO(fastboot_reg);
+static DEVICE_ATTR_RO(boot_status_reg);
 static DEVICE_ATTR_RO(pwr_state);
 
 static struct attribute *bcm_vk_card_stat_attributes[] = {
@@ -2031,7 +2026,7 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_voltage_18_mv.attr,
 	&dev_attr_voltage_33_mv.attr,
 	&dev_attr_firmware_status_reg.attr,
-	&dev_attr_fastboot_reg.attr,
+	&dev_attr_boot_status_reg.attr,
 	&dev_attr_pwr_state.attr,
 	&dev_attr_mem_ecc.attr,
 	&dev_attr_mem_uecc.attr,
@@ -2089,7 +2084,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct bcm_vk *vk;
 	struct device *dev = &pdev->dev;
 	struct miscdevice *misc_device;
-	uint32_t fb_reg;
+	uint32_t boot_status;
 
 	/* allocate vk structure which is tied to kref for freeing */
 	vk = kzalloc(sizeof(*vk), GFP_KERNEL);
@@ -2269,15 +2264,15 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	 * lets trigger an auto download.  We don't want to do it serially here
 	 * because at probing time, it is not supposed to block for a long time.
 	 */
-	fb_reg = vkread32(vk, BAR_0, BAR_FB_OPEN);
+	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
 	if (auto_load) {
-		if ((fb_reg & FB_BOOT_STATE_MASK) == FB_BROM_RUNNING) {
+		if ((boot_status & BOOT_STATE_MASK) == BROM_RUNNING) {
 			if (bcm_vk_trigger_autoload(vk))
 				goto err_bcm_vk_tty_exit;
 		} else {
 			dev_info(dev,
 				 "Auto-load skipped - BROM not in proper state (0x%x)\n",
-				 fb_reg);
+				 boot_status);
 		}
 	}
 

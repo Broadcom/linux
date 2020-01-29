@@ -31,20 +31,41 @@
  *
  * 1) When the VK device boot-up, M7 CPU runs and executes the BootROM.
  * The Secure Boot Loader (SBL) as part of the BootROM will run
- * fastboot to open up ITCM for host to push BOOT1 image.
+ * to open up ITCM for host to push BOOT1 image.
  * SBL will authenticate the image before jumping to BOOT1 image.
  *
  * 2) Because BOOT1 image is a secured image, we also called it the
  * Secure Boot Image (SBI). At second stage, SBI will initialize DDR
- * and run fastboot for host to push BOOT2 image to DDR.
+ * and wait for host to push BOOT2 image to DDR.
  * SBI will authenticate the image before jumping to BOOT2 image.
  *
  */
 /* Location of registers of interest in BAR0 */
-/* Fastboot request for Secure Boot Loader (SBL) */
+/* Request register for Secure Boot Loader (SBL) download */
 #define BAR_CODEPUSH_SBL		0x400
-/* Fastboot progress */
-#define BAR_FB_OPEN			0x404
+/* Boot Status register */
+#define BAR_BOOT_STATUS			0x404
+
+#define SRAM_OPEN			BIT(16)
+#define DDR_OPEN			BIT(17)
+
+/* Firmware loader progress status definitions */
+#define FW_LOADER_ACK_SEND_MORE_DATA	BIT(18)
+#define FW_LOADER_ACK_IN_PROGRESS	BIT(19)
+#define FW_LOADER_ACK_RCVD_ALL_DATA	BIT(20)
+
+/* definitions for boot status register */
+#define BOOT_STATE_MASK			0xFFF3FFFF
+#define BROM_STATUS_NOT_RUN		0x2
+#define BROM_NOT_RUN			(SRAM_OPEN | BROM_STATUS_NOT_RUN)
+#define BROM_STATUS_COMPLETE		0x6
+#define BROM_RUNNING			(SRAM_OPEN | BROM_STATUS_COMPLETE)
+#define BOOT1_STATUS_COMPLETE		0x6
+#define BOOT1_RUNNING			(DDR_OPEN | BOOT1_STATUS_COMPLETE)
+#define BOOT2_STATUS_COMPLETE		0x6
+#define BOOT2_RUNNING			(FW_LOADER_ACK_RCVD_ALL_DATA | \
+					 BOOT2_STATUS_COMPLETE)
+
 /* Fastboot request for Secure Boot Image (SBI) */
 #define BAR_CODEPUSH_SBI		0x408
 
@@ -117,21 +138,12 @@
 #define CODEPUSH_MASK			0xFFFFF000
 #define CODEPUSH_FASTBOOT		BIT(0)
 
-/* Fastboot progress definitions */
-#define SRAM_OPEN			BIT(16)
-#define DDR_OPEN			BIT(17)
-
 /* BOOTSRC definitions */
 #define BOOTSRC_SOFT_ENABLE		BIT(14)
 
 /* Card OS Firmware version size */
 #define BAR_FIRMWARE_TAG_SIZE		50
 #define FIRMWARE_STATUS_PRE_INIT_DONE	0x1F
-
-/* Fastboot firmware loader status definitions */
-#define FW_LOADER_ACK_SEND_MORE_DATA	BIT(18)
-#define FW_LOADER_ACK_IN_PROGRESS	BIT(19)
-#define FW_LOADER_ACK_RCVD_ALL_DATA	BIT(20)
 
 /* Error log register bit definition - register for error alerts */
 #define ERR_LOG_UECC			BIT(0)
@@ -147,16 +159,6 @@
 /* Alert bit definitions detectd on host */
 #define ERR_LOG_HOST_HB_FAIL		BIT(14)
 #define ERR_LOG_HOST_PCIE_DWN		BIT(15)
-
-/* Fast boot register derived states */
-#define FB_BOOT_STATE_MASK		0xFFF3FFFF
-#define FB_BROM_STATUS_COMPLETE		0x6
-#define FB_BROM_RUNNING			(SRAM_OPEN | FB_BROM_STATUS_COMPLETE)
-#define FB_BOOT1_STATUS_COMPLETE	0x6
-#define FB_BOOT1_RUNNING		(DDR_OPEN | FB_BOOT1_STATUS_COMPLETE)
-#define FB_BOOT2_STATUS_COMPLETE	0x6
-#define FB_BOOT2_RUNNING		(FW_LOADER_ACK_RCVD_ALL_DATA | \
-					 FB_BOOT2_STATUS_COMPLETE)
 
 /* VK MSG_ID defines */
 #define VK_MSG_ID_BITMAP_SIZE		4096
