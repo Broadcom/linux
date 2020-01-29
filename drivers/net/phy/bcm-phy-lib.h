@@ -48,8 +48,16 @@ int bcm_phy_write_shadow(struct phy_device *phydev, u16 shadow,
 			 u16 val);
 int bcm_phy_read_shadow(struct phy_device *phydev, u16 shadow);
 
+int bcm_phy_write_rdb(struct phy_device *phydev, u16 reg, u16 val);
+int bcm_phy_read_rdb(struct phy_device *phydev, u16 reg);
+
 int bcm_phy_ack_intr(struct phy_device *phydev);
 int bcm_phy_config_intr(struct phy_device *phydev);
+
+int bcm_rdb_phy_ack_intr(struct phy_device *phydev);
+int bcm_rdb_phy_config_intr(struct phy_device *phydev);
+
+int bcm_phy_power_down(struct phy_device *phydev, bool down);
 
 int bcm_phy_enable_apd(struct phy_device *phydev, bool dll_pwr_down);
 
