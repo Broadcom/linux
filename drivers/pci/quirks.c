@@ -2405,16 +2405,6 @@ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0x16f0, quirk_paxc_bridge);
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0xd750, quirk_paxc_bridge);
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0xd802, quirk_paxc_bridge);
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0xd804, quirk_paxc_bridge);
-
-static void quirk_paxb_linkup(struct pci_dev *pdev)
-{
-	u16 lnk_status;
-
-	pcie_capability_read_word(pdev, PCI_EXP_LNKSTA, &lnk_status);
-	if (!(lnk_status & PCI_EXP_LNKSTA_DLLLA))
-		pci_dev_set_disconnected(pdev, NULL);
-}
-DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0xd715, quirk_paxb_linkup);
 #endif
 
 /*
