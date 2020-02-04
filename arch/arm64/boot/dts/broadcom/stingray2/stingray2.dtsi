@@ -16,11 +16,94 @@
 		#address-cells = <2>;
 		#size-cells = <0>;
 
-		cpu@0 {
+		cpu@00000 {
 			device_type = "cpu";
 			compatible = "arm,armv8";
-			reg = <0x0 0x0>;
+			reg = <0x0 0x000000>;
+			enable-method = "psci";
 		};
+
+		cpu@10000 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x010000>;
+			enable-method = "psci";
+		};
+
+		cpu@20000 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x020000>;
+			enable-method = "psci";
+		};
+
+		cpu@30000 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x030000>;
+			enable-method = "psci";
+		};
+
+		cpu@40000 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x040000>;
+			enable-method = "psci";
+		};
+
+		cpu@50000 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x050000>;
+			enable-method = "psci";
+		};
+
+		cpu@60000 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x060000>;
+			enable-method = "psci";
+		};
+
+		cpu@70000 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x070000>;
+			enable-method = "psci";
+		};
+
+		cpu@80000 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x080000>;
+			enable-method = "psci";
+		};
+
+		cpu@90000 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x090000>;
+			enable-method = "psci";
+		};
+
+		cpu@a0000 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x0a0000>;
+			enable-method = "psci";
+		};
+
+		cpu@b0000 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x0b0000>;
+			enable-method = "psci";
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
 	};
 
 	timer {
