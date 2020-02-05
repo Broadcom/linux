@@ -248,6 +248,23 @@
 			status = "disabled";
 		};
 
+		#include "stingray2-pinctrl.dtsi"
+
+		gpio_hsls: gpio@d0000 {
+			compatible = "brcm,iproc-gpio";
+			reg = <0x000d0000 0x264>;
+			ngpios = <60>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			gpio-ranges = <&pinmux 0 0 38>,
+				      <&pinmux 38 46 2>,
+				      <&pinmux 40 44 2>,
+				      <&pinmux 42 38 4>,
+				      <&pinmux 46 60 4>,
+				      <&pinmux 50 42 2>,
+				      <&pinmux 52 52 8>;
+		};
+
 		uart0: uart@100000 {
 			device_type = "serial";
 			compatible = "arm,pl011", "arm,primecell";
