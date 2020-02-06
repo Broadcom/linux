@@ -41,8 +41,14 @@
  *
  */
 /* Location of registers of interest in BAR0 */
+
 /* Request register for Secure Boot Loader (SBL) download */
 #define BAR_CODEPUSH_SBL		0x400
+/* Start of ITCM */
+#define CODEPUSH_BOOT1_ENTRY		0x00400000
+#define CODEPUSH_MASK		        0xFFFFF000
+#define CODEPUSH_BOOTSTART		BIT(0)
+
 /* Boot Status register */
 #define BAR_BOOT_STATUS			0x404
 
@@ -68,6 +74,8 @@
 
 /* Fastboot request for Secure Boot Image (SBI) */
 #define BAR_CODEPUSH_SBI		0x408
+/* 64M mapped to BAR2 */
+#define CODEPUSH_BOOT2_ENTRY		0x60000000
 
 #define BAR_CARD_STATUS			0x410
 /* CARD_STATUS definitions */
@@ -123,28 +131,20 @@
 #define BAR_METADATA_VERSION		0x440
 #define BAR_OS_UPTIME			0x444
 #define BAR_CHIP_ID			0x448
+
 #define BAR_CARD_TEMPERATURE		0x45C
+/* defines for all temperature sensor */
+#define BCM_VK_TEMP_FIELD_MASK		0xFF
+#define BCM_VK_CPU_TEMP_SHIFT		0
+#define BCM_VK_DDR0_TEMP_SHIFT		8
+#define BCM_VK_DDR1_TEMP_SHIFT		16
+
 #define BAR_CARD_VOLTAGE		0x460
+/* defines for voltage rail conversion */
+#define BCM_VK_VOLT_RAIL_MASK		0xFFFF
+#define BCM_VK_3P3_VOLT_REG_SHIFT	16
+
 #define BAR_CARD_ERR_LOG		0x464
-#define BAR_CARD_ERR_MEM		0x468
-#define BAR_CARD_PWR_AND_THRE		0x46C
-#define BAR_CARD_STATIC_INFO		0x470
-#define BAR_BOOTSRC_SELECT		0xC78
-
-/* Start of ITCM */
-#define CODEPUSH_BOOT1_ENTRY		0x00400000
-/* 64M mapped to BAR2 */
-#define CODEPUSH_BOOT2_ENTRY		0x60000000
-#define CODEPUSH_MASK			0xFFFFF000
-#define CODEPUSH_FASTBOOT		BIT(0)
-
-/* BOOTSRC definitions */
-#define BOOTSRC_SOFT_ENABLE		BIT(14)
-
-/* Card OS Firmware version size */
-#define BAR_FIRMWARE_TAG_SIZE		50
-#define FIRMWARE_STATUS_PRE_INIT_DONE	0x1F
-
 /* Error log register bit definition - register for error alerts */
 #define ERR_LOG_UECC			BIT(0)
 #define ERR_LOG_SSIM_BUSY		BIT(1)
@@ -155,10 +155,35 @@
 #define ERR_LOG_MEM_ALLOC_FAIL		BIT(8)
 #define ERR_LOG_LOW_TEMP_WARN		BIT(9)
 #define ERR_LOG_ECC			BIT(10)
-
 /* Alert bit definitions detectd on host */
 #define ERR_LOG_HOST_HB_FAIL		BIT(14)
 #define ERR_LOG_HOST_PCIE_DWN		BIT(15)
+
+#define BAR_CARD_ERR_MEM		0x468
+/* defines for mem err, all fields have same width */
+#define BCM_VK_MEM_ERR_FIELD_MASK	0xFF
+#define BCM_VK_ECC_MEM_ERR_SHIFT	0
+#define BCM_VK_UECC_MEM_ERR_SHIFT	8
+/* threshold of event occurrence and logs start to come out */
+#define BCM_VK_ECC_THRESHOLD		10
+#define BCM_VK_UECC_THRESHOLD		1
+
+#define BAR_CARD_PWR_AND_THRE		0x46C
+/* defines for power and temp threshold, all fields have same width */
+#define BCM_VK_PWR_AND_THRE_FIELD_MASK	0xFF
+#define BCM_VK_LOW_TEMP_THRE_SHIFT	0
+#define BCM_VK_HIGH_TEMP_THRE_SHIFT	8
+#define BCM_VK_PWR_STATE_SHIFT		16
+
+#define BAR_CARD_STATIC_INFO		0x470
+
+#define BAR_BOOTSRC_SELECT		0xC78
+/* BOOTSRC definitions */
+#define BOOTSRC_SOFT_ENABLE		BIT(14)
+
+/* Card OS Firmware version size */
+#define BAR_FIRMWARE_TAG_SIZE		50
+#define FIRMWARE_STATUS_PRE_INIT_DONE	0x1F
 
 /* VK MSG_ID defines */
 #define VK_MSG_ID_BITMAP_SIZE		4096

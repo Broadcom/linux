@@ -72,31 +72,6 @@ const struct _load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 
 #define BCM_VK_BUS_SYMLINK_NAME		"pci"
 
-/* defines for voltage rail conversion */
-#define BCM_VK_VOLT_RAIL_MASK		0xFFFF
-#define BCM_VK_3P3_VOLT_REG_SHIFT	16
-
-/* defines for power and temp threshold, all fields have same width */
-#define BCM_VK_PWR_AND_THRE_FIELD_MASK	0xFF
-#define BCM_VK_LOW_TEMP_THRE_SHIFT	0
-#define BCM_VK_HIGH_TEMP_THRE_SHIFT	8
-#define BCM_VK_PWR_STATE_SHIFT		16
-
-/* defines for all temperature sensor */
-#define BCM_VK_TEMP_FIELD_MASK		0xFF
-#define BCM_VK_CPU_TEMP_SHIFT		0
-#define BCM_VK_DDR0_TEMP_SHIFT		8
-#define BCM_VK_DDR1_TEMP_SHIFT		16
-
-/* defines for mem err, all fields have same width */
-#define BCM_VK_MEM_ERR_FIELD_MASK	0xFF
-#define BCM_VK_ECC_MEM_ERR_SHIFT	0
-#define BCM_VK_UECC_MEM_ERR_SHIFT	8
-
-/* threshold of event occurrence and logs start to come out */
-#define BCM_VK_ECC_THRESHOLD		10
-#define BCM_VK_UECC_THRESHOLD		1
-
 /* a macro to get an individual field with mask and shift */
 #define BCM_VK_EXTRACT_FIELD(_field, _reg, _mask, _shift) \
 	(_field = (((_reg) >> (_shift)) & (_mask)))
@@ -600,11 +575,11 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		value |= BOOTSRC_SOFT_ENABLE;
 		vkwrite32(vk, value, BAR_0, BAR_BOOTSRC_SELECT);
 
-		codepush = CODEPUSH_FASTBOOT + CODEPUSH_BOOT1_ENTRY;
+		codepush = CODEPUSH_BOOTSTART + CODEPUSH_BOOT1_ENTRY;
 		offset_codepush = BAR_CODEPUSH_SBL;
 
 		/* Write a 1 to request SRAM open bit */
-		vkwrite32(vk, CODEPUSH_FASTBOOT, BAR_0, offset_codepush);
+		vkwrite32(vk, CODEPUSH_BOOTSTART, BAR_0, offset_codepush);
 
 		/* Wait for VK to respond */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS, SRAM_OPEN,
