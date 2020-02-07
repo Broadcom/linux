@@ -130,6 +130,76 @@
 			reg = <0x4000000 0x010000>, /* GICD */
 			      <0x4180000 0x1800000>; /* GICR */
 			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+
+			gic_its0: gic-its@4040000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x04040000 0x10000>;
+			};
+
+			gic_its1: gic-its@4060000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x04060000 0x10000>;
+			};
+
+			gic_its2: gic-its@4080000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x04080000 0x10000>;
+			};
+
+			gic_its3: gic-its@40a0000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x040a0000 0x10000>;
+			};
+
+			gic_its4: gic-its@40c0000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x040c0000 0x10000>;
+			};
+
+			gic_its5: gic-its@40e0000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x040e0000 0x10000>;
+			};
+
+			gic_its6: gic-its@4100000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x04100000 0x10000>;
+			};
+
+			gic_its7: gic-its@4120000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x04120000 0x10000>;
+			};
+
+			gic_its8: gic-its@4140000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x04140000 0x10000>;
+			};
+
+			gic_its9: gic-its@4160000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x04160000 0x10000>;
+			};
 		};
 
 		smmu: mmu@6000000 {
