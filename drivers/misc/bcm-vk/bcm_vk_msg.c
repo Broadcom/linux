@@ -287,6 +287,8 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk,
 	/* increase kref */
 	kref_get(&vk->kref);
 
+	/* clear counter */
+	ctx->pend_cnt = 0;
 all_in_use_exit:
 in_reset_exit:
 	spin_unlock(&vk->ctx_lock);
@@ -398,7 +400,9 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 					 responded ? "T" : "F", bit_set);
 				list_del(&entry->node);
 				list_add_tail(&entry->node, &del_q);
-				if (!responded && bit_set)
+				if (responded)
+					ctx->pend_cnt--;
+				else if (bit_set)
 					bcm_vk_msgid_bitmap_clear(vk,
 								  msg->msg_id,
 								  1);
@@ -538,6 +542,8 @@ static void bcm_vk_append_pendq(struct bcm_vk_msg_chan *chan, uint16_t q_num,
 {
 	spin_lock(&chan->pendq_lock);
 	list_add_tail(&entry->node, &chan->pendq[q_num]);
+	if (entry->vk2h_msg)
+		entry->ctx->pend_cnt++;
 	spin_unlock(&chan->pendq_lock);
 }
 
@@ -1064,6 +1070,7 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 				if (count >=
 				    (entry->vk2h_blks * VK_MSGQ_BLK_SIZE)) {
 					list_del(&entry->node);
+					ctx->pend_cnt--;
 					found = true;
 				} else {
 					/* buffer not big enough */
