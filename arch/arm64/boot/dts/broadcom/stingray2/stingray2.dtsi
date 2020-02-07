@@ -151,6 +151,16 @@
 			status = "disabled";
 		};
 
+		uart0: uart@100000 {
+			device_type = "serial";
+			compatible = "arm,pl011", "arm,primecell";
+			reg = <0x00100000 0x1000>;
+			clocks = <&pl011_clk>, <&apb_clk>;
+			clock-names = "pl0110_clk", "apb_pclk";
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		uart1: uart@110000 {
 			device_type = "serial";
 			compatible = "arm,pl011", "arm,primecell";
