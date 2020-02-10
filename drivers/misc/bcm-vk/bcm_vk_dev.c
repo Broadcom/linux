@@ -2233,7 +2233,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	snprintf(name, sizeof(name), KBUILD_MODNAME ".%d_ttyVK", id);
 	err = bcm_vk_tty_init(vk, name);
 	if (err)
-		goto err_free_sysfs_entry;
+		goto err_unregister_panic_notifier;
 
 	/*
 	 * lets trigger an auto download.  We don't want to do it serially here
@@ -2260,6 +2260,10 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 err_bcm_vk_tty_exit:
 	bcm_vk_tty_exit(vk);
+
+err_unregister_panic_notifier:
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+					 &vk->panic_nb);
 
 err_free_sysfs_entry:
 	sysfs_remove_link(&misc_device->this_device->kobj,
