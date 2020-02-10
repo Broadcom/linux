@@ -252,6 +252,31 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
 		};
+
+		ssp0: spi@500000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x00500000 0x1000>;
+			interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&spi0_clk>, <&spi0_clk>;
+			clock-names = "spiclk", "apb_pclk";
+			num-cs = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssp1: spi@510000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x00510000 0x1000>;
+			interrupts = <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&spi0_clk>, <&spi0_clk>;
+			clock-names = "spiclk", "apb_pclk";
+			num-cs = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 	};
 
 	mmc {
