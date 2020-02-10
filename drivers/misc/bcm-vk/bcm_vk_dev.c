@@ -686,7 +686,7 @@ static long bcm_vk_access_bar(struct bcm_vk *vk, struct vk_access *arg)
 {
 	struct device *dev = &vk->pdev->dev;
 	struct vk_access access;
-	long ret = 0;
+	long ret = -EINVAL;
 	u32 value;
 	long i;
 	long num;
@@ -695,6 +695,18 @@ static long bcm_vk_access_bar(struct bcm_vk *vk, struct vk_access *arg)
 		ret = -EACCES;
 		goto err_out;
 	}
+
+	/* do some range checking in the barno and offset */
+	if (access.barno >= MAX_BAR) {
+		dev_err(dev, "invalid bar no %d\n", access.barno);
+		goto err_out;
+	} else if ((access.offset + access.len) >
+		   pci_resource_len(vk->pdev, access.barno * 2)) {
+		dev_err(dev, "invalid bar offset 0x%llx, len 0x%x\n",
+			access.offset, access.len);
+		goto err_out;
+	}
+
 	if (access.type == VK_ACCESS_READ) {
 		dev_dbg(dev, "read barno:%d offset:0x%llx len:0x%x\n",
 			access.barno, access.offset, access.len);
@@ -722,9 +734,7 @@ static long bcm_vk_access_bar(struct bcm_vk *vk, struct vk_access *arg)
 			dev_dbg(dev, "0x%x\n", value);
 		}
 	} else {
-		dev_dbg(dev, "error\n");
-		ret = -EINVAL;
-		goto err_out;
+		dev_dbg(dev, "invalid access type %d\n", access.type);
 	}
 err_out:
 	return ret;

@@ -718,7 +718,8 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 	 * values, kernel may panic.
 	 */
 	if (!bcm_vk_msgq_marker_valid(vk)) {
-		dev_err(dev, "Marker invalid - PCIe interface potentially done!\n");
+		dev_info(dev, "PCIe comm chan - invalid marker (0x%x)!\n",
+			 vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY));
 		return -EINVAL;
 	}
 
