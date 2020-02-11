@@ -215,6 +215,21 @@
 		};
 	};
 
+	cdru {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x60000000 0x30000>;
+
+		wdt0: watchdog@21000 {
+			compatible = "arm,sbsa-gwdt";
+			reg = <0x21000  0x1000>,
+			      <0x20000  0x1000>;
+			interrupts = <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
+			timeout-sec = <60>;
+		};
+	};
+
 	#include "stingray2-clock.dtsi"
 
 	hsls {
