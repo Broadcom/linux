@@ -493,19 +493,22 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 			struct bcm_vk_sync_qinfo *qinfo;
 			uint32_t msgq_start;
 			uint32_t msgq_size;
+			uint32_t msgq_db_offset;
 			uint32_t msgq_nxt;
 
 			chan->msgq[j] = msgq;
 			msgq_start = readl_relaxed(&msgq->start);
 			msgq_size = readl_relaxed(&msgq->size);
+			msgq_db_offset = readl_relaxed(&msgq->db_offset);
 			msgq_nxt = readl_relaxed(&msgq->nxt);
 
 			dev_info(dev,
-				 "MsgQ[%d] type %d num %d, @ 0x%x, rd_idx %d wr_idx %d, size %d, nxt 0x%x\n",
+				 "MsgQ[%d] type %d num %d, @ 0x%x, db_offset 0x%x rd_idx %d wr_idx %d, size %d, nxt 0x%x\n",
 				 j,
 				 readw_relaxed(&msgq->type),
 				 readw_relaxed(&msgq->num),
 				 msgq_start,
+				 msgq_db_offset,
 				 readl_relaxed(&msgq->rd_idx),
 				 readl_relaxed(&msgq->wr_idx),
 				 msgq_size,
@@ -518,6 +521,7 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 			/* set low threshold as 50% or 1/2 */
 			qinfo->q_low = qinfo->q_size >> 1;
 			qinfo->q_mask = qinfo->q_size - 1;
+			qinfo->q_db_offset = msgq_db_offset;
 
 			msgq = (struct bcm_vk_msgq __iomem *)
 				((uintptr_t)(msgq + 1) + msgq_nxt);
@@ -607,15 +611,17 @@ static uint32_t bcm_vk_append_ib_sgl(struct bcm_vk *vk,
 	return ib_sgl_size;
 }
 
-void bcm_to_v_doorbell(struct bcm_vk *vk,
-		       uint32_t q_num,
-		       uint32_t db_val)
+void bcm_to_v_reset_doorbell(struct bcm_vk *vk, uint32_t db_val)
 {
-	/* press door bell based on q_num */
-	vkwrite32(vk,
-		  db_val,
-		  BAR_0,
-		  VK_BAR0_REGSEG_DB_BASE + q_num * VK_BAR0_REGSEG_DB_REG_GAP);
+	vkwrite32(vk, db_val, BAR_0, VK_BAR0_RESET_DB_BASE);
+}
+
+void bcm_to_v_q_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val)
+{
+	struct bcm_vk_msg_chan *chan = &vk->to_v_msg_chan;
+	struct bcm_vk_sync_qinfo *qinfo = &chan->sync_qinfo[q_num];
+
+	vkwrite32(vk, db_val, BAR_0, qinfo->q_db_offset);
 }
 
 static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
@@ -709,7 +715,7 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	 * to avoid the value of 0 appearing on the VK side to distinguish
 	 * from initial value.
 	 */
-	bcm_to_v_doorbell(vk, q_num, wr_idx + 1);
+	bcm_to_v_q_doorbell(vk, q_num, wr_idx + 1);
 idx_err:
 	mutex_unlock(&chan->msgq_mutex);
 	return 0;
@@ -1411,8 +1417,7 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	} else {
 		/* reset fw_status with proper reason, and press db */
 		vkwrite32(vk, VK_FWSTS_RESET_MBOX_DB, BAR_0, VK_BAR_FWSTS);
-		bcm_to_v_doorbell(vk, VK_BAR0_RESET_DB_NUM,
-				  VK_BAR0_RESET_DB_SOFT);
+		bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_SOFT);
 	}
 
 	/* clear the uptime register after reset pressed and alert record */

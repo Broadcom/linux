@@ -15,6 +15,7 @@ struct bcm_vk_msgq {
 	uint16_t num;	/* queue number */
 	uint32_t start;	/* offset in BAR1 where the queue memory starts */
 
+	uint32_t db_offset; /* queue doorbell register offset in BAR0 */
 	uint32_t rd_idx; /* read idx */
 	uint32_t wr_idx; /* write idx */
 
@@ -37,6 +38,7 @@ struct bcm_vk_sync_qinfo {
 	uint32_t q_size;
 	uint32_t q_mask;
 	uint32_t q_low;
+	uint32_t q_db_offset;
 };
 
 #define VK_MSGQ_MAX_NR 4 /* Maximum number of message queues */
@@ -150,6 +152,9 @@ struct bcm_vk_msg_chan {
 #define VK_BAR0_RESET_DB_SOFT		0xffffffff
 #define VK_BAR0_RESET_DB_HARD		0xfffffffd
 #define VK_BAR0_RESET_RAMPDUMP		0xa0000000
+
+#define VK_BAR0_RESET_DB_BASE	(VK_BAR0_REGSEG_DB_BASE + \
+				 (VK_BAR0_RESET_DB_NUM * VK_BAR0_REGSEG_DB_REG_GAP))
 
 /* BAR1 message q definition */
 
