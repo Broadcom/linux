@@ -26,6 +26,8 @@
 
 #include "bcm_vk_msg.h"
 
+#define DRV_MODULE_NAME		"bcm-vk"
+
 /*
  * Load Image is completed in two stages:
  *
@@ -323,6 +325,30 @@ enum bcm_vk_wq_offload_flags {
 	BCM_VK_WQ_NOTF_PEND  = 2,
 };
 
+/* a macro to get an individual field with mask and shift */
+#define BCM_VK_EXTRACT_FIELD(_field, _reg, _mask, _shift) \
+		(_field = (((_reg) >> (_shift)) & (_mask)))
+
+/* structure that is used to faciliate displaying of register content */
+struct bcm_vk_entry {
+	const uint32_t mask;
+	const uint32_t exp_val;
+	const char *str;
+};
+
+/* alerts that could be generated from peer */
+#define BCM_VK_PEER_ERR_NUM 9
+extern struct bcm_vk_entry const bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM];
+/* alerts detected by the host */
+#define BCM_VK_HOST_ERR_NUM 2
+extern struct bcm_vk_entry const bcm_vk_host_err[BCM_VK_HOST_ERR_NUM];
+
+/*
+ * check if PCIe interface is down on read.  Use it when it is
+ * certain that _val should never be all ones.
+ */
+#define BCM_VK_INTF_IS_DOWN(val) ((val) == 0xFFFFFFFF)
+
 static inline u32 vkread32(struct bcm_vk *vk,
 			   enum pci_barno bar,
 			   uint64_t offset)
@@ -383,6 +409,8 @@ void bcm_vk_hb_init(struct bcm_vk *vk);
 void bcm_vk_hb_deinit(struct bcm_vk *vk);
 void bcm_vk_handle_notf(struct bcm_vk *vk);
 bool bcm_vk_drv_access_ok(struct bcm_vk *vk);
+int bcm_vk_sysfs_init(struct pci_dev *pdev, struct miscdevice *misc_device);
+void bcm_vk_sysfs_exit(struct pci_dev *pdev, struct miscdevice *misc_device);
 
 #if defined(BCM_VK_LEGACY_API)
 
