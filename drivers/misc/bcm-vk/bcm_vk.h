@@ -427,4 +427,11 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) || \
+    defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
+#define REQUEST_FIRMWARE_INTO_BUF request_firmware_into_buf_priv
+#else
+#define REQUEST_FIRMWARE_INTO_BUF request_firmware_into_buf
+#endif
+
 #endif

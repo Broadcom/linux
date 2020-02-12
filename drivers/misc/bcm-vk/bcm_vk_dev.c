@@ -258,41 +258,6 @@ void bcm_vk_handle_notf(struct bcm_vk *vk)
 		bcm_vk_dump_peer_log(vk);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) || \
-    defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
-
-#define REQUEST_FIRMWARE_INTO_BUF(fw, name, dev, buf, size, offset, flags) \
-		request_firmware_into_buf_priv(fw, name, dev, buf, size, offset, flags)
-
-#define KERNEL_PREAD_FLAG_PART	0x0001 /* Allow reading part of file */
-static int request_firmware_into_buf_priv(const struct firmware **firmware_p,
-				     const char *name, struct device *device,
-				     void *buf, size_t size,
-				     size_t offset, unsigned int pread_flags)
-{
-	int ret;
-
-	if (offset != 0)
-		return -EINVAL;
-
-	ret = request_firmware(firmware_p, name, device);
-	if (ret)
-		return ret;
-
-	if ((*firmware_p)->size > size) {
-		release_firmware(*firmware_p);
-		ret = -EFBIG;
-	} else {
-		memcpy(buf, (*firmware_p)->data, (*firmware_p)->size);
-	}
-
-	return ret;
-}
-#else
-#define REQUEST_FIRMWARE_INTO_BUF(fw, name, dev, buf, size, offset, flags) \
-		request_firmware_into_buf(fw, name, dev, buf, size, offset, flags)
-#endif
-
 static long bcm_vk_get_metadata(struct bcm_vk *vk, struct vk_metadata *arg)
 {
 	struct device *dev = &vk->pdev->dev;
