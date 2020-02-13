@@ -429,9 +429,17 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) || \
     defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
+
 #define REQUEST_FIRMWARE_INTO_BUF request_firmware_into_buf_priv
+int request_firmware_into_buf_priv(const struct firmware **firmware_p,
+				   const char *name, struct device *device,
+				   void *buf, size_t size,
+				   size_t offset, unsigned int pread_flags);
+
 #else
+
 #define REQUEST_FIRMWARE_INTO_BUF request_firmware_into_buf
+
 #endif
 
 #endif

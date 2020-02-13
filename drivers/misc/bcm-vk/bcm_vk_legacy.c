@@ -7,14 +7,16 @@
 #include <linux/fs.h>
 #include <linux/version.h>
 
+#include "bcm_vk.h"
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) || \
     defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
 
 #define KERNEL_PREAD_FLAG_PART	0x0001 /* Allow reading part of file */
-static int request_firmware_into_buf_priv(const struct firmware **firmware_p,
-				     const char *name, struct device *device,
-				     void *buf, size_t size,
-				     size_t offset, unsigned int pread_flags)
+int request_firmware_into_buf_priv(const struct firmware **firmware_p,
+				   const char *name, struct device *device,
+				   void *buf, size_t size,
+				   size_t offset, unsigned int pread_flags)
 {
 	int ret;
 
