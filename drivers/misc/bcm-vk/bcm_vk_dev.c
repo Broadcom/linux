@@ -721,8 +721,6 @@ static long bcm_vk_access_bar(struct bcm_vk *vk, struct vk_access *arg)
 		ret = -EACCES;
 		goto err_out;
 	}
-	dev_dbg(dev, "barno=0x%x\n", access.barno);
-	dev_dbg(dev, "type=0x%x\n", access.type);
 	if (access.type == VK_ACCESS_READ) {
 		dev_dbg(dev, "read barno:%d offset:0x%llx len:0x%x\n",
 			access.barno, access.offset, access.len);
