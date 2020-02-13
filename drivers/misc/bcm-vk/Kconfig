@@ -29,4 +29,14 @@ config BCM_VK_H2VK_VERIFY_AND_RETRY
 
 	  If unsure, say N.
 
+config BCM_VK_QSTATS
+	bool "VK Queue Statistics"
+	help
+	  Turn on to enable Queue Statistics.
+	  These are useful for debugging purposes.
+	  Some performance loss by enabling this debug config.
+	  For properly operating PCIe hardware no need to enable this.
+
+	  If unsure, say N.
+
 endif
