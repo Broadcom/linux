@@ -20,7 +20,7 @@
 
 static DEFINE_IDA(bcm_vk_ida);
 
-struct _load_image_tab {
+struct load_image_tab {
 		const uint32_t image_type;
 		const char *image_name;
 };
@@ -31,7 +31,7 @@ enum soc_idx {
 };
 
 #define NUM_BOOT_STAGES 2
-const struct _load_image_tab image_tab[][NUM_BOOT_STAGES] = {
+const struct load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 	[VALKYRIE] = {
 		{VK_IMAGE_TYPE_BOOT1, VK_BOOT1_DEF_VALKYRIE_FILENAME},
 		{VK_IMAGE_TYPE_BOOT2, VK_BOOT2_DEF_VALKYRIE_FILENAME}
@@ -45,32 +45,27 @@ const struct _load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 /* Location of memory base addresses of interest in BAR1 */
 /* Load Boot1 to start of ITCM */
 #define BAR1_CODEPUSH_BASE_BOOT1	0x100000
-#ifndef LOAD_IMAGE_TIMEOUT_MS
-/* Allow minimum 1s for Load Image timeout responses */
-#define LOAD_IMAGE_TIMEOUT_MS		1000
-#endif
-/*
- * Boot2 image will need to accommodate A72 and M7, and will use a
- * longer timeout
- */
-#define BOOT2_STARTUP_TIMEOUT_MS	10000
 
-/* 1 ms wait for checking the transfer complete status */
+/* Allow minimum 1s for Load Image timeout responses */
+#define LOAD_IMAGE_TIMEOUT_MS		(1 * MSEC_PER_SEC)
+
+/* Image startup timeouts */
+#define BOOT1_STARTUP_TIMEOUT_MS	(5 * MSEC_PER_SEC)
+#define BOOT2_STARTUP_TIMEOUT_MS	(10 * MSEC_PER_SEC)
+
+/* 1ms wait for checking the transfer complete status */
 #define TXFR_COMPLETE_TIMEOUT_MS	1
 
+/* MSIX usages */
 #define VK_MSIX_MSGQ_MAX		3
 #define VK_MSIX_NOTF_MAX		1
 #define VK_MSIX_IRQ_MAX			(VK_MSIX_MSGQ_MAX + VK_MSIX_NOTF_MAX)
 
+/* Number of bits set in DMA mask*/
 #define BCM_VK_DMA_BITS			64
 
-#define BCM_VK_BOOT1_STARTUP_TIME_MS    (5 * MSEC_PER_SEC)
-
-/*
- * deinit time for the card os after receiving doorbell,
- * 2 seconds should be enough
- */
-#define BCM_VK_DEINIT_TIME_MS    (2 * MSEC_PER_SEC)
+/* deinit time for the card os after receiving doorbell */
+#define BCM_VK_DEINIT_TIME_MS		(2 * MSEC_PER_SEC)
 
 /*
  * module parameters
@@ -487,11 +482,11 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS,
 				  BOOT1_RUNNING,
 				  BOOT1_RUNNING,
-				  BCM_VK_BOOT1_STARTUP_TIME_MS);
+				  BOOT1_STARTUP_TIMEOUT_MS);
 		if (ret) {
 			dev_err(dev,
 				"Timeout %ld ms waiting for boot1 to come up\n",
-				BCM_VK_BOOT1_STARTUP_TIME_MS);
+				BOOT1_STARTUP_TIMEOUT_MS);
 			goto err_firmware_out;
 		}
 	} else if (load_type == VK_IMAGE_TYPE_BOOT2) {
@@ -855,7 +850,7 @@ static int bcm_vk_mmap(struct file *file, struct vm_area_struct *vma)
 	unsigned long pg_size;
 
 	/* only BAR2 is mmap possible, which is bar num 4 due to 64bit */
-#define VK_MMAPABLE_BAR	   4
+#define VK_MMAPABLE_BAR 4
 
 	pg_size = ((pci_resource_len(vk->pdev, VK_MMAPABLE_BAR) - 1)
 		    >> PAGE_SHIFT) + 1;
