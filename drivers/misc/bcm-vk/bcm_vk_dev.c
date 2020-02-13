@@ -251,27 +251,6 @@ void bcm_vk_handle_notf(struct bcm_vk *vk)
 		bcm_vk_dump_peer_log(vk);
 }
 
-static long bcm_vk_get_metadata(struct bcm_vk *vk, struct vk_metadata *arg)
-{
-	struct device *dev = &vk->pdev->dev;
-	struct vk_metadata metadata;
-	long ret = 0;
-
-	metadata.version = vkread32(vk, BAR_0, BAR_METADATA_VERSION);
-	dev_dbg(dev, "version=0x%x\n", metadata.version);
-	metadata.card_status = vkread32(vk, BAR_0, BAR_CARD_STATUS);
-	dev_dbg(dev, "card_status=0x%x\n", metadata.card_status);
-	metadata.firmware_version = vk->card_info.version;
-	dev_dbg(dev, "firmware_version=0x%x\n", metadata.firmware_version);
-	metadata.fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
-	dev_dbg(dev, "fw_status=0x%x\n", metadata.fw_status);
-
-	if (copy_to_user(arg, &metadata, sizeof(metadata)))
-		ret = -EFAULT;
-
-	return ret;
-}
-
 static inline int bcm_vk_wait(struct bcm_vk *vk, enum pci_barno bar,
 			      uint64_t offset, u32 mask, u32 value,
 			      unsigned long timeout_ms)
@@ -880,10 +859,6 @@ static long bcm_vk_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	mutex_lock(&vk->mutex);
 
 	switch (cmd) {
-	case VK_IOCTL_GET_METADATA:
-		ret = bcm_vk_get_metadata(vk, argp);
-		break;
-
 	case VK_IOCTL_LOAD_IMAGE:
 		ret = bcm_vk_load_image(vk, argp);
 		break;
