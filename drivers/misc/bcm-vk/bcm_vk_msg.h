@@ -136,7 +136,7 @@ struct bcm_vk_msg_chan {
 #endif
 };
 
-/* TO_DO: some of the following defines may need to be adjusted */
+/* total number of supported ctx, 32 ctx each for 5 components */
 #define VK_CMPT_CTX_MAX		(32 * 5)
 
 /* hash table defines to store the opened FDs */
