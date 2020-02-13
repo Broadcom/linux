@@ -64,8 +64,6 @@ const struct _load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 
 #define BCM_VK_DMA_BITS			64
 
-#define BCM_VK_MIN_RESET_TIME_SEC	2
-
 #define BCM_VK_BOOT1_STARTUP_TIME_MS    (3 * MSEC_PER_SEC)
 
 /*
@@ -819,9 +817,7 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 		ret = -EACCES;
 		goto err_out;
 	}
-	dev_info(dev, "Issue Reset 0x%x, 0x%x\n", reset.arg1, reset.arg2);
-	if (reset.arg2 < BCM_VK_MIN_RESET_TIME_SEC)
-		reset.arg2 = BCM_VK_MIN_RESET_TIME_SEC;
+	dev_info(dev, "Issue Reset\n");
 
 	/*
 	 * The following is the sequence of reset:
@@ -844,15 +840,12 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	if (ret)
 		goto err_out;
 
-	/* sleep time as specified by user in seconds, which is arg2 */
-	msleep(reset.arg2 * MSEC_PER_SEC);
-
 	bcm_vk_blk_drv_access(vk);
 	bcm_vk_trigger_reset(vk);
 
 	/*
-	 * Wait enough time for card os to deinit + populate the reset
-	 * reason.
+	 * Wait enough time for card os to deinit
+	 * and populate the reset reason.
 	 */
 	msleep(BCM_VK_DEINIT_TIME_MS);
 
