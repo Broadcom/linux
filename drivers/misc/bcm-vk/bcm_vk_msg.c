@@ -265,7 +265,7 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk,
 		goto in_reset_exit;
 	}
 
-	for (i = 0; i < VK_CMPT_CTX_MAX; i++) {
+	for (i = 0; i < ARRAY_SIZE(vk->ctx); i++) {
 		if (!vk->ctx[i].in_use) {
 			vk->ctx[i].in_use = true;
 			ctx = &vk->ctx[i];
@@ -974,7 +974,7 @@ static int bcm_vk_data_init(struct bcm_vk *vk)
 	int i;
 
 	spin_lock_init(&vk->ctx_lock);
-	for (i = 0; i < VK_CMPT_CTX_MAX; i++) {
+	for (i = 0; i < ARRAY_SIZE(vk->ctx); i++) {
 		vk->ctx[i].in_use = false;
 		vk->ctx[i].idx = i;	/* self identity */
 		vk->ctx[i].miscdev = NULL;
