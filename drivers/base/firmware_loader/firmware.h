@@ -29,8 +29,6 @@
  *	firmware caching mechanism.
  * @FW_OPT_NOFALLBACK: Disable the fallback mechanism. Takes precedence over
  *	&FW_OPT_UEVENT and &FW_OPT_USERHELPER.
- * @FW_OPT_PARTIAL: Allow partial read of firmware instead of needing to read
- *	entire file.
  */
 enum fw_opt {
 	FW_OPT_UEVENT =         BIT(0),
@@ -39,7 +37,6 @@ enum fw_opt {
 	FW_OPT_NO_WARN =        BIT(3),
 	FW_OPT_NOCACHE =        BIT(4),
 	FW_OPT_NOFALLBACK =     BIT(5),
-	FW_OPT_PARTIAL =        BIT(6),
 };
 
 enum fw_status {
@@ -67,8 +64,6 @@ struct fw_priv {
 	void *data;
 	size_t size;
 	size_t allocated_size;
-	size_t offset;
-	unsigned int flags;
 #ifdef CONFIG_FW_LOADER_PAGED_BUF
 	bool is_paged_buf;
 	struct page **pages;
