@@ -188,6 +188,15 @@ struct bcm_vk_card_info {
 	uint32_t video_core_freq_mhz;
 };
 
+/* DAUTH related info */
+struct bcm_vk_dauth_key {
+	char store[VK_BAR1_DAUTH_STORE_SIZE];
+	char valid[VK_BAR1_DAUTH_VALID_SIZE];
+};
+struct bcm_vk_dauth_info {
+	struct bcm_vk_dauth_key keys[VK_BAR1_DAUTH_MAX];
+};
+
 /*
  * Control structure of logging messages from the card.  This
  * buffer is for logmsg that comes from vk
@@ -225,6 +234,7 @@ struct bcm_vk {
 	int num_irqs;
 
 	struct bcm_vk_card_info card_info;
+	struct bcm_vk_dauth_info dauth_info;
 
 #if defined(BCM_VK_LEGACY_API)
 	struct msix_entry msix[32];

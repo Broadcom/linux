@@ -302,7 +302,7 @@ static ssize_t rev_flash_rom_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
 	return bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_UCODE_VER_TAG,
-				     buf, "%s\n");
+				    buf, "%s\n");
 }
 
 static ssize_t rev_boot1_show(struct device *dev,
@@ -313,7 +313,7 @@ static ssize_t rev_boot1_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
 	return bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_BOOT1_VER_TAG,
-				     buf, "%s\n");
+				    buf, "%s\n");
 }
 
 static ssize_t rev_boot2_show(struct device *dev,
@@ -867,64 +867,139 @@ static ssize_t sotp_common_show(struct device *dev,
 	return bcm_vk_sysfs_get_tag(vk, BAR_1, tag_offset, buf, "%s\n");
 }
 
+static const char *sotp_dauth_active(struct bcm_vk *vk, uint32_t idx)
+{
+	int i;
+	struct bcm_vk_dauth_info *info = &vk->dauth_info;
+
+	for (i = 0; i < idx; i++)
+		/* if anything below is active, this is inactive */
+		if (!strcmp(info->keys[i].valid, "1"))
+			return "0";
+	/*
+	 * when reaching here, all belows are non-active, so return
+	 * based on current key's valid value
+	 */
+	if (!strcmp(info->keys[i].valid, "1"))
+		return "1";
+	else
+		return "0";
+}
+
 static ssize_t sotp_dauth_1_show(struct device *dev,
 				 struct device_attribute *devattr, char *buf)
 {
-	return sotp_common_show(dev, devattr, buf,
-				VK_BAR1_DAUTH_STORE_ADDR(0));
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", vk->dauth_info.keys[0].store);
 }
 
 static ssize_t sotp_dauth_1_valid_show(struct device *dev,
 				       struct device_attribute *devattr,
 				       char *buf)
 {
-	return sotp_common_show(dev, devattr, buf,
-				VK_BAR1_DAUTH_VALID_ADDR(0));
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", vk->dauth_info.keys[0].valid);
+}
+
+static ssize_t sotp_dauth_1_active_status_show(struct device *dev,
+					       struct device_attribute *devattr,
+					       char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", sotp_dauth_active(vk, 0));
 }
 
 static ssize_t sotp_dauth_2_show(struct device *dev,
 				 struct device_attribute *devattr, char *buf)
 {
-	return sotp_common_show(dev, devattr, buf,
-				VK_BAR1_DAUTH_STORE_ADDR(1));
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", vk->dauth_info.keys[1].store);
 }
 
 static ssize_t sotp_dauth_2_valid_show(struct device *dev,
 				       struct device_attribute *devattr,
 				       char *buf)
 {
-	return sotp_common_show(dev, devattr, buf,
-				VK_BAR1_DAUTH_VALID_ADDR(1));
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", vk->dauth_info.keys[1].valid);
+}
+
+static ssize_t sotp_dauth_2_active_status_show(struct device *dev,
+					       struct device_attribute *devattr,
+					       char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", sotp_dauth_active(vk, 1));
 }
 
 static ssize_t sotp_dauth_3_show(struct device *dev,
 				 struct device_attribute *devattr, char *buf)
 {
-	return sotp_common_show(dev, devattr, buf,
-				VK_BAR1_DAUTH_STORE_ADDR(2));
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", vk->dauth_info.keys[2].store);
 }
 
 static ssize_t sotp_dauth_3_valid_show(struct device *dev,
 				       struct device_attribute *devattr,
 				       char *buf)
 {
-	return sotp_common_show(dev, devattr, buf,
-				VK_BAR1_DAUTH_VALID_ADDR(2));
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", vk->dauth_info.keys[2].valid);
+}
+
+static ssize_t sotp_dauth_3_active_status_show(struct device *dev,
+					       struct device_attribute *devattr,
+					       char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", sotp_dauth_active(vk, 2));
 }
 
 static ssize_t sotp_dauth_4_show(struct device *dev,
 				 struct device_attribute *devattr, char *buf)
 {
-	return sotp_common_show(dev, devattr, buf,
-				VK_BAR1_DAUTH_STORE_ADDR(3));
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", vk->dauth_info.keys[3].store);
 }
 
 static ssize_t sotp_dauth_4_valid_show(struct device *dev,
 				       struct device_attribute *devattr,
 				       char *buf)
 {
-	return sotp_common_show(dev, devattr, buf,
-				VK_BAR1_DAUTH_VALID_ADDR(3));
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", vk->dauth_info.keys[3].valid);
+}
+
+static ssize_t sotp_dauth_4_active_status_show(struct device *dev,
+					       struct device_attribute *devattr,
+					       char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sprintf(buf, "%s\n", sotp_dauth_active(vk, 3));
 }
 
 static ssize_t sotp_boot1_rev_id_show(struct device *dev,
@@ -941,6 +1016,22 @@ static ssize_t sotp_boot2_rev_id_show(struct device *dev,
 {
 	return sotp_common_show(dev, devattr, buf,
 				VK_BAR1_SOTP_REVID_ADDR(1));
+}
+
+static void bcm_vk_get_dauth_info(struct bcm_vk *vk)
+{
+	struct device *dev = &vk->pdev->dev;
+	struct bcm_vk_dauth_info *info = &vk->dauth_info;
+	int i;
+
+	for (i = 0; i < VK_BAR1_DAUTH_MAX; i++) {
+		bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_DAUTH_STORE_ADDR(i),
+				     info->keys[i].store, "%s");
+		bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_DAUTH_VALID_ADDR(i),
+				     info->keys[i].valid, "%s");
+		dev_dbg(dev, "[%d]: %s valid %s\n", i,
+			info->keys[i].store, info->keys[i].valid);
+	}
 }
 
 static DEVICE_ATTR_RO(firmware_status);
@@ -974,12 +1065,16 @@ static DEVICE_ATTR_RO(freq_mem_mhz);
 static DEVICE_ATTR_RO(mem_size_mb);
 static DEVICE_ATTR_RO(sotp_dauth_1);
 static DEVICE_ATTR_RO(sotp_dauth_1_valid);
+static DEVICE_ATTR_RO(sotp_dauth_1_active_status);
 static DEVICE_ATTR_RO(sotp_dauth_2);
 static DEVICE_ATTR_RO(sotp_dauth_2_valid);
+static DEVICE_ATTR_RO(sotp_dauth_2_active_status);
 static DEVICE_ATTR_RO(sotp_dauth_3);
 static DEVICE_ATTR_RO(sotp_dauth_3_valid);
+static DEVICE_ATTR_RO(sotp_dauth_3_active_status);
 static DEVICE_ATTR_RO(sotp_dauth_4);
 static DEVICE_ATTR_RO(sotp_dauth_4_valid);
+static DEVICE_ATTR_RO(sotp_dauth_4_active_status);
 static DEVICE_ATTR_RO(sotp_boot1_rev_id);
 static DEVICE_ATTR_RO(sotp_boot2_rev_id);
 static DEVICE_ATTR_RO(temperature_sensor_1_c);
@@ -1013,12 +1108,16 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 	&dev_attr_mem_size_mb.attr,
 	&dev_attr_sotp_dauth_1.attr,
 	&dev_attr_sotp_dauth_1_valid.attr,
+	&dev_attr_sotp_dauth_1_active_status.attr,
 	&dev_attr_sotp_dauth_2.attr,
 	&dev_attr_sotp_dauth_2_valid.attr,
+	&dev_attr_sotp_dauth_2_active_status.attr,
 	&dev_attr_sotp_dauth_3.attr,
 	&dev_attr_sotp_dauth_3_valid.attr,
+	&dev_attr_sotp_dauth_3_active_status.attr,
 	&dev_attr_sotp_dauth_4.attr,
 	&dev_attr_sotp_dauth_4_valid.attr,
+	&dev_attr_sotp_dauth_4_active_status.attr,
 	&dev_attr_sotp_boot1_rev_id.attr,
 	&dev_attr_sotp_boot2_rev_id.attr,
 	NULL,
@@ -1063,6 +1162,7 @@ static const struct attribute_group bcm_vk_card_mon_attribute_group = {
 int bcm_vk_sysfs_init(struct pci_dev *pdev, struct miscdevice *misc_device)
 {
 	struct device *dev = &pdev->dev;
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	int rc;
 
 	dev_info(dev, "create sysfs group for bcm-vk\n");
@@ -1094,6 +1194,9 @@ int bcm_vk_sysfs_init(struct pci_dev *pdev, struct miscdevice *misc_device)
 		dev_err(dev, "failed to create reverse symlink\n");
 		goto err_free_sysfs_entry;
 	}
+
+	/* read dauth info */
+	bcm_vk_get_dauth_info(vk);
 
 	return 0;
 
