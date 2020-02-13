@@ -64,7 +64,7 @@ const struct _load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 
 #define BCM_VK_DMA_BITS			64
 
-#define BCM_VK_BOOT1_STARTUP_TIME_MS    (3 * MSEC_PER_SEC)
+#define BCM_VK_BOOT1_STARTUP_TIME_MS    (5 * MSEC_PER_SEC)
 
 /*
  * deinit time for the card os after receiving doorbell,
@@ -483,10 +483,6 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
-
-		/* allow minimal time for boot1 to run */
-		msleep(2 * MSEC_PER_SEC);
-
 		/* wait until done */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS,
 				  BOOT1_RUNNING,
@@ -498,7 +494,6 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				BCM_VK_BOOT1_STARTUP_TIME_MS);
 			goto err_firmware_out;
 		}
-
 	} else if (load_type == VK_IMAGE_TYPE_BOOT2) {
 		unsigned long timeout = jiffies + msecs_to_jiffies(
 					LOAD_IMAGE_TIMEOUT_MS);
