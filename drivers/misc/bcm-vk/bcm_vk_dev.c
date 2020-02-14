@@ -524,9 +524,9 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		} while (1);
 
 		/* wait for fw status bits to indicate app ready */
-		ret = bcm_vk_wait(vk, BAR_0, BAR_FW_STATUS,
-				  FW_STATUS_READY,
-				  FW_STATUS_READY,
+		ret = bcm_vk_wait(vk, BAR_0, VK_BAR_FWSTS,
+				  VK_FWSTS_READY,
+				  VK_FWSTS_READY,
 				  BOOT2_STARTUP_TIMEOUT_MS);
 		if (ret < 0) {
 			dev_err(dev, "Boot2 not ready - timeout\n");
@@ -569,7 +569,7 @@ static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
 	u32 load_type = 0;  /* default for unknown */
 
 	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
-	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	fw_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 
 	if (!BCM_VK_INTF_IS_DOWN(boot_status) && (boot_status & SRAM_OPEN))
 		load_type = VK_IMAGE_TYPE_BOOT1;
@@ -757,7 +757,7 @@ static int bcm_vk_reset_successful(struct bcm_vk *vk)
 	 * to be unknown reason
 	 * iii) - reboot reason match + deinit done.
 	 */
-	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	fw_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 	/* immediate exit if interface goes down */
 	if (BCM_VK_INTF_IS_DOWN(fw_status)) {
 		dev_err(dev, "PCIe Intf Down!\n");
@@ -765,17 +765,17 @@ static int bcm_vk_reset_successful(struct bcm_vk *vk)
 	}
 
 	/* initial check on reset reason */
-	reset_reason = (fw_status & FW_STATUS_RESET_REASON_MASK);
-	if ((reset_reason == FW_STATUS_RESET_MBOX_DB)
-	     || (reset_reason == FW_STATUS_RESET_UNKNOWN))
+	reset_reason = (fw_status & VK_FWSTS_RESET_REASON_MASK);
+	if ((reset_reason == VK_FWSTS_RESET_MBOX_DB)
+	     || (reset_reason == VK_FWSTS_RESET_UNKNOWN))
 		ret = 0;
 
 	/*
 	 * if some of the deinit bits are set, but done
 	 * bit is not, this is a failure if triggered while boot2 is running
 	 */
-	if ((fw_status & FW_STATUS_DEINIT_TRIGGERED)
-	    && !(fw_status & FW_STATUS_RESET_DONE))
+	if ((fw_status & VK_FWSTS_DEINIT_TRIGGERED)
+	    && !(fw_status & VK_FWSTS_RESET_DONE))
 		ret = -EAGAIN;
 
 bcm_vk_reset_exit:

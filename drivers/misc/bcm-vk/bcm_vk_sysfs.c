@@ -24,38 +24,38 @@ struct bcm_vk_sysfs_reg_list {
  * table structure for all shutdown related info in fw status register
  */
 static struct bcm_vk_entry const fw_shutdown_reg_tab[] = {
-	{FW_STATUS_APP_DEINIT_START, FW_STATUS_APP_DEINIT_START,
+	{VK_FWSTS_APP_DEINIT_START, VK_FWSTS_APP_DEINIT_START,
 	 "app_deinit_st"},
-	{FW_STATUS_APP_DEINIT_DONE, FW_STATUS_APP_DEINIT_DONE,
+	{VK_FWSTS_APP_DEINIT_DONE, VK_FWSTS_APP_DEINIT_DONE,
 	 "app_deinited"},
-	{FW_STATUS_DRV_DEINIT_START, FW_STATUS_DRV_DEINIT_START,
+	{VK_FWSTS_DRV_DEINIT_START, VK_FWSTS_DRV_DEINIT_START,
 	 "drv_deinit_st"},
-	{FW_STATUS_DRV_DEINIT_DONE, FW_STATUS_DRV_DEINIT_DONE,
+	{VK_FWSTS_DRV_DEINIT_DONE, VK_FWSTS_DRV_DEINIT_DONE,
 	 "drv_deinited"},
-	{FW_STATUS_RESET_DONE, FW_STATUS_RESET_DONE,
+	{VK_FWSTS_RESET_DONE, VK_FWSTS_RESET_DONE,
 	 "reset_done"},
 	 /* reboot reason */
-	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_SYS_PWRUP,
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_SYS_PWRUP,
 	 "sys_pwrup"},
-	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_MBOX_DB,
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_MBOX_DB,
 	 "reset_doorbell"},
-	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_M7_WDOG,
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_M7_WDOG,
 	 "wdog"},
-	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_TEMP,
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_TEMP,
 	 "overheat"},
-	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_FLR,
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_PCI_FLR,
 	 "pci_flr"},
-	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_HOT,
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_PCI_HOT,
 	 "pci_hot"},
-	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_WARM,
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_PCI_WARM,
 	 "pci_warm" },
-	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_PCI_COLD,
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_PCI_COLD,
 	 "pci_cold" },
-	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_L1,
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_L1,
 	 "L1_reset" },
-	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_L0,
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_L0,
 	 "L0_reset" },
-	{FW_STATUS_RESET_REASON_MASK, FW_STATUS_RESET_UNKNOWN,
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_UNKNOWN,
 	 "unknown" },
 };
 /* define for the start of the reboot reason */
@@ -111,7 +111,7 @@ static int bcm_vk_sysfs_chk_fw_status(struct bcm_vk *vk, uint32_t mask,
 	int ret = 0;
 
 	/* if card OS is not running, no one will update the value */
-	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	fw_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 	if (BCM_VK_INTF_IS_DOWN(fw_status))
 		return sprintf(buf, "PCIe Intf Down!\n");
 	else if (BCM_VK_BITS_NOT_SET(fw_status, mask))
@@ -224,7 +224,7 @@ static ssize_t firmware_status_reg_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	fw_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	fw_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 
 	return sprintf(buf, "0x%x\n", fw_status);
 }
@@ -355,41 +355,41 @@ static ssize_t firmware_status_show(struct device *dev,
 	 * so mask == exp_val
 	 */
 	static struct bcm_vk_entry const fw_status_reg_tab[] = {
-		{FW_STATUS_RELOCATION_ENTRY, FW_STATUS_RELOCATION_ENTRY,
+		{VK_FWSTS_RELOCATION_ENTRY, VK_FWSTS_RELOCATION_ENTRY,
 		 "relo_entry"},
-		{FW_STATUS_RELOCATION_EXIT, FW_STATUS_RELOCATION_EXIT,
+		{VK_FWSTS_RELOCATION_EXIT, VK_FWSTS_RELOCATION_EXIT,
 		 "relo_exit"},
-		{FW_STATUS_INIT_START, FW_STATUS_INIT_START,
+		{VK_FWSTS_INIT_START, VK_FWSTS_INIT_START,
 		 "init_st"},
-		{FW_STATUS_ARCH_INIT_DONE, FW_STATUS_ARCH_INIT_DONE,
+		{VK_FWSTS_ARCH_INIT_DONE, VK_FWSTS_ARCH_INIT_DONE,
 		 "arch_inited"},
-		{FW_STATUS_PRE_KNL1_INIT_DONE, FW_STATUS_PRE_KNL1_INIT_DONE,
+		{VK_FWSTS_PRE_KNL1_INIT_DONE, VK_FWSTS_PRE_KNL1_INIT_DONE,
 		 "pre_kern1_inited"},
-		{FW_STATUS_PRE_KNL2_INIT_DONE, FW_STATUS_PRE_KNL2_INIT_DONE,
+		{VK_FWSTS_PRE_KNL2_INIT_DONE, VK_FWSTS_PRE_KNL2_INIT_DONE,
 		  "pre_kern2_inited"},
-		{FW_STATUS_POST_KNL_INIT_DONE, FW_STATUS_POST_KNL_INIT_DONE,
+		{VK_FWSTS_POST_KNL_INIT_DONE, VK_FWSTS_POST_KNL_INIT_DONE,
 		  "kern_inited"},
-		{FW_STATUS_INIT_DONE, FW_STATUS_INIT_DONE,
+		{VK_FWSTS_INIT_DONE, VK_FWSTS_INIT_DONE,
 		 "card_os_inited"},
-		{FW_STATUS_APP_INIT_START, FW_STATUS_APP_INIT_START,
+		{VK_FWSTS_APP_INIT_START, VK_FWSTS_APP_INIT_START,
 		 "app_init_st"},
-		{FW_STATUS_APP_INIT_DONE, FW_STATUS_APP_INIT_DONE,
+		{VK_FWSTS_APP_INIT_DONE, VK_FWSTS_APP_INIT_DONE,
 		 "app_inited"},
 	};
 	/* list of registers */
 	static struct bcm_vk_sysfs_reg_list const fw_status_reg_list[] = {
-		{BAR_FW_STATUS, fw_status_reg_tab,
+		{VK_BAR_FWSTS, fw_status_reg_tab,
 		 ARRAY_SIZE(fw_status_reg_tab),
 		 "FW status"},
 		{BAR_BOOT_STATUS, boot_reg_tab,
 		 ARRAY_SIZE(boot_reg_tab),
 		 "Boot status"},
-		{BAR_FW_STATUS, fw_shutdown_reg_tab,
+		{VK_BAR_FWSTS, fw_shutdown_reg_tab,
 		 ARRAY_SIZE(fw_shutdown_reg_tab),
 		 "Last Reset status"},
 	};
 
-	reg_status = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	reg_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 	if (BCM_VK_INTF_IS_DOWN(reg_status))
 		return sprintf(buf, "PCIe Intf Down!\n");
 
@@ -430,7 +430,7 @@ static ssize_t reset_reason_show(struct device *dev,
 	static struct bcm_vk_entry const *tab =
 		&fw_shutdown_reg_tab[FW_STAT_RB_REASON_START];
 
-	reg = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	reg = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 	if (BCM_VK_INTF_IS_DOWN(reg))
 		return sprintf(buf, "PCIe Intf Down!\n");
 
@@ -451,7 +451,7 @@ static ssize_t os_state_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	reg = vkread32(vk, BAR_0, BAR_FW_STATUS);
+	reg = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 	if (BCM_VK_INTF_IS_DOWN(reg))
 		return sprintf(buf, "PCIe Intf Down!\n");
 
@@ -531,7 +531,7 @@ static ssize_t card_state_show(struct device *dev,
 	p_buf += ret;
 
 	/* if OS is not running, no one will update the value */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, p_buf,
+	ret = bcm_vk_sysfs_chk_fw_status(vk, VK_FWSTS_READY, p_buf,
 					 "card_state: n/a (fw not running)\n");
 	if (ret) {
 		p_buf += ret;
@@ -612,7 +612,7 @@ static ssize_t mem_ecc_show(struct device *dev,
 	uint32_t ecc_mem_err;
 
 	/* if OS is not running, no one will update the value */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+	ret = bcm_vk_sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf,
 					 "0\n");
 	if (ret)
 		return ret;
@@ -636,7 +636,7 @@ static ssize_t mem_uecc_show(struct device *dev,
 	uint32_t uecc_mem_err;
 
 	/* if OS is not running, no one will update the value */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+	ret = bcm_vk_sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf,
 					 "0\n");
 	if (ret)
 		return ret;
@@ -775,7 +775,7 @@ static ssize_t temp_threshold_lower_c_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	uint32_t reg;
 
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+	ret = bcm_vk_sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf,
 					 "0\n");
 	if (ret)
 		return ret;
@@ -798,7 +798,7 @@ static ssize_t temp_threshold_upper_c_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	uint32_t reg;
 
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FW_STATUS_READY, buf,
+	ret = bcm_vk_sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf,
 					 "0\n");
 	if (ret)
 		return ret;
