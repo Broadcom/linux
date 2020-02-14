@@ -1343,10 +1343,10 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	memset(&vk->alert_cnts, 0, sizeof(vk->alert_cnts));
 
 	/*
-	 * When fastboot fails, the CODE_PUSH_OFFSET stays persistent.
+	 * When boot request fails, the CODE_PUSH_OFFSET stays persistent.
 	 * Allowing us to debug the failure. When we call reset,
 	 * we should clear CODE_PUSH_OFFSET so ROM does not execute
-	 * fastboot again (and fails again) and instead waits for a new
+	 * boot again (and fails again) and instead waits for a new
 	 * codepush.
 	 */
 	value = vkread32(vk, BAR_0, BAR_CODEPUSH_SBL);

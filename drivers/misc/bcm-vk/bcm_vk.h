@@ -74,7 +74,7 @@
 #define BOOT2_RUNNING			(FW_LOADER_ACK_RCVD_ALL_DATA | \
 					 BOOT2_STATUS_COMPLETE)
 
-/* Fastboot request for Secure Boot Image (SBI) */
+/* Boot request for Secure Boot Image (SBI) */
 #define BAR_CODEPUSH_SBI		0x408
 /* 64M mapped to BAR2 */
 #define CODEPUSH_BOOT2_ENTRY		0x60000000
