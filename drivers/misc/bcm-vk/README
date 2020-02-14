@@ -25,8 +25,8 @@ vk-card-status/
 	bus			---> device PCIe bus
 	card_state		---> summary of current card states
 	chip_id
-	firmware-status		---> summary of all firmware status
-	firmware-version	---> summary of all firmware versions
+	firmware_status		---> summary of all firmware status
+	firmware_version	---> summary of all firmware versions
 	freq_core_mhz		---> running frequency in mHz
 	freq_mem_mhz		---> memory frequency in mHz
 	mem_size_mb		---> memory size in MByte
@@ -63,7 +63,6 @@ vk-card-mon/
 	alert_ssim_busy		---> ssim block busy
 	alert_sys_fault		---> system fault
 	alert_wdog_timeout	---> watchdog timeout
-	fastboot_reg
 	firmware_status_reg
 	mem_ecc			---> correctable ECC error count
 	mem_uecc		---> uncorrectable ECC error count
