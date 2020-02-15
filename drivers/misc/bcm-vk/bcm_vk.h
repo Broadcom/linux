@@ -6,7 +6,7 @@
 #ifndef BCM_VK_H
 #define BCM_VK_H
 
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <linux/pci.h>
 #include <linux/irq.h>
 #include <linux/miscdevice.h>
