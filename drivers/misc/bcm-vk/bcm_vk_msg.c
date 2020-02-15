@@ -27,7 +27,7 @@ static void bcm_vk_h2vk_verify_idx(struct device *dev,
 				   volatile uint32_t *idx,
 				   uint32_t expected)
 {
-	unsigned count = 0;
+	unsigned int count = 0;
 
 	while (*idx != expected) {
 		count++;
@@ -45,7 +45,7 @@ static void bcm_vk_h2vk_verify_blk(struct device *dev,
 
 {
 	struct vk_msg_blk rd_bck;
-	unsigned count = 0;
+	unsigned int count = 0;
 
 	rd_bck = *dst;
 	while (memcmp(&rd_bck, src, sizeof(rd_bck)) != 0) {
