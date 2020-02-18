@@ -1044,7 +1044,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	err = bcm_vk_msg_init(vk);
 	if (err) {
 		dev_err(dev, "failed to init msg queue info\n");
-		goto err_kfree_name;
+		goto err_misc_deregister;
 	}
 
 	/* sync other info */
@@ -1052,7 +1052,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	err = bcm_vk_sysfs_init(pdev, misc_device);
 	if (err)
-		goto err_kfree_name;
+		goto err_misc_deregister;
 
 	/* register for panic notifier */
 	vk->panic_nb.notifier_call = bcm_vk_on_panic;
@@ -1093,6 +1093,9 @@ err_bcm_vk_tty_exit:
 err_unregister_panic_notifier:
 	atomic_notifier_chain_unregister(&panic_notifier_list,
 					 &vk->panic_nb);
+
+err_misc_deregister:
+	misc_deregister(misc_device);
 
 err_kfree_name:
 	kfree(misc_device->name);
