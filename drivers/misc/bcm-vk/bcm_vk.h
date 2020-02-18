@@ -7,6 +7,7 @@
 #define BCM_VK_H
 
 #include <linux/atomic.h>
+#include <linux/firmware.h>
 #include <linux/pci.h>
 #include <linux/irq.h>
 #include <linux/miscdevice.h>
@@ -385,6 +386,7 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) || \
     defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
 
+#define KERNEL_PREAD_FLAG_PART	0x0001 /* Allow reading part of file */
 #define REQUEST_FIRMWARE_INTO_BUF request_firmware_into_buf_priv
 int request_firmware_into_buf_priv(const struct firmware **firmware_p,
 				   const char *name, struct device *device,
