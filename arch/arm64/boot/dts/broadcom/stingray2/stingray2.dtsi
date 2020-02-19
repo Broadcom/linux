@@ -250,6 +250,16 @@
 
 		#include "stingray2-pinctrl.dtsi"
 
+		i2c0: i2c@b0000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x000b0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <100000>;
+			status = "disabled";
+		};
+
 		gpio_hsls: gpio@d0000 {
 			compatible = "brcm,iproc-gpio";
 			reg = <0x000d0000 0x264>;
@@ -263,6 +273,16 @@
 				      <&pinmux 46 60 4>,
 				      <&pinmux 50 42 2>,
 				      <&pinmux 52 52 8>;
+		};
+
+		i2c1: i2c@e0000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x000e0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <100000>;
+			status = "disabled";
 		};
 
 		uart0: uart@100000 {
