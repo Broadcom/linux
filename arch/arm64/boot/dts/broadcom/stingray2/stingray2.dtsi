@@ -344,7 +344,9 @@
 			interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 			clocks = <&sdio0_clk>;
+			iommus = <&smmu 0xf8001>;
 			status = "disabled";
+			dma-coherent;
 		};
 
 		sdio1: sdhci@80000 {
@@ -353,7 +355,9 @@
 			interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 			clocks = <&sdio1_clk>;
+			iommus = <&smmu 0xf8002>;
 			status = "disabled";
+			dma-coherent;
 		};
 	};
 };
