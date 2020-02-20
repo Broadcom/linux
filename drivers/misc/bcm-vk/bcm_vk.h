@@ -12,7 +12,6 @@
 #include <linux/irq.h>
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
-#include <linux/tty.h>
 #if defined(BCM_VK_LEGACY_API)
 #include <linux/pid.h>
 #include <linux/sched.h>
@@ -22,6 +21,7 @@
 #else
 #include <linux/sched/signal.h>
 #endif
+#include <linux/tty.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <uapi/linux/misc/bcm_vk.h>
