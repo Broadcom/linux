@@ -16,13 +16,6 @@ struct vk_image {
 	char filename[64]; /* Filename of image */
 };
 
-/* default firmware images names */
-#define VK_BOOT1_DEF_VALKYRIE_FILENAME	"vk-boot1.bin"
-#define VK_BOOT2_DEF_VALKYRIE_FILENAME	"vk-boot2.bin"
-
-#define VK_BOOT1_DEF_VIPER_FILENAME	"vp-boot1.bin"
-#define VK_BOOT2_DEF_VIPER_FILENAME	"vp-boot2.bin"
-
 struct vk_access {
 	__u8 barno;     /* BAR number to use */
 	__u8 type;      /* Type of access */

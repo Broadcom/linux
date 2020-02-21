@@ -27,18 +27,20 @@ struct load_image_tab {
 
 enum soc_idx {
 	VALKYRIE = 0,
-	VIPER
+	VIPER,
+	VK_IDX_INVALID
 };
 
 #define NUM_BOOT_STAGES 2
+/* default firmware images names */
 const struct load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 	[VALKYRIE] = {
-		{VK_IMAGE_TYPE_BOOT1, VK_BOOT1_DEF_VALKYRIE_FILENAME},
-		{VK_IMAGE_TYPE_BOOT2, VK_BOOT2_DEF_VALKYRIE_FILENAME}
+		{VK_IMAGE_TYPE_BOOT1, "vk-boot1.bin"},
+		{VK_IMAGE_TYPE_BOOT2, "vk-boot2.bin"}
 	},
 	[VIPER] = {
-		{VK_IMAGE_TYPE_BOOT1, VK_BOOT1_DEF_VIPER_FILENAME},
-		{VK_IMAGE_TYPE_BOOT2, VK_BOOT2_DEF_VIPER_FILENAME}
+		{VK_IMAGE_TYPE_BOOT1, "vp-boot1.bin"},
+		{VK_IMAGE_TYPE_BOOT2, "vp-boot2.bin"}
 	}
 };
 
@@ -587,35 +589,46 @@ static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
 	return load_type;
 }
 
-int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
+static enum soc_idx get_soc_idx(struct device *dev)
 {
-	int i, id, ret = -1;
-	struct device *dev = &vk->pdev->dev;
 	struct pci_dev *pdev = to_pci_dev(dev);
-	uint32_t curr_type;
-	const char *curr_name;
+	enum soc_idx idx;
 
 	switch (pdev->device) {
 	case PCI_DEVICE_ID_VALKYRIE:
-		id = VALKYRIE;
+		idx = VALKYRIE;
 		break;
 
 	case PCI_DEVICE_ID_VIPER:
-		id = VIPER;
+		idx = VIPER;
 		break;
 
 	default:
+		idx = VK_IDX_INVALID;
 		dev_err(dev, "no images for 0x%x\n", pdev->device);
-		goto bcm_vk_auto_load_all_exit;
 	}
+	return idx;
+}
+
+int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
+{
+	int i, ret = -1;
+	enum soc_idx idx;
+	struct device *dev = &vk->pdev->dev;
+	uint32_t curr_type;
+	const char *curr_name;
+
+	idx = get_soc_idx(dev);
+	if (idx >= VK_IDX_INVALID)
+		goto bcm_vk_auto_load_all_exit;
 
 	/* log a message to know the relative loading order */
 	dev_info(dev, "Load All for device %d\n", vk->misc_devid);
 
 	for (i = 0; i < NUM_BOOT_STAGES; i++) {
-		curr_type = image_tab[id][i].image_type;
+		curr_type = image_tab[idx][i].image_type;
 		if (bcm_vk_next_boot_image(vk) == curr_type) {
-			curr_name = image_tab[id][i].image_name;
+			curr_name = image_tab[idx][i].image_name;
 			ret = bcm_vk_load_image_by_type(vk, curr_type,
 							curr_name);
 			dev_info(dev, "Auto load %s, ret %d\n",
@@ -646,10 +659,12 @@ static int bcm_vk_trigger_autoload(struct bcm_vk *vk)
 
 static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 {
-	int ret;
 	struct device *dev = &vk->pdev->dev;
+	const char *image_name;
 	struct vk_image image;
 	u32 next_loadable;
+	enum soc_idx idx;
+	int ret;
 
 	if (copy_from_user(&image, arg, sizeof(image))) {
 		ret = -EACCES;
@@ -675,7 +690,16 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		return -EPERM;
 	}
 
-	ret = bcm_vk_load_image_by_type(vk, image.type, image.filename);
+	image_name = image.filename;
+	if (image_name[0] == NULL) {
+		/* Use default image name if NULL */
+		idx = get_soc_idx(dev);
+		if (idx >= VK_IDX_INVALID)
+			return -EPERM;
+
+		image_name = image_tab[idx][image.type].image_name;
+	}
+	ret = bcm_vk_load_image_by_type(vk, image.type, image_name);
 	clear_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload);
 
 bcm_vk_load_image_exit:
