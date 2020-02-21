@@ -40,12 +40,16 @@ vk-card-status/
 	sotp_boot2_rev_id	---> minimum boot2 revision required
 	sotp_dauth_1		---> authentication key hash
 	sotp_dauth_1_valid	---> authentication key validity
+	sotp_dauth_1_active_status -> authentication key active or not
 	sotp_dauth_2
 	sotp_dauth_2_valid
+	sotp_dauth_2_active_status
 	sotp_dauth_3
 	sotp_dauth_3_valid
+	sotp_dauth_3_active_status
 	sotp_dauth_4
 	sotp_dauth_4_valid
+	sotp_dauth_4_active_status
 	temp_threshold_lower_c	---> thermal low threshold in Celsius
 	temp_threshold_upper_c	---> thermal high threshold in Celsius
 	uptime_s		---> os up time in seconds
@@ -66,6 +70,7 @@ vk-card-mon/
 	firmware_status_reg
 	mem_ecc			---> correctable ECC error count
 	mem_uecc		---> uncorrectable ECC error count
+	boot_status_reg		---> boot status of card
 	pwr_state		---> power state, 1-full, 2-reduced, 3-lowest
 	temperature_sensor_1_c	---> CPU die temperature in Celsius
 	temperature_sensor_2_c	---> DDR0 temperature in Celsius
