@@ -1197,7 +1197,7 @@ static struct pci_driver pci_driver = {
 };
 module_pci_driver(pci_driver);
 
-MODULE_DESCRIPTION("Broadcom Valkyrie Host Driver");
+MODULE_DESCRIPTION("Broadcom VK Host Driver");
 MODULE_AUTHOR("Scott Branden <scott.branden@broadcom.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("1.0");
