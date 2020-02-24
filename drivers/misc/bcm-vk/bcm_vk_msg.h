@@ -65,6 +65,9 @@ struct bcm_vk_sync_qinfo {
 #define VK_MSGQ_AVAIL_SPACE(_msgq, _qinfo) \
 	((_qinfo)->q_size - VK_MSGQ_OCCUPIED(_msgq, _qinfo) - 1)
 
+/* use msg_id 0 for any simplex host2vk communication */
+#define VK_SIMPLEX_MSG_ID 0
+
 /* context per session opening of sysfs */
 struct bcm_vk_ctx {
 	struct list_head node; /* use for linkage in Hash Table */

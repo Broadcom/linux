@@ -302,9 +302,17 @@ static uint16_t bcm_vk_get_msg_id(struct bcm_vk *vk)
 	uint16_t test_bit_count = 0;
 
 	spin_lock(&vk->msg_id_lock);
-	while (test_bit_count < VK_MSG_ID_BITMAP_SIZE) {
+	while (test_bit_count < (VK_MSG_ID_BITMAP_SIZE - 1)) {
+		/*
+		 * first time come in this loop, msg_id will be 0
+		 * and the first one tested will be 1.  We skip
+		 * VK_SIMPLEX_MSG_ID (0) for one way host2vk
+		 * communication
+		 */
 		vk->msg_id++;
-		vk->msg_id = vk->msg_id & VK_MSG_ID_BITMAP_MASK;
+		if (vk->msg_id == VK_MSG_ID_BITMAP_SIZE)
+			vk->msg_id = 1;
+
 		if (test_bit(vk->msg_id, vk->bmap)) {
 			test_bit_count++;
 			continue;
@@ -728,8 +736,9 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 	if (!entry)
 		return -ENOMEM;
 
-	/* just fill up non-zero data */
+	/* fill up necessary data */
 	entry->h2vk_msg[0].function_id = VK_FID_SHUTDOWN;
+	entry->h2vk_msg[0].msg_id = VK_SIMPLEX_MSG_ID;
 	entry->h2vk_msg[0].queue_id = 0; /* use highest queue */
 	entry->h2vk_blks = 1; /* always 1 block */
 
@@ -798,7 +807,7 @@ static struct bcm_vk_wkent *bcm_vk_find_pending(struct bcm_vk *vk,
 	return ((found) ? entry : NULL);
 }
 
-static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
+static int32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_msg_chan *chan = &vk->vk2h_msg_chan;
@@ -811,7 +820,7 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 	uint32_t rd_idx;
 	uint32_t q_num, j;
 	uint32_t num_blks;
-	uint32_t total = 0;
+	int32_t total = 0;
 
 	/*
 	 * drain all the messages from the queues, and find its pending
@@ -868,9 +877,12 @@ static uint32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 				}
 				total++;
 			} else {
-				dev_crit(dev, "Error allocating memory\n");
-				/* just keep draining..... */
-				rd_idx = VK_MSGQ_INC(qinfo, rd_idx, num_blks);
+				/*
+				 * if we could not allocate memory in kernel,
+				 * that is fatal.
+				 */
+				dev_crit(dev, "Kernel mem allocation failure.\n");
+				return -ENOMEM;
 			}
 
 			/* flush rd pointer after a message is dequeued */
@@ -940,7 +952,7 @@ static void bcm_vk_wq_handler(struct work_struct *work)
 {
 	struct bcm_vk *vk = container_of(work, struct bcm_vk, wq_work);
 	struct device *dev = &vk->pdev->dev;
-	uint32_t tot;
+	int32_t ret;
 
 	/* check wq offload bit map to perform various operations */
 	if (test_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload)) {
@@ -960,10 +972,12 @@ static void bcm_vk_wq_handler(struct work_struct *work)
 	}
 
 	/* next, try to drain */
-	tot = bcm_vk2h_msg_dequeue(vk);
+	ret = bcm_vk2h_msg_dequeue(vk);
 
-	if (tot == 0)
+	if (ret == 0)
 		dev_dbg(dev, "Spurious trigger for workqueue\n");
+	else if (ret < 0)
+		bcm_vk_blk_drv_access(vk);
 }
 
 /*
