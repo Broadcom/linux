@@ -96,7 +96,7 @@
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x40000000 0x04000000>;
 
-		uio_mbox: uio_pdrv_genirq@40070000 {
+		uio_mbox: uio_pdrv_genirq@00070000 {
 			compatible = "generic-uio";
 			reg = <0x00070000 0x1000>;
 			interrupt-parent = <&gic>;
@@ -104,7 +104,16 @@
 			status = "disabled";
 		};
 
-		gic: interrupt-controller@42700000 {
+		uart1: serial@0007006c {
+			compatible = "brcm,bptty-console";
+			reg = <0x0007006c 0x10>;
+			brcm-xmit-addr = <0x5 0xbff00000>;
+			brcm-recv-addr = <0x5 0xbfe00000>;
+			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		gic: interrupt-controller@02700000 {
 			compatible = "arm,gic-v3";
 			#interrupt-cells = <3>;
 			#address-cells = <1>;
@@ -115,7 +124,7 @@
 			      <0x02780000 0x600000>; /* GICR */
 			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 
-			gic_its: gic-its@42720000 {
+			gic_its: gic-its@02720000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
@@ -130,7 +139,7 @@
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x48000000 0x10000000>;
 
-		uart0: uart@48100000 {
+		uart0: uart@00100000 {
 			device_type = "serial";
 			compatible = "snps,dw-apb-uart";
 			reg = <0x00100000 0x1000>;
@@ -140,13 +149,6 @@
 			interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
-	};
-
-	uart1: serial@0 {
-		compatible = "brcm,bptty-console";
-		brcm-xmit-addr = <0x5 0xBFF00000>;
-		brcm-recv-addr = <0x5 0xBFE00000>;
-		status = "disabled";
 	};
 
 #if (USE_DMAPUBUF == 1)
