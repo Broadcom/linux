@@ -2,16 +2,24 @@
 
 Required properties:
 
-- compatible: "brcm,bcm-bptty-console"
+- compatible: "brcm,bptty-console"
 
-- xmit-addr: Memory offset to write output
+- brcm-xmit-addr: memory offset to write output
 
-- recv-addr: Memory offset to read input
+- brcm-recv-addr: memory offset to read input
+
+Optional properties:
+
+- reg: offset and length of the register set for the doorbell
+
+- interrupts: doorbell interrupt, if not provided will fall back to polling
 
 Example:
 
-	uart1: serial@0 {
-		compatible = "brcm,bcm-bptty-console";
-		xmit-addr = <0x5 0xBFF00000>;
-		recv-addr = <0x5 0xBFE00000>;
+	uart1: serial@40070000 {
+		reg = <0x0 0x40070000 0x1000>;
+		compatible = "brcm,bptty-console";
+		brcm-xmit-addr = <0x5 0xbff00000>;
+		brcm-recv-addr = <0x5 0xbfe00000>;
+		interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
 	};
