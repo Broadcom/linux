@@ -21,6 +21,12 @@
 #define BPTTY_PORT_NUM		1	/* support for one tty device only */
 #define BPTTY_PORT_NAME		"ttyBP"	/* Broadcom PCIe console */
 
+#define BPTTY_CRMU_CORE_INTR_STATUS	0x0
+#define BPTTY_CRMU_CORE_INTR_CLEAR	0x8
+/* Interrupt status/mask/clear bits */
+#define BPTTY_MAILBOX0_INTR		BIT(0)
+#define BPTTY_MAILBOX1_INTR		BIT(5)
+
 struct bptty_chnl {
 	unsigned int reserved;
 	unsigned int size;
@@ -38,6 +44,10 @@ struct bptty_state {
 	struct bptty_chnl *ch[BPTTY_CHANNELS];
 	struct resource *resources[BPTTY_CHANNELS];
 	int open_count;
+	int irq;
+	void __iomem *base;
+	struct device *dev;
+	spinlock_t lock; /* protect irq service */
 };
 
 static struct bptty_state state_info;
@@ -83,6 +93,60 @@ static void receive_poll(struct timer_list *unused)
 		tty_flip_buffer_push(port);
 
 	mod_timer(&state->timer, jiffies + DELAY_TIME);
+}
+
+static irqreturn_t bptty_interrupt(int irq, void *arg)
+{
+	struct bptty_state *state = (struct bptty_state *)arg;
+	struct tty_port *port = &state->port;
+	struct bptty_chnl *recv_ch = state->ch[BPTTY_RECV_CH];
+	struct circ_buf *recv = &state->xmits[BPTTY_RECV_CH];
+	unsigned char c;
+	unsigned int count = 0;
+	unsigned long flags;
+	u32 stat, mask;
+	irqreturn_t ret = IRQ_HANDLED;
+
+	spin_lock_irqsave(&state->lock, flags);
+	stat = readl(state->base + BPTTY_CRMU_CORE_INTR_STATUS);
+	if (stat & BPTTY_MAILBOX0_INTR) {
+		/* clear interrupt */
+		mask = BPTTY_MAILBOX0_INTR;
+		writel(mask, state->base + BPTTY_CRMU_CORE_INTR_CLEAR);
+	} else if (stat & BPTTY_MAILBOX1_INTR) {
+		/* clear interrupt */
+		mask = BPTTY_MAILBOX1_INTR;
+		writel(mask, state->base + BPTTY_CRMU_CORE_INTR_CLEAR);
+	} else {
+		/* should not reach here! */
+		dev_err(state->dev, "spurious mailbox isr %d!\n", irq);
+		ret = IRQ_NONE;
+	}
+
+	if (!recv->buf)
+		goto fail;
+
+	/* reset head to new write index */
+	recv->head = recv_ch->wr;
+
+	while (recv->tail != recv->head) {
+		c = readb(recv->buf + recv->tail);
+
+		recv->tail++;
+		tty_insert_flip_char(port, c, TTY_NORMAL);
+		count++;
+
+		if (recv->tail >= recv_ch->size)
+			recv->tail = 0;
+	}
+	recv_ch->rd = recv->tail;
+
+	if (count)
+		tty_flip_buffer_push(port);
+
+fail:
+	spin_unlock_irqrestore(&state->lock, flags);
+	return ret;
 }
 
 static void bptty_state_cleanup(struct bptty_state *state)
@@ -418,6 +482,8 @@ static int bptty_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to init bptty console\n");
 		return retval;
 	}
+	state->dev = &pdev->dev;
+	spin_lock_init(&state->lock);
 
 	bptty_tty_driver = alloc_tty_driver(BPTTY_PORT_NUM);
 	if (!bptty_tty_driver) {
@@ -453,9 +519,28 @@ static int bptty_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	timer_setup(&state->timer, receive_poll, 0);
-	mod_timer(&state->timer, jiffies + DELAY_TIME);
+	state->irq = platform_get_irq(pdev, 0);
+	if (state->irq < 0) {
+		/* no irq, switch to polling mode */
+		timer_setup(&state->timer, receive_poll, 0);
+		mod_timer(&state->timer, jiffies + DELAY_TIME);
+	} else {
+		/* mailbox irq base */
+		state->base = devm_platform_ioremap_resource(pdev, 0);
+		if (IS_ERR(state->base)) {
+			dev_err(&pdev->dev, "No MEM resource available!\n");
+			retval = PTR_ERR(state->base);
+			goto fail;
+		}
 
+		retval = devm_request_irq(state->dev, state->irq,
+					  bptty_interrupt, IRQF_SHARED,
+					  "bptty", state);
+		if (retval) {
+			dev_err(&pdev->dev, "failed to register IRQ!\n");
+			goto fail;
+		}
+	}
 	platform_set_drvdata(pdev, state);
 
 	return retval;
