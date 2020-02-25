@@ -51,8 +51,7 @@ struct vk_msg_blk {
 #define VK_FID_TRANS_BUF 5
 #define VK_FID_SHUTDOWN  8
 	__u8 size;
-	__u16 queue_id:4;
-	__u16 msg_id:12;
+	__u16 trans_id; /* transport id, queue & msg_id */
 	__u32 context_id;
 	__u32 args[2];
 #define VK_CMD_PLANES_MASK 0x000F /* number of planes to up/download */
