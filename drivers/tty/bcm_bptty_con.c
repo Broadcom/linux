@@ -85,6 +85,29 @@ static void receive_poll(struct timer_list *unused)
 	mod_timer(&state->timer, jiffies + DELAY_TIME);
 }
 
+static void bptty_state_cleanup(struct bptty_state *state)
+{
+	struct tty_port *port = &state->port;
+	int i;
+
+	for (i = 0; i < BPTTY_CHANNELS; i++) {
+		if (state->ch[i])
+			iounmap(state->ch[i]);
+
+		state->ch[i] = NULL;
+
+		if (state->resources[i])
+			release_resource(state->resources[i]);
+
+		state->resources[i] = NULL;
+	}
+	if (bptty_tty_driver)
+		put_tty_driver(bptty_tty_driver);
+
+	if (port)
+		tty_port_destroy(port);
+}
+
 static int bptty_state_init(struct device_node *np, struct bptty_state *state)
 {
 	struct resource *resource;
@@ -171,17 +194,7 @@ static int bptty_state_init(struct device_node *np, struct bptty_state *state)
 	return 0;
 
 exit:
-	for (i = 0; i < BPTTY_CHANNELS; i++) {
-		if (state->ch[i])
-			iounmap(state->ch[i]);
-
-		state->ch[i] = NULL;
-
-		if (state->resources[i])
-			release_resource(state->resources[i]);
-
-		state->resources[i] = NULL;
-	}
+	bptty_state_cleanup(state);
 	return ret;
 }
 
@@ -409,7 +422,8 @@ static int bptty_probe(struct platform_device *pdev)
 	bptty_tty_driver = alloc_tty_driver(BPTTY_PORT_NUM);
 	if (!bptty_tty_driver) {
 		dev_err(&pdev->dev, "failed to alloc tty driver\n");
-		return -ENOMEM;
+		retval = -ENOMEM;
+		goto fail;
 	}
 
 	/* initialize the tty driver */
@@ -436,7 +450,7 @@ static int bptty_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to register bcm_bptty driver");
 		put_tty_driver(bptty_tty_driver);
 		tty_port_destroy(port);
-		return retval;
+		goto fail;
 	}
 
 	timer_setup(&state->timer, receive_poll, 0);
@@ -444,6 +458,9 @@ static int bptty_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, state);
 
+	return retval;
+fail:
+	bptty_state_cleanup(state);
 	return retval;
 }
 
