@@ -36,6 +36,8 @@ struct bcm_vk_tty_chan {
 #define VK_BAR_CHAN_RD(v, DIR)		VK_BAR_CHAN(v, DIR, rd)
 #define VK_BAR_CHAN_DATA(v, DIR, off)	(VK_BAR_CHAN(v, DIR, data) + (off))
 
+#define VK_BAR0_REGSEG_TTY_DB_OFFSET	0x86C
+
 /* Poll every 1/10 of second - temp hack till we use MSI interrupt */
 #define SERIAL_TIMER_VALUE (HZ / 10)
 
@@ -180,6 +182,14 @@ static void bcm_vk_tty_close(struct tty_struct *tty, struct file *file)
 		del_timer_sync(&vk->serial_timer);
 }
 
+static void bcm_vk_tty_doorbell(struct bcm_vk *vk, uint32_t db_val)
+{
+	vkwrite32(vk,
+		  db_val,
+		  BAR_0,
+		  VK_BAR0_REGSEG_DB_BASE + VK_BAR0_REGSEG_TTY_DB_OFFSET);
+}
+
 static int bcm_vk_tty_write(struct tty_struct *tty,
 			    const unsigned char *buffer,
 			    int count)
@@ -205,9 +215,8 @@ static int bcm_vk_tty_write(struct tty_struct *tty,
 			vktty->wr = 0;
 	}
 	/* Update write offset from shadow register to card */
-	/* TODO: Need to add write to doorbell here */
 	vkwrite32(vk, vktty->wr, BAR_1, VK_BAR_CHAN_WR(vktty, to));
-
+	bcm_vk_tty_doorbell(vk, 0);
 	retval = count;
 
 	return retval;
