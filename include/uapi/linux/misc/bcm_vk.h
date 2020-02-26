@@ -18,16 +18,6 @@ struct vk_image {
 	char filename[BCM_VK_MAX_FILENAME]; /* Filename of image */
 };
 
-struct vk_access {
-	__u8 barno; /* BAR number to use */
-	__u8 type; /* Type of access */
-#define VK_ACCESS_READ 0
-#define VK_ACCESS_WRITE 1
-	__u32 len; /* length of data */
-	__u64 offset; /* offset in BAR */
-	__u32 *data; /* where to read/write data to */
-};
-
 struct vk_reset {
 	__u32 arg1;
 	__u32 arg2;
@@ -37,9 +27,6 @@ struct vk_reset {
 
 /* Load image to Valkyrie */
 #define VK_IOCTL_LOAD_IMAGE	_IOW(VK_MAGIC, 0x2, struct vk_image)
-
-/* Read data from Valkyrie */
-#define VK_IOCTL_ACCESS_BAR	_IOWR(VK_MAGIC, 0x3, struct vk_access)
 
 /* Send Reset to Valkyrie */
 #define VK_IOCTL_RESET		_IOW(VK_MAGIC, 0x4, struct vk_reset)

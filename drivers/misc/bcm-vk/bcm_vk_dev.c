@@ -722,64 +722,6 @@ bcm_vk_load_image_exit:
 	return ret;
 }
 
-static long bcm_vk_access_bar(struct bcm_vk *vk, struct vk_access *arg)
-{
-	struct device *dev = &vk->pdev->dev;
-	struct vk_access access;
-	long ret = -EINVAL;
-	u32 value;
-	long i;
-	long num;
-
-	if (copy_from_user(&access, arg, sizeof(struct vk_access))) {
-		ret = -EACCES;
-		goto err_out;
-	}
-
-	/* do some range checking in the barno and offset */
-	if (access.barno >= MAX_BAR) {
-		dev_err(dev, "invalid bar no %d\n", access.barno);
-		goto err_out;
-	} else if ((access.offset + access.len) >
-		   pci_resource_len(vk->pdev, access.barno * 2)) {
-		dev_err(dev, "invalid bar offset 0x%llx, len 0x%x\n",
-			access.offset, access.len);
-		goto err_out;
-	}
-
-	if (access.type == VK_ACCESS_READ) {
-		dev_dbg(dev, "read barno:%d offset:0x%llx len:0x%x\n",
-			access.barno, access.offset, access.len);
-		num = access.len / sizeof(u32);
-		for (i = 0; i < num; i++) {
-			value = vkread32(vk, access.barno,
-					 access.offset + (i * sizeof(u32)));
-			ret = put_user(value, access.data + i);
-			if (ret)
-				goto err_out;
-
-			dev_dbg(dev, "0x%x\n", value);
-		}
-	} else if (access.type == VK_ACCESS_WRITE) {
-		dev_dbg(dev, "write barno:%d offset:0x%llx len:0x%x\n",
-			access.barno, access.offset, access.len);
-		num = access.len / sizeof(u32);
-		for (i = 0; i < num; i++) {
-			ret = get_user(value, access.data + i);
-			if (ret)
-				goto err_out;
-
-			vkwrite32(vk, value, access.barno,
-				  access.offset + (i * sizeof(u32)));
-			dev_dbg(dev, "0x%x\n", value);
-		}
-	} else {
-		dev_dbg(dev, "invalid access type %d\n", access.type);
-	}
-err_out:
-	return ret;
-}
-
 static int bcm_vk_reset_successful(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
@@ -911,10 +853,6 @@ static long bcm_vk_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case VK_IOCTL_LOAD_IMAGE:
 		ret = bcm_vk_load_image(vk, argp);
-		break;
-
-	case VK_IOCTL_ACCESS_BAR:
-		ret = bcm_vk_access_bar(vk, argp);
 		break;
 
 	case VK_IOCTL_RESET:
