@@ -691,13 +691,16 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	}
 
 	image_name = image.filename;
-	if (image_name[0] == NULL) {
+	if (image_name[0] == '\0') {
 		/* Use default image name if NULL */
 		idx = get_soc_idx(dev);
 		if (idx >= VK_IDX_INVALID)
 			return -EPERM;
 
 		image_name = image_tab[idx][image.type].image_name;
+	} else {
+		/* Ensure filename is NULL terminated */
+		image.filename[sizeof(image.filename) - 1] = '\0';
 	}
 	ret = bcm_vk_load_image_by_type(vk, image.type, image_name);
 	clear_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload);
