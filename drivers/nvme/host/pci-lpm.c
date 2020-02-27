@@ -310,8 +310,8 @@ static int nvme_set_feature(struct nvme_ctrl *ctrl, unsigned int fid,
 static int nvme_set_qcount(struct nvme_ctrl *ctrl, int *count)
 {
 	u32 q_count = (*count - 1) | ((*count - 1) << 16);
-	u32 result = 0, ret;
-	int nr_io_queues;
+	u32 result = 0;
+	int nr_io_queues, ret;
 
 	dev_info(ctrl->dev, "requested Qs: %d", *count);
 	ret = nvme_set_feature(ctrl, NVME_FEAT_NUM_QUEUES, q_count, &result);
@@ -1133,7 +1133,7 @@ static u64 nvme_lpm_backup_capacity(struct nvme_dev *dev)
 	struct nvme_lpm_dev *lpm_dev = &dev->lpm_dev;
 	u64 max_io_sqes, backup_limit;
 
-	max_io_sqes = (dev->online_queues - 1) * (dev->q_depth - 1);
+	max_io_sqes = (u64)(dev->online_queues - 1) * (dev->q_depth - 1);
 	backup_limit = max_io_sqes << lpm_dev->max_transfer_shift;
 
 	return min(backup_limit, dev->capacity);
