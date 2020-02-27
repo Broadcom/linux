@@ -382,7 +382,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				     const char *filename)
 {
 	struct device *dev = &vk->pdev->dev;
-	const struct firmware *fw;
+	const struct firmware *fw = NULL;
 	void *bufp;
 	size_t max_buf;
 	int ret;
@@ -451,7 +451,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	if (ret) {
 		dev_err(dev, "Error %d requesting firmware file: %s\n",
 			ret, filename);
-		goto err_out;
+		goto err_firmware_out;
 	}
 	dev_dbg(dev, "size=0x%zx\n", fw->size);
 
