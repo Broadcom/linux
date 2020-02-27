@@ -664,10 +664,18 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	struct vk_image image;
 	u32 next_loadable;
 	enum soc_idx idx;
+	int image_idx;
 	int ret;
 
 	if (copy_from_user(&image, arg, sizeof(image))) {
 		ret = -EACCES;
+		goto bcm_vk_load_image_exit;
+	}
+
+	if ((image.type != VK_IMAGE_TYPE_BOOT1) &&
+	    (image.type != VK_IMAGE_TYPE_BOOT2)) {
+		dev_err(dev, "invalid image.type %u\n", image.type);
+		ret = -EPERM;
 		goto bcm_vk_load_image_exit;
 	}
 
@@ -697,7 +705,9 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 		if (idx >= VK_IDX_INVALID)
 			return -EPERM;
 
-		image_name = image_tab[idx][image.type].image_name;
+		/* Image idx starts with boot1 */
+		image_idx = image.type - VK_IMAGE_TYPE_BOOT1;
+		image_name = image_tab[idx][image_idx].image_name;
 	} else {
 		/* Ensure filename is NULL terminated */
 		image.filename[sizeof(image.filename) - 1] = '\0';
