@@ -260,7 +260,7 @@ static int iproc_ftm_probe(struct platform_device *pdev)
 	ftm->irq = platform_get_irq(pdev, 0);
 	if (ftm->irq < 0) {
 		dev_err(dev, "Failed to parse interrupt\n");
-		ret = -ENODEV;
+		return ftm->irq;
 	}
 
 	iproc_ftm_ena_intr(ftm, false);
