@@ -190,9 +190,6 @@ static int bptty_open(struct tty_struct *tty, struct file *file)
 	struct bptty_state *state = &state_info;
 	struct tty_port *port;
 
-	if (!state)
-		return -ENODEV;
-
 	port = &state->port;
 
 	if (tty->index < 0 || tty->index >= BPTTY_PORT_NUM)
