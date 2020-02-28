@@ -1159,6 +1159,7 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	struct bcm_vk_wkent *entry;
 	uint32_t sgl_extra_blks;
 	uint32_t q_num;
+	uint32_t msg_size;
 
 	if (!bcm_vk_drv_access_ok(vk))
 		return -EPERM;
@@ -1243,8 +1244,14 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 
 		/* Calculate vk_data location */
 		/* Go to end of the message */
+		msg_size = entry->h2vk_msg[0].size;
+		if (msg_size > entry->h2vk_blks) {
+			rc = -EMSGSIZE;
+			goto bcm_vk_write_free_msgid;
+		}
+
 		data = (struct _vk_data *)
-			&(entry->h2vk_msg[entry->h2vk_msg[0].size + 1]);
+			&(entry->h2vk_msg[msg_size + 1]);
 		/* Now back up to the start of the pointers */
 		data -= num_planes;
 
