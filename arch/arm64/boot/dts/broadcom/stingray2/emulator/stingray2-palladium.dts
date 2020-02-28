@@ -22,6 +22,9 @@
  */
 /memreserve/ 0x8f000000 0x00100000;
 
+/* Sideload 64MB */
+/memreserve/ 0xbc000000 0x04000000;
+
 #include "../stingray2.dtsi"
 
 / {
