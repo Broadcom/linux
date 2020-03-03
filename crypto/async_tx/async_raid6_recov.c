@@ -205,8 +205,9 @@ __2data_recov_5(int disks, size_t bytes, int faila, int failb,
 		good = i;
 		good_srcs++;
 	}
-	BUG_ON(good_srcs > 1);
-	BUG_ON(good < 0);
+
+	if ((good_srcs > 1) || (good < 0))
+		return NULL;
 
 	p = blocks[disks-2];
 	q = blocks[disks-1];
@@ -340,7 +341,9 @@ async_raid6_2data_recov(int disks, size_t bytes, int faila, int failb,
 	void *scribble = submit->scribble;
 	int non_zero_srcs, i;
 
-	BUG_ON(faila == failb);
+	if (faila == failb)
+		return NULL;
+
 	if (failb < faila)
 		swap(faila, failb);
 
@@ -456,7 +459,8 @@ async_raid6_datap_recov(int disks, size_t bytes, int faila,
 				break;
 		}
 	}
-	BUG_ON(good_srcs == 0);
+	if (good_srcs == 0)
+		return NULL;
 
 	p = blocks[disks-2];
 	q = blocks[disks-1];
