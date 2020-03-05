@@ -57,6 +57,13 @@ void bcm_vk_tty_exit(struct bcm_vk *vk)
 	dev_dbg(dev, "exit\n");
 }
 
+void bcm_vk_tty_terminate_tty_user(struct bcm_vk *vk)
+{
+	struct device *dev = &vk->pdev->dev;
+
+	dev_dbg(dev, "terminate tty user\n");
+}
+
 #else
 
 static void bcm_vk_tty_poll(struct timer_list *t)
@@ -134,6 +141,7 @@ static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 
 	vktty = &vk->tty[index];
 
+	vktty->ppid = current;
 	vktty->to_offset = TO_TTYK_BASE(index);
 	vktty->from_offset = FROM_TTYK_BASE(index);
 
@@ -322,6 +330,18 @@ void bcm_vk_tty_exit(struct bcm_vk *vk)
 
 	kfree(vk->tty_drv->name);
 	vk->tty_drv->name = NULL;
+}
+
+void bcm_vk_tty_terminate_tty_user(struct bcm_vk *vk)
+{
+	struct bcm_vk_tty *vktty;
+	int i;
+
+	for (i = 0; i < BCM_VK_NUM_TTY; ++i) {
+		vktty = &vk->tty[i];
+		if (vktty->ppid)
+			kill_pid(task_pid(vktty->ppid), SIGKILL, 1);
+	}
 }
 
 #endif

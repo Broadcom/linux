@@ -171,6 +171,7 @@ struct bcm_vk_tty {
 	uint32_t from_offset;	/* bar offset to use */
 	uint32_t from_size;	/* from VK buffer size */
 	uint32_t rd;		/* read offset shadow */
+	struct task_struct *ppid;
 };
 
 /* VK device max power state, supports 3, full, reduced and low */
@@ -371,6 +372,7 @@ void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val);
 int bcm_vk_auto_load_all_images(struct bcm_vk *vk);
 int bcm_vk_tty_init(struct bcm_vk *vk, char *name);
 void bcm_vk_tty_exit(struct bcm_vk *vk);
+void bcm_vk_tty_terminate_tty_user(struct bcm_vk *vk);
 void bcm_vk_hb_init(struct bcm_vk *vk);
 void bcm_vk_hb_deinit(struct bcm_vk *vk);
 void bcm_vk_handle_notf(struct bcm_vk *vk);

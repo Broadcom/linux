@@ -364,6 +364,7 @@ void bcm_vk_blk_drv_access(struct bcm_vk *vk)
 			}
 		}
 	}
+	bcm_vk_tty_terminate_tty_user(vk);
 	spin_unlock(&vk->ctx_lock);
 }
 
@@ -1177,7 +1178,6 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	struct miscdevice *misc_device = &vk->miscdev;
 
 	bcm_vk_hb_deinit(vk);
-	bcm_vk_tty_exit(vk);
 
 	/* unregister panic notifier */
 	atomic_notifier_chain_unregister(&panic_notifier_list,
@@ -1186,6 +1186,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	bcm_vk_sysfs_exit(pdev, misc_device);
 
 	bcm_vk_msg_remove(vk);
+	bcm_vk_tty_exit(vk);
 
 	if (vk->tdma_vaddr)
 		dma_free_coherent(&pdev->dev, nr_scratch_pages * PAGE_SIZE,
