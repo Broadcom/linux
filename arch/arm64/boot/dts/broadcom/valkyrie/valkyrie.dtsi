@@ -10,7 +10,6 @@
 	interrupt-parent = <&gic>;
 	#address-cells = <2>;
 	#size-cells = <2>;
-	dma-ranges = <0x0 0x0 0x0 0x0 0x100 0x0>;
 
 	cpus {
 		#address-cells = <2>;
@@ -111,7 +110,6 @@
 
 	hsls {
 		compatible = "simple-bus";
-		dma-ranges;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x48000000 0x10000000>;
