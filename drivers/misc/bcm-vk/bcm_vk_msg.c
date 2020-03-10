@@ -190,11 +190,12 @@ void bcm_vk_hb_deinit(struct bcm_vk *vk)
  * The heartbeat from host is a last resort.  If stuck condition happens
  * on the card, firmware is supposed to detect it.  Therefore, the heartbeat
  * values used will be more relaxed on the driver, which need to be bigger
- * than the watchdog timeout on the card.
+ * than the watchdog timeout on the card.  The watchdog timeout on the card
+ * is 20s, with a jitter of 2s => 22s.  We use a value of 27s here.
  */
 #define BCM_VK_HB_TIMER_S 3
 #define BCM_VK_HB_TIMER_VALUE (BCM_VK_HB_TIMER_S * HZ)
-#define BCM_VK_HB_LOST_MAX 4
+#define BCM_VK_HB_LOST_MAX (27 / BCM_VK_HB_TIMER_S)
 
 static void bcm_vk_hb_poll(struct timer_list *t)
 {
