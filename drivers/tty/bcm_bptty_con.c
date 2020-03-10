@@ -44,7 +44,7 @@ static struct bptty_state state_info;
 static struct tty_driver *bptty_tty_driver;
 
 static const struct of_device_id bptty_of_match[] = {
-	{ .compatible = "brcm,bcm-bptty-console" },
+	{ .compatible = "brcm,bptty-console" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, bptty_of_match);
@@ -103,15 +103,15 @@ static int bptty_state_init(struct device_node *np, struct bptty_state *state)
 
 	sema_init(&state->sem, 1);
 
-	ret = of_property_read_u64(np, "xmit-addr", &addr[BPTTY_XMIT_CH]);
+	ret = of_property_read_u64(np, "brcm-xmit-addr", &addr[BPTTY_XMIT_CH]);
 	if (ret) {
-		pr_err("bptty: failed no xmit-addr found\n");
+		pr_err("bptty: failed no brcm-xmit-addr found\n");
 		goto exit;
 	}
 
-	ret = of_property_read_u64(np, "recv-addr", &addr[BPTTY_RECV_CH]);
+	ret = of_property_read_u64(np, "brcm-recv-addr", &addr[BPTTY_RECV_CH]);
 	if (ret) {
-		pr_err("bptty: failed no recv-addr found\n");
+		pr_err("bptty: failed no brcm-recv-addr found\n");
 		goto exit;
 	}
 
