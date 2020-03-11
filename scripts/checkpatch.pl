@@ -3852,8 +3852,8 @@ sub process {
 			}
 		}
 
-# no C99 // comments
-		if ($line =~ m{//}) {
+# no C99 // comments except for SPDX-License-Identifier
+		if ($line =~ m{//} && $rawline !~ /SPDX-License-Identifier:/) {
 			if (ERROR("C99_COMMENTS",
 				  "do not use C99 // comments\n" . $herecurr) &&
 			    $fix) {
