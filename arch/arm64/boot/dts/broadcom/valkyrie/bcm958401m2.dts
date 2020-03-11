@@ -28,7 +28,7 @@
 			    uio_pdrv_genirq.of_id=generic-uio";
 		stdout-path = "serial0:57600n8";
 		linux,initrd-start = <0x5 0x64000000>;
-		linux,initrd-end = <0x5 0x66000000>;
+		linux,initrd-end = <0x5 0x66800000>;
 	};
 
 	memory@560000000 {
