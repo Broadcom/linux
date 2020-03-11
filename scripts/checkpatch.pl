@@ -3305,6 +3305,16 @@ sub process {
 			     "networking block comments don't use an empty /* line, use /* Comment...\n" . $hereprev);
 		}
 
+
+# Non-Networking with an empty initial /*
+		if ($realfile !~ m@^(drivers/net/|net/)@ &&
+		    $prevrawline =~ /^\+[ \t]*\/\*[ \t]/ &&
+		    $rawline =~ /^\+[ \t]*\*/ &&
+		    $realline > 2) {
+			WARN("NONNETWORKING_BLOCK_COMMENT_STYLE",
+			     "non-networking block comments use an empty /* on first line\n" . $hereprev);
+		}
+
 # Block comments use * on subsequent lines
 		if ($prevline =~ /$;[ \t]*$/ &&			#ends in comment
 		    $prevrawline =~ /^\+.*?\/\*/ &&		#starting /*
