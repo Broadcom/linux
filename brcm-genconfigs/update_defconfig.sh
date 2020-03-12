@@ -130,6 +130,7 @@ main() {
 	cat brcm-genconfigs/usb.cfg >> .config
 	cat brcm-genconfigs/v4l2.cfg >> .config
 	cat brcm-genconfigs/tc.cfg >> .config
+	cat brcm-genconfigs/bnxt.cfg >> .config
 	cat brcm-genconfigs/mlnx.cfg >> .config
 	cat brcm-genconfigs/nvme.cfg >> .config
 	cat brcm-genconfigs/igb.cfg >> .config
