@@ -2,7 +2,7 @@
 
 # All supported defconfigs. Add new defconfigs to list for the proper
 # architecture.
-arm64_defconfigs="iproc_defconfig"
+arm64_defconfigs="iproc_defconfig vk_defconfig"
 
 # Defines the fragments that apply to each defconfig. Variable name must be the
 # same as the defconfig file.
