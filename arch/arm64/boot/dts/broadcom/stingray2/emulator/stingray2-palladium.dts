@@ -10,7 +10,7 @@
  * to be updated in DTB by bootloader before
  * handing over DTB to Linux kernel.
  */
-/memreserve/ 0x81000000 0x00800000;
+/memreserve/ 0x81000000 0x08000000;
 
 /* HACK: Reserve bl31 location
  * The memreserve entry for bl31 is supposed to
@@ -39,13 +39,13 @@
 			    earlycon=pl011,mmio32,0x68a10000 cma=64M \
 			    maxcpus=1";
 		linux,initrd-start = <0x0 0x81000000>;
-		linux,initrd-end = <0x0 0x81800000>;
+		linux,initrd-end = <0x0 0x89000000>;
 		stdout-path = "serial0:1200n8";
 	};
 
 	memory: memory@80000000 {
 		device_type = "memory";
-		reg = <0x00000000 0x80000000 0 0x40000000>;
+		reg = <0x00000000 0x80000000 0 0x80000000>;
 	};
 };
 
