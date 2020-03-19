@@ -210,6 +210,8 @@ static void bcm_vk_hb_poll(struct timer_list *t)
 
 		if (uptime_s == hb->last_uptime)
 			hb->lost_cnt++;
+		else /* reset to avoid accumulation */
+			hb->lost_cnt = 0;
 
 		dev_dbg(&vk->pdev->dev, "Last uptime %d current %d, lost %d\n",
 			hb->last_uptime, uptime_s, hb->lost_cnt);
