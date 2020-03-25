@@ -20,12 +20,28 @@
 			compatible = "arm,cortex-a72", "arm,armv8";
 			reg = <0x0 0x0>;
 			enable-method = "psci";
-			i-cache-size = <0xc000>;
-			i-cache-line-size = <64>;
-			i-cache-sets = <256>;
-			d-cache-size = <0x8000>;
-			d-cache-line-size = <64>;
-			d-cache-sets = <256>;
+			next-level-cache = <&CLUSTER0_L2>;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a72", "arm,armv8";
+			reg = <0x0 0x1>;
+			enable-method = "psci";
+			next-level-cache = <&CLUSTER0_L2>;
+		};
+		cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a72", "arm,armv8";
+			reg = <0x0 0x2>;
+			enable-method = "psci";
+			next-level-cache = <&CLUSTER0_L2>;
+		};
+		cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a72", "arm,armv8";
+			reg = <0x0 0x3>;
+			enable-method = "psci";
 			next-level-cache = <&CLUSTER0_L2>;
 		};
 
