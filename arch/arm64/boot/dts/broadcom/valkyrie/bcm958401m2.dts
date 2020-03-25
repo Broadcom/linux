@@ -24,7 +24,7 @@
 	};
 
 	chosen {
-		bootargs = "root=/dev/ram rw console=ttyBP0,57600n8 maxcpus=1 \
+		bootargs = "root=/dev/ram rw console=ttyBP0,57600n8 maxcpus=4 \
 			    uio_pdrv_genirq.of_id=generic-uio";
 		stdout-path = "serial0:57600n8";
 		linux,initrd-start = <0x5 0x64000000>;
