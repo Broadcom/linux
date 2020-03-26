@@ -99,6 +99,7 @@ struct bcm_vk_entry const bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM] = {
 	{ERR_LOG_LOW_TEMP_WARN, ERR_LOG_LOW_TEMP_WARN, "low_temp warn"},
 	{ERR_LOG_ECC, ERR_LOG_ECC, "ecc"},
 };
+
 /* alerts detected by the host */
 struct bcm_vk_entry const bcm_vk_host_err[BCM_VK_HOST_ERR_NUM] = {
 	{ERR_LOG_HOST_PCIE_DWN, ERR_LOG_HOST_PCIE_DWN, "PCIe_down"},
@@ -472,8 +473,9 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			goto err_firmware_out;
 		}
 	} else if (load_type == VK_IMAGE_TYPE_BOOT2) {
-		unsigned long timeout = jiffies + msecs_to_jiffies(
-					LOAD_IMAGE_TIMEOUT_MS);
+		unsigned long timeout;
+
+		timeout = jiffies + msecs_to_jiffies(LOAD_IMAGE_TIMEOUT_MS);
 
 		/* To send more data to VK than max_buf allowed at a time */
 		do {
@@ -503,17 +505,17 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 					  codepush, 0,
 					  TXFR_COMPLETE_TIMEOUT_MS);
 			if (ret == 0) {
-				ret = REQUEST_FIRMWARE_INTO_BUF(
-							&fw,
-							filename,
-							dev, bufp,
-							max_buf,
-							fw->size,
-							KERNEL_PREAD_FLAG_PART);
+				ret = REQUEST_FIRMWARE_INTO_BUF
+						(&fw,
+						 filename,
+						 dev, bufp,
+						 max_buf,
+						 fw->size,
+						 KERNEL_PREAD_FLAG_PART);
 				if (ret) {
-					dev_err(dev, "Error %d requesting firmware file: %s offset: 0x%zx\n",
-						ret, filename,
-						fw->size);
+					dev_err(dev,
+						"Error %d requesting firmware file: %s offset: 0x%zx\n",
+						ret, filename, fw->size);
 					goto err_firmware_out;
 				}
 				dev_dbg(dev, "size=0x%zx\n", fw->size);
@@ -521,8 +523,8 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 					codepush, offset_codepush);
 				vkwrite32(vk, codepush, BAR_0, offset_codepush);
 				/* reload timeout after every codepush */
-				timeout = jiffies + msecs_to_jiffies(
-					  LOAD_IMAGE_TIMEOUT_MS);
+				timeout = jiffies +
+				    msecs_to_jiffies(LOAD_IMAGE_TIMEOUT_MS);
 			}
 		} while (1);
 
@@ -804,16 +806,16 @@ static int bcm_vk_reset_successful(struct bcm_vk *vk)
 
 	/* initial check on reset reason */
 	reset_reason = (fw_status & VK_FWSTS_RESET_REASON_MASK);
-	if ((reset_reason == VK_FWSTS_RESET_MBOX_DB)
-	     || (reset_reason == VK_FWSTS_RESET_UNKNOWN))
+	if ((reset_reason == VK_FWSTS_RESET_MBOX_DB) ||
+	    (reset_reason == VK_FWSTS_RESET_UNKNOWN))
 		ret = 0;
 
 	/*
 	 * if some of the deinit bits are set, but done
 	 * bit is not, this is a failure if triggered while boot2 is running
 	 */
-	if ((fw_status & VK_FWSTS_DEINIT_TRIGGERED)
-	    && !(fw_status & VK_FWSTS_RESET_DONE))
+	if ((fw_status & VK_FWSTS_DEINIT_TRIGGERED) &&
+	    !(fw_status & VK_FWSTS_RESET_DONE))
 		ret = -EAGAIN;
 
 bcm_vk_reset_exit:
@@ -997,7 +999,8 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	/* The tdma is a scratch area for some DMA testings. */
 	if (nr_scratch_pages) {
-		vk->tdma_vaddr = dma_alloc_coherent(dev,
+		vk->tdma_vaddr = dma_alloc_coherent
+					(dev,
 					 nr_scratch_pages * PAGE_SIZE,
 					 &vk->tdma_addr, GFP_KERNEL);
 		if (!vk->tdma_vaddr) {
@@ -1181,7 +1184,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 
 	/* unregister panic notifier */
 	atomic_notifier_chain_unregister(&panic_notifier_list,
-				       &vk->panic_nb);
+					 &vk->panic_nb);
 
 	bcm_vk_sysfs_exit(pdev, misc_device);
 

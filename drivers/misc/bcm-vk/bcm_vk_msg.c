@@ -22,17 +22,20 @@
 #define BCM_VK_MSG_ID_MASK	 0xFFF
 #define BCM_VK_GET_Q(msg_p)			 \
 	((msg_p)->trans_id & BCM_VK_MSG_Q_MASK)
+
 #define BCM_VK_SET_Q(msg_p, val)		 \
 {						 \
 	(msg_p)->trans_id =			 \
 		((msg_p)->trans_id & ~BCM_VK_MSG_Q_MASK) | (val); \
 }
+
 #define BCM_VK_GET_MSG_ID(msg_p)		 \
 	(((msg_p)->trans_id >> BCM_VK_MSG_Q_SHIFT) & BCM_VK_MSG_ID_MASK)
+
 #define BCM_VK_SET_MSG_ID(msg_p, val)		 \
 {						 \
 	(msg_p)->trans_id =			 \
-		(val << BCM_VK_MSG_Q_SHIFT) | BCM_VK_GET_Q(msg_p);\
+		((val) << BCM_VK_MSG_Q_SHIFT) | BCM_VK_GET_Q(msg_p);\
 }
 
 #if defined(CONFIG_BCM_VK_H2VK_VERIFY_AND_RETRY)
@@ -354,7 +357,7 @@ static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *ctx)
 	struct bcm_vk_ctx *entry;
 	int count = 0;
 
-	if (ctx == NULL) {
+	if (!ctx) {
 		dev_err(&vk->pdev->dev, "NULL context detected\n");
 		return -EINVAL;
 	}
@@ -407,7 +410,7 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 	spin_lock(&chan->pendq_lock);
 	for (num = 0; num < chan->q_nr; num++) {
 		list_for_each_entry_safe(entry, tmp, &chan->pendq[num], node) {
-			if (ctx == NULL) {
+			if (!ctx) {
 				list_del(&entry->node);
 				list_add_tail(&entry->node, &del_q);
 			} else if (entry->ctx->idx == ctx->idx) {
@@ -494,8 +497,9 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 	msgq_off = vkread32(vk, BAR_1, VK_BAR1_MSGQ_CTRL_OFF);
 
 	/* each side is always half the total  */
-	num_q = vk->h2vk_msg_chan.q_nr = vk->vk2h_msg_chan.q_nr =
-		vkread32(vk, BAR_1, VK_BAR1_MSGQ_NR) / 2;
+	num_q = vkread32(vk, BAR_1, VK_BAR1_MSGQ_NR) / 2;
+	vk->h2vk_msg_chan.q_nr = num_q;
+	vk->vk2h_msg_chan.q_nr = num_q;
 
 	/* first msgq location */
 	msgq = (struct bcm_vk_msgq *)(vk->bar[BAR_1] + msgq_off);
@@ -608,7 +612,6 @@ static uint32_t bcm_vk_append_ib_sgl(struct bcm_vk *vk,
 	for (i = 0; i < num_planes; i++) {
 		if (data[i].address &&
 		    (ib_sgl_size + data[i].size) <= vk->ib_sgl_size) {
-
 			item_cnt++;
 			memcpy(buf, entry->dma[i].sglist, data[i].size);
 			ib_sgl_size += data[i].size;
@@ -626,8 +629,9 @@ static uint32_t bcm_vk_append_ib_sgl(struct bcm_vk *vk,
 	return ib_sgl_size;
 }
 
-void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num,
-			      uint32_t db_val)
+void bcm_h2vk_doorbell(struct bcm_vk *vk,
+		       uint32_t q_num,
+		       uint32_t db_val)
 {
 	/* press door bell based on q_num */
 	vkwrite32(vk,
@@ -676,8 +680,8 @@ static int bcm_h2vk_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 #endif
 	/* if not enough space, return EAGAIN and let app handles it */
 	retry = 0;
-	while ((avail < entry->h2vk_blks)
-	       && (retry++ < BCM_VK_H2VK_ENQ_RETRY)) {
+	while ((avail < entry->h2vk_blks) &&
+	       (retry++ < BCM_VK_H2VK_ENQ_RETRY)) {
 		mutex_unlock(&chan->msgq_mutex);
 
 		msleep(BCM_VK_H2VK_ENQ_RETRY_DELAY_MS);
@@ -755,7 +759,7 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 		return -EINVAL;
 	}
 
-	entry = kzalloc(sizeof(struct bcm_vk_wkent) +
+	entry = kzalloc(sizeof(*entry) +
 			sizeof(struct vk_msg_blk), GFP_KERNEL);
 	if (!entry)
 		return -ENOMEM;
@@ -817,7 +821,6 @@ static struct bcm_vk_wkent *bcm_vk_find_pending(struct bcm_vk *vk,
 
 	spin_lock(&chan->pendq_lock);
 	list_for_each_entry(entry, &chan->pendq[q_num], node) {
-
 		if (BCM_VK_GET_MSG_ID(&entry->h2vk_msg[0]) == msg_id) {
 			list_del(&entry->node);
 			found = true;
@@ -857,7 +860,6 @@ static int32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 		qinfo = &chan->sync_qinfo[q_num];
 
 		while (!VK_MSGQ_EMPTY(msgq)) {
-
 			/*
 			 * Make a local copy and get pointer to src blk
 			 * The rd_idx is masked before getting the pointer to
@@ -867,17 +869,17 @@ static int32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 			 * able to catch this.
 			 */
 			rd_idx = msgq->rd_idx;
-			src = VK_MSGQ_BLK_ADDR(qinfo,
-					     rd_idx & VK_MSGQ_SIZE_MASK(qinfo));
+			src = VK_MSGQ_BLK_ADDR
+				  (qinfo, rd_idx & VK_MSGQ_SIZE_MASK(qinfo));
 
-			if ((rd_idx >= qinfo->q_size)
-			    || (src->size > (qinfo->q_size - 1))) {
+			if ((rd_idx >= qinfo->q_size) ||
+			    (src->size > (qinfo->q_size - 1))) {
 				dev_crit(dev,
 					 "Invalid rd_idx 0x%x or size 0x%x => max 0x%x!",
 					 rd_idx, src->size, qinfo->q_size);
 				bcm_vk_blk_drv_access(vk);
-				bcm_vk_set_host_alert(
-					vk, ERR_LOG_HOST_PCIE_DWN);
+				bcm_vk_set_host_alert(vk,
+						      ERR_LOG_HOST_PCIE_DWN);
 				goto idx_err;
 			}
 
@@ -958,7 +960,6 @@ static int32_t bcm_vk2h_msg_dequeue(struct bcm_vk *vk)
 					 test_bit(msg_id, vk->bmap));
 				kfree(data);
 			}
-
 		}
 	}
 idx_err:
@@ -1059,7 +1060,6 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 		dev_err(dev, "Error allocating context\n");
 		rc = -ENOMEM;
 	} else {
-
 		/*
 		 * set up context and replace private data with context for
 		 * other methods to use.  Reason for the context is because
@@ -1076,8 +1076,10 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 	return rc;
 }
 
-ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
-			   loff_t *f_pos)
+ssize_t bcm_vk_read(struct file *p_file,
+		    char __user *buf,
+		    size_t count,
+		    loff_t *f_pos)
 {
 	ssize_t rc = -ENOMSG;
 	struct bcm_vk_ctx *ctx = p_file->private_data;
@@ -1146,8 +1148,10 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 	return rc;
 }
 
-ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
-			    size_t count, loff_t *f_pos)
+ssize_t bcm_vk_write(struct file *p_file,
+		     const char __user *buf,
+		     size_t count,
+		     loff_t *f_pos)
 {
 	ssize_t rc = -EPERM;
 	struct bcm_vk_ctx *ctx = p_file->private_data;
@@ -1174,7 +1178,7 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 	}
 
 	/* allocate the work entry + buffer for size count and inband sgl */
-	entry = kzalloc(sizeof(struct bcm_vk_wkent) + count + vk->ib_sgl_size,
+	entry = kzalloc(sizeof(*entry) + count + vk->ib_sgl_size,
 			GFP_KERNEL);
 	if (!entry) {
 		rc = -ENOMEM;
@@ -1277,8 +1281,10 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		dev_err(dev, "Fail to enqueue msg to h2vk queue\n");
 
 		/* remove message from pending list */
-		entry = bcm_vk_find_pending(
-				vk, &vk->h2vk_msg_chan, q_num,
+		entry = bcm_vk_find_pending
+			       (vk,
+				&vk->h2vk_msg_chan,
+				q_num,
 				BCM_VK_GET_MSG_ID(&entry->h2vk_msg[0]));
 		goto bcm_vk_write_free_ent;
 	}

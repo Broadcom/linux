@@ -30,7 +30,7 @@ static int bcm_vk_dma_alloc(struct device *dev,
 static int bcm_vk_dma_free(struct device *dev, struct bcm_vk_dma *dma);
 
 /* Uncomment to dump SGLIST */
-//#define BCM_VK_DUMP_SGLIST
+/* #define BCM_VK_DUMP_SGLIST */
 
 static int bcm_vk_dma_alloc(struct device *dev,
 			    struct bcm_vk_dma *dma,
@@ -63,7 +63,7 @@ static int bcm_vk_dma_alloc(struct device *dev,
 	dma->pages = kmalloc_array(dma->nr_pages,
 				   sizeof(struct page *),
 				   GFP_KERNEL);
-	if (dma->pages == NULL)
+	if (!dma->pages)
 		return -ENOMEM;
 
 	dev_dbg(dev, "Alloc DMA Pages [0x%llx+0x%x => %d pages]\n",

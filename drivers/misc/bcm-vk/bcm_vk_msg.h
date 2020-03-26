@@ -14,8 +14,10 @@ struct bcm_vk_msgq {
 	uint16_t type;	/* queue type */
 	uint16_t num;	/* queue number */
 	uint32_t start;	/* offset in BAR1 where the queue memory starts */
+
 	volatile uint32_t rd_idx; /* read idx */
 	volatile uint32_t wr_idx; /* write idx */
+
 	uint32_t size;	/*
 			 * size, which is in number of 16byte blocks,
 			 * to align with the message data structure.
@@ -48,22 +50,22 @@ struct bcm_vk_sync_qinfo {
 /* shift for fast division of basic msg blk size */
 #define VK_MSGQ_BLK_SZ_SHIFT 4
 
-#define VK_MSGQ_EMPTY(_msgq) ((_msgq)->rd_idx == (_msgq)->wr_idx)
+#define VK_MSGQ_EMPTY(msgq) ((msgq)->rd_idx == (msgq)->wr_idx)
 
-#define VK_MSGQ_SIZE_MASK(_qinfo) ((_qinfo)->q_mask)
+#define VK_MSGQ_SIZE_MASK(qinfo) ((qinfo)->q_mask)
 
-#define VK_MSGQ_INC(_qinfo, _idx, _inc) \
-	(((_idx) + (_inc)) & VK_MSGQ_SIZE_MASK(_qinfo))
+#define VK_MSGQ_INC(_qinfo, idx, inc) \
+	(((idx) + (inc)) & VK_MSGQ_SIZE_MASK(qinfo))
 
-#define VK_MSGQ_BLK_ADDR(_qinfo, _idx) \
-	(volatile struct vk_msg_blk *)((_qinfo)->q_start + \
-				       (VK_MSGQ_BLK_SIZE * (_idx)))
+#define VK_MSGQ_BLK_ADDR(qinfo, idx) \
+	(volatile struct vk_msg_blk *)((qinfo)->q_start + \
+				       (VK_MSGQ_BLK_SIZE * (idx)))
 
-#define VK_MSGQ_OCCUPIED(_msgq, _qinfo) \
-	(((_msgq)->wr_idx - (_msgq)->rd_idx) & VK_MSGQ_SIZE_MASK(_qinfo))
+#define VK_MSGQ_OCCUPIED(msgq, _qinfo) \
+	(((msgq)->wr_idx - (msgq)->rd_idx) & VK_MSGQ_SIZE_MASK(qinfo))
 
-#define VK_MSGQ_AVAIL_SPACE(_msgq, _qinfo) \
-	((_qinfo)->q_size - VK_MSGQ_OCCUPIED(_msgq, _qinfo) - 1)
+#define VK_MSGQ_AVAIL_SPACE(msgq, qinfo) \
+	((qinfo)->q_size - VK_MSGQ_OCCUPIED(msgq, qinfo) - 1)
 
 /* use msg_id 0 for any simplex host2vk communication */
 #define VK_SIMPLEX_MSG_ID 0
@@ -87,7 +89,6 @@ struct bcm_vk_ht_entry {
 #define VK_DMA_MAX_ADDRS 4 /* Max 4 DMA Addresses */
 /* structure for house keeping a single work entry */
 struct bcm_vk_wkent {
-
 	struct list_head node; /* for linking purpose */
 	struct bcm_vk_ctx *ctx;
 
@@ -124,10 +125,11 @@ struct bcm_vk_qstats {
 /* control channel structure for either h2vk or vk2h communication */
 struct bcm_vk_msg_chan {
 	uint32_t q_nr;
+	/* Mutex to access msgq */
 	struct mutex msgq_mutex;
 	/* pointing to BAR locations */
 	struct bcm_vk_msgq *msgq[VK_MSGQ_MAX_NR];
-
+	/* Spinlock to access pending queue */
 	spinlock_t pendq_lock;
 	/* for temporary storing pending items, one for each queue */
 	struct list_head pendq[VK_MSGQ_MAX_NR];
@@ -144,7 +146,7 @@ struct bcm_vk_msg_chan {
 
 /* hash table defines to store the opened FDs */
 #define VK_PID_HT_SHIFT_BIT	7 /* 128 */
-#define VK_PID_HT_SZ		(1 << VK_PID_HT_SHIFT_BIT)
+#define VK_PID_HT_SZ		BIT(VK_PID_HT_SHIFT_BIT)
 
 /* The following are offsets of DDR info provided by the vk card */
 #define VK_BAR0_SEG_SIZE	(4 * SZ_1K) /* segment size for BAR0 */

@@ -193,6 +193,7 @@ struct bcm_vk_dauth_key {
 	char store[VK_BAR1_DAUTH_STORE_SIZE];
 	char valid[VK_BAR1_DAUTH_VALID_SIZE];
 };
+
 struct bcm_vk_dauth_info {
 	struct bcm_vk_dauth_key keys[VK_BAR1_DAUTH_MAX];
 };
@@ -208,6 +209,7 @@ struct bcm_vk_peer_log {
 	uint32_t mask;
 	char data[0];
 };
+
 /* max size per line of peer log */
 #define BCM_VK_PEER_LOG_LINE_MAX  256
 
@@ -251,10 +253,10 @@ struct bcm_vk {
 	/* Reference-counting to handle file operations */
 	struct kref kref;
 
-	spinlock_t msg_id_lock;
+	spinlock_t msg_id_lock; /* Spinlock for msg_id */
 	uint16_t msg_id;
 	DECLARE_BITMAP(bmap, VK_MSG_ID_BITMAP_SIZE);
-	spinlock_t ctx_lock;
+	spinlock_t ctx_lock; /* Spinlock for component context */
 	struct bcm_vk_ctx ctx[VK_CMPT_CTX_MAX];
 	struct bcm_vk_ht_entry pid_ht[VK_PID_HT_SZ];
 	pid_t reset_pid; /* process that issue reset */

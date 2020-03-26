@@ -45,7 +45,6 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 	if ((num_vecs == 0) && (flags & PCI_IRQ_MSI)) {
 		num_vecs = pci_enable_msi_block(pdev, max_vecs);
 		if (num_vecs == 0) {
-
 			for (num_vecs = 0; num_vecs < max_vecs; num_vecs++)
 				vk->msix[num_vecs].vector =
 					num_vecs + pdev->irq;

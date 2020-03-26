@@ -8,8 +8,8 @@
 
 #include "bcm_vk.h"
 
-#define BCM_VK_BITS_NOT_SET(_val, _bitmask) \
-		(((_val) & (_bitmask)) != (_bitmask))
+#define BCM_VK_BITS_NOT_SET(val, bitmask) \
+		(((val) & (bitmask)) != (bitmask))
 
 #define BCM_VK_BUS_SYMLINK_NAME		"pci"
 
@@ -58,6 +58,7 @@ static struct bcm_vk_entry const fw_shutdown_reg_tab[] = {
 	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_UNKNOWN,
 	 "unknown" },
 };
+
 /* define for the start of the reboot reason */
 #define FW_STAT_RB_REASON_START 5
 
@@ -76,6 +77,7 @@ static struct bcm_vk_entry const boot_reg_tab[] = {
 	{BOOT_STATE_MASK, BOOT1_RUNNING, "wait_boot2"},
 	{BOOT_STATE_MASK, BOOT2_RUNNING, "boot2_running"},
 };
+
 /* define for the start of OS state */
 #define OS_STATE_START 3
 
@@ -230,8 +232,8 @@ static ssize_t firmware_status_reg_show(struct device *dev,
 }
 
 static ssize_t boot_status_reg_show(struct device *dev,
-				   struct device_attribute *devattr,
-				   char *buf)
+				    struct device_attribute *devattr,
+				    char *buf)
 {
 	uint32_t boot_status;
 	struct pci_dev *pdev = to_pci_dev(dev);
@@ -556,7 +558,7 @@ static ssize_t card_state_show(struct device *dev,
 		"  [High_thre]     : %d Celsius\n"
 
 	pwr_state_str = ((pwr_state - 1) < ARRAY_SIZE(pwr_state_tab)) ?
-			 (char *) pwr_state_tab[pwr_state - 1] : "n/a";
+			 (char *)pwr_state_tab[pwr_state - 1] : "n/a";
 	ret = sprintf(p_buf, _PWR_AND_THRE_FMT, reg, pwr_state, pwr_state_str,
 		      low_temp_thre, high_temp_thre);
 	if (ret < 0)
@@ -811,7 +813,6 @@ static ssize_t temp_threshold_upper_c_show(struct device *dev,
 	return sprintf(buf, "%d\n", high_temp_thre);
 }
 
-
 static ssize_t freq_core_mhz_show(struct device *dev,
 				  struct device_attribute *devattr,
 				  char *buf)
@@ -847,8 +848,8 @@ static ssize_t freq_mem_mhz_show(struct device *dev,
 }
 
 static ssize_t mem_size_mb_show(struct device *dev,
-				 struct device_attribute *devattr,
-				 char *buf)
+				struct device_attribute *devattr,
+				char *buf)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
@@ -1088,7 +1089,6 @@ static DEVICE_ATTR_RO(boot_status_reg);
 static DEVICE_ATTR_RO(pwr_state);
 
 static struct attribute *bcm_vk_card_stat_attributes[] = {
-
 	&dev_attr_chip_id.attr,
 	&dev_attr_firmware_status.attr,
 	&dev_attr_reset_reason.attr,
@@ -1124,7 +1124,6 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 };
 
 static struct attribute *bcm_vk_card_mon_attributes[] = {
-
 	&dev_attr_temperature_sensor_1_c.attr,
 	&dev_attr_temperature_sensor_2_c.attr,
 	&dev_attr_temperature_sensor_3_c.attr,
@@ -1167,13 +1166,13 @@ int bcm_vk_sysfs_init(struct pci_dev *pdev, struct miscdevice *misc_device)
 
 	dev_info(dev, "create sysfs group for bcm-vk\n");
 	rc = sysfs_create_group(&pdev->dev.kobj,
-				 &bcm_vk_card_stat_attribute_group);
+				&bcm_vk_card_stat_attribute_group);
 	if (rc < 0) {
 		dev_err(dev, "failed to create card status attr\n");
 		goto err_sysfs_exit;
 	}
 	rc = sysfs_create_group(&pdev->dev.kobj,
-				 &bcm_vk_card_mon_attribute_group);
+				&bcm_vk_card_mon_attribute_group);
 	if (rc < 0) {
 		dev_err(dev, "failed to create card mon attr\n");
 		goto err_free_card_stat_group;
@@ -1181,15 +1180,15 @@ int bcm_vk_sysfs_init(struct pci_dev *pdev, struct miscdevice *misc_device)
 
 	/* create symbolic link from misc device to bus directory */
 	rc = sysfs_create_link(&misc_device->this_device->kobj,
-				&pdev->dev.kobj, BCM_VK_BUS_SYMLINK_NAME);
+			       &pdev->dev.kobj, BCM_VK_BUS_SYMLINK_NAME);
 	if (rc < 0) {
 		dev_err(dev, "failed to create symlink\n");
 		goto err_free_card_mon_group;
 	}
 	/* create symbolic link from bus to misc device also */
 	rc = sysfs_create_link(&pdev->dev.kobj,
-				&misc_device->this_device->kobj,
-				misc_device->name);
+			       &misc_device->this_device->kobj,
+			       misc_device->name);
 	if (rc < 0) {
 		dev_err(dev, "failed to create reverse symlink\n");
 		goto err_free_sysfs_entry;
