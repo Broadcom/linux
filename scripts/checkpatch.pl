@@ -3321,6 +3321,7 @@ sub process {
 # Non-Networking with an empty initial /*
 		if ($realfile !~ m@^(drivers/net/|net/)@ &&
 		    $prevrawline =~ /^\+[ \t]*\/\*[ \t]/ &&
+		    $prevrawline !~ /\*\/[ \t]*$/ &&		#no trailing */
 		    $rawline =~ /^\+[ \t]*\*/ &&
 		    $realline > 2) {
 			WARN("NONNETWORKING_BLOCK_COMMENT_STYLE",
