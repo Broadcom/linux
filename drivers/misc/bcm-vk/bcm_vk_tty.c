@@ -141,7 +141,7 @@ static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 
 	vktty = &vk->tty[index];
 
-	vktty->ppid = current;
+	vktty->pid = task_pid_nr(current);
 	vktty->to_offset = TO_TTYK_BASE(index);
 	vktty->from_offset = FROM_TTYK_BASE(index);
 
@@ -339,8 +339,8 @@ void bcm_vk_tty_terminate_tty_user(struct bcm_vk *vk)
 
 	for (i = 0; i < BCM_VK_NUM_TTY; ++i) {
 		vktty = &vk->tty[i];
-		if (vktty->ppid)
-			kill_pid(task_pid(vktty->ppid), SIGKILL, 1);
+		if (vktty->pid)
+			kill_pid(find_vpid(vktty->pid), SIGKILL, 1);
 	}
 }
 

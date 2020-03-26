@@ -17,7 +17,6 @@
 #include <linux/sched.h>
 #include <linux/signal.h>
 #include <linux/sizes.h>
-#define task_pid(_tsk) get_task_pid((_tsk), PIDTYPE_PID)
 #else
 #include <linux/sched/signal.h>
 #endif
@@ -171,7 +170,7 @@ struct bcm_vk_tty {
 	uint32_t from_offset;	/* bar offset to use */
 	uint32_t from_size;	/* from VK buffer size */
 	uint32_t rd;		/* read offset shadow */
-	struct task_struct *ppid;
+	pid_t pid;
 };
 
 /* VK device max power state, supports 3, full, reduced and low */
@@ -258,7 +257,7 @@ struct bcm_vk {
 	spinlock_t ctx_lock;
 	struct bcm_vk_ctx ctx[VK_CMPT_CTX_MAX];
 	struct bcm_vk_ht_entry pid_ht[VK_PID_HT_SZ];
-	struct task_struct *reset_ppid; /* process that issue reset */
+	pid_t reset_pid; /* process that issue reset */
 
 	atomic_t msgq_inited; /* indicate if info has been synced with vk */
 	struct bcm_vk_msg_chan h2vk_msg_chan;

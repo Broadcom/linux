@@ -344,7 +344,7 @@ void bcm_vk_blk_drv_access(struct bcm_vk *vk)
 
 	/*
 	 * kill all the apps except for the process that is resetting.
-	 * If not called during reset, reset_ppid == NULL, and all will be
+	 * If not called during reset, reset_pid will be 0, and all will be
 	 * killed.
 	 */
 	spin_lock(&vk->ctx_lock);
@@ -356,11 +356,11 @@ void bcm_vk_blk_drv_access(struct bcm_vk *vk)
 		struct bcm_vk_ctx *ctx;
 
 		list_for_each_entry(ctx, &vk->pid_ht[i].head, node) {
-			if (ctx->ppid != vk->reset_ppid) {
+			if (ctx->pid != vk->reset_pid) {
 				dev_dbg(&vk->pdev->dev,
 					"Send kill signal to pid %d\n",
-					task_pid_nr(ctx->ppid));
-				kill_pid(task_pid(ctx->ppid), SIGKILL, 1);
+					ctx->pid);
+				kill_pid(find_vpid(ctx->pid), SIGKILL, 1);
 			}
 		}
 	}
@@ -844,11 +844,11 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	bcm_vk_send_shutdown_msg(vk, VK_SHUTDOWN_GRACEFUL, 0);
 
 	spin_lock(&vk->ctx_lock);
-	if (!vk->reset_ppid) {
-		vk->reset_ppid = current;
+	if (!vk->reset_pid) {
+		vk->reset_pid = task_pid_nr(current);
 	} else {
 		dev_err(dev, "Reset already launched by process pid %d\n",
-			task_pid_nr(vk->reset_ppid));
+			vk->reset_pid);
 		ret = -EACCES;
 	}
 	spin_unlock(&vk->ctx_lock);

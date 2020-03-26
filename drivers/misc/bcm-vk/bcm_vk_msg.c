@@ -268,21 +268,19 @@ static void bcm_vk_msgid_bitmap_clear(struct bcm_vk *vk,
 /*
  * allocate a ctx per file struct
  */
-static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk,
-					 struct task_struct *ppid)
+static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk, const pid_t pid)
 {
 	uint32_t i;
 	struct bcm_vk_ctx *ctx = NULL;
-	const pid_t pid = task_pid_nr(ppid);
 	uint32_t hash_idx = hash_32(pid, VK_PID_HT_SHIFT_BIT);
 
 	spin_lock(&vk->ctx_lock);
 
 	/* check if it is in reset, if so, don't allow */
-	if (vk->reset_ppid) {
+	if (vk->reset_pid) {
 		dev_err(&vk->pdev->dev,
 			"No context allowed during reset by pid %d\n",
-			task_pid_nr(vk->reset_ppid));
+			vk->reset_pid);
 
 		goto in_reset_exit;
 	}
@@ -302,7 +300,7 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk,
 	}
 
 	/* set the pid and insert it to hash table */
-	ctx->ppid = ppid;
+	ctx->pid = pid;
 	ctx->hash_idx = hash_idx;
 	list_add_tail(&ctx->node, &vk->pid_ht[hash_idx].head);
 
@@ -361,7 +359,7 @@ static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *ctx)
 		return -EINVAL;
 	}
 	idx = ctx->idx;
-	pid = task_pid_nr(ctx->ppid);
+	pid = ctx->pid;
 
 	spin_lock(&vk->ctx_lock);
 
@@ -375,7 +373,7 @@ static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *ctx)
 		list_del(&ctx->node);
 		hash_idx = ctx->hash_idx;
 		list_for_each_entry(entry, &vk->pid_ht[hash_idx].head, node) {
-			if (task_pid_nr(entry->ppid) == pid)
+			if (entry->pid == pid)
 				count++;
 		}
 	}
@@ -782,10 +780,9 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 	return rc;
 }
 
-int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *ppid)
+int bcm_vk_handle_last_sess(struct bcm_vk *vk, const pid_t pid)
 {
 	int rc = 0;
-	pid_t pid = task_pid_nr(ppid);
 	struct device *dev = &vk->pdev->dev;
 
 	/*
@@ -793,20 +790,19 @@ int bcm_vk_handle_last_sess(struct bcm_vk *vk, struct task_struct *ppid)
 	 * and if it is the reset session, clear it.
 	 */
 	if (!bcm_vk_drv_access_ok(vk)) {
-
-		if (vk->reset_ppid == ppid)
-			vk->reset_ppid = NULL;
+		if (vk->reset_pid == pid)
+			vk->reset_pid = 0;
 		return -EPERM;
 	}
 
 	dev_dbg(dev, "No more sessions, shut down pid %d\n", pid);
 
 	/* only need to do it if it is not the reset process */
-	if (vk->reset_ppid != ppid)
+	if (vk->reset_pid != pid)
 		rc = bcm_vk_send_shutdown_msg(vk, VK_SHUTDOWN_PID, pid);
 	else
-		/* reset the pointer if it is exiting last session */
-		vk->reset_ppid = NULL;
+		/* put reset_pid to 0 if it is exiting last session */
+		vk->reset_pid = 0;
 
 	return rc;
 }
@@ -1058,7 +1054,7 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 	int    rc = 0;
 
 	/* get a context and set it up for file */
-	ctx = bcm_vk_get_ctx(vk, current);
+	ctx = bcm_vk_get_ctx(vk, task_pid_nr(current));
 	if (!ctx) {
 		dev_err(dev, "Error allocating context\n");
 		rc = -ENOMEM;
@@ -1075,7 +1071,7 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 		ctx->miscdev = miscdev;
 		p_file->private_data = ctx;
 		dev_dbg(dev, "ctx_returned with idx %d, pid %d\n",
-			ctx->idx, task_pid_nr(ctx->ppid));
+			ctx->idx, ctx->pid);
 	}
 	return rc;
 }
@@ -1228,9 +1224,9 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		 * check if we are in reset, if so, no buffer transfer is
 		 * allowed and return error.
 		 */
-		if (vk->reset_ppid) {
+		if (vk->reset_pid) {
 			dev_dbg(dev, "No Transfer allowed during reset, pid %d.\n",
-				task_pid_nr(ctx->ppid));
+				ctx->pid);
 			rc = -EACCES;
 			goto bcm_vk_write_free_msgid;
 		}
@@ -1304,8 +1300,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	struct bcm_vk_ctx *ctx = p_file->private_data;
 	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk, miscdev);
 	struct device *dev = &vk->pdev->dev;
-	struct task_struct *ppid = ctx->ppid;
-	pid_t pid = task_pid_nr(ppid);
+	pid_t pid = ctx->pid;
 
 	dev_dbg(dev, "Draining with context idx %d pid %d\n",
 		ctx->idx, pid);
@@ -1315,7 +1310,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 
 	ret = bcm_vk_free_ctx(vk, ctx);
 	if (ret == 0)
-		ret = bcm_vk_handle_last_sess(vk, ppid);
+		ret = bcm_vk_handle_last_sess(vk, pid);
 
 	/* free memory if it is the last reference */
 	kref_put(&vk->kref, bcm_vk_release_data);

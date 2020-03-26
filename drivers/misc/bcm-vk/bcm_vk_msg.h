@@ -73,7 +73,7 @@ struct bcm_vk_ctx {
 	struct list_head node; /* use for linkage in Hash Table */
 	uint idx;
 	bool in_use;
-	struct task_struct *ppid;
+	pid_t pid;
 	uint32_t hash_idx;
 	struct miscdevice *miscdev;
 	int pend_cnt; /* number of items pending to be read from host */
