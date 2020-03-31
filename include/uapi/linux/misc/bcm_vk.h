@@ -50,6 +50,7 @@ struct vk_msg_blk {
 };
 
 #define VK_BAR_FWSTS			0x41C
+#define VK_BAR_COP_FWSTS		0x428
 /* VK_FWSTS definitions */
 #define VK_FWSTS_RELOCATION_ENTRY	BIT(0)
 #define VK_FWSTS_RELOCATION_EXIT	BIT(1)
