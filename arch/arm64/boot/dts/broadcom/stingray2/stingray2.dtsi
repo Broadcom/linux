@@ -383,4 +383,22 @@
 			dma-coherent;
 		};
 	};
+
+	pcie8: pcie@20000000 {
+		compatible = "pci-host-ecam-generic";
+		reg = <0x0 0x40800000  0x0 0x800000>;
+		reg-names = "PCI ECAM";
+		linux,pci-domain = <8>;
+		bus-range = <0x0 0xff>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x83000000 0x0 0x41000000 0x0 0x41000000 0 0x3000000>,
+			 <0x43000000 0x7 0x00000000 0x7 0x00000000 0x1 0x00000000>;
+		dma-ranges = <0x0 0x00 0x00000000 0x00 0x00000000 0x100 0x00000000>;
+		dma-coherent;
+		msi-map = <0x100 &gic_its0 0xe0000 0x8>; /* PF0 - PF7*/
+		iommu-map = <0x100 &smmu 0xe0000 0x8>; /* PF0 - PF7 */
+		status = "disabled";
+	};
 };

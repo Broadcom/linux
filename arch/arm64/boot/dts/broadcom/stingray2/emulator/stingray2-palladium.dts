@@ -76,3 +76,7 @@
 &i2c1 {
 	status = "okay";
 };
+
+&pcie8 {
+	status = "okay";
+};
