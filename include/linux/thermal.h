@@ -46,6 +46,7 @@
 struct thermal_zone_device;
 struct thermal_cooling_device;
 struct thermal_instance;
+struct thermal_attr;
 
 enum thermal_device_mode {
 	THERMAL_DEVICE_DISABLED = 0,
@@ -128,11 +129,6 @@ struct thermal_cooling_device {
 	struct mutex lock; /* protect thermal_instances list */
 	struct list_head thermal_instances;
 	struct list_head node;
-};
-
-struct thermal_attr {
-	struct device_attribute attr;
-	char name[THERMAL_NAME_LENGTH];
 };
 
 /**
