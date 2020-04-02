@@ -48,6 +48,8 @@ int power_actor_get_min_power(struct thermal_cooling_device *cdev,
 int power_actor_set_power(struct thermal_cooling_device *cdev,
 			  struct thermal_instance *ti, u32 power);
 
+int get_tz_trend(struct thermal_zone_device *tz, int trip);
+
 /*
  * This structure is used to describe the behavior of
  * a certain cooling device on a certain trip point
