@@ -4,10 +4,10 @@
  */
 	usb {
 		compatible = "simple-bus";
-		dma-ranges;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x68500000 0x00400000>;
+		dma-ranges = <0 0 0xffffffff>;
 
 		usbphy0: usb-phy@0 {
 			compatible = "brcm,sr-usb-combo-phy";
