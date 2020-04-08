@@ -6,7 +6,7 @@
 /dts-v1/;
 
 /* Select between dmapubuf vs uio to map DDR */
-#define USE_DMAPUBUF 0
+#define USE_DMAPUBUF 1
 
 /*
  * Reserve BL31 image area. In absence of A72 ROM,
