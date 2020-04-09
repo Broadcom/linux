@@ -652,119 +652,93 @@ static ssize_t mem_uecc_show(struct device *dev,
 	return sprintf(buf, "%d\n", uecc_mem_err);
 }
 
-static ssize_t alert_ecc_show(struct device *dev,
-			      struct device_attribute *devattr, char *buf)
+static ssize_t peer_alert_show(struct device *dev, char *buf,
+			       const uint16_t flag)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_UECC ? 1 : 0);
+	return sprintf(buf, "%d\n", vk->peer_alert.flags & flag ? 1 : 0);
+}
+
+static ssize_t alert_ecc_show(struct device *dev,
+			      struct device_attribute *devattr, char *buf)
+{
+	return peer_alert_show(dev, buf, ERR_LOG_UECC);
 }
 
 static ssize_t alert_ssim_busy_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct bcm_vk *vk = pci_get_drvdata(pdev);
-
-	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_SSIM_BUSY ? 1 : 0);
+	return peer_alert_show(dev, buf, ERR_LOG_SSIM_BUSY);
 }
 
 static ssize_t alert_afbc_busy_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct bcm_vk *vk = pci_get_drvdata(pdev);
-
-	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_AFBC_BUSY ? 1 : 0);
+	return peer_alert_show(dev, buf, ERR_LOG_AFBC_BUSY);
 }
 
 static ssize_t alert_high_temp_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct bcm_vk *vk = pci_get_drvdata(pdev);
-
-	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_HIGH_TEMP_ERR ? 1 : 0);
+	return peer_alert_show(dev, buf, ERR_LOG_HIGH_TEMP_ERR);
 }
 
 static ssize_t alert_wdog_timeout_show(struct device *dev,
 				       struct device_attribute *devattr,
 				       char *buf)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct bcm_vk *vk = pci_get_drvdata(pdev);
-
-	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_WDOG_TIMEOUT ? 1 : 0);
+	return peer_alert_show(dev, buf, ERR_LOG_WDOG_TIMEOUT);
 }
 
 static ssize_t alert_sys_fault_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct bcm_vk *vk = pci_get_drvdata(pdev);
-
-	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_SYS_FAULT ? 1 : 0);
+	return peer_alert_show(dev, buf, ERR_LOG_SYS_FAULT);
 }
 
 static ssize_t alert_malloc_fail_warn_show(struct device *dev,
 					   struct device_attribute *devattr,
 					   char *buf)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct bcm_vk *vk = pci_get_drvdata(pdev);
-
-	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_MEM_ALLOC_FAIL ? 1 : 0);
+	return peer_alert_show(dev, buf, ERR_LOG_MEM_ALLOC_FAIL);
 }
 
 static ssize_t alert_low_temp_warn_show(struct device *dev,
 					struct device_attribute *devattr,
 					char *buf)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct bcm_vk *vk = pci_get_drvdata(pdev);
-
-	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_LOW_TEMP_WARN ? 1 : 0);
+	return peer_alert_show(dev, buf, ERR_LOG_LOW_TEMP_WARN);
 }
 
 static ssize_t alert_ecc_warn_show(struct device *dev,
 				   struct device_attribute *devattr,
 				   char *buf)
 {
+	return peer_alert_show(dev, buf, ERR_LOG_ECC);
+}
+
+static ssize_t host_alert_show(struct device *dev, char *buf,
+			       const uint16_t flag)
+{
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%d\n", vk->peer_alert.flags
-				    & ERR_LOG_ECC ? 1 : 0);
+	return sprintf(buf, "%d\n", vk->host_alert.flags & flag ? 1 : 0);
 }
 
 static ssize_t alert_pcie_down_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct bcm_vk *vk = pci_get_drvdata(pdev);
-
-	return sprintf(buf, "%d\n", vk->host_alert.flags
-				    & ERR_LOG_HOST_PCIE_DWN ? 1 : 0);
+	return host_alert_show(dev, buf, ERR_LOG_HOST_PCIE_DWN);
 }
 
 static ssize_t alert_heartbeat_fail_show(struct device *dev,
 					 struct device_attribute *devattr,
 					 char *buf)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct bcm_vk *vk = pci_get_drvdata(pdev);
-
-	return sprintf(buf, "%d\n", vk->host_alert.flags
-				    & ERR_LOG_HOST_HB_FAIL ? 1 : 0);
+	return host_alert_show(dev, buf, ERR_LOG_HOST_HB_FAIL);
 }
 
 static ssize_t temp_threshold_lower_c_show(struct device *dev,
