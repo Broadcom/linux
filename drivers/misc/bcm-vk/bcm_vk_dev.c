@@ -33,7 +33,7 @@ enum soc_idx {
 
 #define NUM_BOOT_STAGES 2
 /* default firmware images names */
-const struct load_image_tab image_tab[][NUM_BOOT_STAGES] = {
+static const struct load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 	[VALKYRIE] = {
 		{VK_IMAGE_TYPE_BOOT1, "vk-boot1.bin"},
 		{VK_IMAGE_TYPE_BOOT2, "vk-boot2.bin"}

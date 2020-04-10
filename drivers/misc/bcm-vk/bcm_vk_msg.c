@@ -121,8 +121,10 @@ static void bcm_vk_h2vk_verify_blk
 #define BCM_VK_QSTATS_ACC_CNT 20000
 #endif
 
-void bcm_vk_update_qstats(struct bcm_vk *vk, const char *tag,
-			  struct bcm_vk_qstats *qstats, uint32_t occupancy)
+static void bcm_vk_update_qstats(struct bcm_vk *vk,
+				 const char *tag,
+				 struct bcm_vk_qstats *qstats,
+				 uint32_t occupancy)
 {
 	struct bcm_vk_qs_cnts *qcnts = &qstats->qcnts;
 
@@ -784,7 +786,7 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 	return rc;
 }
 
-int bcm_vk_handle_last_sess(struct bcm_vk *vk, const pid_t pid)
+static int bcm_vk_handle_last_sess(struct bcm_vk *vk, const pid_t pid)
 {
 	int rc = 0;
 	struct device *dev = &vk->pdev->dev;
