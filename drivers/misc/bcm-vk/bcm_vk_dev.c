@@ -386,13 +386,13 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 {
 	struct device *dev = &vk->pdev->dev;
 	const struct firmware *fw = NULL;
-	void *bufp;
+	void *bufp = NULL;
 	size_t max_buf;
 	int ret;
 	uint64_t offset_codepush;
 	u32 codepush;
 	u32 value;
-	dma_addr_t boot2_dma_addr;
+	dma_addr_t boot_dma_addr;
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
 		/*
@@ -417,8 +417,15 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			goto err_out;
 		}
 
-		bufp = vk->bar[BAR_1] + BAR1_CODEPUSH_BASE_BOOT1;
 		max_buf = SZ_256K;
+		bufp = dma_alloc_coherent(dev,
+					  max_buf,
+					  &boot_dma_addr, GFP_KERNEL);
+		if (!bufp) {
+			dev_err(dev, "Error allocating 0x%zx\n", max_buf);
+			ret = -ENOMEM;
+			goto err_out;
+		}
 	} else if (load_type == VK_IMAGE_TYPE_BOOT2) {
 		codepush = CODEPUSH_BOOT2_ENTRY;
 		offset_codepush = BAR_CODEPUSH_SBI;
@@ -434,14 +441,14 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		max_buf = SZ_4M;
 		bufp = dma_alloc_coherent(dev,
 					  max_buf,
-					  &boot2_dma_addr, GFP_KERNEL);
+					  &boot_dma_addr, GFP_KERNEL);
 		if (!bufp) {
 			dev_err(dev, "Error allocating 0x%zx\n", max_buf);
 			ret = -ENOMEM;
 			goto err_out;
 		}
 
-		bcm_vk_buf_notify(vk, bufp, boot2_dma_addr, max_buf);
+		bcm_vk_buf_notify(vk, bufp, boot_dma_addr, max_buf);
 	} else {
 		dev_err(dev, "Error invalid image type 0x%x\n", load_type);
 		ret = -EINVAL;
@@ -457,6 +464,10 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		goto err_firmware_out;
 	}
 	dev_dbg(dev, "size=0x%zx\n", fw->size);
+	if (load_type == VK_IMAGE_TYPE_BOOT1)
+		memcpy_toio(vk->bar[BAR_1] + BAR1_CODEPUSH_BASE_BOOT1,
+			    bufp,
+			    fw->size);
 
 	dev_dbg(dev, "Signaling 0x%x to 0x%llx\n", codepush, offset_codepush);
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
@@ -562,8 +573,8 @@ err_firmware_out:
 	release_firmware(fw);
 
 err_out:
-	if (load_type == VK_IMAGE_TYPE_BOOT2)
-		dma_free_coherent(dev, max_buf, bufp, boot2_dma_addr);
+	if (bufp)
+		dma_free_coherent(dev, max_buf, bufp, boot_dma_addr);
 
 	return ret;
 }
