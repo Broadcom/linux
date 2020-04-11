@@ -24,6 +24,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 
