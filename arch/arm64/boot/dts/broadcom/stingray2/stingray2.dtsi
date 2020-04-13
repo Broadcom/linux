@@ -114,6 +114,63 @@
 			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
 	};
 
+	fs5: fs5 {
+		compatible = "simple-bus";
+		dma-ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x47000000 0x00900000>;
+
+		crypto_mbox0: mbox@0 {
+			compatible = "brcm,iproc-fs5rm-mbox";
+			/* 12 channels for mbox0 */
+			reg = <0x00000000 0xc0000>;
+			#mbox-cells = <1>;
+			msi-parent = <&gic_its8 0xf0020>;
+			iommus = <&smmu 0xf0000>,
+				 <&smmu 0xf0020>;
+			dma-coherent;
+		};
+
+		crypto_mbox1: mbox@c0000 {
+			compatible = "brcm,iproc-fs5rm-mbox";
+			/* 12 channels for mbox1 */
+			reg = <0x000c0000 0xc0000>;
+			#mbox-cells = <1>;
+			msi-parent = <&gic_its8 0xf0021>;
+			iommus = <&smmu 0xf0001>,
+				 <&smmu 0xf0021>;
+			dma-coherent;
+		};
+
+		crypto_mbox2: mbox@180000 {
+			compatible = "brcm,iproc-fs5rm-mbox";
+			/* 8 channels for mbox2 */
+			reg = <0x180000 0x80000>;
+			#mbox-cells = <1>;
+			msi-parent = <&gic_its8 0xf0022>;
+			iommus = <&smmu 0xf0002>,
+				 <&smmu 0xf0022>;
+			dma-coherent;
+		};
+
+		spu2: spu2 {
+			compatible = "brcm,spu2-v2-crypto";
+			/*
+			 * Allocating 8 channels from crypto mbox2 for kernel
+			 * spu2 driver.
+			 */
+			mboxes = <&crypto_mbox2 0>,
+				 <&crypto_mbox2 1>,
+				 <&crypto_mbox2 2>,
+				 <&crypto_mbox2 3>,
+				 <&crypto_mbox2 4>,
+				 <&crypto_mbox2 5>,
+				 <&crypto_mbox2 6>,
+				 <&crypto_mbox2 7>;
+		};
+	};
+
 	scr {
 		compatible = "simple-bus";
 		#address-cells = <1>;
