@@ -109,6 +109,7 @@
 #define ERR_LOG_HIGH_TEMP_ERR		BIT(3)
 #define ERR_LOG_WDOG_TIMEOUT		BIT(4)
 #define ERR_LOG_SYS_FAULT		BIT(5)
+#define ERR_LOG_RAMDUMP			BIT(6)
 #define ERR_LOG_MEM_ALLOC_FAIL		BIT(8)
 #define ERR_LOG_LOW_TEMP_WARN		BIT(9)
 #define ERR_LOG_ECC			BIT(10)
@@ -305,7 +306,7 @@ struct bcm_vk_entry {
 };
 
 /* alerts that could be generated from peer */
-#define BCM_VK_PEER_ERR_NUM 9
+#define BCM_VK_PEER_ERR_NUM 10
 extern struct bcm_vk_entry const bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM];
 /* alerts detected by the host */
 #define BCM_VK_HOST_ERR_NUM 2

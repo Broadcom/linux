@@ -698,6 +698,12 @@ static ssize_t alert_sys_fault_show(struct device *dev,
 	return peer_alert_show(dev, buf, ERR_LOG_SYS_FAULT);
 }
 
+static ssize_t alert_ramdump_show(struct device *dev,
+				  struct device_attribute *devattr, char *buf)
+{
+	return peer_alert_show(dev, buf, ERR_LOG_RAMDUMP);
+}
+
 static ssize_t alert_malloc_fail_warn_show(struct device *dev,
 					   struct device_attribute *devattr,
 					   char *buf)
@@ -1028,6 +1034,7 @@ static DEVICE_ATTR_RO(alert_afbc_busy);
 static DEVICE_ATTR_RO(alert_high_temp);
 static DEVICE_ATTR_RO(alert_wdog_timeout);
 static DEVICE_ATTR_RO(alert_sys_fault);
+static DEVICE_ATTR_RO(alert_ramdump);
 static DEVICE_ATTR_RO(alert_malloc_fail_warn);
 static DEVICE_ATTR_RO(alert_low_temp_warn);
 static DEVICE_ATTR_RO(alert_ecc_warn);
@@ -1114,6 +1121,7 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_alert_high_temp.attr,
 	&dev_attr_alert_wdog_timeout.attr,
 	&dev_attr_alert_sys_fault.attr,
+	&dev_attr_alert_ramdump.attr,
 	&dev_attr_alert_malloc_fail_warn.attr,
 	&dev_attr_alert_low_temp_warn.attr,
 	&dev_attr_alert_ecc_warn.attr,
