@@ -167,7 +167,6 @@
 		device-name = "dmapubuf0";
 		size = <0x7f000000>;
 		sync-mode = <1>;
-		sync-always;
 		memory-region = <&highmembuf0>;
 		status = "disabled";
 	};
@@ -177,7 +176,6 @@
 		device-name = "dmapubuf1";
 		size = <0x61000000>;
 		sync-mode = <1>;
-		sync-always;
 		memory-region = <&highmembuf0>;
 		status = "disabled";
 	};
@@ -187,7 +185,6 @@
 		device-name = "dmapubuf2";
 		size = <0x40000000>;
 		sync-mode = <1>;
-		sync-always;
 		memory-region = <&highmembuf1>;
 		status = "disabled";
 	};
@@ -197,7 +194,6 @@
 		device-name = "dmapubuf3";
 		size = <0x7a000000>;
 		sync-mode = <1>;
-		sync-always;
 		memory-region = <&lowmembuf2>;
 		status = "disabled";
 	};
@@ -207,7 +203,6 @@
 		device-name = "dmapubuf4";
 		size = <0x02000000>;
 		sync-mode = <1>;
-		sync-always;
 		memory-region = <&lowmembuf0>;
 		status = "disabled";
 	};
@@ -217,7 +212,6 @@
 		device-name = "dmapubuf5";
 		size = <0x01000000>;
 		sync-mode = <1>;
-		sync-always;
 		memory-region = <&lowmembuf1>;
 		status = "disabled";
 	};
