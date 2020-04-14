@@ -66,6 +66,11 @@ static const struct load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 /* Number of bits set in DMA mask*/
 #define BCM_VK_DMA_BITS			64
 
+/* Ucode boot wait time */
+#define BCM_VK_UCODE_BOOT_US            (100 * USEC_PER_MSEC)
+/* 50% margin */
+#define BCM_VK_UCODE_BOOT_MAX_US        ((BCM_VK_UCODE_BOOT_US * 3) >> 1)
+
 /* deinit time for the card os after receiving doorbell */
 #define BCM_VK_DEINIT_TIME_MS		(2 * MSEC_PER_SEC)
 
@@ -1121,6 +1126,15 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	struct miscdevice *misc_device = &vk->miscdev;
 
 	bcm_vk_hb_deinit(vk);
+
+	/*
+	 * Trigger a reset to card and wait enough time for UCODE to rerun,
+	 * which re-initialize the card into its default state.
+	 * This ensures when driver is re-enumerated it will start from
+	 * a completely clean state.
+	 */
+	bcm_vk_trigger_reset(vk);
+	usleep_range(BCM_VK_UCODE_BOOT_US, BCM_VK_UCODE_BOOT_MAX_US);
 
 	/* unregister panic notifier */
 	atomic_notifier_chain_unregister(&panic_notifier_list,
