@@ -8,6 +8,12 @@
 
 #include <stddef.h>
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
+#include <stdint.h>
+#endif
+
 enum ssr_states {
 	SSR_STATE_INVALID,
 	SSR_STATE_INIT,
