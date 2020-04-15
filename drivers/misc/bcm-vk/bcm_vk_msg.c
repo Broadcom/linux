@@ -510,10 +510,9 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 	 * if this function is called when it is already inited,
 	 * something is wrong
 	 */
-	if (bcm_vk_drv_access_ok(vk) && (!force_sync)) {
+	if (bcm_vk_drv_access_ok(vk) && !force_sync) {
 		dev_err(dev, "Msgq info already in sync\n");
-		ret = -EPERM;
-		goto already_inited;
+		return -EPERM;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(chan_list); i++) {
@@ -521,28 +520,28 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 		memset(chan->sync_qinfo, 0, sizeof(chan->sync_qinfo));
 
 		for (j = 0; j < num_q; j++) {
+			struct bcm_vk_sync_qinfo *qinfo;
+
 			chan->msgq[j] = msgq;
 
 			dev_info(dev,
 				 "MsgQ[%d] type %d num %d, @ 0x%x, rd_idx %d wr_idx %d, size %d, nxt 0x%x\n",
 				 j,
-				 chan->msgq[j]->type,
-				 chan->msgq[j]->num,
-				 chan->msgq[j]->start,
-				 chan->msgq[j]->rd_idx,
-				 chan->msgq[j]->wr_idx,
-				 chan->msgq[j]->size,
-				 chan->msgq[j]->nxt);
+				 msgq->type,
+				 msgq->num,
+				 msgq->start,
+				 msgq->rd_idx,
+				 msgq->wr_idx,
+				 msgq->size,
+				 msgq->nxt);
 
+			qinfo = &chan->sync_qinfo[j];
 			/* formulate and record static info */
-			chan->sync_qinfo[j].q_start =
-				vk->bar[BAR_1] + chan->msgq[j]->start;
-			chan->sync_qinfo[j].q_size = chan->msgq[j]->size;
+			qinfo->q_start = vk->bar[BAR_1] + msgq->start;
+			qinfo->q_size = msgq->size;
 			/* set low threshold as 50% or 1/2 */
-			chan->sync_qinfo[j].q_low =
-				chan->sync_qinfo[j].q_size >> 1;
-			chan->sync_qinfo[j].q_mask =
-				chan->sync_qinfo[j].q_size - 1;
+			qinfo->q_low = qinfo->q_size >> 1;
+			qinfo->q_mask = qinfo->q_size - 1;
 
 			msgq = (struct bcm_vk_msgq *)
 				((char *)msgq + sizeof(*msgq) + msgq->nxt);
@@ -552,13 +551,11 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 	}
 	atomic_set(&vk->msgq_inited, 1);
 
-already_inited:
 	return ret;
 }
 
 static int bcm_vk_msg_chan_init(struct bcm_vk_msg_chan *chan)
 {
-	int rc = 0;
 	uint32_t i;
 
 	mutex_init(&chan->msgq_mutex);
@@ -570,7 +567,7 @@ static int bcm_vk_msg_chan_init(struct bcm_vk_msg_chan *chan)
 #endif
 	}
 
-	return rc;
+	return 0;
 }
 
 static void bcm_vk_append_pendq(struct bcm_vk_msg_chan *chan, uint16_t q_num,
@@ -608,7 +605,7 @@ static uint32_t bcm_vk_append_ib_sgl(struct bcm_vk *vk,
 	if (avail < qinfo->q_low) {
 		dev_dbg(dev, "Skip inserting inband SGL, [0x%x/0x%x]\n",
 			avail, qinfo->q_size);
-		return ib_sgl_size;
+		return 0;
 	}
 
 	for (i = 0; i < num_planes; i++) {
@@ -1011,7 +1008,6 @@ static void bcm_vk_wq_handler(struct work_struct *work)
  */
 static int bcm_vk_data_init(struct bcm_vk *vk)
 {
-	int rc = 0;
 	int i;
 
 	spin_lock_init(&vk->ctx_lock);
@@ -1029,7 +1025,7 @@ static int bcm_vk_data_init(struct bcm_vk *vk)
 		INIT_LIST_HEAD(&vk->pid_ht[i].head);
 
 	INIT_WORK(&vk->wq_work, bcm_vk_wq_handler);
-	return rc;
+	return 0;
 }
 
 irqreturn_t bcm_vk_msgq_irqhandler(int irq, void *dev_id)
@@ -1118,11 +1114,11 @@ ssize_t bcm_vk_read(struct file *p_file,
 					/* buffer not big enough */
 					rc = -EMSGSIZE;
 				}
-				goto bcm_vk_read_loop_exit;
+				goto read_loop_exit;
 			}
 		}
 	}
- bcm_vk_read_loop_exit:
+read_loop_exit:
 	spin_unlock(&chan->pendq_lock);
 
 	if (found) {
@@ -1155,7 +1151,7 @@ ssize_t bcm_vk_write(struct file *p_file,
 		     size_t count,
 		     loff_t *f_pos)
 {
-	ssize_t rc = -EPERM;
+	ssize_t rc;
 	struct bcm_vk_ctx *ctx = p_file->private_data;
 	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk,
 					 miscdev);
@@ -1175,8 +1171,8 @@ ssize_t bcm_vk_write(struct file *p_file,
 	if (count & (VK_MSGQ_BLK_SIZE - 1)) {
 		dev_err(dev, "Failure with size %ld not multiple of %ld\n",
 			count, VK_MSGQ_BLK_SIZE);
-		rc = -EBADR;
-		goto bcm_vk_write_err;
+		rc = -EINVAL;
+		goto write_err;
 	}
 
 	/* allocate the work entry + buffer for size count and inband sgl */
@@ -1184,12 +1180,14 @@ ssize_t bcm_vk_write(struct file *p_file,
 			GFP_KERNEL);
 	if (!entry) {
 		rc = -ENOMEM;
-		goto bcm_vk_write_err;
+		goto write_err;
 	}
 
-	/* now copy msg from user space, and then formulate the wk ent */
-	if (copy_from_user(&entry->to_v_msg[0], buf, count))
-		goto bcm_vk_write_free_ent;
+	/* now copy msg from user space, and then formulate the work entry */
+	if (copy_from_user(&entry->to_v_msg[0], buf, count)) {
+		rc = -EFAULT;
+		goto write_free_ent;
+	}
 
 	entry->to_v_blks = count >> VK_MSGQ_BLK_SZ_SHIFT;
 	entry->ctx = ctx;
@@ -1201,8 +1199,8 @@ ssize_t bcm_vk_write(struct file *p_file,
 	    > (msgq->size - 1)) {
 		dev_err(dev, "Blk size %d exceed max queue size allowed %d\n",
 			entry->to_v_blks, msgq->size - 1);
-		rc = -EOVERFLOW;
-		goto bcm_vk_write_free_ent;
+		rc = -EINVAL;
+		goto write_free_ent;
 	}
 
 	/* Use internal message id */
@@ -1211,7 +1209,7 @@ ssize_t bcm_vk_write(struct file *p_file,
 	if (rc == VK_MSG_ID_OVERFLOW) {
 		dev_err(dev, "msg_id overflow\n");
 		rc = -EOVERFLOW;
-		goto bcm_vk_write_free_ent;
+		goto write_free_ent;
 	}
 	BCM_VK_SET_MSG_ID(&entry->to_v_msg[0], rc);
 
@@ -1234,16 +1232,14 @@ ssize_t bcm_vk_write(struct file *p_file,
 			dev_dbg(dev, "No Transfer allowed during reset, pid %d.\n",
 				ctx->pid);
 			rc = -EACCES;
-			goto bcm_vk_write_free_msgid;
+			goto write_free_msgid;
 		}
 
 		num_planes = entry->to_v_msg[0].args[0] & VK_CMD_PLANES_MASK;
 		if ((entry->to_v_msg[0].args[0] & VK_CMD_MASK)
 		    == VK_CMD_DOWNLOAD) {
-			/* Memory transfer from vk device */
 			dir = DMA_FROM_DEVICE;
 		} else {
-			/* Memory transfer to vk device */
 			dir = DMA_TO_DEVICE;
 		}
 
@@ -1252,7 +1248,7 @@ ssize_t bcm_vk_write(struct file *p_file,
 		msg_size = entry->to_v_msg[0].size;
 		if (msg_size > entry->to_v_blks) {
 			rc = -EMSGSIZE;
-			goto bcm_vk_write_free_msgid;
+			goto write_free_msgid;
 		}
 
 		data = (struct _vk_data *)
@@ -1263,7 +1259,7 @@ ssize_t bcm_vk_write(struct file *p_file,
 		/* Convert user addresses to DMA SG List */
 		rc = bcm_vk_sg_alloc(dev, entry->dma, dir, data, num_planes);
 		if (rc)
-			goto bcm_vk_write_free_msgid;
+			goto write_free_msgid;
 
 		/* try to embed inband sgl */
 		sgl_extra_blks = bcm_vk_append_ib_sgl(vk, entry, data,
@@ -1273,8 +1269,8 @@ ssize_t bcm_vk_write(struct file *p_file,
 	}
 
 	/*
-	 * store wk ent to pending queue until a response is got. This needs to
-	 * be done before enqueuing the message
+	 * store work entry to pending queue until a response is received.
+	 * This needs to be done before enqueuing the message
 	 */
 	bcm_vk_append_pendq(&vk->to_v_msg_chan, q_num, entry);
 
@@ -1288,17 +1284,17 @@ ssize_t bcm_vk_write(struct file *p_file,
 				&vk->to_v_msg_chan,
 				q_num,
 				BCM_VK_GET_MSG_ID(&entry->to_v_msg[0]));
-		goto bcm_vk_write_free_ent;
+		goto write_free_ent;
 	}
 
 	return count;
 
-bcm_vk_write_free_msgid:
+write_free_msgid:
 	bcm_vk_msgid_bitmap_clear(vk,
 				  BCM_VK_GET_MSG_ID(&entry->to_v_msg[0]), 1);
-bcm_vk_write_free_ent:
+write_free_ent:
 	kfree(entry);
-bcm_vk_write_err:
+write_err:
 	return rc;
 }
 
@@ -1329,38 +1325,32 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 int bcm_vk_msg_init(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
-	int err = 0;
 
 	if (bcm_vk_data_init(vk)) {
 		dev_err(dev, "Error initializing internal data structures\n");
-		err = -EINVAL;
-		goto err_out;
+		return -EINVAL;
 	}
 
 	if (bcm_vk_msg_chan_init(&vk->to_v_msg_chan) ||
 	    bcm_vk_msg_chan_init(&vk->to_h_msg_chan)) {
 		dev_err(dev, "Error initializing communication channel\n");
-		err = -EIO;
-		goto err_out;
+		return -EIO;
 	}
 
 	/* create dedicated workqueue */
 	vk->wq_thread = create_singlethread_workqueue(vk->miscdev.name);
 	if (!vk->wq_thread) {
 		dev_err(dev, "Fail to create workqueue thread\n");
-		err = -ENOMEM;
-		goto err_out;
+		return -ENOMEM;
 	}
 
 	/* read msgq info */
 	if (bcm_vk_sync_msgq(vk, false)) {
 		dev_err(dev, "Error reading comm msg Q info\n");
-		err = -EIO;
-		goto err_out;
+		return -EIO;
 	}
 
-err_out:
-	return err;
+	return 0;
 }
 
 void bcm_vk_msg_remove(struct bcm_vk *vk)

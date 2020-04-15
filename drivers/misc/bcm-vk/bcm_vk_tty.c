@@ -73,7 +73,6 @@ static void bcm_vk_tty_poll(struct timer_list *t)
 	struct bcm_vk *vk = from_timer(vk, t, serial_timer);
 	struct bcm_vk_tty *vktty;
 	int card_status;
-	int ready_mask;
 	int count = 0;
 	unsigned char c;
 	int i;
@@ -83,8 +82,7 @@ static void bcm_vk_tty_poll(struct timer_list *t)
 
 	for (i = 0; i < BCM_VK_NUM_TTY; i++) {
 		/* Check the card status that the tty channel is ready */
-		ready_mask = BIT(i);
-		if ((card_status & ready_mask) == 0)
+		if ((card_status & BIT(i)) == 0)
 			continue;
 
 		vktty = &vk->tty[i];
@@ -127,7 +125,6 @@ static void bcm_vk_tty_poll(struct timer_list *t)
 static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 {
 	int card_status;
-	int ready_mask;
 	struct bcm_vk *vk;
 	struct bcm_vk_tty *vktty;
 	int index;
@@ -152,8 +149,7 @@ static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 	if (card_status == -1)
 		return -1;
 
-	ready_mask = BIT(index);
-	if ((card_status & ready_mask) == 0)
+	if ((card_status & BIT(index)) == 0)
 		return -1;
 
 	/*
@@ -174,9 +170,7 @@ static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 
 static void bcm_vk_tty_close(struct tty_struct *tty, struct file *file)
 {
-	struct bcm_vk *vk;
-
-	vk = (struct bcm_vk *)dev_get_drvdata(tty->dev);
+	struct bcm_vk *vk = dev_get_drvdata(tty->dev);
 
 	if (tty->count == 1)
 		del_timer_sync(&vk->serial_timer);
@@ -184,9 +178,7 @@ static void bcm_vk_tty_close(struct tty_struct *tty, struct file *file)
 
 static void bcm_vk_tty_doorbell(struct bcm_vk *vk, uint32_t db_val)
 {
-	vkwrite32(vk,
-		  db_val,
-		  BAR_0,
+	vkwrite32(vk, db_val, BAR_0,
 		  VK_BAR0_REGSEG_DB_BASE + VK_BAR0_REGSEG_TTY_DB_OFFSET);
 }
 
@@ -198,17 +190,14 @@ static int bcm_vk_tty_write(struct tty_struct *tty,
 	struct bcm_vk *vk;
 	struct bcm_vk_tty *vktty;
 	int i;
-	int retval;
 
 	index = tty->index;
-	vk = (struct bcm_vk *)dev_get_drvdata(tty->dev);
+	vk = dev_get_drvdata(tty->dev);
 	vktty = &vk->tty[index];
 
 	/* Simple write each byte to circular buffer */
 	for (i = 0; i < count; i++) {
-		vkwrite8(vk,
-			 buffer[i],
-			 BAR_1,
+		vkwrite8(vk, buffer[i], BAR_1,
 			 VK_BAR_CHAN_DATA(vktty, to, vktty->wr));
 		vktty->wr++;
 		if (vktty->wr >= vktty->to_size)
@@ -217,28 +206,15 @@ static int bcm_vk_tty_write(struct tty_struct *tty,
 	/* Update write offset from shadow register to card */
 	vkwrite32(vk, vktty->wr, BAR_1, VK_BAR_CHAN_WR(vktty, to));
 	bcm_vk_tty_doorbell(vk, 0);
-	retval = count;
 
-	return retval;
+	return count;
 }
 
 static int bcm_vk_tty_write_room(struct tty_struct *tty)
 {
-	int room;
-	struct bcm_vk *vk;
-	struct bcm_vk_tty *vktty;
+	struct bcm_vk *vk = dev_get_drvdata(tty->dev);
 
-	vk = (struct bcm_vk *)dev_get_drvdata(tty->dev);
-	vktty = &vk->tty[tty->index];
-
-	/*
-	 * Calculate how much room is left in the device
-	 * Just return the size -1 of buffer.  We could care about
-	 * overflow but don't at this point.
-	 */
-	room = vktty->to_size - 1;
-
-	return room;
+	return vk->tty[tty->index].to_size - 1;
 }
 
 static const struct tty_operations serial_ops = {
@@ -252,18 +228,15 @@ int bcm_vk_tty_init(struct bcm_vk *vk, char *name)
 {
 	int i;
 	int err;
-	unsigned long flags;
 	struct tty_driver *tty_drv;
 	struct device *dev = &vk->pdev->dev;
 
-	/* allocate the tty driver */
-	flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
-	tty_drv = tty_alloc_driver(BCM_VK_NUM_TTY, flags);
+	tty_drv = tty_alloc_driver
+				(BCM_VK_NUM_TTY,
+				 TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV);
+	if (IS_ERR(tty_drv))
+		return PTR_ERR(tty_drv);
 
-	if (IS_ERR(tty_drv)) {
-		err = PTR_ERR(tty_drv);
-		goto err_exit;
-	}
 	/* Save struct tty_driver for uninstalling the device */
 	vk->tty_drv = tty_drv;
 
@@ -319,7 +292,6 @@ err_kfree_tty_name:
 err_put_tty_driver:
 	put_tty_driver(tty_drv);
 
-err_exit:
 	return err;
 }
 

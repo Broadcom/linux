@@ -322,10 +322,7 @@ static inline u32 vkread32(struct bcm_vk *vk,
 			   enum pci_barno bar,
 			   uint64_t offset)
 {
-	u32 value;
-
-	value = ioread32(vk->bar[bar] + offset);
-	return value;
+	return ioread32(vk->bar[bar] + offset);
 }
 
 static inline void vkwrite32(struct bcm_vk *vk,
@@ -340,10 +337,7 @@ static inline u8 vkread8(struct bcm_vk *vk,
 			 enum pci_barno bar,
 			 uint64_t offset)
 {
-	u8 value;
-
-	value = ioread8(vk->bar[bar] + offset);
-	return value;
+	return ioread8(vk->bar[bar] + offset);
 }
 
 static inline void vkwrite8(struct bcm_vk *vk,

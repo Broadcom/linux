@@ -49,7 +49,7 @@ static int bcm_vk_dma_alloc(struct device *dev,
 	struct _vk_data *sgdata;
 
 	/* Get 64-bit user address */
-	data = get_unaligned(&(vkdata->address));
+	data = get_unaligned(&vkdata->address);
 
 	/* offset into first page */
 	offset = offset_in_page(data);
@@ -101,7 +101,6 @@ static int bcm_vk_dma_alloc(struct device *dev,
 	sgdata = (struct _vk_data *)&(dma->sglist[SGLIST_VKDATA_START]);
 
 	/* Map all pages into DMA */
-	i = 0;
 	size = min_t(size_t, PAGE_SIZE - offset, remaining_size);
 	remaining_size -= size;
 	sg_addr = dma_map_page(dev,
@@ -232,12 +231,11 @@ static int bcm_vk_dma_free(struct device *dev, struct bcm_vk_dma *dma)
 	uint32_t size;
 	struct _vk_data *vkdata;
 
-	dev_dbg(dev, "free sglist=%p sglen=0x%x\n",
-		dma->sglist, dma->sglen);
+	dev_dbg(dev, "free sglist=%p sglen=0x%x\n", dma->sglist, dma->sglen);
 
 	/* Unmap all pages in the sglist */
 	num_sg = dma->sglist[SGLIST_NUM_SG];
-	vkdata = (struct _vk_data *)&(dma->sglist[SGLIST_VKDATA_START]);
+	vkdata = (struct _vk_data *)&dma->sglist[SGLIST_VKDATA_START];
 	for (i = 0; i < num_sg; i++) {
 		size = vkdata[i].size;
 		addr = get_unaligned(&(vkdata[i].address));

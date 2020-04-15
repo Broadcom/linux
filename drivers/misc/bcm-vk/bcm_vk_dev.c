@@ -21,8 +21,8 @@
 static DEFINE_IDA(bcm_vk_ida);
 
 struct load_image_tab {
-		const uint32_t image_type;
-		const char *image_name;
+	const uint32_t image_type;
+	const char *image_name;
 };
 
 enum soc_idx {
@@ -414,7 +414,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				  SRAM_OPEN, LOAD_IMAGE_TIMEOUT_MS);
 		if (ret < 0) {
 			dev_err(dev, "boot1 timeout\n");
-			goto err_out;
+			goto err_buf_out;
 		}
 
 		max_buf = SZ_256K;
@@ -424,7 +424,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		if (!bufp) {
 			dev_err(dev, "Error allocating 0x%zx\n", max_buf);
 			ret = -ENOMEM;
-			goto err_out;
+			goto err_buf_out;
 		}
 	} else if (load_type == VK_IMAGE_TYPE_BOOT2) {
 		codepush = CODEPUSH_BOOT2_ENTRY;
@@ -435,7 +435,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				  DDR_OPEN, LOAD_IMAGE_TIMEOUT_MS);
 		if (ret < 0) {
 			dev_err(dev, "boot2 timeout\n");
-			goto err_out;
+			goto err_buf_out;
 		}
 
 		max_buf = SZ_4M;
@@ -445,14 +445,14 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		if (!bufp) {
 			dev_err(dev, "Error allocating 0x%zx\n", max_buf);
 			ret = -ENOMEM;
-			goto err_out;
+			goto err_buf_out;
 		}
 
 		bcm_vk_buf_notify(vk, bufp, boot_dma_addr, max_buf);
 	} else {
 		dev_err(dev, "Error invalid image type 0x%x\n", load_type);
 		ret = -EINVAL;
-		goto err_out;
+		goto err_buf_out;
 	}
 
 	ret = REQUEST_FIRMWARE_INTO_BUF(&fw, filename, dev,
@@ -572,7 +572,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 err_firmware_out:
 	release_firmware(fw);
 
-err_out:
+err_buf_out:
 	if (bufp)
 		dma_free_coherent(dev, max_buf, bufp, boot_dma_addr);
 
@@ -635,7 +635,7 @@ int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
 
 	idx = get_soc_idx(dev);
 	if (idx >= VK_IDX_INVALID)
-		goto bcm_vk_auto_load_all_exit;
+		goto auto_load_all_exit;
 
 	/* log a message to know the relative loading order */
 	dev_info(dev, "Load All for device %d\n", vk->misc_devid);
@@ -652,12 +652,12 @@ int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
 			if (ret) {
 				dev_err(dev, "Error loading default %s\n",
 					curr_name);
-				goto bcm_vk_auto_load_all_exit;
+				goto auto_load_all_exit;
 			}
 		}
 	}
 
-bcm_vk_auto_load_all_exit:
+auto_load_all_exit:
 	return ret;
 }
 
@@ -683,24 +683,20 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	int ret;
 
 	if (copy_from_user(&image, arg, sizeof(image))) {
-		ret = -EACCES;
-		goto bcm_vk_load_image_exit;
+		return -EACCES;
 	}
 
 	if ((image.type != VK_IMAGE_TYPE_BOOT1) &&
 	    (image.type != VK_IMAGE_TYPE_BOOT2)) {
 		dev_err(dev, "invalid image.type %u\n", image.type);
-		ret = -EPERM;
-		goto bcm_vk_load_image_exit;
+		return -EPERM;
 	}
 
-	/* first check if fw is at the right state for the download */
 	next_loadable = bcm_vk_next_boot_image(vk);
 	if (next_loadable != image.type) {
 		dev_err(dev, "Next expected image %u, Loading %u\n",
 			next_loadable, image.type);
-		ret = -EPERM;
-		goto bcm_vk_load_image_exit;
+		return -EPERM;
 	}
 
 	/*
@@ -730,7 +726,6 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	ret = bcm_vk_load_image_by_type(vk, image.type, image_name);
 	clear_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload);
 
-bcm_vk_load_image_exit:
 	return ret;
 }
 
@@ -755,10 +750,9 @@ static int bcm_vk_reset_successful(struct bcm_vk *vk)
 	/* immediate exit if interface goes down */
 	if (BCM_VK_INTF_IS_DOWN(fw_status)) {
 		dev_err(dev, "PCIe Intf Down!\n");
-		goto bcm_vk_reset_exit;
+		goto reset_exit;
 	}
 
-	/* initial check on reset reason */
 	reset_reason = (fw_status & VK_FWSTS_RESET_REASON_MASK);
 	if ((reset_reason == VK_FWSTS_RESET_MBOX_DB) ||
 	    (reset_reason == VK_FWSTS_RESET_UNKNOWN))
@@ -772,7 +766,7 @@ static int bcm_vk_reset_successful(struct bcm_vk *vk)
 	    !(fw_status & VK_FWSTS_RESET_DONE))
 		ret = -EAGAIN;
 
-bcm_vk_reset_exit:
+reset_exit:
 	dev_dbg(dev, "FW status = 0x%x ret %d\n", fw_status, ret);
 
 	return ret;
@@ -785,8 +779,7 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	int ret = 0;
 
 	if (copy_from_user(&reset, arg, sizeof(struct vk_reset))) {
-		ret = -EACCES;
-		goto err_out;
+		return -EFAULT;
 	}
 	dev_info(dev, "Issue Reset\n");
 
@@ -809,7 +802,7 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	}
 	spin_unlock(&vk->ctx_lock);
 	if (ret)
-		goto err_out;
+		return ret;
 
 	bcm_vk_blk_drv_access(vk);
 	bcm_vk_trigger_reset(vk);
@@ -822,7 +815,6 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 
 	ret = bcm_vk_reset_successful(vk);
 
-err_out:
 	return ret;
 }
 
