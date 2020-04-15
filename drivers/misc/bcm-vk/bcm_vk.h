@@ -263,8 +263,8 @@ struct bcm_vk {
 	pid_t reset_pid; /* process that issue reset */
 
 	atomic_t msgq_inited; /* indicate if info has been synced with vk */
-	struct bcm_vk_msg_chan h2vk_msg_chan;
-	struct bcm_vk_msg_chan vk2h_msg_chan;
+	struct bcm_vk_msg_chan to_v_msg_chan;
+	struct bcm_vk_msg_chan to_h_msg_chan;
 
 	struct workqueue_struct *wq_thread;
 	struct work_struct wq_work; /* work queue for deferred job */
@@ -370,7 +370,7 @@ bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk);
 void bcm_vk_blk_drv_access(struct bcm_vk *vk);
 int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type, pid_t pid);
 void bcm_vk_trigger_reset(struct bcm_vk *vk);
-void bcm_h2vk_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val);
+void bcm_to_v_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val);
 int bcm_vk_auto_load_all_images(struct bcm_vk *vk);
 int bcm_vk_tty_init(struct bcm_vk *vk, char *name);
 void bcm_vk_tty_exit(struct bcm_vk *vk);

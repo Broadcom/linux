@@ -95,17 +95,17 @@ struct bcm_vk_wkent {
 	/* Store up to 4 dma pointers */
 	struct bcm_vk_dma dma[VK_DMA_MAX_ADDRS];
 
-	uint32_t vk2h_blks; /* response */
-	struct vk_msg_blk *vk2h_msg;
+	uint32_t to_h_blks; /* response */
+	struct vk_msg_blk *to_h_msg;
 
 	/*
-	 * put the h2vk_msg at the end so that we could simply append h2vk msg
+	 * put the to_v_msg at the end so that we could simply append to_v msg
 	 * to the end of the allocated block
 	 */
 	uint32_t usr_msg_id;
-	uint32_t h2vk_blks;
+	uint32_t to_v_blks;
 	uint32_t seq_num;
-	struct vk_msg_blk h2vk_msg[0];
+	struct vk_msg_blk to_v_msg[0];
 };
 
 /* queue stats counters */
@@ -122,7 +122,7 @@ struct bcm_vk_qstats {
 	struct bcm_vk_qs_cnts qcnts;
 };
 
-/* control channel structure for either h2vk or vk2h communication */
+/* control channel structure for either to_v or to_h communication */
 struct bcm_vk_msg_chan {
 	uint32_t q_nr;
 	/* Mutex to access msgq */
