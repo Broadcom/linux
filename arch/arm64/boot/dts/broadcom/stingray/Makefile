@@ -22,6 +22,7 @@ dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742t-optee.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958742t-pcie-iommu.dtb
 
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958802a804x.dtb
+dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958802a804x-pcie-iommu.dtb
 
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040-diag.dtb
