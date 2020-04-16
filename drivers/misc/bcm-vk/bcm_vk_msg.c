@@ -810,10 +810,10 @@ static int bcm_vk_handle_last_sess(struct bcm_vk *vk, const pid_t pid)
 	return rc;
 }
 
-static struct bcm_vk_wkent *bcm_vk_find_pending(struct bcm_vk *vk,
-						struct bcm_vk_msg_chan *chan,
-						uint16_t q_num,
-						uint16_t msg_id)
+static struct bcm_vk_wkent *bcm_vk_dequeue_pending(struct bcm_vk *vk,
+						   struct bcm_vk_msg_chan *chan,
+						   uint16_t q_num,
+						   uint16_t msg_id)
 {
 	bool found = false;
 	struct bcm_vk_wkent *entry;
@@ -937,10 +937,10 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 
 			msg_id = BCM_VK_GET_MSG_ID(data);
 			/* lookup original message in to_v direction */
-			entry = bcm_vk_find_pending(vk,
-						    &vk->to_v_msg_chan,
-						    q_num,
-						    msg_id);
+			entry = bcm_vk_dequeue_pending(vk,
+						       &vk->to_v_msg_chan,
+						       q_num,
+						       msg_id);
 
 			/*
 			 * if there is message to does not have prior send,
@@ -1279,7 +1279,7 @@ ssize_t bcm_vk_write(struct file *p_file,
 		dev_err(dev, "Fail to enqueue msg to to_v queue\n");
 
 		/* remove message from pending list */
-		entry = bcm_vk_find_pending
+		entry = bcm_vk_dequeue_pending
 			       (vk,
 				&vk->to_v_msg_chan,
 				q_num,
