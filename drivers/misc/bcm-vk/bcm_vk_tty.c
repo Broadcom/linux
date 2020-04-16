@@ -263,26 +263,20 @@ int bcm_vk_tty_init(struct bcm_vk *vk, char *name)
 		struct device *tty_dev;
 
 		tty_port_init(&vk->tty[i].port);
-		tty_dev = tty_port_register_device(&vk->tty[i].port,
-						   tty_drv,
-						   i,
-						   dev);
-		dev_set_drvdata(tty_dev, vk);
-
+		tty_dev = tty_port_register_device(&vk->tty[i].port, tty_drv,
+						   i, dev);
 		if (IS_ERR(tty_dev)) {
-			int j;
-
-			for (j = 0; j < i; j++)
-				tty_port_unregister_device(&vk->tty[j].port,
-							   tty_drv,
-							   j);
-			goto err_tty_unregister_driver;
+			err = PTR_ERR(tty_dev);
+			goto unwind;
 		}
+		dev_set_drvdata(tty_dev, vk);
 	}
 
 	return 0;
 
-err_tty_unregister_driver:
+unwind:
+	while (--i >= 0)
+		tty_port_unregister_device(&vk->tty[i].port, tty_drv, i);
 	tty_unregister_driver(tty_drv);
 
 err_kfree_tty_name:
