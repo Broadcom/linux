@@ -1338,17 +1338,17 @@ int bcm_vk_msg_init(struct bcm_vk *vk)
 		return -EIO;
 	}
 
+	/* read msgq info */
+	if (bcm_vk_sync_msgq(vk, false)) {
+		dev_err(dev, "Error reading comm msg Q info\n");
+		return -EIO;
+	}
+
 	/* create dedicated workqueue */
 	vk->wq_thread = create_singlethread_workqueue(vk->miscdev.name);
 	if (!vk->wq_thread) {
 		dev_err(dev, "Fail to create workqueue thread\n");
 		return -ENOMEM;
-	}
-
-	/* read msgq info */
-	if (bcm_vk_sync_msgq(vk, false)) {
-		dev_err(dev, "Error reading comm msg Q info\n");
-		return -EIO;
 	}
 
 	return 0;
