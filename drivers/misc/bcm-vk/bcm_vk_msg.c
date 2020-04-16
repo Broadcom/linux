@@ -1315,8 +1315,9 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	ret = bcm_vk_free_ctx(vk, ctx);
 	if (ret == 0)
 		ret = bcm_vk_handle_last_sess(vk, pid);
+	else
+		ret = 0;
 
-	/* free memory if it is the last reference */
 	kref_put(&vk->kref, bcm_vk_release_data);
 
 	return ret;
