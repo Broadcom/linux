@@ -493,7 +493,7 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 	 */
 	if (!bcm_vk_msgq_marker_valid(vk)) {
 		dev_info(dev, "BAR1 msgq marker not initialized.\n");
-		return ret;
+		return -EAGAIN;
 	}
 
 	msgq_off = vkread32(vk, BAR_1, VK_BAR1_MSGQ_CTRL_OFF);
@@ -1326,6 +1326,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 int bcm_vk_msg_init(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
+	int ret;
 
 	if (bcm_vk_data_init(vk)) {
 		dev_err(dev, "Error initializing internal data structures\n");
@@ -1338,8 +1339,9 @@ int bcm_vk_msg_init(struct bcm_vk *vk)
 		return -EIO;
 	}
 
-	/* read msgq info */
-	if (bcm_vk_sync_msgq(vk, false)) {
+	/* read msgq info if ready */
+	ret = bcm_vk_sync_msgq(vk, false);
+	if (ret && (ret != -EAGAIN)) {
 		dev_err(dev, "Error reading comm msg Q info\n");
 		return -EIO;
 	}
