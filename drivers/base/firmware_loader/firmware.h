@@ -32,8 +32,6 @@
  * @FW_OPT_FALLBACK_PLATFORM: Enable fallback to device fw copy embedded in
  *	the platform's main firmware. If both this fallback and the sysfs
  *      fallback are enabled, then this fallback will be tried first.
- * @FW_OPT_PARTIAL: Allow partial read of firmware instead of needing to read
- *	entire file.
  */
 enum fw_opt {
 	FW_OPT_UEVENT			= BIT(0),
@@ -43,7 +41,6 @@ enum fw_opt {
 	FW_OPT_NOCACHE			= BIT(4),
 	FW_OPT_NOFALLBACK_SYSFS		= BIT(5),
 	FW_OPT_FALLBACK_PLATFORM	= BIT(6),
-	FW_OPT_PARTIAL			= BIT(7),
 };
 
 enum fw_status {
@@ -71,8 +68,6 @@ struct fw_priv {
 	void *data;
 	size_t size;
 	size_t allocated_size;
-	size_t offset;
-	unsigned int flags;
 #ifdef CONFIG_FW_LOADER_PAGED_BUF
 	bool is_paged_buf;
 	struct page **pages;

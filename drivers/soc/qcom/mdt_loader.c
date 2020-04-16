@@ -246,11 +246,8 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 		} else if (phdr->p_filesz) {
 			/* Firmware not large enough, load split-out segments */
 			sprintf(fw_name + fw_name_len - 3, "b%02d", i);
-			ret = request_firmware_into_buf
-						(&seg_fw, fw_name, dev,
-						 ptr, phdr->p_filesz,
-						 0,
-						 KERNEL_PREAD_FLAG_WHOLE);
+			ret = request_firmware_into_buf(&seg_fw, fw_name, dev,
+							ptr, phdr->p_filesz);
 			if (ret) {
 				dev_err(dev, "failed to load %s\n", fw_name);
 				break;
