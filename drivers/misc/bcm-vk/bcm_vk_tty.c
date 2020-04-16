@@ -307,10 +307,11 @@ void bcm_vk_tty_exit(struct bcm_vk *vk)
 		tty_port_destroy(&vk->tty[i].port);
 	}
 	tty_unregister_driver(vk->tty_drv);
-	put_tty_driver(vk->tty_drv);
 
 	kfree(vk->tty_drv->name);
 	vk->tty_drv->name = NULL;
+
+	put_tty_driver(vk->tty_drv);
 }
 
 void bcm_vk_tty_terminate_tty_user(struct bcm_vk *vk)
