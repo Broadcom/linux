@@ -23,7 +23,7 @@ struct vk_reset {
 	__u32 arg2;
 };
 
-#define VK_MAGIC		0x5E
+#define VK_MAGIC		0x5e
 
 /* Load image to Valkyrie */
 #define VK_IOCTL_LOAD_IMAGE	_IOW(VK_MAGIC, 0x2, struct vk_image)
@@ -43,13 +43,13 @@ struct vk_msg_blk {
 	__u16 trans_id; /* transport id, queue & msg_id */
 	__u32 context_id;
 	__u32 args[2];
-#define VK_CMD_PLANES_MASK	0x000F /* number of planes to up/download */
+#define VK_CMD_PLANES_MASK	0x000f /* number of planes to up/download */
 #define VK_CMD_UPLOAD		0x0400 /* memory transfer to vk */
 #define VK_CMD_DOWNLOAD		0x0500 /* memory transfer from vk */
-#define VK_CMD_MASK		0x0F00 /* command mask */
+#define VK_CMD_MASK		0x0f00 /* command mask */
 };
 
-#define VK_BAR_FWSTS			0x41C
+#define VK_BAR_FWSTS			0x41c
 #define VK_BAR_COP_FWSTS		0x428
 /* VK_FWSTS definitions */
 #define VK_FWSTS_RELOCATION_ENTRY	BIT(0)
@@ -62,7 +62,7 @@ struct vk_msg_blk {
 #define VK_FWSTS_INIT_DONE		BIT(7)
 #define VK_FWSTS_APP_INIT_START		BIT(8)
 #define VK_FWSTS_APP_INIT_DONE		BIT(9)
-#define VK_FWSTS_MASK			0xFFFFFFFF
+#define VK_FWSTS_MASK			0xffffffff
 #define VK_FWSTS_READY			(VK_FWSTS_INIT_START | \
 					 VK_FWSTS_ARCH_INIT_DONE | \
 					 VK_FWSTS_PRE_KNL1_INIT_DONE | \
@@ -83,7 +83,7 @@ struct vk_msg_blk {
 					 VK_FWSTS_DRV_DEINIT_DONE)
 /* Last nibble for reboot reason */
 #define VK_FWSTS_RESET_REASON_SHIFT	28
-#define VK_FWSTS_RESET_REASON_MASK	(0xF << VK_FWSTS_RESET_REASON_SHIFT)
+#define VK_FWSTS_RESET_REASON_MASK	(0xf << VK_FWSTS_RESET_REASON_SHIFT)
 #define VK_FWSTS_RESET_SYS_PWRUP	(0x0 << VK_FWSTS_RESET_REASON_SHIFT)
 #define VK_FWSTS_RESET_MBOX_DB		(0x1 << VK_FWSTS_RESET_REASON_SHIFT)
 #define VK_FWSTS_RESET_M7_WDOG		(0x2 << VK_FWSTS_RESET_REASON_SHIFT)
@@ -94,6 +94,6 @@ struct vk_msg_blk {
 #define VK_FWSTS_RESET_PCI_COLD		(0x7 << VK_FWSTS_RESET_REASON_SHIFT)
 #define VK_FWSTS_RESET_L1		(0x8 << VK_FWSTS_RESET_REASON_SHIFT)
 #define VK_FWSTS_RESET_L0		(0x9 << VK_FWSTS_RESET_REASON_SHIFT)
-#define VK_FWSTS_RESET_UNKNOWN		(0xF << VK_FWSTS_RESET_REASON_SHIFT)
+#define VK_FWSTS_RESET_UNKNOWN		(0xf << VK_FWSTS_RESET_REASON_SHIFT)
 
 #endif /* __UAPI_LINUX_MISC_BCM_VK_H */
