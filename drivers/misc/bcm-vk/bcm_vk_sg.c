@@ -98,7 +98,7 @@ static int bcm_vk_dma_alloc(struct device *dev,
 	dma->sglist[SGLIST_NUM_SG] = 0;
 	dma->sglist[SGLIST_TOTALSIZE] = vkdata->size;
 	remaining_size = vkdata->size;
-	sgdata = (struct _vk_data *)&(dma->sglist[SGLIST_VKDATA_START]);
+	sgdata = (struct _vk_data *)&dma->sglist[SGLIST_VKDATA_START];
 
 	/* Map all pages into DMA */
 	size = min_t(size_t, PAGE_SIZE - offset, remaining_size);
@@ -138,7 +138,7 @@ static int bcm_vk_dma_alloc(struct device *dev,
 		} else {
 			/* pages are not contiguous, write sg entry */
 			sgdata->size = transfer_size;
-			put_unaligned(sg_addr, (uint64_t *)&(sgdata->address));
+			put_unaligned(sg_addr, (uint64_t *)&sgdata->address);
 			dma->sglist[SGLIST_NUM_SG]++;
 
 			/* start new sg entry */
@@ -149,11 +149,11 @@ static int bcm_vk_dma_alloc(struct device *dev,
 	}
 	/* Write last sg list entry */
 	sgdata->size = transfer_size;
-	put_unaligned(sg_addr, (uint64_t *)&(sgdata->address));
+	put_unaligned(sg_addr, (uint64_t *)&sgdata->address);
 	dma->sglist[SGLIST_NUM_SG]++;
 
 	/* Update pointers and size field to point to sglist */
-	put_unaligned((uint64_t)dma->handle, &(vkdata->address));
+	put_unaligned((uint64_t)dma->handle, &vkdata->address);
 	vkdata->size = (dma->sglist[SGLIST_NUM_SG] * sizeof(*sgdata)) +
 		       (sizeof(uint32_t) * SGLIST_VKDATA_START);
 
@@ -238,7 +238,7 @@ static int bcm_vk_dma_free(struct device *dev, struct bcm_vk_dma *dma)
 	vkdata = (struct _vk_data *)&dma->sglist[SGLIST_VKDATA_START];
 	for (i = 0; i < num_sg; i++) {
 		size = vkdata[i].size;
-		addr = get_unaligned(&(vkdata[i].address));
+		addr = get_unaligned(&vkdata[i].address);
 
 		dma_unmap_page(dev, addr, size, dma->direction);
 	}

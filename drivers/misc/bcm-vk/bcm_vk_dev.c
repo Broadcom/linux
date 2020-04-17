@@ -249,7 +249,7 @@ void bcm_vk_handle_notf(struct bcm_vk *vk)
 	 * If it is a sys fault or heartbeat timeout, we would like extract
 	 * log msg from the card so that we would know what is the last fault
 	 */
-	if ((!intf_down) &&
+	if (!intf_down &&
 	    ((vk->host_alert.flags & ERR_LOG_HOST_HB_FAIL) ||
 	     (vk->peer_alert.flags & ERR_LOG_SYS_FAULT)))
 		bcm_vk_dump_peer_log(vk);
@@ -682,9 +682,8 @@ static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
 	int image_idx;
 	int ret;
 
-	if (copy_from_user(&image, arg, sizeof(image))) {
+	if (copy_from_user(&image, arg, sizeof(image)))
 		return -EACCES;
-	}
 
 	if ((image.type != VK_IMAGE_TYPE_BOOT1) &&
 	    (image.type != VK_IMAGE_TYPE_BOOT2)) {
@@ -778,9 +777,9 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
 	struct vk_reset reset;
 	int ret = 0;
 
-	if (copy_from_user(&reset, arg, sizeof(struct vk_reset))) {
+	if (copy_from_user(&reset, arg, sizeof(struct vk_reset)))
 		return -EFAULT;
-	}
+
 	dev_info(dev, "Issue Reset\n");
 
 	/*

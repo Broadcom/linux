@@ -1251,8 +1251,8 @@ ssize_t bcm_vk_write(struct file *p_file,
 			goto write_free_msgid;
 		}
 
-		data = (struct _vk_data *)
-			&(entry->to_v_msg[msg_size + 1]);
+		data = (struct _vk_data *)&entry->to_v_msg[msg_size + 1];
+
 		/* Now back up to the start of the pointers */
 		data -= num_planes;
 
