@@ -14,6 +14,9 @@ Optional properties:
 
 - interrupts: doorbell interrupt, if not provided will fall back to polling
 
+- brcm-msix-source: phandle to PCIe endpoint node to generate msix interrupt
+ to host on tty write, which must define "brcm-ep-name" property
+
 Example:
 
 	uart1: serial@40070000 {
@@ -22,4 +25,5 @@ Example:
 		brcm-xmit-addr = <0x5 0xbff00000>;
 		brcm-recv-addr = <0x5 0xbfe00000>;
 		interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+		brcm-msix-source = <&pcie_ep>;
 	};
