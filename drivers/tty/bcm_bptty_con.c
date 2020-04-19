@@ -8,6 +8,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/pci-epc.h>
 #include <linux/platform_device.h>
 #include <linux/serial.h>
 #include <linux/serial_core.h>
@@ -26,6 +27,8 @@
 /* Interrupt status/mask/clear bits */
 #define BPTTY_MAILBOX0_INTR		BIT(0)
 #define BPTTY_MAILBOX1_INTR		BIT(5)
+/* MSIX interrupt number to host */
+#define BPTTY_PCIE_MSIX_INTR		4
 
 struct bptty_chnl {
 	unsigned int reserved;
@@ -48,6 +51,7 @@ struct bptty_state {
 	void __iomem *base;
 	struct device *dev;
 	spinlock_t lock; /* protect irq service */
+	struct pci_epc *epc;
 };
 
 static struct bptty_state state_info;
@@ -350,6 +354,9 @@ static int bptty_write(struct tty_struct *tty, const unsigned char *buffer,
 		goto exit;
 
 	wrote = do_write(state, buffer, count);
+	if (state->epc)
+		pci_epc_raise_irq(state->epc, 0, PCI_EPC_IRQ_MSIX,
+				  BPTTY_PCIE_MSIX_INTR);
 exit:
 	return wrote;
 }
@@ -410,6 +417,23 @@ static int bptty_write_room(struct tty_struct *tty)
 
 exit:
 	return room;
+}
+
+static int bptty_parse_dt(struct device_node *np, struct bptty_state *state)
+{
+	struct device_node *msix_np;
+	const char *ep_name;
+
+	msix_np = of_parse_phandle(np, "brcm-msix-source", 0);
+	if (msix_np) {
+		if (!of_property_read_string(msix_np, "brcm-ep-name",
+					     &ep_name)) {
+			state->epc = pci_epc_get(ep_name);
+			if (IS_ERR(state->epc))
+				return PTR_ERR(state->epc);
+		}
+	}
+	return 0;
 }
 
 static const struct tty_operations tty_ops = {
@@ -513,11 +537,14 @@ static int bptty_probe(struct platform_device *pdev)
 
 	retval = tty_register_driver(bptty_tty_driver);
 	if (retval) {
-		dev_err(&pdev->dev, "failed to register bcm_bptty driver");
+		dev_err(&pdev->dev, "failed to register bcm_bptty driver\n");
 		put_tty_driver(bptty_tty_driver);
 		tty_port_destroy(port);
 		goto fail;
 	}
+
+	if (bptty_parse_dt(pdev->dev.of_node, state))
+		dev_err(&pdev->dev, "msix source not found\n");
 
 	state->irq = platform_get_irq(pdev, 0);
 	if (state->irq < 0) {
@@ -574,6 +601,7 @@ static int bptty_remove(struct platform_device *pdev)
 
 	/* shut down our timer and free the memory */
 	del_timer(&state->timer);
+	pci_epc_put(state->epc);
 	return 0;
 }
 
