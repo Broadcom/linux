@@ -173,6 +173,7 @@ struct bcm_vk_tty {
 	uint32_t from_size;	/* from VK buffer size */
 	uint32_t rd;		/* read offset shadow */
 	pid_t pid;
+	bool irq_enabled;
 };
 
 /* VK device max power state, supports 3, full, reduced and low */
@@ -251,6 +252,8 @@ struct bcm_vk {
 	struct tty_driver *tty_drv;
 	struct timer_list serial_timer;
 	struct bcm_vk_tty tty[BCM_VK_NUM_TTY];
+	struct workqueue_struct *tty_wq_thread;
+	struct work_struct tty_wq_work;
 
 	/* Reference-counting to handle file operations */
 	struct kref kref;
@@ -359,6 +362,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file);
 void bcm_vk_release_data(struct kref *kref);
 irqreturn_t bcm_vk_msgq_irqhandler(int irq, void *dev_id);
 irqreturn_t bcm_vk_notf_irqhandler(int irq, void *dev_id);
+irqreturn_t bcm_vk_tty_irqhandler(int irq, void *dev_id);
 int bcm_vk_msg_init(struct bcm_vk *vk);
 void bcm_vk_msg_remove(struct bcm_vk *vk);
 int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync);

@@ -71,6 +71,23 @@ void bcm_vk_tty_terminate_tty_user(struct bcm_vk *vk)
 static void bcm_vk_tty_poll(struct timer_list *t)
 {
 	struct bcm_vk *vk = from_timer(vk, t, serial_timer);
+
+	queue_work(vk->tty_wq_thread, &vk->tty_wq_work);
+	mod_timer(&vk->serial_timer, jiffies + SERIAL_TIMER_VALUE);
+}
+
+irqreturn_t bcm_vk_tty_irqhandler(int irq, void *dev_id)
+{
+	struct bcm_vk *vk = dev_id;
+
+	queue_work(vk->tty_wq_thread, &vk->tty_wq_work);
+
+	return IRQ_HANDLED;
+}
+
+static void bcm_vk_tty_wq_handler(struct work_struct *work)
+{
+	struct bcm_vk *vk = container_of(work, struct bcm_vk, tty_wq_work);
 	struct bcm_vk_tty *vktty;
 	int card_status;
 	int count = 0;
@@ -79,6 +96,8 @@ static void bcm_vk_tty_poll(struct timer_list *t)
 	int wr;
 
 	card_status = vkread32(vk, BAR_0, BAR_CARD_STATUS);
+	if (card_status == -1)
+		return;
 
 	for (i = 0; i < BCM_VK_NUM_TTY; i++) {
 		/* Check the card status that the tty channel is ready */
@@ -89,9 +108,14 @@ static void bcm_vk_tty_poll(struct timer_list *t)
 
 		/* Fetch the wr offset in buffer from VK */
 		wr = vkread32(vk, BAR_1, VK_BAR_CHAN_WR(vktty, from));
+
+		/* safe to ignore until bar read gives proper size */
+		if (vktty->from_size == 0)
+			return;
+
 		if (wr >= vktty->from_size) {
 			dev_err(&vk->pdev->dev,
-				"ERROR: poll ttyVK%d wr:0x%x > 0x%x\n",
+				"ERROR: wq handler ttyVK%d wr:0x%x > 0x%x\n",
 				i, wr, vktty->from_size);
 			/* Need to signal and close device in this case */
 			return;
@@ -118,8 +142,6 @@ static void bcm_vk_tty_poll(struct timer_list *t)
 		/* Update read offset from shadow register to card */
 		vkwrite32(vk, vktty->rd, BAR_1, VK_BAR_CHAN_RD(vktty, from));
 	}
-
-	mod_timer(&vk->serial_timer, jiffies + SERIAL_TIMER_VALUE);
 }
 
 static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
@@ -161,7 +183,7 @@ static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 	vktty->from_size = vkread32(vk, BAR_1, VK_BAR_CHAN_SIZE(vktty, from));
 	vktty->rd = vkread32(vk, BAR_1,  VK_BAR_CHAN_RD(vktty, from));
 
-	if (tty->count == 1) {
+	if (tty->count == 1 && !vktty->irq_enabled) {
 		timer_setup(&vk->serial_timer, bcm_vk_tty_poll, 0);
 		mod_timer(&vk->serial_timer, jiffies + SERIAL_TIMER_VALUE);
 	}
@@ -272,6 +294,13 @@ int bcm_vk_tty_init(struct bcm_vk *vk, char *name)
 		dev_set_drvdata(tty_dev, vk);
 	}
 
+	INIT_WORK(&vk->tty_wq_work, bcm_vk_tty_wq_handler);
+	vk->tty_wq_thread = create_singlethread_workqueue("tty");
+	if (!vk->tty_wq_thread) {
+		dev_err(dev, "Fail to create tty workqueue thread\n");
+		err = -ENOMEM;
+		goto unwind;
+	}
 	return 0;
 
 unwind:
