@@ -99,6 +99,10 @@
 #endif
 };
 
+&pcie_ep {
+	status = "okay";
+};
+
 &uart1 {
 	status = "okay";
 };

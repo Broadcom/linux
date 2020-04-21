@@ -90,6 +90,15 @@
 		status = "disabled";
 	};
 
+	pcie_ep: pcie_ep@4e100000 {
+		compatible = "brcm,pcie-ep";
+		reg = <0x0 0x4e100000 0x0 0x00001000>,
+		      <0x1 0x08000000 0x0 0x08000000>;
+		reg-names = "paxb-base", "ob-mem-base";
+		brcm-ep-name = "4e100000.pcie_ep";
+		status = "disabled";
+	};
+
 	scr {
 		compatible = "simple-bus";
 		#address-cells = <1>;
