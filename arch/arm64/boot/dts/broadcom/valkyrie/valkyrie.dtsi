@@ -119,6 +119,7 @@
 			brcm-xmit-addr = <0x5 0xbff00000>;
 			brcm-recv-addr = <0x5 0xbfe00000>;
 			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+			brcm-msix-source = <&pcie_ep>;
 			status = "disabled";
 		};
 
