@@ -263,6 +263,7 @@ static int iproc_idm_dev_probe(struct platform_device *pdev)
 	elog_np = of_parse_phandle(dev->of_node, ELOG_IDM_COMPAT_STR, 0);
 	if (elog_np) {
 		elog_pdev = of_find_device_by_node(elog_np);
+		of_node_put(elog_np);
 		if (!elog_pdev) {
 			dev_err(dev, "Unable to find IDM ELOG device\n");
 			ret = -ENODEV;
