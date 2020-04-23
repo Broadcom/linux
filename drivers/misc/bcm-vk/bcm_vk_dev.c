@@ -670,7 +670,8 @@ static int bcm_vk_trigger_autoload(struct bcm_vk *vk)
 	return 0;
 }
 
-static long bcm_vk_load_image(struct bcm_vk *vk, struct vk_image *arg)
+static long bcm_vk_load_image(struct bcm_vk *vk,
+			      const struct vk_image __user *arg)
 {
 	struct device *dev = &vk->pdev->dev;
 	const char *image_name;
@@ -769,7 +770,7 @@ reset_exit:
 	return ret;
 }
 
-static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset *arg)
+static long bcm_vk_reset(struct bcm_vk *vk, const struct vk_reset __user *arg)
 {
 	struct device *dev = &vk->pdev->dev;
 	struct vk_reset reset;
@@ -843,7 +844,7 @@ static long bcm_vk_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	long ret = -EINVAL;
 	struct bcm_vk_ctx *ctx = file->private_data;
 	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk, miscdev);
-	void __user *argp = (void __user *)arg;
+	const void __user *argp = (void __user *)arg;
 
 	dev_dbg(&vk->pdev->dev,
 		"ioctl, cmd=0x%02x, arg=0x%02lx\n",
