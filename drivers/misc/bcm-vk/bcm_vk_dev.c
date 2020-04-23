@@ -180,16 +180,13 @@ static void bcm_vk_log_notf(struct bcm_vk *vk,
 
 static void bcm_vk_dump_peer_log(struct bcm_vk *vk)
 {
-	struct bcm_vk_peer_log log, *p_ctl;
+	struct bcm_vk_peer_log log;
 	char loc_buf[BCM_VK_PEER_LOG_LINE_MAX];
 	int cnt;
 	struct device *dev = &vk->pdev->dev;
 	uint data_offset;
 
-	p_ctl = vk->bar[BAR_2] + vk->peerlog_off;
-	log = *p_ctl;
-	/* do a rmb() to make sure log is updated */
-	rmb();
+	memcpy_fromio(&log, vk->bar[BAR_2] + vk->peerlog_off, sizeof(log));
 
 	dev_dbg(dev, "Peer PANIC: Size 0x%x(0x%x), [Rd Wr] = [%d %d]\n",
 		log.buf_size, log.mask, log.rd_idx, log.wr_idx);
@@ -209,7 +206,8 @@ static void bcm_vk_dump_peer_log(struct bcm_vk *vk)
 		log.rd_idx = (log.rd_idx + 1) & log.mask;
 	}
 	/* update rd idx at the end */
-	vkwrite32(vk, log.rd_idx, BAR_2, vk->peerlog_off);
+	vkwrite32(vk, log.rd_idx, BAR_2,
+		  vk->peerlog_off + offsetof(struct bcm_vk_peer_log, rd_idx));
 }
 
 void bcm_vk_handle_notf(struct bcm_vk *vk)
