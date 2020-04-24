@@ -38,81 +38,6 @@
 		((val) << BCM_VK_MSG_Q_SHIFT) | BCM_VK_GET_Q(msg_p);\
 }
 
-#if defined(CONFIG_BCM_VK_H2VK_VERIFY_AND_RETRY)
-/*
- * Turn on the following to verify the data passed down to VK is good, and
- * if not, do retry.  This is a debug/workaround on FPGA PCIe timing issues
- * but may be found useful for debugging other PCIe hardware issues.
- */
-static void bcm_vk_to_v_verify_idx(struct device *dev,
-				   const char *tag,
-				   volatile uint32_t *idx,
-				   uint32_t expected)
-{
-	unsigned int count = 0;
-
-	while (*idx != expected) {
-		count++;
-		dev_err(dev, "[%d] %s exp %d idx %d\n",
-			count, tag, expected, *idx);
-
-		/* write again */
-		*idx = expected;
-	}
-}
-
-static void bcm_vk_to_v_verify_blk(struct device *dev,
-				   const struct vk_msg_blk *src,
-				   volatile struct vk_msg_blk *dst)
-
-{
-	struct vk_msg_blk rd_bck;
-	unsigned int count = 0;
-
-	rd_bck = *dst;
-	while (memcmp(&rd_bck, src, sizeof(rd_bck)) != 0) {
-		count++;
-		dev_err(dev,
-			"[%d]Src Blk: [0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x]\n",
-			count,
-			src->function_id,
-			src->size,
-			BCM_VK_GET_Q(src),
-			BCM_VK_GET_MSG_ID(src),
-			src->context_id,
-			src->args[0],
-			src->args[1]);
-		dev_err(dev,
-			"[%d]Rdb Blk: [0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x]\n",
-			count,
-			rd_bck.function_id,
-			rd_bck.size,
-			BCM_VK_GET_Q(&rd_bck),
-			BCM_VK_GET_MSG_ID(&rd_bck),
-			rd_bck.context_id,
-			rd_bck.args[0],
-			rd_bck.args[1]);
-
-		*dst = *src;
-		rd_bck = *dst;
-	}
-}
-#else
-static void bcm_vk_to_v_verify_idx(struct device __always_unused *dev,
-				   const char __always_unused *tag,
-				   volatile uint32_t __always_unused *idx,
-				   uint32_t __always_unused expected)
-{
-}
-
-static void bcm_vk_to_v_verify_blk
-		(struct device __always_unused *dev,
-		 const struct vk_msg_blk __always_unused *src,
-		 volatile struct vk_msg_blk __always_unused *dst)
-
-{
-}
-#endif
 
 #if defined(CONFIG_BCM_VK_QSTATS)
 
@@ -708,8 +633,6 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	for (i = 0; i < entry->to_v_blks; i++) {
 		*dst = *src;
 
-		bcm_vk_to_v_verify_blk(dev, src, dst);
-
 		src++;
 		wr_idx = VK_MSGQ_INC(qinfo, wr_idx, 1);
 		dst = VK_MSGQ_BLK_ADDR(qinfo, wr_idx);
@@ -718,8 +641,6 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	/* flush the write pointer */
 	msgq->wr_idx = wr_idx;
 	wmb(); /* flush */
-
-	bcm_vk_to_v_verify_idx(dev, "wr_idx", &msgq->wr_idx, wr_idx);
 
 	/* log new info for debugging */
 	dev_dbg(dev,
@@ -911,9 +832,6 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 			/* flush rd pointer after a message is dequeued */
 			msgq->rd_idx = rd_idx;
 			mb(); /* do both rd/wr as we are extracting data out */
-
-			bcm_vk_to_v_verify_idx(dev, "rd_idx",
-					       &msgq->rd_idx, rd_idx);
 
 			/* log new info for debugging */
 			dev_dbg(dev,
