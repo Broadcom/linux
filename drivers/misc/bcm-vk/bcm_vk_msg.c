@@ -16,28 +16,62 @@
 #include "bcm_vk_msg.h"
 #include "bcm_vk_sg.h"
 
-/* macros to manipulate the transport id in msg block */
+/* functions to manipulate the transport id in msg block */
 #define BCM_VK_MSG_Q_SHIFT	 4
 #define BCM_VK_MSG_Q_MASK	 0xF
 #define BCM_VK_MSG_ID_MASK	 0xFFF
-#define BCM_VK_GET_Q(msg_p)			 \
-	((msg_p)->trans_id & BCM_VK_MSG_Q_MASK)
 
-#define BCM_VK_SET_Q(msg_p, val)		 \
-{						 \
-	(msg_p)->trans_id =			 \
-		((msg_p)->trans_id & ~BCM_VK_MSG_Q_MASK) | (val); \
+static uint32_t get_q_num(const struct vk_msg_blk *msg)
+{
+	return (msg->trans_id & BCM_VK_MSG_Q_MASK);
 }
 
-#define BCM_VK_GET_MSG_ID(msg_p)		 \
-	(((msg_p)->trans_id >> BCM_VK_MSG_Q_SHIFT) & BCM_VK_MSG_ID_MASK)
-
-#define BCM_VK_SET_MSG_ID(msg_p, val)		 \
-{						 \
-	(msg_p)->trans_id =			 \
-		((val) << BCM_VK_MSG_Q_SHIFT) | BCM_VK_GET_Q(msg_p);\
+static void set_q_num(struct vk_msg_blk *msg, uint32_t val)
+{
+	msg->trans_id = (msg->trans_id & ~BCM_VK_MSG_Q_MASK) | val;
 }
 
+static uint32_t get_msg_id(const struct vk_msg_blk *msg)
+{
+	return ((msg->trans_id >> BCM_VK_MSG_Q_SHIFT) & BCM_VK_MSG_ID_MASK);
+}
+
+static void set_msg_id(struct vk_msg_blk *msg, uint32_t val)
+{
+	msg->trans_id = (val << BCM_VK_MSG_Q_SHIFT) | get_q_num(msg);
+}
+
+static uint32_t msgq_inc(const struct bcm_vk_sync_qinfo *qinfo,
+			 uint32_t idx,
+			 uint32_t inc)
+{
+	return ((idx + inc) & qinfo->q_mask);
+}
+
+static
+struct vk_msg_blk __iomem *msgq_blk_addr(const struct bcm_vk_sync_qinfo *qinfo,
+					 uint32_t idx)
+{
+	return qinfo->q_start + (VK_MSGQ_BLK_SIZE * idx);
+}
+
+static uint32_t msgq_occupied(const struct bcm_vk_msgq __iomem *msgq,
+			      const struct bcm_vk_sync_qinfo *qinfo)
+{
+	uint32_t wr_idx, rd_idx;
+
+	wr_idx = ioread32(&msgq->wr_idx);
+	rd_idx = ioread32(&msgq->rd_idx);
+
+	return ((wr_idx - rd_idx) & qinfo->q_mask);
+}
+
+static
+uint32_t msgq_avail_space(const struct bcm_vk_msgq __iomem *msgq,
+			  const struct bcm_vk_sync_qinfo *qinfo)
+{
+	return (qinfo->q_size - msgq_occupied(msgq, qinfo) - 1);
+}
 
 #if defined(CONFIG_BCM_VK_QSTATS)
 
@@ -348,7 +382,7 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 
 				/* if it is specific ctx, log for any stuck */
 				msg = entry->to_v_msg;
-				msg_id = BCM_VK_GET_MSG_ID(msg);
+				msg_id = get_msg_id(msg);
 				bit_set = test_bit(msg_id, vk->bmap);
 				responded = entry->to_h_msg ? true : false;
 				dev_info(dev,
@@ -400,13 +434,13 @@ bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
  */
 int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 {
-	struct bcm_vk_msgq *msgq = NULL;
+	struct bcm_vk_msgq __iomem *msgq;
 	struct device *dev = &vk->pdev->dev;
 	uint32_t msgq_off;
 	uint32_t num_q;
 	struct bcm_vk_msg_chan *chan_list[] = {&vk->to_v_msg_chan,
 					       &vk->to_h_msg_chan};
-	struct bcm_vk_msg_chan *chan = NULL;
+	struct bcm_vk_msg_chan *chan;
 	int i, j;
 	int ret = 0;
 
@@ -429,7 +463,7 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 	vk->to_h_msg_chan.q_nr = num_q;
 
 	/* first msgq location */
-	msgq = (struct bcm_vk_msgq *)(vk->bar[BAR_1] + msgq_off);
+	msgq = vk->bar[BAR_1] + msgq_off;
 
 	/*
 	 * if this function is called when it is already inited,
@@ -446,32 +480,36 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 
 		for (j = 0; j < num_q; j++) {
 			struct bcm_vk_sync_qinfo *qinfo;
+			uint32_t msgq_start;
+			uint32_t msgq_size;
+			uint32_t msgq_nxt;
 
 			chan->msgq[j] = msgq;
+			msgq_start = ioread32(&msgq->start);
+			msgq_size = ioread32(&msgq->size);
+			msgq_nxt = ioread32(&msgq->nxt);
 
 			dev_info(dev,
 				 "MsgQ[%d] type %d num %d, @ 0x%x, rd_idx %d wr_idx %d, size %d, nxt 0x%x\n",
 				 j,
-				 msgq->type,
-				 msgq->num,
-				 msgq->start,
-				 msgq->rd_idx,
-				 msgq->wr_idx,
-				 msgq->size,
-				 msgq->nxt);
+				 ioread32(&msgq->type),
+				 ioread32(&msgq->num),
+				 msgq_start,
+				 ioread32(&msgq->rd_idx),
+				 ioread32(&msgq->wr_idx),
+				 msgq_size,
+				 msgq_nxt);
 
 			qinfo = &chan->sync_qinfo[j];
 			/* formulate and record static info */
-			qinfo->q_start = vk->bar[BAR_1] + msgq->start;
-			qinfo->q_size = msgq->size;
+			qinfo->q_start = vk->bar[BAR_1] + msgq_start;
+			qinfo->q_size = msgq_size;
 			/* set low threshold as 50% or 1/2 */
 			qinfo->q_low = qinfo->q_size >> 1;
 			qinfo->q_mask = qinfo->q_size - 1;
 
-			msgq = (struct bcm_vk_msgq *)
-				((char *)msgq + sizeof(*msgq) + msgq->nxt);
-
-			rmb(); /* do a read mb to guarantee */
+			msgq = (struct bcm_vk_msgq __iomem *)
+				((uintptr_t)(msgq + 1) + msgq_nxt);
 		}
 	}
 	atomic_set(&vk->msgq_inited, 1);
@@ -515,7 +553,7 @@ static uint32_t bcm_vk_append_ib_sgl(struct bcm_vk *vk,
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_msg_chan *chan = &vk->to_v_msg_chan;
 	struct vk_msg_blk *msg = &entry->to_v_msg[0];
-	struct bcm_vk_msgq *msgq;
+	struct bcm_vk_msgq __iomem *msgq;
 	struct bcm_vk_sync_qinfo *qinfo;
 	uint32_t ib_sgl_size = 0;
 	uint8_t *buf = (uint8_t *)&entry->to_v_msg[entry->to_v_blks];
@@ -523,10 +561,10 @@ static uint32_t bcm_vk_append_ib_sgl(struct bcm_vk *vk,
 	uint32_t q_num;
 
 	/* check if high watermark is hit, and if so, skip */
-	q_num = BCM_VK_GET_Q(msg);
+	q_num = get_q_num(msg);
 	msgq = chan->msgq[q_num];
 	qinfo = &chan->sync_qinfo[q_num];
-	avail = VK_MSGQ_AVAIL_SPACE(msgq, qinfo);
+	avail = msgq_avail_space(msgq, qinfo);
 	if (avail < qinfo->q_low) {
 		dev_dbg(dev, "Skip inserting inband SGL, [0x%x/0x%x]\n",
 			avail, qinfo->q_size);
@@ -571,10 +609,10 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	struct device *dev = &vk->pdev->dev;
 	struct vk_msg_blk *src = &entry->to_v_msg[0];
 
-	volatile struct vk_msg_blk *dst;
-	struct bcm_vk_msgq *msgq;
+	struct vk_msg_blk __iomem *dst;
+	struct bcm_vk_msgq __iomem *msgq;
 	struct bcm_vk_sync_qinfo *qinfo;
-	uint32_t q_num = BCM_VK_GET_Q(src);
+	uint32_t q_num = get_q_num(src);
 	uint32_t wr_idx; /* local copy */
 	uint32_t i;
 	uint32_t avail;
@@ -584,7 +622,7 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 		dev_err(dev, "number of blks %d not matching %d MsgId[0x%x]: func %d ctx 0x%x\n",
 			entry->to_v_blks,
 			src->size + 1,
-			BCM_VK_GET_MSG_ID(src),
+			get_msg_id(src),
 			src->function_id,
 			src->context_id);
 		return -EMSGSIZE;
@@ -593,10 +631,9 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	msgq = chan->msgq[q_num];
 	qinfo = &chan->sync_qinfo[q_num];
 
-	rmb(); /* start with a read barrier */
 	mutex_lock(&chan->msgq_mutex);
 
-	avail = VK_MSGQ_AVAIL_SPACE(msgq, qinfo);
+	avail = msgq_avail_space(msgq, qinfo);
 
 #if defined(CONFIG_BCM_VK_QSTATS)
 	bcm_vk_update_qstats(vk, "to_v", &chan->qstats[q_num],
@@ -610,7 +647,7 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 
 		msleep(BCM_VK_H2VK_ENQ_RETRY_DELAY_MS);
 		mutex_lock(&chan->msgq_mutex);
-		avail = VK_MSGQ_AVAIL_SPACE(msgq, qinfo);
+		avail = msgq_avail_space(msgq, qinfo);
 	}
 	if (retry > BCM_VK_H2VK_ENQ_RETRY) {
 		mutex_unlock(&chan->msgq_mutex);
@@ -619,7 +656,7 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 
 	/* at this point, mutex is taken and there is enough space */
 	entry->seq_num = seq_num++; /* update debug seq number */
-	wr_idx = msgq->wr_idx;
+	wr_idx = ioread32(&msgq->wr_idx);
 
 	if (wr_idx >= qinfo->q_size) {
 		dev_crit(dev, "Invalid wr_idx 0x%x => max 0x%x!",
@@ -629,27 +666,28 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 		goto idx_err;
 	}
 
-	dst = VK_MSGQ_BLK_ADDR(qinfo, wr_idx);
+	dst = msgq_blk_addr(qinfo, wr_idx);
 	for (i = 0; i < entry->to_v_blks; i++) {
-		*dst = *src;
+		memcpy_toio(dst, src, sizeof(*dst));
 
 		src++;
-		wr_idx = VK_MSGQ_INC(qinfo, wr_idx, 1);
-		dst = VK_MSGQ_BLK_ADDR(qinfo, wr_idx);
+		wr_idx = msgq_inc(qinfo, wr_idx, 1);
+		dst = msgq_blk_addr(qinfo, wr_idx);
 	}
 
 	/* flush the write pointer */
-	msgq->wr_idx = wr_idx;
-	wmb(); /* flush */
+	iowrite32(wr_idx, &msgq->wr_idx);
 
 	/* log new info for debugging */
 	dev_dbg(dev,
 		"MsgQ[%d] [Rd Wr] = [%d %d] blks inserted %d - Q = [u-%d a-%d]/%d\n",
-		msgq->num,
-		msgq->rd_idx, msgq->wr_idx, entry->to_v_blks,
-		VK_MSGQ_OCCUPIED(msgq, qinfo),
-		VK_MSGQ_AVAIL_SPACE(msgq, qinfo),
-		msgq->size);
+		ioread32(&msgq->num),
+		ioread32(&msgq->rd_idx),
+		wr_idx,
+		entry->to_v_blks,
+		msgq_occupied(msgq, qinfo),
+		msgq_avail_space(msgq, qinfo),
+		ioread32(&msgq->size));
 	/*
 	 * press door bell based on queue number. 1 is added to the wr_idx
 	 * to avoid the value of 0 appearing on the VK side to distinguish
@@ -686,8 +724,8 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 
 	/* fill up necessary data */
 	entry->to_v_msg[0].function_id = VK_FID_SHUTDOWN;
-	BCM_VK_SET_Q(&entry->to_v_msg[0], 0); /* use highest queue */
-	BCM_VK_SET_MSG_ID(&entry->to_v_msg[0], VK_SIMPLEX_MSG_ID);
+	set_q_num(&entry->to_v_msg[0], 0); /* use highest queue */
+	set_msg_id(&entry->to_v_msg[0], VK_SIMPLEX_MSG_ID);
 	entry->to_v_blks = 1; /* always 1 block */
 
 	entry->to_v_msg[0].args[0] = shut_type;
@@ -697,7 +735,7 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 	if (rc)
 		dev_err(dev,
 			"Sending shutdown message to q %d for pid %d fails.\n",
-			BCM_VK_GET_Q(&entry->to_v_msg[0]), pid);
+			get_q_num(&entry->to_v_msg[0]), pid);
 
 	kfree(entry);
 
@@ -741,7 +779,7 @@ static struct bcm_vk_wkent *bcm_vk_dequeue_pending(struct bcm_vk *vk,
 
 	spin_lock(&chan->pendq_lock);
 	list_for_each_entry(entry, &chan->pendq[q_num], node) {
-		if (BCM_VK_GET_MSG_ID(&entry->to_v_msg[0]) == msg_id) {
+		if (get_msg_id(&entry->to_v_msg[0]) == msg_id) {
 			list_del(&entry->node);
 			found = true;
 			bcm_vk_msgid_bitmap_clear(vk, msg_id, 1);
@@ -757,12 +795,12 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_msg_chan *chan = &vk->to_h_msg_chan;
 	struct vk_msg_blk *data;
-	volatile struct vk_msg_blk *src;
+	struct vk_msg_blk __iomem *src;
 	struct vk_msg_blk *dst;
-	struct bcm_vk_msgq *msgq;
+	struct bcm_vk_msgq __iomem *msgq;
 	struct bcm_vk_sync_qinfo *qinfo;
 	struct bcm_vk_wkent *entry;
-	uint32_t rd_idx;
+	uint32_t rd_idx, wr_idx;
 	uint32_t q_num, msg_id, j;
 	uint32_t num_blks;
 	int32_t total = 0;
@@ -774,12 +812,17 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 	 * program to extract
 	 */
 	mutex_lock(&chan->msgq_mutex);
-	rmb(); /* start with a read barrier */
+
 	for (q_num = 0; q_num < chan->q_nr; q_num++) {
 		msgq = chan->msgq[q_num];
 		qinfo = &chan->sync_qinfo[q_num];
 
-		while (!VK_MSGQ_EMPTY(msgq)) {
+		rd_idx = ioread32(&msgq->rd_idx);
+		wr_idx = ioread32(&msgq->wr_idx);
+
+		while (rd_idx != wr_idx) {
+			uint8_t src_size;
+
 			/*
 			 * Make a local copy and get pointer to src blk
 			 * The rd_idx is masked before getting the pointer to
@@ -788,15 +831,14 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 			 * the buffer, but subsequent src->size check would be
 			 * able to catch this.
 			 */
-			rd_idx = msgq->rd_idx;
-			src = VK_MSGQ_BLK_ADDR
-				  (qinfo, rd_idx & VK_MSGQ_SIZE_MASK(qinfo));
+			src = msgq_blk_addr(qinfo, rd_idx & qinfo->q_mask);
+			src_size = ioread8(&src->size);
 
 			if ((rd_idx >= qinfo->q_size) ||
-			    (src->size > (qinfo->q_size - 1))) {
+			    (src_size > (qinfo->q_size - 1))) {
 				dev_crit(dev,
 					 "Invalid rd_idx 0x%x or size 0x%x => max 0x%x!",
-					 rd_idx, src->size, qinfo->q_size);
+					 rd_idx, src_size, qinfo->q_size);
 				bcm_vk_blk_drv_access(vk);
 				bcm_vk_set_host_alert(vk,
 						      ERR_LOG_HOST_PCIE_DWN);
@@ -805,19 +847,19 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 
 #if defined(CONFIG_BCM_VK_QSTATS)
 			bcm_vk_update_qstats(vk, "to_h", &chan->qstats[q_num],
-					     VK_MSGQ_OCCUPIED(msgq, qinfo));
+					     msgq_occupied(msgq, qinfo));
 #endif
-			num_blks = src->size + 1;
+			num_blks = src_size + 1;
 			data = kzalloc(num_blks * VK_MSGQ_BLK_SIZE, GFP_KERNEL);
 			if (data) {
 				/* copy messages and linearize it */
 				dst = data;
 				for (j = 0; j < num_blks; j++) {
-					*dst = *src;
+					memcpy_fromio(dst, src, sizeof(*dst));
 
 					dst++;
-					rd_idx = VK_MSGQ_INC(qinfo, rd_idx, 1);
-					src = VK_MSGQ_BLK_ADDR(qinfo, rd_idx);
+					rd_idx = msgq_inc(qinfo, rd_idx, 1);
+					src = msgq_blk_addr(qinfo, rd_idx);
 				}
 				total++;
 			} else {
@@ -830,17 +872,18 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 			}
 
 			/* flush rd pointer after a message is dequeued */
-			msgq->rd_idx = rd_idx;
-			mb(); /* do both rd/wr as we are extracting data out */
+			iowrite32(rd_idx, &msgq->rd_idx);
 
 			/* log new info for debugging */
 			dev_dbg(dev,
 				"MsgQ[%d] [Rd Wr] = [%d %d] blks extracted %d - Q = [u-%d a-%d]/%d\n",
-				msgq->num,
-				msgq->rd_idx, msgq->wr_idx, num_blks,
-				VK_MSGQ_OCCUPIED(msgq, qinfo),
-				VK_MSGQ_AVAIL_SPACE(msgq, qinfo),
-				msgq->size);
+				ioread32(&msgq->num),
+				rd_idx,
+				wr_idx,
+				num_blks,
+				msgq_occupied(msgq, qinfo),
+				msgq_avail_space(msgq, qinfo),
+				ioread32(&msgq->size));
 
 			/*
 			 * No need to search if it is an autonomous one-way
@@ -853,7 +896,7 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 				continue;
 			}
 
-			msg_id = BCM_VK_GET_MSG_ID(data);
+			msg_id = get_msg_id(data);
 			/* lookup original message in to_v direction */
 			entry = bcm_vk_dequeue_pending(vk,
 						       &vk->to_v_msg_chan,
@@ -877,6 +920,8 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 					 test_bit(msg_id, vk->bmap));
 				kfree(data);
 			}
+			/* Fetch wr_idx to handle more back-to-back events */
+			wr_idx = ioread32(&msgq->wr_idx);
 		}
 	}
 idx_err:
@@ -1041,7 +1086,7 @@ read_loop_exit:
 
 	if (found) {
 		/* retrieve the passed down msg_id */
-		BCM_VK_SET_MSG_ID(&entry->to_h_msg[0], entry->usr_msg_id);
+		set_msg_id(&entry->to_h_msg[0], entry->usr_msg_id);
 		rsp_length = entry->to_h_blks * VK_MSGQ_BLK_SIZE;
 		if (copy_to_user(buf, entry->to_h_msg, rsp_length) == 0)
 			rc = rsp_length;
@@ -1054,7 +1099,7 @@ read_loop_exit:
 		 * in this case, return just the first block, so
 		 * that app knows what size it is looking for.
 		 */
-		BCM_VK_SET_MSG_ID(&tmp_msg, entry->usr_msg_id);
+		set_msg_id(&tmp_msg, entry->usr_msg_id);
 		tmp_msg.size = entry->to_h_blks - 1;
 		if (copy_to_user(buf, &tmp_msg, VK_MSGQ_BLK_SIZE) != 0) {
 			dev_err(dev, "Error return 1st block in -EMSGSIZE\n");
@@ -1073,12 +1118,13 @@ ssize_t bcm_vk_write(struct file *p_file,
 	struct bcm_vk_ctx *ctx = p_file->private_data;
 	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk,
 					 miscdev);
-	struct bcm_vk_msgq *msgq;
+	struct bcm_vk_msgq __iomem *msgq;
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_wkent *entry;
 	uint32_t sgl_extra_blks;
 	uint32_t q_num;
 	uint32_t msg_size;
+	uint32_t msgq_size;
 
 	if (!bcm_vk_drv_access_ok(vk))
 		return -EPERM;
@@ -1111,30 +1157,31 @@ ssize_t bcm_vk_write(struct file *p_file,
 	entry->ctx = ctx;
 
 	/* do a check on the blk size which could not exceed queue space */
-	q_num = BCM_VK_GET_Q(&entry->to_v_msg[0]);
+	q_num = get_q_num(&entry->to_v_msg[0]);
 	msgq = vk->to_v_msg_chan.msgq[q_num];
+	msgq_size = ioread32(&msgq->size);
 	if (entry->to_v_blks + (vk->ib_sgl_size >> VK_MSGQ_BLK_SZ_SHIFT)
-	    > (msgq->size - 1)) {
+	    > (msgq_size - 1)) {
 		dev_err(dev, "Blk size %d exceed max queue size allowed %d\n",
-			entry->to_v_blks, msgq->size - 1);
+			entry->to_v_blks, msgq_size - 1);
 		rc = -EINVAL;
 		goto write_free_ent;
 	}
 
 	/* Use internal message id */
-	entry->usr_msg_id = BCM_VK_GET_MSG_ID(&entry->to_v_msg[0]);
+	entry->usr_msg_id = get_msg_id(&entry->to_v_msg[0]);
 	rc = bcm_vk_get_msg_id(vk);
 	if (rc == VK_MSG_ID_OVERFLOW) {
 		dev_err(dev, "msg_id overflow\n");
 		rc = -EOVERFLOW;
 		goto write_free_ent;
 	}
-	BCM_VK_SET_MSG_ID(&entry->to_v_msg[0], rc);
+	set_msg_id(&entry->to_v_msg[0], rc);
 
 	dev_dbg(dev,
 		"Message ctx id %d, usr_msg_id 0x%x sent msg_id 0x%x\n",
 		ctx->idx, entry->usr_msg_id,
-		BCM_VK_GET_MSG_ID(&entry->to_v_msg[0]));
+		get_msg_id(&entry->to_v_msg[0]));
 
 	/* Convert any pointers to sg list */
 	if (entry->to_v_msg[0].function_id == VK_FID_TRANS_BUF) {
@@ -1201,15 +1248,14 @@ ssize_t bcm_vk_write(struct file *p_file,
 			       (vk,
 				&vk->to_v_msg_chan,
 				q_num,
-				BCM_VK_GET_MSG_ID(&entry->to_v_msg[0]));
+				get_msg_id(&entry->to_v_msg[0]));
 		goto write_free_ent;
 	}
 
 	return count;
 
 write_free_msgid:
-	bcm_vk_msgid_bitmap_clear(vk,
-				  BCM_VK_GET_MSG_ID(&entry->to_v_msg[0]), 1);
+	bcm_vk_msgid_bitmap_clear(vk, get_msg_id(&entry->to_v_msg[0]), 1);
 write_free_ent:
 	kfree(entry);
 write_err:

@@ -15,8 +15,8 @@ struct bcm_vk_msgq {
 	uint16_t num;	/* queue number */
 	uint32_t start;	/* offset in BAR1 where the queue memory starts */
 
-	volatile uint32_t rd_idx; /* read idx */
-	volatile uint32_t wr_idx; /* write idx */
+	uint32_t rd_idx; /* read idx */
+	uint32_t wr_idx; /* write idx */
 
 	uint32_t size;	/*
 			 * size, which is in number of 16byte blocks,
@@ -41,31 +41,10 @@ struct bcm_vk_sync_qinfo {
 
 #define VK_MSGQ_MAX_NR 4 /* Maximum number of message queues */
 
-/*
- * some useful message queue macros
- */
-
 /* vk_msg_blk is 16 bytes fixed */
 #define VK_MSGQ_BLK_SIZE   (sizeof(struct vk_msg_blk))
 /* shift for fast division of basic msg blk size */
 #define VK_MSGQ_BLK_SZ_SHIFT 4
-
-#define VK_MSGQ_EMPTY(msgq) ((msgq)->rd_idx == (msgq)->wr_idx)
-
-#define VK_MSGQ_SIZE_MASK(qinfo) ((qinfo)->q_mask)
-
-#define VK_MSGQ_INC(_qinfo, idx, inc) \
-	(((idx) + (inc)) & VK_MSGQ_SIZE_MASK(qinfo))
-
-#define VK_MSGQ_BLK_ADDR(qinfo, idx) \
-	(volatile struct vk_msg_blk *)((qinfo)->q_start + \
-				       (VK_MSGQ_BLK_SIZE * (idx)))
-
-#define VK_MSGQ_OCCUPIED(msgq, _qinfo) \
-	(((msgq)->wr_idx - (msgq)->rd_idx) & VK_MSGQ_SIZE_MASK(qinfo))
-
-#define VK_MSGQ_AVAIL_SPACE(msgq, qinfo) \
-	((qinfo)->q_size - VK_MSGQ_OCCUPIED(msgq, qinfo) - 1)
 
 /* use msg_id 0 for any simplex host2vk communication */
 #define VK_SIMPLEX_MSG_ID 0
@@ -128,7 +107,7 @@ struct bcm_vk_msg_chan {
 	/* Mutex to access msgq */
 	struct mutex msgq_mutex;
 	/* pointing to BAR locations */
-	struct bcm_vk_msgq *msgq[VK_MSGQ_MAX_NR];
+	struct bcm_vk_msgq __iomem *msgq[VK_MSGQ_MAX_NR];
 	/* Spinlock to access pending queue */
 	spinlock_t pendq_lock;
 	/* for temporary storing pending items, one for each queue */
