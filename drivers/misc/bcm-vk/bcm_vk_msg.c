@@ -8,6 +8,7 @@
 #include <linux/hash.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>
+#include <linux/poll.h>
 #include <linux/sizes.h>
 #include <linux/spinlock.h>
 #include <linux/timer.h>
@@ -272,7 +273,9 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk, const pid_t pid)
 	kref_get(&vk->kref);
 
 	/* clear counter */
-	ctx->pend_cnt = 0;
+	atomic_set(&ctx->pend_cnt, 0);
+	init_waitqueue_head(&ctx->rd_wq);
+
 all_in_use_exit:
 in_reset_exit:
 	spin_unlock(&vk->ctx_lock);
@@ -395,7 +398,7 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 				list_del(&entry->node);
 				list_add_tail(&entry->node, &del_q);
 				if (responded)
-					ctx->pend_cnt--;
+					atomic_dec(&ctx->pend_cnt);
 				else if (bit_set)
 					bcm_vk_msgid_bitmap_clear(vk,
 								  msg_id,
@@ -536,10 +539,15 @@ static int bcm_vk_msg_chan_init(struct bcm_vk_msg_chan *chan)
 static void bcm_vk_append_pendq(struct bcm_vk_msg_chan *chan, uint16_t q_num,
 				struct bcm_vk_wkent *entry)
 {
+	struct bcm_vk_ctx *ctx;
+
 	spin_lock(&chan->pendq_lock);
 	list_add_tail(&entry->node, &chan->pendq[q_num]);
-	if (entry->to_h_msg)
-		entry->ctx->pend_cnt++;
+	if (entry->to_h_msg) {
+		ctx = entry->ctx;
+		atomic_inc(&ctx->pend_cnt);
+		wake_up_interruptible(&ctx->rd_wq);
+	}
 	spin_unlock(&chan->pendq_lock);
 }
 
@@ -1071,7 +1079,7 @@ ssize_t bcm_vk_read(struct file *p_file,
 				if (count >=
 				    (entry->to_h_blks * VK_MSGQ_BLK_SIZE)) {
 					list_del(&entry->node);
-					ctx->pend_cnt--;
+					atomic_dec(&ctx->pend_cnt);
 					found = true;
 				} else {
 					/* buffer not big enough */
@@ -1260,6 +1268,28 @@ write_free_ent:
 	kfree(entry);
 write_err:
 	return rc;
+}
+
+__poll_t bcm_vk_poll(struct file *p_file, struct poll_table_struct *wait)
+{
+	__poll_t ret = 0;
+	int cnt;
+	struct bcm_vk_ctx *ctx = p_file->private_data;
+	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk, miscdev);
+	struct device *dev = &vk->pdev->dev;
+
+	poll_wait(p_file, &ctx->rd_wq, wait);
+
+	cnt = atomic_read(&ctx->pend_cnt);
+	if (cnt) {
+		ret |= POLLIN | POLLRDNORM;
+		if (cnt < 0) {
+			dev_err(dev, "Error cnt %d, setting back to 0", cnt);
+			atomic_set(&ctx->pend_cnt, 0);
+		}
+	}
+
+	return ret;
 }
 
 int bcm_vk_release(struct inode *inode, struct file *p_file)

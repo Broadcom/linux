@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/pci_regs.h>
+#include <linux/poll.h>
 #include <uapi/linux/misc/bcm_vk.h>
 
 #include "bcm_vk.h"
@@ -880,6 +881,7 @@ static const struct file_operations bcm_vk_fops = {
 	.open = bcm_vk_open,
 	.read = bcm_vk_read,
 	.write = bcm_vk_write,
+	.poll = bcm_vk_poll,
 	.release = bcm_vk_release,
 	.mmap = bcm_vk_mmap,
 	.unlocked_ioctl = bcm_vk_ioctl,

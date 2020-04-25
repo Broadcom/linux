@@ -8,10 +8,11 @@
 
 #include <linux/atomic.h>
 #include <linux/firmware.h>
-#include <linux/pci.h>
 #include <linux/irq.h>
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
+#include <linux/pci.h>
+#include <linux/poll.h>
 #if defined(BCM_VK_LEGACY_API)
 #include <linux/pid.h>
 #include <linux/sched.h>
@@ -353,6 +354,7 @@ ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 		    loff_t *f_pos);
 ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		     size_t count, loff_t *f_pos);
+__poll_t bcm_vk_poll(struct file *p_file, struct poll_table_struct *wait);
 int bcm_vk_release(struct inode *inode, struct file *p_file);
 void bcm_vk_release_data(struct kref *kref);
 irqreturn_t bcm_vk_msgq_irqhandler(int irq, void *dev_id);
