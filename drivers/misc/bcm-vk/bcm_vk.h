@@ -322,7 +322,7 @@ static inline u32 vkread32(struct bcm_vk *vk,
 			   enum pci_barno bar,
 			   uint64_t offset)
 {
-	return ioread32(vk->bar[bar] + offset);
+	return readl(vk->bar[bar] + offset);
 }
 
 static inline void vkwrite32(struct bcm_vk *vk,
@@ -330,14 +330,14 @@ static inline void vkwrite32(struct bcm_vk *vk,
 			     enum pci_barno bar,
 			     uint64_t offset)
 {
-	iowrite32(value, vk->bar[bar] + offset);
+	writel(value, vk->bar[bar] + offset);
 }
 
 static inline u8 vkread8(struct bcm_vk *vk,
 			 enum pci_barno bar,
 			 uint64_t offset)
 {
-	return ioread8(vk->bar[bar] + offset);
+	return readb(vk->bar[bar] + offset);
 }
 
 static inline void vkwrite8(struct bcm_vk *vk,
@@ -345,7 +345,7 @@ static inline void vkwrite8(struct bcm_vk *vk,
 			    enum pci_barno bar,
 			    uint64_t offset)
 {
-	iowrite8(value, vk->bar[bar] + offset);
+	writeb(value, vk->bar[bar] + offset);
 }
 
 int bcm_vk_open(struct inode *inode, struct file *p_file);

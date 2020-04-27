@@ -60,8 +60,8 @@ static uint32_t msgq_occupied(const struct bcm_vk_msgq __iomem *msgq,
 {
 	uint32_t wr_idx, rd_idx;
 
-	wr_idx = ioread32(&msgq->wr_idx);
-	rd_idx = ioread32(&msgq->rd_idx);
+	wr_idx = readl_relaxed(&msgq->wr_idx);
+	rd_idx = readl_relaxed(&msgq->rd_idx);
 
 	return ((wr_idx - rd_idx) & qinfo->q_mask);
 }
@@ -485,18 +485,18 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 			uint32_t msgq_nxt;
 
 			chan->msgq[j] = msgq;
-			msgq_start = ioread32(&msgq->start);
-			msgq_size = ioread32(&msgq->size);
-			msgq_nxt = ioread32(&msgq->nxt);
+			msgq_start = readl_relaxed(&msgq->start);
+			msgq_size = readl_relaxed(&msgq->size);
+			msgq_nxt = readl_relaxed(&msgq->nxt);
 
 			dev_info(dev,
 				 "MsgQ[%d] type %d num %d, @ 0x%x, rd_idx %d wr_idx %d, size %d, nxt 0x%x\n",
 				 j,
-				 ioread32(&msgq->type),
-				 ioread32(&msgq->num),
+				 readl_relaxed(&msgq->type),
+				 readl_relaxed(&msgq->num),
 				 msgq_start,
-				 ioread32(&msgq->rd_idx),
-				 ioread32(&msgq->wr_idx),
+				 readl_relaxed(&msgq->rd_idx),
+				 readl_relaxed(&msgq->wr_idx),
 				 msgq_size,
 				 msgq_nxt);
 
@@ -656,7 +656,7 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 
 	/* at this point, mutex is taken and there is enough space */
 	entry->seq_num = seq_num++; /* update debug seq number */
-	wr_idx = ioread32(&msgq->wr_idx);
+	wr_idx = readl_relaxed(&msgq->wr_idx);
 
 	if (wr_idx >= qinfo->q_size) {
 		dev_crit(dev, "Invalid wr_idx 0x%x => max 0x%x!",
@@ -676,18 +676,18 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	}
 
 	/* flush the write pointer */
-	iowrite32(wr_idx, &msgq->wr_idx);
+	writel(wr_idx, &msgq->wr_idx);
 
 	/* log new info for debugging */
 	dev_dbg(dev,
 		"MsgQ[%d] [Rd Wr] = [%d %d] blks inserted %d - Q = [u-%d a-%d]/%d\n",
-		ioread32(&msgq->num),
-		ioread32(&msgq->rd_idx),
+		readl_relaxed(&msgq->num),
+		readl_relaxed(&msgq->rd_idx),
 		wr_idx,
 		entry->to_v_blks,
 		msgq_occupied(msgq, qinfo),
 		msgq_avail_space(msgq, qinfo),
-		ioread32(&msgq->size));
+		readl_relaxed(&msgq->size));
 	/*
 	 * press door bell based on queue number. 1 is added to the wr_idx
 	 * to avoid the value of 0 appearing on the VK side to distinguish
@@ -817,8 +817,8 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 		msgq = chan->msgq[q_num];
 		qinfo = &chan->sync_qinfo[q_num];
 
-		rd_idx = ioread32(&msgq->rd_idx);
-		wr_idx = ioread32(&msgq->wr_idx);
+		rd_idx = readl_relaxed(&msgq->rd_idx);
+		wr_idx = readl_relaxed(&msgq->wr_idx);
 
 		while (rd_idx != wr_idx) {
 			uint8_t src_size;
@@ -832,7 +832,7 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 			 * able to catch this.
 			 */
 			src = msgq_blk_addr(qinfo, rd_idx & qinfo->q_mask);
-			src_size = ioread8(&src->size);
+			src_size = readb(&src->size);
 
 			if ((rd_idx >= qinfo->q_size) ||
 			    (src_size > (qinfo->q_size - 1))) {
@@ -872,18 +872,18 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 			}
 
 			/* flush rd pointer after a message is dequeued */
-			iowrite32(rd_idx, &msgq->rd_idx);
+			writel(rd_idx, &msgq->rd_idx);
 
 			/* log new info for debugging */
 			dev_dbg(dev,
 				"MsgQ[%d] [Rd Wr] = [%d %d] blks extracted %d - Q = [u-%d a-%d]/%d\n",
-				ioread32(&msgq->num),
+				readl_relaxed(&msgq->num),
 				rd_idx,
 				wr_idx,
 				num_blks,
 				msgq_occupied(msgq, qinfo),
 				msgq_avail_space(msgq, qinfo),
-				ioread32(&msgq->size));
+				readl_relaxed(&msgq->size));
 
 			/*
 			 * No need to search if it is an autonomous one-way
@@ -921,7 +921,7 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 				kfree(data);
 			}
 			/* Fetch wr_idx to handle more back-to-back events */
-			wr_idx = ioread32(&msgq->wr_idx);
+			wr_idx = readl(&msgq->wr_idx);
 		}
 	}
 idx_err:
@@ -1159,7 +1159,7 @@ ssize_t bcm_vk_write(struct file *p_file,
 	/* do a check on the blk size which could not exceed queue space */
 	q_num = get_q_num(&entry->to_v_msg[0]);
 	msgq = vk->to_v_msg_chan.msgq[q_num];
-	msgq_size = ioread32(&msgq->size);
+	msgq_size = readl_relaxed(&msgq->size);
 	if (entry->to_v_blks + (vk->ib_sgl_size >> VK_MSGQ_BLK_SZ_SHIFT)
 	    > (msgq_size - 1)) {
 		dev_err(dev, "Blk size %d exceed max queue size allowed %d\n",
