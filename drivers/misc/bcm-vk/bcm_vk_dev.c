@@ -324,10 +324,10 @@ static int bcm_vk_sync_card_info(struct bcm_vk *vk)
 	 * up
 	 */
 	if (vk->tdma_addr) {
-		vkwrite32(vk, vk->tdma_addr >> 32, BAR_1,
-			  VK_BAR1_SCRATCH_OFF_LO);
-		vkwrite32(vk, (uint32_t)vk->tdma_addr, BAR_1,
+		vkwrite32(vk, (uint64_t)vk->tdma_addr >> 32, BAR_1,
 			  VK_BAR1_SCRATCH_OFF_HI);
+		vkwrite32(vk, (uint32_t)vk->tdma_addr, BAR_1,
+			  VK_BAR1_SCRATCH_OFF_LO);
 		vkwrite32(vk, nr_scratch_pages * PAGE_SIZE, BAR_1,
 			  VK_BAR1_SCRATCH_SZ_ADDR);
 	}
@@ -372,7 +372,7 @@ static void bcm_vk_buf_notify(struct bcm_vk *vk, void *bufp,
 			      dma_addr_t host_buf_addr, uint32_t buf_size)
 {
 	/* update the dma address to the card */
-	vkwrite32(vk, host_buf_addr >> 32, BAR_1,
+	vkwrite32(vk, (uint64_t)host_buf_addr >> 32, BAR_1,
 		  VK_BAR1_DMA_BUF_OFF_HI);
 	vkwrite32(vk, (uint32_t)host_buf_addr, BAR_1,
 		  VK_BAR1_DMA_BUF_OFF_LO);
