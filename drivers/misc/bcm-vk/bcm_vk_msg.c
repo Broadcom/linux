@@ -1056,7 +1056,7 @@ ssize_t bcm_vk_read(struct file *p_file,
 	if (!bcm_vk_drv_access_ok(vk))
 		return -EPERM;
 
-	dev_dbg(dev, "Buf count %ld\n", count);
+	dev_dbg(dev, "Buf count %zu\n", count);
 	found = false;
 
 	/*
@@ -1129,11 +1129,11 @@ ssize_t bcm_vk_write(struct file *p_file,
 	if (!bcm_vk_drv_access_ok(vk))
 		return -EPERM;
 
-	dev_dbg(dev, "Msg count %ld\n", count);
+	dev_dbg(dev, "Msg count %zu\n", count);
 
 	/* first, do sanity check where count should be multiple of basic blk */
 	if (count & (VK_MSGQ_BLK_SIZE - 1)) {
-		dev_err(dev, "Failure with size %ld not multiple of %ld\n",
+		dev_err(dev, "Failure with size %zu not multiple of %zu\n",
 			count, VK_MSGQ_BLK_SIZE);
 		rc = -EINVAL;
 		goto write_err;
