@@ -481,7 +481,7 @@ config BCM_BPTTY_CONSOLE
 	bool "Broadcom PCIe tty system console"
 	depends on ARCH_BCM_IPROC || COMPILE_TEST
 	depends on PCI
-	default ARCH_BCM_IPROC
+	depends on PCIE_BRCM_EP
 	help
 	   This enables tty system console over PCIe mapped memory.
 	   All the kernel messages will be written to the memory, in additon
