@@ -12,7 +12,6 @@ bcm_vk-objs := \
 	bcm_vk_dev.o \
 	bcm_vk_legacy.o \
 	bcm_vk_msg.o \
-	bcm_vk_pci.o \
 	bcm_vk_sg.o \
 	bcm_vk_sysfs.o \
 	bcm_vk_tty.o
