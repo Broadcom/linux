@@ -1282,7 +1282,7 @@ __poll_t bcm_vk_poll(struct file *p_file, struct poll_table_struct *wait)
 
 	cnt = atomic_read(&ctx->pend_cnt);
 	if (cnt) {
-		ret |= POLLIN | POLLRDNORM;
+		ret = (__force __poll_t)(POLLIN | POLLRDNORM);
 		if (cnt < 0) {
 			dev_err(dev, "Error cnt %d, setting back to 0", cnt);
 			atomic_set(&ctx->pend_cnt, 0);
