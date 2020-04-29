@@ -6,7 +6,6 @@
 #include <linux/firmware.h>
 #include <linux/fs.h>
 #include <linux/pci.h>
-#include <linux/version.h>
 
 #include "bcm_vk.h"
 
@@ -62,8 +61,7 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 }
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) || \
-    defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
+#if defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
 
 int request_firmware_into_buf_priv(const struct firmware **firmware_p,
 				   const char *name, struct device *device,

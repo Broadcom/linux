@@ -23,7 +23,6 @@
 #endif
 #include <linux/tty.h>
 #include <linux/uaccess.h>
-#include <linux/version.h>
 #include <uapi/linux/misc/bcm_vk.h>
 
 #include "bcm_vk_msg.h"
@@ -397,8 +396,7 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) || \
-    defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
+#if defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
 
 #define KERNEL_PREAD_FLAG_PART	0x0001 /* Allow reading part of file */
 #define REQUEST_FIRMWARE_INTO_BUF request_firmware_into_buf_priv
