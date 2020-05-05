@@ -1379,6 +1379,7 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 		vkwrite32(vk, 0, BAR_1, VK_BAR1_SOTP_REVID_ADDR(i));
 
 	memset(&vk->card_info, 0, sizeof(vk->card_info));
+	memset(&vk->proc_mon_info, 0, sizeof(vk->proc_mon_info));
 	memset(&vk->alert_cnts, 0, sizeof(vk->alert_cnts));
 
 	/*

@@ -106,8 +106,8 @@ static int bcm_vk_sysfs_dump_reg(uint32_t reg_val,
 	return (p_buf - buf);
 }
 
-static int bcm_vk_sysfs_chk_fw_status(struct bcm_vk *vk, uint32_t mask,
-				      char *buf, const char *err_log)
+static int sysfs_chk_fw_status(struct bcm_vk *vk, uint32_t mask,
+			       char *buf, const char *err_log)
 {
 	uint32_t fw_status;
 	int ret = 0;
@@ -283,9 +283,9 @@ static ssize_t firmware_version_show(struct device *dev,
 				      &buf[count], "Boot1   : %s\n");
 
 	/* Check if FIRMWARE_STATUS_PRE_INIT_DONE for rest of items */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FIRMWARE_STATUS_PRE_INIT_DONE,
-					 &buf[count],
-					 "FW Version: n/a (fw not running)\n");
+	ret = sysfs_chk_fw_status(vk, FIRMWARE_STATUS_PRE_INIT_DONE,
+				  &buf[count],
+				  "FW Version: n/a (fw not running)\n");
 	if (ret)
 		return (ret + count);
 
@@ -327,8 +327,8 @@ static ssize_t rev_boot2_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
 	/* Check if FIRMWARE_STATUS_PRE_INIT_DONE */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, FIRMWARE_STATUS_PRE_INIT_DONE,
-					 buf, "n/a\n");
+	ret = sysfs_chk_fw_status(vk, FIRMWARE_STATUS_PRE_INIT_DONE,
+				  buf, "n/a\n");
 	if (ret)
 		return ret;
 
@@ -533,8 +533,8 @@ static ssize_t card_state_show(struct device *dev,
 	p_buf += ret;
 
 	/* if OS is not running, no one will update the value */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, VK_FWSTS_READY, p_buf,
-					 "card_state: n/a (fw not running)\n");
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, p_buf,
+				  "card_state: n/a (fw not running)\n");
 	if (ret) {
 		p_buf += ret;
 		return (p_buf - buf);
@@ -614,8 +614,7 @@ static ssize_t mem_ecc_show(struct device *dev,
 	uint32_t ecc_mem_err;
 
 	/* if OS is not running, no one will update the value */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf,
-					 "0\n");
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
 	if (ret)
 		return ret;
 
@@ -638,8 +637,7 @@ static ssize_t mem_uecc_show(struct device *dev,
 	uint32_t uecc_mem_err;
 
 	/* if OS is not running, no one will update the value */
-	ret = bcm_vk_sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf,
-					 "0\n");
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
 	if (ret)
 		return ret;
 
@@ -650,6 +648,49 @@ static ssize_t mem_uecc_show(struct device *dev,
 			     BCM_VK_UECC_MEM_ERR_SHIFT);
 
 	return sprintf(buf, "%d\n", uecc_mem_err);
+}
+
+static ssize_t utilization_show(struct device *dev,
+				struct device_attribute *devattr, char *buf)
+{
+	int ret, i;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	struct bcm_vk_proc_mon_info *mon = &vk->proc_mon_info;
+	uint32_t offset;
+	ssize_t cnt = 0;
+
+	/* if OS is not running, no one will update the value */
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "n/a\n");
+	if (ret)
+		return ret;
+
+	/* read the updated info from the card */
+	if (!mon->num)
+		return sprintf(buf, "n/a\n");
+
+	offset = vk->proc_mon_off +
+		 offsetof(struct bcm_vk_proc_mon_info, entries);
+	for (i = 0; i < mon->num; i++) {
+		struct bcm_vk_proc_mon_entry_t *entry;
+
+		entry = &mon->entries[i];
+		entry->used =
+			vkread32(vk, BAR_2,
+				 offset
+				 + offsetof(struct bcm_vk_proc_mon_entry_t,
+					    used));
+
+		cnt += sprintf(&buf[cnt], "%s (%d/%d) - %ld%%\n",
+			       entry->tag,
+			       entry->used,
+			       entry->max,
+			       entry->max ? (entry->used * 100L)
+					     / entry->max : 0);
+		offset += mon->entry_size;
+	}
+
+	return cnt;
 }
 
 static ssize_t peer_alert_show(struct device *dev, char *buf,
@@ -757,8 +798,7 @@ static ssize_t temp_threshold_lower_c_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	uint32_t reg;
 
-	ret = bcm_vk_sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf,
-					 "0\n");
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
 	if (ret)
 		return ret;
 
@@ -780,8 +820,7 @@ static ssize_t temp_threshold_upper_c_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	uint32_t reg;
 
-	ret = bcm_vk_sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf,
-					 "0\n");
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
 	if (ret)
 		return ret;
 
@@ -1028,6 +1067,7 @@ static DEVICE_ATTR_RO(card_state);
 static DEVICE_ATTR_RO(uptime_s);
 static DEVICE_ATTR_RO(mem_ecc);
 static DEVICE_ATTR_RO(mem_uecc);
+static DEVICE_ATTR_RO(utilization);
 static DEVICE_ATTR_RO(alert_ecc);
 static DEVICE_ATTR_RO(alert_ssim_busy);
 static DEVICE_ATTR_RO(alert_afbc_busy);
@@ -1115,6 +1155,7 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_pwr_state.attr,
 	&dev_attr_mem_ecc.attr,
 	&dev_attr_mem_uecc.attr,
+	&dev_attr_utilization.attr,
 	&dev_attr_alert_ecc.attr,
 	&dev_attr_alert_ssim_busy.attr,
 	&dev_attr_alert_afbc_busy.attr,

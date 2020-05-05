@@ -215,6 +215,26 @@ struct bcm_vk_peer_log {
 /* max size per line of peer log */
 #define BCM_VK_PEER_LOG_LINE_MAX  256
 
+/*
+ * single entry for processing type + utilization
+ */
+#define BCM_VK_PROC_TYPE_TAG_LEN 8
+struct bcm_vk_proc_mon_entry_t {
+	char tag[BCM_VK_PROC_TYPE_TAG_LEN];
+	uint32_t used;
+	uint32_t max; /**< max capacity */
+};
+
+/**
+ * Structure for run time utilization
+ */
+#define BCM_VK_PROC_MON_MAX 8 /* max entries supported */
+struct bcm_vk_proc_mon_info {
+	uint32_t num; /**< no of entries */
+	uint32_t entry_size; /**< per entry size */
+	struct bcm_vk_proc_mon_entry_t entries[BCM_VK_PROC_MON_MAX];
+};
+
 struct bcm_vk_hb_ctrl {
 	struct timer_list timer;
 	uint32_t last_uptime;
@@ -238,6 +258,7 @@ struct bcm_vk {
 	int num_irqs;
 
 	struct bcm_vk_card_info card_info;
+	struct bcm_vk_proc_mon_info proc_mon_info;
 	struct bcm_vk_dauth_info dauth_info;
 
 #if defined(BCM_VK_LEGACY_API)
@@ -288,6 +309,8 @@ struct bcm_vk {
 
 	/* offset of the peer log control in BAR2 */
 	uint32_t peerlog_off;
+	/* offset of processing monitoring info in BAR2 */
+	uint32_t proc_mon_off;
 };
 
 /* wq offload work items bits definitions */
