@@ -65,6 +65,7 @@ static const struct load_image_tab image_tab[][NUM_BOOT_STAGES] = {
 #define VK_MSIX_TTY_MAX			BCM_VK_NUM_TTY
 #define VK_MSIX_IRQ_MAX			(VK_MSIX_MSGQ_MAX + VK_MSIX_NOTF_MAX + \
 					 VK_MSIX_TTY_MAX)
+#define VK_MSIX_IRQ_MIN_REQ             (VK_MSIX_MSGQ_MAX + VK_MSIX_NOTF_MAX)
 
 /* Number of bits set in DMA mask*/
 #define BCM_VK_DMA_BITS			64
@@ -1004,14 +1005,15 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 				    VK_MSIX_IRQ_MAX,
 				    PCI_IRQ_MSI | PCI_IRQ_MSIX);
 
-	if (irq < VK_MSIX_IRQ_MAX) {
-		dev_err(dev, "failed to get %d MSIX interrupts, ret(%d)\n",
-			VK_MSIX_IRQ_MAX, irq);
+	if (irq < VK_MSIX_IRQ_MIN_REQ) {
+		dev_err(dev, "failed to get min %d MSIX interrupts, irq(%d)\n",
+			VK_MSIX_IRQ_MIN_REQ, irq);
 		err = (irq >= 0) ? -EINVAL : irq;
 		goto err_disable_pdev;
 	}
 
-	dev_info(dev, "Number of IRQs %d allocated.\n", irq);
+	dev_info(dev, "Number of IRQs %d allocated - requested(%d).\n",
+		 irq, VK_MSIX_IRQ_MAX);
 
 	for (i = 0; i < MAX_BAR; i++) {
 		/* multiple by 2 for 64 bit BAR mapping */
@@ -1045,7 +1047,9 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 	vk->num_irqs++;
 
-	for (i = 0; i < VK_MSIX_TTY_MAX; i++) {
+	for (i = 0;
+	     (i < VK_MSIX_TTY_MAX) && (vk->num_irqs < irq);
+	     i++, vk->num_irqs++) {
 		err = devm_request_irq(dev, pci_irq_vector(pdev, vk->num_irqs),
 				       bcm_vk_tty_irqhandler,
 				       IRQF_SHARED, DRV_MODULE_NAME, vk);
@@ -1055,7 +1059,6 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 			goto err_irq;
 		}
 		vk->tty[i].irq_enabled = true;
-		vk->num_irqs++;
 	}
 
 	id = ida_simple_get(&bcm_vk_ida, 0, 0, GFP_KERNEL);
@@ -1160,6 +1163,7 @@ err_iounmap:
 	pci_release_regions(pdev);
 
 err_disable_pdev:
+	pci_free_irq_vectors(pdev);
 	pci_disable_device(pdev);
 
 	return err;
@@ -1229,6 +1233,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	dev_info(&pdev->dev, "BCM-VK:%d released\n", vk->misc_devid);
 
 	pci_release_regions(pdev);
+	pci_free_irq_vectors(pdev);
 	pci_disable_device(pdev);
 
 	kref_put(&vk->kref, bcm_vk_release_data);
