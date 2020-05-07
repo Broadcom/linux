@@ -147,8 +147,9 @@ struct bcm_vk_msg_chan {
 
 /* reset register and specific values */
 #define VK_BAR0_RESET_DB_NUM		3
-#define VK_BAR0_RESET_DB_SOFT		0xFFFFFFFF
-#define VK_BAR0_RESET_DB_HARD		0xFFFFFFFD
+#define VK_BAR0_RESET_DB_SOFT		0xffffffff
+#define VK_BAR0_RESET_DB_HARD		0xfffffffd
+#define VK_BAR0_RESET_RAMPDUMP		0xa0000000
 
 /* BAR1 message q definition */
 

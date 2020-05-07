@@ -1393,9 +1393,19 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	value &= ~CODEPUSH_MASK;
 	vkwrite32(vk, value, BAR_0, BAR_CODEPUSH_SBL);
 
-	/* reset fw_status with proper reason, and press db */
-	vkwrite32(vk, VK_FWSTS_RESET_MBOX_DB, BAR_0, VK_BAR_FWSTS);
-	bcm_to_v_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_SOFT);
+	if (vk->peer_alert.flags & ERR_LOG_RAMDUMP) {
+		/*
+		 * if card is in ramdump mode, it is hitting an error.  Don't
+		 * reset the reboot reason as it will contain valid info that
+		 * is important - simply use special reset
+		 */
+		vkwrite32(vk, VK_BAR0_RESET_RAMPDUMP, BAR_0, VK_BAR_FWSTS);
+	} else {
+		/* reset fw_status with proper reason, and press db */
+		vkwrite32(vk, VK_FWSTS_RESET_MBOX_DB, BAR_0, VK_BAR_FWSTS);
+		bcm_to_v_doorbell(vk, VK_BAR0_RESET_DB_NUM,
+				  VK_BAR0_RESET_DB_SOFT);
+	}
 
 	/* clear the uptime register after reset pressed and alert record */
 	vkwrite32(vk, 0, BAR_0, BAR_OS_UPTIME);

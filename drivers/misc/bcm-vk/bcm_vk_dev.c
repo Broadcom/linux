@@ -826,7 +826,9 @@ static long bcm_vk_reset(struct bcm_vk *vk, const struct vk_reset __user *arg)
 	if (copy_from_user(&reset, arg, sizeof(struct vk_reset)))
 		return -EFAULT;
 
-	dev_info(dev, "Issue Reset\n");
+	dev_info(dev, "Issue Reset %s\n",
+		 (vk->peer_alert.flags & ERR_LOG_RAMDUMP)
+			 ? "in ramdump mode" : "");
 
 	/*
 	 * The following is the sequence of reset:
