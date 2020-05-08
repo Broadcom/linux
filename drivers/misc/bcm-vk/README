@@ -75,7 +75,13 @@ vk-card-mon/
 	temperature_sensor_1_c	---> CPU die temperature in Celsius
 	temperature_sensor_2_c	---> DDR0 temperature in Celsius
 	temperature_sensor_3_c	---> DDR1 temperature in Celsius
-	utilization		---> runtime video transcoding consumption
+	utilization		---> runtime video transcoding consumption summary
+	utilization_pix 	---> percentage of pixel processing used
+	utilization_pix_used	---> pixel processing used
+	utilization_pix_max	---> max pixel processing value which maps 100% load
+	utilization_codec 	---> percentage of codec sessions used
+	utilization_codec_used	---> codec sessions currently used
+	utilization_codec_max	---> max codec sessions allowed
 	voltage_18_mv		---> 1.8v voltage rail in mv
 	voltage_33_mv		---> 3.3v voltage rail in mv
 

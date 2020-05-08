@@ -215,6 +215,12 @@ struct bcm_vk_peer_log {
 /* max size per line of peer log */
 #define BCM_VK_PEER_LOG_LINE_MAX  256
 
+enum proc_mon_type {
+	PROC_MON_PIXELS = 0, /**< aggregated pixels being processed */
+	PROC_MON_SESS, /**< decoder sessions used */
+	PROC_MON_TYPE_MAX
+};
+
 /*
  * single entry for processing type + utilization
  */

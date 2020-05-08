@@ -650,36 +650,51 @@ static ssize_t mem_uecc_show(struct device *dev,
 	return sprintf(buf, "%d\n", uecc_mem_err);
 }
 
-static ssize_t utilization_show(struct device *dev,
-				struct device_attribute *devattr, char *buf)
+static ssize_t sysfs_utilization_update(struct device *dev, char *buf,
+					enum proc_mon_type type,
+					struct bcm_vk_proc_mon_entry_t
+						**p_entryp)
 {
-	int ret, i;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct bcm_vk_proc_mon_info *mon = &vk->proc_mon_info;
+	struct bcm_vk_proc_mon_entry_t *entry;
 	uint32_t offset;
-	ssize_t cnt = 0;
+	int ret;
 
 	/* if OS is not running, no one will update the value */
 	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "n/a\n");
 	if (ret)
 		return ret;
 
-	/* read the updated info from the card */
-	if (!mon->num)
+	if (type >= mon->num)
 		return sprintf(buf, "n/a\n");
 
 	offset = vk->proc_mon_off +
-		 offsetof(struct bcm_vk_proc_mon_info, entries);
-	for (i = 0; i < mon->num; i++) {
-		struct bcm_vk_proc_mon_entry_t *entry;
+		 offsetof(struct bcm_vk_proc_mon_info, entries) +
+		 (type * mon->entry_size);
 
-		entry = &mon->entries[i];
-		entry->used =
-			vkread32(vk, BAR_2,
-				 offset
-				 + offsetof(struct bcm_vk_proc_mon_entry_t,
-					    used));
+	entry = &mon->entries[type];
+	entry->used = vkread32(vk, BAR_2,
+			       offset +
+			       offsetof(struct bcm_vk_proc_mon_entry_t,
+					used));
+	*p_entryp = entry;
+
+	return 0;
+}
+
+static ssize_t utilization_show(struct device *dev,
+				struct device_attribute *devattr, char *buf)
+{
+	int ret, i;
+	ssize_t cnt = 0;
+	struct bcm_vk_proc_mon_entry_t *entry;
+
+	for (i = 0; i < PROC_MON_TYPE_MAX; i++) {
+		ret = sysfs_utilization_update(dev, &buf[cnt], i, &entry);
+		if (ret)
+			return (ret + cnt);
 
 		cnt += sprintf(&buf[cnt], "%s (%d/%d) - %ld%%\n",
 			       entry->tag,
@@ -687,10 +702,95 @@ static ssize_t utilization_show(struct device *dev,
 			       entry->max,
 			       entry->max ? (entry->used * 100L)
 					     / entry->max : 0);
-		offset += mon->entry_size;
 	}
 
 	return cnt;
+}
+
+static ssize_t utilization_pix_show(struct device *dev,
+				    struct device_attribute *devattr,
+				    char *buf)
+{
+	struct bcm_vk_proc_mon_entry_t *entry;
+	int ret;
+
+	ret = sysfs_utilization_update(dev, buf, PROC_MON_PIXELS, &entry);
+	if (ret)
+		return ret;
+
+	return sprintf(buf, "%ld\n",
+		       (entry->max) ? (entry->used * 100L) / entry->max : 0);
+}
+
+static ssize_t utilization_pix_used_show(struct device *dev,
+					 struct device_attribute *devattr,
+					 char *buf)
+{
+	struct bcm_vk_proc_mon_entry_t *entry;
+	int ret;
+
+	ret = sysfs_utilization_update(dev, buf, PROC_MON_PIXELS, &entry);
+	if (ret)
+		return ret;
+
+	return sprintf(buf, "%d\n", entry->used);
+}
+
+static ssize_t utilization_pix_max_show(struct device *dev,
+					struct device_attribute *devattr,
+					char *buf)
+{
+	struct bcm_vk_proc_mon_entry_t *entry;
+	int ret;
+
+	ret = sysfs_utilization_update(dev, buf, PROC_MON_PIXELS, &entry);
+	if (ret)
+		return ret;
+
+	return sprintf(buf, "%d\n", entry->max);
+}
+
+static ssize_t utilization_codec_show(struct device *dev,
+				      struct device_attribute *devattr,
+				      char *buf)
+{
+	struct bcm_vk_proc_mon_entry_t *entry;
+	int ret;
+
+	ret = sysfs_utilization_update(dev, buf, PROC_MON_SESS, &entry);
+	if (ret)
+		return ret;
+
+	return sprintf(buf, "%ld\n",
+		       (entry->max) ? (entry->used * 100L) / entry->max : 0);
+}
+
+static ssize_t utilization_codec_used_show(struct device *dev,
+					   struct device_attribute *devattr,
+					   char *buf)
+{
+	struct bcm_vk_proc_mon_entry_t *entry;
+	int ret;
+
+	ret = sysfs_utilization_update(dev, buf, PROC_MON_SESS, &entry);
+	if (ret)
+		return ret;
+
+	return sprintf(buf, "%d\n", entry->used);
+}
+
+static ssize_t utilization_codec_max_show(struct device *dev,
+					  struct device_attribute *devattr,
+					  char *buf)
+{
+	struct bcm_vk_proc_mon_entry_t *entry;
+	int ret;
+
+	ret = sysfs_utilization_update(dev, buf, PROC_MON_SESS, &entry);
+	if (ret)
+		return ret;
+
+	return sprintf(buf, "%d\n", entry->max);
 }
 
 static ssize_t peer_alert_show(struct device *dev, char *buf,
@@ -1068,6 +1168,12 @@ static DEVICE_ATTR_RO(uptime_s);
 static DEVICE_ATTR_RO(mem_ecc);
 static DEVICE_ATTR_RO(mem_uecc);
 static DEVICE_ATTR_RO(utilization);
+static DEVICE_ATTR_RO(utilization_pix);
+static DEVICE_ATTR_RO(utilization_pix_used);
+static DEVICE_ATTR_RO(utilization_pix_max);
+static DEVICE_ATTR_RO(utilization_codec);
+static DEVICE_ATTR_RO(utilization_codec_used);
+static DEVICE_ATTR_RO(utilization_codec_max);
 static DEVICE_ATTR_RO(alert_ecc);
 static DEVICE_ATTR_RO(alert_ssim_busy);
 static DEVICE_ATTR_RO(alert_afbc_busy);
@@ -1156,6 +1262,12 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_mem_ecc.attr,
 	&dev_attr_mem_uecc.attr,
 	&dev_attr_utilization.attr,
+	&dev_attr_utilization_pix.attr,
+	&dev_attr_utilization_pix_used.attr,
+	&dev_attr_utilization_pix_max.attr,
+	&dev_attr_utilization_codec.attr,
+	&dev_attr_utilization_codec_used.attr,
+	&dev_attr_utilization_codec_max.attr,
 	&dev_attr_alert_ecc.attr,
 	&dev_attr_alert_ssim_busy.attr,
 	&dev_attr_alert_afbc_busy.attr,
