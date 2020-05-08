@@ -30,6 +30,13 @@
 #define DRV_MODULE_NAME		"bcm-vk"
 
 /*
+ * define to make poll method backward compatible
+ */
+#if defined(BCM_VK_LEGACY_POLL)
+#define __poll_t unsigned int
+#endif
+
+/*
  * Load Image is completed in two stages:
  *
  * 1) When the VK device boot-up, M7 CPU runs and executes the BootROM.
