@@ -8,6 +8,7 @@
 #include <linux/hash.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>
+#include <linux/module.h>
 #include <linux/poll.h>
 #include <linux/sizes.h>
 #include <linux/spinlock.h>
@@ -21,6 +22,16 @@
 #define BCM_VK_MSG_Q_SHIFT	 4
 #define BCM_VK_MSG_Q_MASK	 0xF
 #define BCM_VK_MSG_ID_MASK	 0xFFF
+
+/* module parameter */
+static bool hb_mon = true;
+module_param(hb_mon, bool, 0444);
+MODULE_PARM_DESC(hb_mon, "Monitoring heartbeat continuously.\n");
+
+static bool hb_mon_is_on(void)
+{
+	return hb_mon;
+}
 
 static uint32_t get_q_num(const struct vk_msg_blk *msg)
 {
@@ -169,7 +180,8 @@ static void bcm_vk_hb_poll(struct timer_list *t)
 						 timer);
 	struct bcm_vk *vk = container_of(hb, struct bcm_vk, hb_ctrl);
 
-	if (bcm_vk_drv_access_ok(vk)) {
+	if (bcm_vk_drv_access_ok(vk) &&
+	    hb_mon_is_on()) {
 		/* read uptime from register and compare */
 		uptime_s = vkread32(vk, BAR_0, BAR_OS_UPTIME);
 
