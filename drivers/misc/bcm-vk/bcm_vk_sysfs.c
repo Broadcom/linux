@@ -389,6 +389,12 @@ static ssize_t firmware_status_show(struct device *dev,
 		{VK_BAR_FWSTS, fw_shutdown_reg_tab,
 		 ARRAY_SIZE(fw_shutdown_reg_tab),
 		 "Last Reset status"},
+		{VK_BAR_COP_FWSTS, fw_status_reg_tab,
+		 ARRAY_SIZE(fw_status_reg_tab),
+		 "FW status cop"},
+		{VK_BAR_COP_FWSTS, fw_shutdown_reg_tab,
+		 ARRAY_SIZE(fw_shutdown_reg_tab),
+		 "Last Reset status cop"},
 	};
 
 	reg_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
