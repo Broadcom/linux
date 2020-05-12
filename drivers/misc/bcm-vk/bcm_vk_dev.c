@@ -817,18 +817,19 @@ reset_exit:
 	return ret;
 }
 
-static long bcm_vk_reset(struct bcm_vk *vk, const struct vk_reset __user *arg)
+static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
 {
 	struct device *dev = &vk->pdev->dev;
 	struct vk_reset reset;
 	int ret = 0;
+	uint32_t ramdump_reset;
 
 	if (copy_from_user(&reset, arg, sizeof(struct vk_reset)))
 		return -EFAULT;
 
+	ramdump_reset = vk->peer_alert.flags & ERR_LOG_RAMDUMP;
 	dev_info(dev, "Issue Reset %s\n",
-		 (vk->peer_alert.flags & ERR_LOG_RAMDUMP)
-			 ? "in ramdump mode" : "");
+		 ramdump_reset ? "in ramdump mode" : "");
 
 	/*
 	 * The following is the sequence of reset:
@@ -860,8 +861,13 @@ static long bcm_vk_reset(struct bcm_vk *vk, const struct vk_reset __user *arg)
 	 */
 	msleep(BCM_VK_DEINIT_TIME_MS);
 
-	ret = bcm_vk_reset_successful(vk);
-
+	if (ramdump_reset) {
+		/* if it is special ramdump reset, return the type to user */
+		reset.arg2 = ramdump_reset;
+		copy_to_user(arg, &reset, sizeof(reset));
+	} else {
+		ret = bcm_vk_reset_successful(vk);
+	}
 	return ret;
 }
 
@@ -893,7 +899,7 @@ static long bcm_vk_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	long ret = -EINVAL;
 	struct bcm_vk_ctx *ctx = file->private_data;
 	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk, miscdev);
-	const void __user *argp = (void __user *)arg;
+	void __user *argp = (void __user *)arg;
 
 	dev_dbg(&vk->pdev->dev,
 		"ioctl, cmd=0x%02x, arg=0x%02lx\n",
