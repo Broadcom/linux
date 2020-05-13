@@ -384,6 +384,32 @@
 		};
 	};
 
+	pcie0: pcie@5400000000 {
+		compatible = "pci-host-ecam-generic";
+		reg = <0x54 0x00000000 0x0 0x10000000>;
+		reg-names = "PCI ECAM";
+		linux,pci-domain = <0>;
+		bus-range = <0x0 0xff>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &gic 0 GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 2 &gic 0 GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 3 &gic 0 GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 4 &gic 0 GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>;
+
+		ranges = <0x83000000 0x0 0x4000000 0x0 0x4000000 0 0x2000000>,
+			 <0x43000000 0x40 0x00000000 0x40 0x00000000 0x1 0x00000000>;
+		dma-ranges = <0x0 0x00 0x00000000 0x00 0x00000000 0x100 0x00000000>;
+		dma-coherent;
+		msi-map = <0x0 &gic_its1 0x0 0xFFFF>; /* PF0 */
+		iommu-map = <0x0 &smmu 0x0 0xFFFF>; /* PF0 */
+		status = "disabled";
+	};
+
 	pcie8: pcie@20000000 {
 		compatible = "pci-host-ecam-generic";
 		reg = <0x0 0x40800000  0x0 0x800000>;
