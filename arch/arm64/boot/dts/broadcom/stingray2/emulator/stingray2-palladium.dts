@@ -60,7 +60,6 @@
 	non-removable;
 	no-sdio;
 	no-sd;
-	no-1-8-v;
 	status = "okay";
 };
 
@@ -68,7 +67,6 @@
 	non-removable;
 	no-sdio;
 	no-sd;
-	no-1-8-v;
 	status = "okay";
 };
 

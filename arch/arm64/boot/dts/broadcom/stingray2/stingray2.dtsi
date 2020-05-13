@@ -363,14 +363,14 @@
 
 	mmc {
 		compatible = "simple-bus";
-		dma-ranges;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges = <0x0 0x0 0x63200000 0x100000>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges = <0x0 0x0 0x0 0x63200000 0x0 0x100000>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x100 0x0>;
 
 		sdio0: sdhci@90000 {
-			compatible = "brcm,sdhci-iproc";
-			reg = <0x90000 0x100>;
+			compatible = "brcm,sdhci-iproc-v2";
+			reg = <0x0 0x90000 0x0 0x100>;
 			interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 			clocks = <&sdio0_clk>;
@@ -380,8 +380,8 @@
 		};
 
 		sdio1: sdhci@80000 {
-			compatible = "brcm,sdhci-iproc";
-			reg = <0x80000 0x100>;
+			compatible = "brcm,sdhci-iproc-v2";
+			reg = <0x0 0x80000 0x0 0x100>;
 			interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 			clocks = <&sdio1_clk>;
