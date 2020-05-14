@@ -9,6 +9,7 @@ Required properties:
 	       "brcm,bcm2711-emmc2"
 	       "brcm,sdhci-iproc-cygnus"
 	       "brcm,sdhci-iproc"
+	       "brcm,sdhci-iproc-v2"
 
 Use brcm2835-sdhci for the eMMC controller on the BCM2835 (Raspberry Pi) and
 bcm2711-emmc2 for the additional eMMC2 controller on BCM2711.
@@ -18,6 +19,9 @@ restricted to 32bit host accesses to SDHCI registers.
 
 Use sdhci-iproc for Broadcom SDHCI Controllers that allow standard
 8, 16, 32-bit host access to SDHCI register.
+
+Use sdhci-iproc-v2 for Broadcom SDHCI Controllers that allow standard
+8, 16, 32-bit host access to SDHCI register and 64-bit DMA address.
 
 - clocks : The clock feeding the SDHCI controller.
 
