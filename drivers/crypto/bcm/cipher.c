@@ -1273,6 +1273,10 @@ static int spu_aead_tx_sg_create(struct brcm_message *mssg,
 		memset(rctx->msg_buf.tx_stat, 0, stat_len);
 		sg_set_buf(sg, rctx->msg_buf.tx_stat, stat_len);
 	}
+
+	/* Mark end if src sg entries not reached upto tx_frag_num */
+	spu_sg_mark_end(mssg->spu.src);
+
 	return 0;
 }
 

@@ -12,6 +12,24 @@
 #define SPU_OFIFO_CTRL      0x40
 #define SPU_FIFO_WATERMARK  0x1FF
 
+/*
+ * Mark the end at an scatterlist entry after which
+ * only empty entries exist.
+ */
+void spu_sg_mark_end(struct scatterlist *sg)
+{
+	struct scatterlist *s = sg;
+
+	while (sg_next(s)) {
+		if (!sg_next(s)->length) {
+			sg_mark_end(s);
+			return;
+		}
+		s = sg_next(s);
+	}
+	sg_mark_end(s);
+}
+
 /**
  * spu_sg_at_offset() - Find the scatterlist entry at a given distance from the
  * start of a scatterlist.
