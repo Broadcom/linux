@@ -25,6 +25,9 @@
 /* Sideload 64MB */
 /memreserve/ 0xbc000000 0x04000000;
 
+/* SMMU-v3 tables */
+/memreserve/ 0x89000000 0x01000000;
+
 #include "../stingray2.dtsi"
 
 / {
