@@ -401,4 +401,11 @@
 		iommu-map = <0x100 &smmu 0xe0000 0x8>; /* PF0 - PF7 */
 		status = "disabled";
 	};
+
+	firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+	};
 };
