@@ -1402,7 +1402,7 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	 * codepush.
 	 */
 	value = vkread32(vk, BAR_0, BAR_CODEPUSH_SBL);
-	value &= ~CODEPUSH_MASK;
+	value &= CODEPUSH_MASK;
 	vkwrite32(vk, value, BAR_0, BAR_CODEPUSH_SBL);
 
 	if (vk->peer_alert.flags & ERR_LOG_RAMDUMP) {
