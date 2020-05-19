@@ -1247,6 +1247,38 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	kref_put(&vk->kref, bcm_vk_release_data);
 }
 
+static void bcm_vk_shutdown(struct pci_dev *pdev)
+{
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	uint32_t reg, boot_stat;
+
+	reg = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
+	boot_stat = reg & BOOT_STATE_MASK;
+
+	if (boot_stat == BOOT1_RUNNING) {
+		/* simply trigger a reset interrupt to park it */
+		bcm_vk_trigger_reset(vk);
+	} else if (boot_stat == BROM_NOT_RUN) {
+		int err;
+		uint16_t lnksta;
+
+		/*
+		 * The boot status only reflects boot condition since last reset
+		 * As ucode will run only once to configure pcie, if multiple
+		 * resets happen, we lost track if ucode has run or not.
+		 * Here, read the current link speed and use that to
+		 * sync up the bootstatus properly so that on reboot-back-up,
+		 * it has the proper state to start with autoload
+		 */
+		err = pcie_capability_read_word(pdev, PCI_EXP_LNKSTA, &lnksta);
+		if (!err &&
+		    (lnksta & PCI_EXP_LNKSTA_CLS) != PCI_EXP_LNKSTA_CLS_2_5GB) {
+			reg |= BROM_STATUS_COMPLETE;
+			vkwrite32(vk, reg, BAR_0, BAR_BOOT_STATUS);
+		}
+	}
+}
+
 static const struct pci_device_id bcm_vk_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_VALKYRIE), },
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_VIPER), },
@@ -1259,6 +1291,7 @@ static struct pci_driver pci_driver = {
 	.id_table = bcm_vk_ids,
 	.probe    = bcm_vk_probe,
 	.remove   = bcm_vk_remove,
+	.shutdown = bcm_vk_shutdown,
 };
 module_pci_driver(pci_driver);
 
