@@ -864,7 +864,8 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
 	if (ramdump_reset) {
 		/* if it is special ramdump reset, return the type to user */
 		reset.arg2 = ramdump_reset;
-		copy_to_user(arg, &reset, sizeof(reset));
+		if (copy_to_user(arg, &reset, sizeof(reset)))
+			ret = -EFAULT;
 	} else {
 		ret = bcm_vk_reset_successful(vk);
 	}
