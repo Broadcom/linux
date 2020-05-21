@@ -16,7 +16,6 @@ enum brcm_message_type {
 	BRCM_MESSAGE_BATCH,
 	BRCM_MESSAGE_SPU,
 	BRCM_MESSAGE_SBA,
-	BRCM_MESSAGE_PKI,
 	BRCM_MESSAGE_MAX,
 };
 
@@ -52,11 +51,6 @@ struct brcm_message {
 			struct brcm_sba_command *cmds;
 			unsigned int cmds_count;
 		} sba;
-		struct {
-			struct scatterlist *src;
-			struct scatterlist *dst;
-			u64 cmd;
-		} pki;
 	};
 	void *ctx;
 	int error;
