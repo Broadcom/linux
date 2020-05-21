@@ -503,230 +503,6 @@ free_cmsg:
 	return rc;
 }
 
-#define POINT_MULTI_DST_SIZE (8 * 3)
-#define POINT_MULTI_SRC_SIZE (8 * 5)
-#define POINT_MULTI_PARAM_SIZE 8
-#define PKI_ECC_POINT_MUL_64_TYPE 0x0
-#define PKI_ECC_POINT_MUL_64_FUNC 0x0
-#define IMM_DESC_DATA_TYPE_SHIFT  46
-#define IMM_DESC_DATA_FUNC_SHIFT  40
-
-struct ecc_testvec {
-	char *p_x;
-	char *p_y;
-	char *q_x;
-	char *q_y;
-	char *p;
-	char *k;
-	char *a;
-	char *b;
-	char *r_x;
-	char *r_y;
-	char *r_z;
-};
-
-static const struct ecc_testvec ecc_prime_mul_64_testvec = {
-	.p_x = "1ffffffffffffffc",
-	.p_y = "0000000000000000",
-	.q_x = "",
-	.q_y = "",
-	.p = "0000000000000000",
-	.k = "ffffffffffffffff",
-	.a = "1fffffffffffffff",
-	.b = "",
-	.r_x = "1ffffffffffffffc",
-	.r_y = "0000000000000000",
-	.r_z = "0000000000000000",
-};
-
-static int __pki_exec(struct fs4_test *test)
-{
-	int rc = 0, i = 0;
-	unsigned int iter = 0, b, s;
-	unsigned long tout;
-	struct scatterlist *src;
-	struct scatterlist *dst;
-	struct mbox_chan *chan;
-	struct fs4_test_msg *cmsg;
-	s64 iter_usecs, total_usecs = 0;
-	unsigned long start, end;
-
-	cmsg = devm_kzalloc(test->dev, sizeof(*cmsg), GFP_KERNEL);
-	if (!cmsg)
-		return -ENOMEM;
-
-	src = devm_kzalloc(test->dev, sizeof(*src) * FS4_MAX_BATCH_COUNT,
-				GFP_KERNEL);
-	if (!src) {
-		rc = -ENOMEM;
-		goto free_cmsg;
-	}
-
-	dst = devm_kzalloc(test->dev, sizeof(*dst) * FS4_MAX_BATCH_COUNT,
-				GFP_KERNEL);
-	if (!dst) {
-		rc = -ENOMEM;
-		goto free_src_scatlist;
-	}
-
-	for (b = 0; b < test->batch_count; b++) {
-		cmsg->src[b] = devm_kzalloc(test->dev,
-					    POINT_MULTI_SRC_SIZE,
-					    GFP_KERNEL);
-		if (!cmsg->src[b]) {
-			rc = -ENOMEM;
-			goto free_src;
-		}
-		memcpy(cmsg->src[b], ecc_prime_mul_64_testvec.p_x,
-			POINT_MULTI_PARAM_SIZE);
-
-		memcpy(cmsg->src[b] + POINT_MULTI_PARAM_SIZE * 1,
-			ecc_prime_mul_64_testvec.p_y,
-			POINT_MULTI_PARAM_SIZE);
-
-		memcpy(cmsg->src[b] + POINT_MULTI_PARAM_SIZE * 2,
-			ecc_prime_mul_64_testvec.p,
-			POINT_MULTI_PARAM_SIZE);
-
-		memcpy(cmsg->src[b] + POINT_MULTI_PARAM_SIZE * 3,
-			ecc_prime_mul_64_testvec.k,
-			POINT_MULTI_PARAM_SIZE);
-
-		memcpy(cmsg->src[b] + POINT_MULTI_PARAM_SIZE * 4,
-			ecc_prime_mul_64_testvec.a,
-			POINT_MULTI_PARAM_SIZE);
-
-		cmsg->dst[b] = devm_kzalloc(test->dev,
-					    POINT_MULTI_DST_SIZE,
-					    GFP_KERNEL);
-		if (!cmsg->dst[b]) {
-			rc = -ENOMEM;
-			goto free_dst;
-		}
-
-		sg_init_one(&src[b], cmsg->src[b],
-			    POINT_MULTI_SRC_SIZE);
-		sg_init_one(&dst[b], cmsg->dst[b],
-			    POINT_MULTI_DST_SIZE);
-	}
-
-	fs4_info(test, "batch_count: %d\n", test->batch_count);
-	for (b = 0; b < test->batch_count; b++) {
-		cmsg->msg[b].type = BRCM_MESSAGE_PKI;
-		cmsg->msg[b].pki.cmd =
-			(uint64_t)(PKI_ECC_POINT_MUL_64_TYPE) <<
-			IMM_DESC_DATA_TYPE_SHIFT
-			| (uint64_t)(PKI_ECC_POINT_MUL_64_FUNC) <<
-			IMM_DESC_DATA_FUNC_SHIFT;
-		cmsg->msg[b].pki.src = &src[b];
-		cmsg->msg[b].pki.dst = &dst[b];
-		cmsg->msg[b].ctx = cmsg;
-		cmsg->msg[b].error = 0;
-		cmsg->msg_count = 1;
-	}
-
-	cmsg->msg_count = test->batch_count;
-	b = cmsg->msg_count / test->mchans_count;
-	if ((b * test->mchans_count) < cmsg->msg_count)
-		b++;
-	s = 0;
-	cmsg->bmsg_count = 0;
-
-	while (s < cmsg->msg_count) {
-		i = min((cmsg->msg_count - s), b);
-		cmsg->bmsg[cmsg->bmsg_count].type = BRCM_MESSAGE_BATCH;
-		cmsg->bmsg[cmsg->bmsg_count].batch.msgs = &cmsg->msg[s];
-		cmsg->bmsg[cmsg->bmsg_count].batch.msgs_queued = 0;
-		cmsg->bmsg[cmsg->bmsg_count].batch.msgs_count = i;
-		fs4_debug(test, "batch%d msg_idx=%d msg_count=%d\n",
-			  cmsg->bmsg_count, s, i);
-		cmsg->bmsg_count++;
-		s += i;
-	}
-
-	for (start = jiffies, end = start + test->secs * HZ;
-			 time_before(jiffies, end);) {
-
-		atomic_set(&cmsg->done_count, cmsg->msg_count);
-		init_completion(&cmsg->done);
-		cmsg->start_ktime = ktime_get();
-		cmsg->runtime_usecs = 0;
-
-		for (b = 0; b < cmsg->bmsg_count; b++) {
-			chan = test->mchans[test->chan];
-			test->chan++;
-			if (test->chan >= test->mchans_count)
-				test->chan = 0;
-
-			cmsg->bmsg[b].batch.msgs_queued = 0;
-			rc = mbox_send_message(chan, &cmsg->bmsg[b]);
-			if (rc < 0) {
-				fs4_info(test, "iter=%u send error\n", iter);
-				break;
-			}
-			rc = 0;
-
-			if (cmsg->bmsg[b].error < 0) {
-				rc = cmsg->bmsg[b].error;
-				break;
-			}
-			/* Signal txdone for mailbox channel */
-			mbox_client_txdone(chan, rc);
-		}
-		if (rc < 0)
-			break;
-
-		if (test->poll) {
-			while (atomic_read(&cmsg->done_count) > 0)
-				for (i = 0; i < test->mchans_count; i++)
-					mbox_client_peek_data(test->mchans[i]);
-		} else {
-			tout = (unsigned long)test->timeout * 1000;
-			tout = msecs_to_jiffies(tout);
-			tout = wait_for_completion_timeout(&cmsg->done, tout);
-			if (!tout) {
-				fs4_info(test, "iter=%u wait timeout\n", iter);
-				rc = -ETIMEDOUT;
-				break;
-			}
-		}
-
-		rc = 0;
-		for (i = 0; i < cmsg->msg_count; i++)
-			if (cmsg->msg[b].error < 0) {
-				fs4_info(test, "iter=%u msg=%d rx error\n",
-					 iter, i);
-				rc = cmsg->msg[b].error;
-			}
-		if (rc < 0)
-			break;
-
-		iter_usecs = cmsg->runtime_usecs;
-		total_usecs += iter_usecs;
-		iter++;
-	}
-
-	fs4_info(test, "completed iterations %u batch count :%u in secs %u\n",
-		 iter, test->batch_count, test->secs);
-	fs4_info(test, "ops %u total usecs=%lld\n", iter*test->batch_count,
-		total_usecs);
-
-free_dst:
-	for (b = 0; b < test->batch_count; b++)
-		if (cmsg->dst[b])
-			devm_kfree(test->dev, cmsg->dst[b]);
-free_src:
-	for (b = 0; b < test->batch_count; b++)
-		if (cmsg->src[b])
-			devm_kfree(test->dev, cmsg->src[b]);
-	devm_kfree(test->dev, dst);
-free_src_scatlist:
-	devm_kfree(test->dev, src);
-free_cmsg:
-	devm_kfree(test->dev, cmsg);
-	return rc;
-}
-
 /* SBA command helper macros */
 #define SBA_DEC(_d, _s, _m)		(((_d) >> (_s)) & (_m))
 #define SBA_ENC(_d, _v, _s, _m)		\
@@ -1101,11 +877,6 @@ static int __sba_memcpy_exec(struct fs4_test *test)
 	unsigned int split_count, split_size, split_buf_count;
 	s64 iter_usecs, min_usecs = 0, max_usecs = 0, avg_usecs = 0;
 	unsigned long long iter_KBs, min_KBs = 0, max_KBs = 0, avg_KBs = 0;
-
-	fs4_info(test, "batch_count=%u min_split_size=%u\n",
-		 test->batch_count, test->min_split_size);
-	fs4_info(test, "update=%u src_size=%u src_count=%u\n",
-		 test->update, test->src_size, test->src_count);
 
 	if (test->batch_count > FS4_MAX_BATCH_COUNT) {
 		fs4_info(test, "batch_count should be less than %d\n",
@@ -1658,11 +1429,6 @@ static int __sba_xor_exec(struct fs4_test *test)
 	unsigned int split_count, split_size, split_buf_count;
 	s64 iter_usecs, min_usecs = 0, max_usecs = 0, avg_usecs = 0;
 	unsigned long long iter_KBs, min_KBs = 0, max_KBs = 0, avg_KBs = 0;
-
-	fs4_info(test, "batch_count=%u min_split_size=%u\n",
-		 test->batch_count, test->min_split_size);
-	fs4_info(test, "update=%u src_size=%u src_count=%u\n",
-		 test->update, test->src_size, test->src_count);
 
 	if (test->batch_count > FS4_MAX_BATCH_COUNT) {
 		fs4_info(test, "batch_count should be less than %d\n",
@@ -2546,11 +2312,6 @@ static int __sba_pq_exec(struct fs4_test *test)
 	s64 iter_usecs, min_usecs = 0, max_usecs = 0, avg_usecs = 0;
 	unsigned long long iter_KBs, min_KBs = 0, max_KBs = 0, avg_KBs = 0;
 
-	fs4_info(test, "batch_count=%u min_split_size=%u\n",
-		 test->batch_count, test->min_split_size);
-	fs4_info(test, "update=%u src_size=%u src_count=%u\n",
-		 test->update, test->src_size, test->src_count);
-
 	if (test->batch_count > FS4_MAX_BATCH_COUNT) {
 		fs4_info(test, "batch_count should be less than %d\n",
 			 (int)FS4_MAX_BATCH_COUNT);
@@ -2843,7 +2604,10 @@ static void __fs4_do_test(struct fs4_test *test)
 			 test->verify);
 		fs4_info(test, "verbose=%u poll=%u software=%u\n",
 			 test->verbose, test->poll, test->software);
-
+		fs4_info(test, "batch_count=%u min_split_size=%u\n",
+			 test->batch_count, test->min_split_size);
+		fs4_info(test, "update=%u src_size=%u src_count=%u\n",
+			 test->update, test->src_size, test->src_count);
 		rc = test->exec_func(test);
 		test->start = 0;
 
@@ -2908,7 +2672,6 @@ static const struct of_device_id fs4_test_of_match[] = {
 { .compatible = "brcm,fs4-test-sba-memcpy", .data = __sba_memcpy_exec, },
 { .compatible = "brcm,fs4-test-sba-xor", .data = __sba_xor_exec, },
 { .compatible = "brcm,fs4-test-sba-pq", .data = __sba_pq_exec, },
-{ .compatible = "brcm,fs4-test-pki", .data = __pki_exec, },
 {},};
 MODULE_DEVICE_TABLE(of, fs4_test_of_match);
 
