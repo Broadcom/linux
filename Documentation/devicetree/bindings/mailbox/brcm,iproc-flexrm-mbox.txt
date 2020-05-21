@@ -8,9 +8,7 @@ hardware block where each mailbox channel is a separate FlexRM ring.
 
 Required properties:
 --------------------
-- compatible:	Should be
-		- "brcm,iproc-flexrm-mbox" : FlexRM4 IP
-		- "brcm,iproc-flexrm-mbox-v2" : FlexRM6 IP
+- compatible:	Should be "brcm,iproc-flexrm-mbox"
 - reg:		Specifies base physical address and size of the FlexRM
 		ring registers
 - msi-parent:	Phandles (and potential Device IDs) to MSI controllers
