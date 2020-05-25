@@ -518,16 +518,35 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
+		uint32_t reg;
+
 		/* wait until done */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS,
 				  BOOT1_RUNNING,
 				  BOOT1_RUNNING,
 				  BOOT1_STARTUP_TIMEOUT_MS);
-		if (ret) {
+
+		reg = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
+		if (ret && !(reg & BOOT1_STDALONE_RUNNING)) {
 			dev_err(dev,
 				"Timeout %ld ms waiting for boot1 to come up\n",
 				BOOT1_STARTUP_TIMEOUT_MS);
 			goto err_firmware_out;
+		} else if (reg & BOOT1_STDALONE_RUNNING) {
+			reg = vkread32(vk, BAR_0, BAR_BOOT1_STDALONE_PROGRESS);
+			if ((reg & BOOT1_STDALONE_PROGRESS_MASK) ==
+				     BOOT1_STDALONE_SUCCESS) {
+				dev_info(dev,
+					 "Boot1 stanadlone success - hard reset issued\n");
+				bcm_to_v_doorbell(vk, VK_BAR0_RESET_DB_NUM,
+						  VK_BAR0_RESET_DB_HARD);
+				ret = 0;
+			} else {
+				dev_err(dev, "Timeout %ld ms - Boot1 standalone failure\n",
+					BOOT1_STARTUP_TIMEOUT_MS);
+				ret = -EINVAL;
+				goto err_firmware_out;
+			}
 		}
 	} else if (load_type == VK_IMAGE_TYPE_BOOT2) {
 		unsigned long timeout;

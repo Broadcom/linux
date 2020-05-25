@@ -70,6 +70,9 @@
 #define FW_LOADER_ACK_IN_PROGRESS	BIT(19)
 #define FW_LOADER_ACK_RCVD_ALL_DATA	BIT(20)
 
+/* Boot1 is running in standalone mode */
+#define BOOT1_STDALONE_RUNNING		BIT(21)
+
 /* definitions for boot status register */
 #define BOOT_STATE_MASK			0xFFF3FFFF
 #define BROM_STATUS_NOT_RUN		0x2
@@ -91,6 +94,10 @@
 /* CARD_STATUS definitions */
 #define CARD_STATUS_TTYVK0_READY	BIT(0)
 #define CARD_STATUS_TTYVK1_READY	BIT(1)
+
+#define BAR_BOOT1_STDALONE_PROGRESS	0x420
+#define BOOT1_STDALONE_SUCCESS		(BIT(13) | BIT(14))
+#define BOOT1_STDALONE_PROGRESS_MASK	BOOT1_STDALONE_SUCCESS
 
 #define BAR_METADATA_VERSION		0x440
 #define BAR_OS_UPTIME			0x444
