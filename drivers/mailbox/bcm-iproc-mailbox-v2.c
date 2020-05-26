@@ -188,7 +188,7 @@ static irqreturn_t iproc_mbox_isr(int irq, void *dev_id)
 {
 	struct iproc_mbox *mbox = (struct iproc_mbox *)dev_id;
 
-	regmap_write(mbox->base, mbox->tx_offset + IPROC_MAIL_BOX_CLR, 1);
+	regmap_write(mbox->base, mbox->rx_offset + IPROC_MAIL_BOX_CLR, 1);
 
 	return IRQ_WAKE_THREAD;
 }
