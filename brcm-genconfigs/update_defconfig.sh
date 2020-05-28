@@ -125,6 +125,7 @@ main() {
 	cat brcm-genconfigs/dbg.cfg >> .config
 	cat brcm-genconfigs/i2c.cfg >> .config
 	cat brcm-genconfigs/i2c-slave.cfg >> .config
+	cat brcm-genconfigs/i2c-x86.cfg >> .config
 	cat brcm-genconfigs/pci.cfg >> .config
 	cat brcm-genconfigs/trace.cfg >> .config
 	cat brcm-genconfigs/usb.cfg >> .config
