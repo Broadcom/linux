@@ -37,7 +37,7 @@
 	chosen { /* HACK: hard-code kernel args and initrd location */
 		bootargs = "root=/dev/ram rw console=ttyAMA1,1200n8 \
 			    earlycon=pl011,mmio32,0x68a10000 cma=64M \
-			    maxcpus=1 pci=pcie_bus_perf pcie_ports=native";
+			    maxcpus=2 pci=pcie_bus_perf pcie_ports=native";
 		linux,initrd-start = <0x0 0x81000000>;
 		linux,initrd-end = <0x0 0x89000000>;
 		stdout-path = "serial0:1200n8";
