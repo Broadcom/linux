@@ -386,35 +386,9 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 	spin_lock(&chan->pendq_lock);
 	for (num = 0; num < chan->q_nr; num++) {
 		list_for_each_entry_safe(entry, tmp, &chan->pendq[num], node) {
-			if (!ctx) {
+			if ((!ctx) || (entry->ctx->idx == ctx->idx)) {
 				list_del(&entry->node);
 				list_add_tail(&entry->node, &del_q);
-			} else if (entry->ctx->idx == ctx->idx) {
-				struct vk_msg_blk *msg;
-				int bit_set;
-				bool responded;
-				uint32_t msg_id;
-
-				/* if it is specific ctx, log for any stuck */
-				msg = entry->to_v_msg;
-				msg_id = get_msg_id(msg);
-				bit_set = test_bit(msg_id, vk->bmap);
-				responded = entry->to_h_msg ? true : false;
-				dev_info(dev,
-					 "Drained: fid %u size %u msg 0x%x(seq-%x) ctx 0x%x[fd-%d] args:[0x%x 0x%x] resp %s, bmap %d\n",
-					 msg->function_id, msg->size,
-					 msg_id, entry->seq_num,
-					 msg->context_id, entry->ctx->idx,
-					 msg->args[0], msg->args[1],
-					 responded ? "T" : "F", bit_set);
-				list_del(&entry->node);
-				list_add_tail(&entry->node, &del_q);
-				if (responded)
-					atomic_dec(&ctx->pend_cnt);
-				else if (bit_set)
-					bcm_vk_msgid_bitmap_clear(vk,
-								  msg_id,
-								  1);
 			}
 		}
 	}
@@ -424,6 +398,29 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 	num = 0;
 	list_for_each_entry_safe(entry, tmp, &del_q, node) {
 		list_del(&entry->node);
+		if (ctx) {
+			struct vk_msg_blk *msg;
+			int bit_set;
+			bool responded;
+			uint32_t msg_id;
+
+			/* if it is specific ctx, log for any stuck */
+			msg = entry->to_v_msg;
+			msg_id = get_msg_id(msg);
+			bit_set = test_bit(msg_id, vk->bmap);
+			responded = entry->to_h_msg ? true : false;
+			dev_info(dev,
+				 "Drained: fid %u size %u msg 0x%x(seq-%x) ctx 0x%x[fd-%d] args:[0x%x 0x%x] resp %s, bmap %d\n",
+				 msg->function_id, msg->size,
+				 msg_id, entry->seq_num,
+				 msg->context_id, entry->ctx->idx,
+				 msg->args[0], msg->args[1],
+				 responded ? "T" : "F", bit_set);
+			if (responded)
+				atomic_dec(&ctx->pend_cnt);
+			else if (bit_set)
+				bcm_vk_msgid_bitmap_clear(vk, msg_id, 1);
+		}
 		bcm_vk_free_wkent(dev, entry);
 		num++;
 	}
