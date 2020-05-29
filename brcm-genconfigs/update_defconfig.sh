@@ -134,6 +134,7 @@ main() {
 	cat brcm-genconfigs/bnxt.cfg >> .config
 	cat brcm-genconfigs/mlnx.cfg >> .config
 	cat brcm-genconfigs/nvme.cfg >> .config
+	cat brcm-genconfigs/ppp.cfg >> .config
 	cat brcm-genconfigs/igb.cfg >> .config
 	cat brcm-genconfigs/vk.cfg >> .config
 	cat brcm-genconfigs/test-firmware.cfg >> .config
