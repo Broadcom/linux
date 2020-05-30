@@ -237,7 +237,7 @@
 
 		mbox_crmu: mbox0 {
 			compatible = "brcm,iproc-mailbox-v2";
-			reg = <0x40000 0x200>;
+			reg = <0x40000 0x180>;
 			interrupts = <GIC_SPI 389 IRQ_TYPE_LEVEL_HIGH>;
 			brcm,iproc-mbox = <&crmu_dmu 0x20 0x00>;
 			brcm,iproc-mbox-ch-count = <16>;
@@ -246,7 +246,7 @@
 
 		mbox_nitro: mbox1 {
 			compatible = "brcm,iproc-mailbox-v2";
-			reg = <0x40200 0x200>;
+			reg = <0x40480 0x180>;
 			interrupts = <GIC_SPI 389 IRQ_TYPE_LEVEL_HIGH>;
 			brcm,iproc-mbox = <&crmu_dmu 0x20 0x30>;
 			brcm,iproc-mbox-ch-count = <16>;
