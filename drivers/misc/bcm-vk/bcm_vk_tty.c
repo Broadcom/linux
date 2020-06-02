@@ -36,7 +36,7 @@ struct bcm_vk_tty_chan {
 #define VK_BAR_CHAN_RD(v, DIR)		VK_BAR_CHAN(v, DIR, rd)
 #define VK_BAR_CHAN_DATA(v, DIR, off)	(VK_BAR_CHAN(v, DIR, data) + (off))
 
-#define VK_BAR0_REGSEG_TTY_DB_OFFSET	0x86C
+#define VK_BAR0_REGSEG_TTY_DB_OFFSET	0x86c
 
 /* Poll every 1/10 of second - temp hack till we use MSI interrupt */
 #define SERIAL_TIMER_VALUE (HZ / 10)

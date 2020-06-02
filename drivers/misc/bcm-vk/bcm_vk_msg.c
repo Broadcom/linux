@@ -180,8 +180,7 @@ static void bcm_vk_hb_poll(struct timer_list *t)
 						 timer);
 	struct bcm_vk *vk = container_of(hb, struct bcm_vk, hb_ctrl);
 
-	if (bcm_vk_drv_access_ok(vk) &&
-	    hb_mon_is_on()) {
+	if (bcm_vk_drv_access_ok(vk) && hb_mon_is_on()) {
 		/* read uptime from register and compare */
 		uptime_s = vkread32(vk, BAR_0, BAR_OS_UPTIME);
 

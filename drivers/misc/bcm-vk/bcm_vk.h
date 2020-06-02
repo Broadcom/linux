@@ -56,7 +56,7 @@
 #define BAR_CODEPUSH_SBL		0x400
 /* Start of ITCM */
 #define CODEPUSH_BOOT1_ENTRY		0x00400000
-#define CODEPUSH_MASK		        0xFFFFF000
+#define CODEPUSH_MASK		        0xfffff000
 #define CODEPUSH_BOOTSTART		BIT(0)
 
 /* Boot Status register */
@@ -74,7 +74,7 @@
 #define BOOT1_STDALONE_RUNNING		BIT(21)
 
 /* definitions for boot status register */
-#define BOOT_STATE_MASK			0xFFF3FFFF
+#define BOOT_STATE_MASK			0xfff3ffff
 #define BROM_STATUS_NOT_RUN		0x2
 #define BROM_NOT_RUN			(SRAM_OPEN | BROM_STATUS_NOT_RUN)
 #define BROM_STATUS_COMPLETE		0x6
@@ -103,16 +103,16 @@
 #define BAR_OS_UPTIME			0x444
 #define BAR_CHIP_ID			0x448
 
-#define BAR_CARD_TEMPERATURE		0x45C
+#define BAR_CARD_TEMPERATURE		0x45c
 /* defines for all temperature sensor */
-#define BCM_VK_TEMP_FIELD_MASK		0xFF
+#define BCM_VK_TEMP_FIELD_MASK		0xff
 #define BCM_VK_CPU_TEMP_SHIFT		0
 #define BCM_VK_DDR0_TEMP_SHIFT		8
 #define BCM_VK_DDR1_TEMP_SHIFT		16
 
 #define BAR_CARD_VOLTAGE		0x460
 /* defines for voltage rail conversion */
-#define BCM_VK_VOLT_RAIL_MASK		0xFFFF
+#define BCM_VK_VOLT_RAIL_MASK		0xffff
 #define BCM_VK_3P3_VOLT_REG_SHIFT	16
 
 #define BAR_CARD_ERR_LOG		0x464
@@ -133,34 +133,34 @@
 
 #define BAR_CARD_ERR_MEM		0x468
 /* defines for mem err, all fields have same width */
-#define BCM_VK_MEM_ERR_FIELD_MASK	0xFF
+#define BCM_VK_MEM_ERR_FIELD_MASK	0xff
 #define BCM_VK_ECC_MEM_ERR_SHIFT	0
 #define BCM_VK_UECC_MEM_ERR_SHIFT	8
 /* threshold of event occurrence and logs start to come out */
 #define BCM_VK_ECC_THRESHOLD		10
 #define BCM_VK_UECC_THRESHOLD		1
 
-#define BAR_CARD_PWR_AND_THRE		0x46C
+#define BAR_CARD_PWR_AND_THRE		0x46c
 /* defines for power and temp threshold, all fields have same width */
-#define BCM_VK_PWR_AND_THRE_FIELD_MASK	0xFF
+#define BCM_VK_PWR_AND_THRE_FIELD_MASK	0xff
 #define BCM_VK_LOW_TEMP_THRE_SHIFT	0
 #define BCM_VK_HIGH_TEMP_THRE_SHIFT	8
 #define BCM_VK_PWR_STATE_SHIFT		16
 
 #define BAR_CARD_STATIC_INFO		0x470
 
-#define BAR_BOOTSRC_SELECT		0xC78
+#define BAR_BOOTSRC_SELECT		0xc78
 /* BOOTSRC definitions */
 #define BOOTSRC_SOFT_ENABLE		BIT(14)
 
 /* Card OS Firmware version size */
 #define BAR_FIRMWARE_TAG_SIZE		50
-#define FIRMWARE_STATUS_PRE_INIT_DONE	0x1F
+#define FIRMWARE_STATUS_PRE_INIT_DONE	0x1f
 
 /* VK MSG_ID defines */
 #define VK_MSG_ID_BITMAP_SIZE		4096
 #define VK_MSG_ID_BITMAP_MASK		(VK_MSG_ID_BITMAP_SIZE - 1)
-#define VK_MSG_ID_OVERFLOW		0xFFFF
+#define VK_MSG_ID_OVERFLOW		0xffff
 
 /* VK device supports a maximum of 3 bars */
 #define MAX_BAR	3
@@ -362,7 +362,7 @@ extern struct bcm_vk_entry const bcm_vk_host_err[BCM_VK_HOST_ERR_NUM];
  * check if PCIe interface is down on read.  Use it when it is
  * certain that _val should never be all ones.
  */
-#define BCM_VK_INTF_IS_DOWN(val) ((val) == 0xFFFFFFFF)
+#define BCM_VK_INTF_IS_DOWN(val) ((val) == 0xffffffff)
 
 static inline u32 vkread32(struct bcm_vk *vk,
 			   enum pci_barno bar,
@@ -441,7 +441,7 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 
 #if defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
 
-#define KERNEL_PREAD_FLAG_PART	0x0001 /* Allow reading part of file */
+#define KERNEL_PREAD_PART	0x0001 /* Allow reading part of file */
 #define REQUEST_FIRMWARE_INTO_BUF request_firmware_into_buf_priv
 int request_firmware_into_buf_priv(const struct firmware **firmware_p,
 				   const char *name, struct device *device,

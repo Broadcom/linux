@@ -16,8 +16,8 @@
 
 #include "bcm_vk.h"
 
-#define PCI_DEVICE_ID_VALKYRIE	0x5E87
-#define PCI_DEVICE_ID_VIPER	0x5E88
+#define PCI_DEVICE_ID_VALKYRIE	0x5e87
+#define PCI_DEVICE_ID_VIPER	0x5e88
 
 static DEFINE_IDA(bcm_vk_ida);
 
@@ -502,7 +502,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 
 	ret = REQUEST_FIRMWARE_INTO_BUF(&fw, filename, dev,
 					bufp, max_buf, 0,
-					KERNEL_PREAD_FLAG_PART);
+					KERNEL_PREAD_PART);
 	if (ret) {
 		dev_err(dev, "Error %d requesting firmware file: %s\n",
 			ret, filename);
@@ -587,7 +587,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 						 dev, bufp,
 						 max_buf,
 						 fw->size,
-						 KERNEL_PREAD_FLAG_PART);
+						 KERNEL_PREAD_PART);
 				if (ret) {
 					dev_err(dev,
 						"Error %d requesting firmware file: %s offset: 0x%zx\n",
