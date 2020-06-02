@@ -25,7 +25,6 @@
 #define BPTTY_CRMU_CORE_INTR_STATUS	0x0
 #define BPTTY_CRMU_CORE_INTR_CLEAR	0x8
 /* Interrupt status/mask/clear bits */
-#define BPTTY_MAILBOX0_INTR		BIT(0)
 #define BPTTY_MAILBOX1_INTR		BIT(5)
 /* MSIX interrupt number to host */
 #define BPTTY_PCIE_MSIX_INTR		4
@@ -113,11 +112,7 @@ static irqreturn_t bptty_interrupt(int irq, void *arg)
 
 	spin_lock_irqsave(&state->lock, flags);
 	stat = readl(state->base + BPTTY_CRMU_CORE_INTR_STATUS);
-	if (stat & BPTTY_MAILBOX0_INTR) {
-		/* clear interrupt */
-		mask = BPTTY_MAILBOX0_INTR;
-		writel(mask, state->base + BPTTY_CRMU_CORE_INTR_CLEAR);
-	} else if (stat & BPTTY_MAILBOX1_INTR) {
+	if (stat & BPTTY_MAILBOX1_INTR) {
 		/* clear interrupt */
 		mask = BPTTY_MAILBOX1_INTR;
 		writel(mask, state->base + BPTTY_CRMU_CORE_INTR_CLEAR);
