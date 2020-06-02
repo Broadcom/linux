@@ -536,10 +536,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			reg = vkread32(vk, BAR_0, BAR_BOOT1_STDALONE_PROGRESS);
 			if ((reg & BOOT1_STDALONE_PROGRESS_MASK) ==
 				     BOOT1_STDALONE_SUCCESS) {
-				dev_info(dev,
-					 "Boot1 stanadlone success - hard reset issued\n");
-				bcm_to_v_doorbell(vk, VK_BAR0_RESET_DB_NUM,
-						  VK_BAR0_RESET_DB_HARD);
+				dev_info(dev, "Boot1 standalone success\n");
 				ret = 0;
 			} else {
 				dev_err(dev, "Timeout %ld ms - Boot1 standalone failure\n",
