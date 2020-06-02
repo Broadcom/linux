@@ -13,6 +13,12 @@
 
 #define BCM_VK_BUS_SYMLINK_NAME		"pci"
 
+enum proc_mon_type {
+	PROC_MON_PIXELS = 0, /**< aggregated pixels being processed */
+	PROC_MON_SESS, /**< decoder sessions used */
+	PROC_MON_TYPE_MAX
+};
+
 struct bcm_vk_sysfs_reg_list {
 	const uint64_t offset;
 	struct bcm_vk_entry const *tab;
