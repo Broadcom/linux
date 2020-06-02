@@ -287,7 +287,8 @@ static void bcm54xx_adjust_rxrefclk(struct phy_device *phydev)
 	/* Abort if we are using an untested phy. */
 	if (BRCM_PHY_MODEL(phydev) != PHY_ID_BCM57780 &&
 	    BRCM_PHY_MODEL(phydev) != PHY_ID_BCM50610 &&
-	    BRCM_PHY_MODEL(phydev) != PHY_ID_BCM50610M)
+	    BRCM_PHY_MODEL(phydev) != PHY_ID_BCM50610M &&
+	    BRCM_PHY_MODEL(phydev) != PHY_ID_BCM54810)
 		return;
 
 	val = bcm_phy_read_shadow(phydev, BCM54XX_SHD_SCR3);
@@ -317,8 +318,12 @@ static void bcm54xx_adjust_rxrefclk(struct phy_device *phydev)
 	else
 		val |= BCM54XX_SHD_SCR3_DLLAPD_DIS;
 
-	if (phydev->dev_flags & PHY_BRCM_DIS_TXCRXC_NOENRGY)
-		val |= BCM54XX_SHD_SCR3_TRDDAPD;
+	if (phydev->dev_flags & PHY_BRCM_DIS_TXCRXC_NOENRGY) {
+		if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54810)
+			val |= BCM54810_SHD_SCR3_TRDDAPD;
+		else
+			val |= BCM54XX_SHD_SCR3_TRDDAPD;
+	}
 
 	if (orig != val)
 		bcm_phy_write_shadow(phydev, BCM54XX_SHD_SCR3, val);
@@ -365,10 +370,7 @@ static int bcm54xx_config_init(struct phy_device *phydev)
 	    (phydev->dev_flags & PHY_BRCM_CLEAR_RGMII_MODE))
 		bcm_phy_write_shadow(phydev, BCM54XX_SHD_RGMII_MODE, 0);
 
-	if ((phydev->dev_flags & PHY_BRCM_RX_REFCLK_UNUSED) ||
-	    (phydev->dev_flags & PHY_BRCM_DIS_TXCRXC_NOENRGY) ||
-	    (phydev->dev_flags & PHY_BRCM_AUTO_PWRDWN_ENABLE))
-		bcm54xx_adjust_rxrefclk(phydev);
+	bcm54xx_adjust_rxrefclk(phydev);
 
 	if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54210E) {
 		err = bcm54210e_config_init(phydev);
@@ -406,6 +408,20 @@ static int bcm54xx_config_init(struct phy_device *phydev)
 	bcm_phy_write_exp(phydev, BCM_EXP_MULTICOLOR, val);
 
 	return 0;
+}
+
+static int bcm54xx_resume(struct phy_device *phydev)
+{
+	int ret;
+
+	/* Writes to register other than BMCR would be ignored
+	 * unless we clear the PDOWN bit first
+	 */
+	ret = genphy_resume(phydev);
+	if (ret < 0)
+		return ret;
+
+	return bcm54xx_config_init(phydev);
 }
 
 static int bcm5482_config_init(struct phy_device *phydev)
@@ -811,6 +827,8 @@ static struct phy_driver broadcom_drivers[] = {
 	.config_aneg    = bcm5481_config_aneg,
 	.ack_interrupt  = bcm_phy_ack_intr,
 	.config_intr    = bcm_phy_config_intr,
+	.suspend	= genphy_suspend,
+	.resume		= bcm54xx_resume,
 }, {
 	.phy_id		= PHY_ID_BCM5482,
 	.phy_id_mask	= 0xfffffff0,

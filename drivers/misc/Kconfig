@@ -503,4 +503,5 @@ config LPM_SSR_DISABLE_NVME
 
 source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
+source "drivers/misc/uacce/Kconfig"
 endmenu
