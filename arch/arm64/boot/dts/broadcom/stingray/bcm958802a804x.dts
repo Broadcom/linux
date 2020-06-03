@@ -11,6 +11,7 @@
 #define ENABLE_MDIO	0
 #define ENABLE_USB1	0
 #define NUM_PAXB	0
+#define ENABLE_NITRO_CHDMP_DDR	1
 
 #include "stingray-board-base.dtsi"
 

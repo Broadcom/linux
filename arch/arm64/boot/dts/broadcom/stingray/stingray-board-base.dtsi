@@ -43,6 +43,10 @@
 #define NUM_PAXB	8
 #endif
 
+#ifndef ENABLE_NITRO_CHDMP_DDR
+#define ENABLE_NITRO_CHDMP_DDR	0
+#endif
+
 #include "stingray.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
@@ -83,6 +87,12 @@
 			reg = <0x0 0x8f101000 0x0 0x1000>;
 			no-map;
 		};
+
+#if (ENABLE_NITRO_CHDMP_DDR != 0)
+		chdmp_region {
+			reg = <0x0 0x8b000000 0x0 0x2000000>;
+		};
+#endif
 	};
 
 	lpm-memory-range {
