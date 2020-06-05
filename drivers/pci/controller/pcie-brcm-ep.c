@@ -195,6 +195,7 @@ static int brcm_pcie_ep_probe(struct platform_device *pdev)
 
 err_epc_mem_exit:
 	pci_epc_mem_exit(epc);
+	return err;
 }
 
 static struct platform_driver brcm_pcie_ep_driver = {
