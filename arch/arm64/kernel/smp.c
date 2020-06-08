@@ -858,11 +858,20 @@ void arch_irq_work_raise(void)
 
 static void local_cpu_stop(void)
 {
+#ifdef CONFIG_HOTPLUG_CPU_STOP_CUSTOM_PSCI
+	int cpu = raw_smp_processor_id();
+	const struct cpu_operations *ops = get_cpu_ops(cpu);
+#endif
 	set_cpu_online(smp_processor_id(), false);
 
 	local_daif_mask();
 	sdei_mask_local_cpu();
+#ifdef CONFIG_HOTPLUG_CPU_STOP_CUSTOM_PSCI
+	if (ops && ops->cpu_die)
+		ops->cpu_die(cpu);
+#else
 	cpu_park_loop();
+#endif
 }
 
 /*
