@@ -449,4 +449,17 @@ int request_firmware_into_buf_priv(const struct firmware **firmware_p,
 
 #endif
 
+#if defined(KERNEL_PREAD_FLAG_PART)
+/**
+ * enum kernel_pread_opt - options to control pread file loading behaviour
+ *
+ * @KERNEL_PREAD_WHOLE: Only Allow reading of whole file.
+ * @KERNEL_PREAD_PART: Allow reading part of file.
+ */
+enum kernel_pread_opt {
+	KERNEL_PREAD_WHOLE = 0,
+	KERNEL_PREAD_PART = BIT(0),
+};
+#endif
+
 #endif
