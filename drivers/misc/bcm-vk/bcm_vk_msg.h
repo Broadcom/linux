@@ -58,6 +58,7 @@ struct bcm_vk_ctx {
 	bool in_use;
 	pid_t pid;
 	uint32_t hash_idx;
+	uint32_t q_num; /* queue number used by the stream */
 	struct miscdevice *miscdev;
 	atomic_t pend_cnt; /* number of items pending to be read from host */
 	wait_queue_head_t rd_wq;

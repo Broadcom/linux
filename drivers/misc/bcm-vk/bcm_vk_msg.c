@@ -722,7 +722,7 @@ idx_err:
 }
 
 int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
-			     pid_t pid)
+			     const pid_t pid, const uint32_t q_num)
 {
 	int rc = 0;
 	struct bcm_vk_wkent *entry;
@@ -746,7 +746,7 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 
 	/* fill up necessary data */
 	entry->to_v_msg[0].function_id = VK_FID_SHUTDOWN;
-	set_q_num(&entry->to_v_msg[0], 0); /* use highest queue */
+	set_q_num(&entry->to_v_msg[0], q_num);
 	set_msg_id(&entry->to_v_msg[0], VK_SIMPLEX_MSG_ID);
 	entry->to_v_blks = 1; /* always 1 block */
 
@@ -764,7 +764,8 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 	return rc;
 }
 
-static int bcm_vk_handle_last_sess(struct bcm_vk *vk, const pid_t pid)
+static int bcm_vk_handle_last_sess(struct bcm_vk *vk, const pid_t pid,
+				   const uint32_t q_num)
 {
 	int rc = 0;
 	struct device *dev = &vk->pdev->dev;
@@ -783,7 +784,7 @@ static int bcm_vk_handle_last_sess(struct bcm_vk *vk, const pid_t pid)
 
 	/* only need to do it if it is not the reset process */
 	if (vk->reset_pid != pid)
-		rc = bcm_vk_send_shutdown_msg(vk, VK_SHUTDOWN_PID, pid);
+		rc = bcm_vk_send_shutdown_msg(vk, VK_SHUTDOWN_PID, pid, q_num);
 	else
 		/* put reset_pid to 0 if it is exiting last session */
 		vk->reset_pid = 0;
@@ -1199,10 +1200,11 @@ ssize_t bcm_vk_write(struct file *p_file,
 		goto write_free_ent;
 	}
 	set_msg_id(&entry->to_v_msg[0], rc);
+	ctx->q_num = q_num;
 
 	dev_dbg(dev,
-		"Message ctx id %d, usr_msg_id 0x%x sent msg_id 0x%x\n",
-		ctx->idx, entry->usr_msg_id,
+		"[Q-%d]Message ctx id %d, usr_msg_id 0x%x sent msg_id 0x%x\n",
+		ctx->q_num, ctx->idx, entry->usr_msg_id,
 		get_msg_id(&entry->to_v_msg[0]));
 
 	/* Convert any pointers to sg list */
@@ -1322,7 +1324,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 
 	ret = bcm_vk_free_ctx(vk, ctx);
 	if (ret == 0)
-		ret = bcm_vk_handle_last_sess(vk, pid);
+		ret = bcm_vk_handle_last_sess(vk, pid, ctx->q_num);
 	else
 		ret = 0;
 

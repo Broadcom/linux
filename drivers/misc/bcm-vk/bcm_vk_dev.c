@@ -854,7 +854,7 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
 	 * - kill host apps
 	 * - Trigger interrupt with DB
 	 */
-	bcm_vk_send_shutdown_msg(vk, VK_SHUTDOWN_GRACEFUL, 0);
+	bcm_vk_send_shutdown_msg(vk, VK_SHUTDOWN_GRACEFUL, 0, 0);
 
 	spin_lock(&vk->ctx_lock);
 	if (!vk->reset_pid) {
