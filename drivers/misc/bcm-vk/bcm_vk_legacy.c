@@ -63,10 +63,9 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 
 #if defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
 
-int request_firmware_into_buf_priv(const struct firmware **firmware_p,
-				   const char *name, struct device *device,
-				   void *buf, size_t size,
-				   size_t offset, unsigned int pread_flags)
+int request_partial_firmware_into_buf(const struct firmware **firmware_p,
+				      const char *name, struct device *device,
+				      void *buf, size_t size, size_t offset)
 {
 	int ret;
 

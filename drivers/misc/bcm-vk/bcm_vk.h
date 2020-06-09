@@ -436,31 +436,23 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 #endif
 
 #if defined(CONFIG_REQ_FW_INTO_BUF_PRIV)
-
-#define KERNEL_PREAD_PART	0x0001 /* Allow reading part of file */
-#define REQUEST_FIRMWARE_INTO_BUF request_firmware_into_buf_priv
-int request_firmware_into_buf_priv(const struct firmware **firmware_p,
-				   const char *name, struct device *device,
-				   void *buf, size_t size,
-				   size_t offset, unsigned int pread_flags);
-
-#else
-
-#define REQUEST_FIRMWARE_INTO_BUF request_firmware_into_buf
-
+int request_partial_firmware_into_buf(const struct firmware **firmware_p,
+				      const char *name, struct device *device,
+				      void *buf, size_t size, size_t offset);
 #endif
 
 #if defined(KERNEL_PREAD_FLAG_PART)
-/**
- * enum kernel_pread_opt - options to control pread file loading behaviour
- *
- * @KERNEL_PREAD_WHOLE: Only Allow reading of whole file.
- * @KERNEL_PREAD_PART: Allow reading part of file.
- */
-enum kernel_pread_opt {
-	KERNEL_PREAD_WHOLE = 0,
-	KERNEL_PREAD_PART = BIT(0),
-};
+static inline int request_partial_firmware_into_buf
+				(const struct firmware **firmware_p,
+				 const char *name, struct device *device,
+				 void *buf, size_t size, size_t offset)
+{
+	int ret;
+
+	ret = request_firmware_into_buf(&fw, filename, dev,
+					bufp, size, offset,
+					KERNEL_PREAD_FLAG_PART);
+}
 #endif
 
 #endif

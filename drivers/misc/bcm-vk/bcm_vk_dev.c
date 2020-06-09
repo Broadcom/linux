@@ -500,9 +500,8 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		goto err_buf_out;
 	}
 
-	ret = REQUEST_FIRMWARE_INTO_BUF(&fw, filename, dev,
-					bufp, max_buf, 0,
-					KERNEL_PREAD_PART);
+	ret = request_partial_firmware_into_buf(&fw, filename, dev,
+						bufp, max_buf, 0);
 	if (ret) {
 		dev_err(dev, "Error %d requesting firmware file: %s\n",
 			ret, filename);
@@ -578,13 +577,12 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 					  codepush, 0,
 					  TXFR_COMPLETE_TIMEOUT_MS);
 			if (ret == 0) {
-				ret = REQUEST_FIRMWARE_INTO_BUF
+				ret = request_partial_firmware_into_buf
 						(&fw,
 						 filename,
 						 dev, bufp,
 						 max_buf,
-						 fw->size,
-						 KERNEL_PREAD_PART);
+						 fw->size);
 				if (ret) {
 					dev_err(dev,
 						"Error %d requesting firmware file: %s offset: 0x%zx\n",
