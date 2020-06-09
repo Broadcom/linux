@@ -167,9 +167,7 @@ static int fw_cache_piggyback_on_request(const char *name);
 
 static struct fw_priv *__allocate_fw_priv(const char *fw_name,
 					  struct firmware_cache *fwc,
-					  void *dbuf, size_t size,
-					  size_t offset,
-					  enum kernel_pread_opt opt)
+					  void *dbuf, size_t size)
 {
 	struct fw_priv *fw_priv;
 
@@ -187,8 +185,6 @@ static struct fw_priv *__allocate_fw_priv(const char *fw_name,
 	fw_priv->fwc = fwc;
 	fw_priv->data = dbuf;
 	fw_priv->allocated_size = size;
-	fw_priv->offset = offset;
-	fw_priv->opt = opt;
 	fw_state_init(fw_priv);
 #ifdef CONFIG_FW_LOADER_USER_HELPER
 	INIT_LIST_HEAD(&fw_priv->pending_list);
@@ -214,11 +210,9 @@ static struct fw_priv *__lookup_fw_priv(const char *fw_name)
 static int alloc_lookup_fw_priv(const char *fw_name,
 				struct firmware_cache *fwc,
 				struct fw_priv **fw_priv, void *dbuf,
-				size_t size, u32 opt_flags,
-				size_t offset)
+				size_t size, u32 opt_flags)
 {
 	struct fw_priv *tmp;
-	enum kernel_pread_opt pread_opt;
 
 	spin_lock(&fwc->lock);
 	if (!(opt_flags & FW_OPT_NOCACHE)) {
@@ -232,12 +226,7 @@ static int alloc_lookup_fw_priv(const char *fw_name,
 		}
 	}
 
-	if (opt_flags & FW_OPT_PARTIAL)
-		pread_opt = KERNEL_PREAD_PART;
-	else
-		pread_opt = KERNEL_PREAD_WHOLE;
-
-	tmp = __allocate_fw_priv(fw_name, fwc, dbuf, size, offset, pread_opt);
+	tmp = __allocate_fw_priv(fw_name, fwc, dbuf, size);
 	if (tmp) {
 		INIT_LIST_HEAD(&tmp->list);
 		if (!(opt_flags & FW_OPT_NOCACHE))
@@ -506,10 +495,8 @@ fw_get_filesystem_firmware(struct device *device, struct fw_priv *fw_priv,
 		fw_priv->size = 0;
 
 		/* load firmware files from the mount namespace of init */
-		rc = kernel_pread_file_from_path_initns(path, &buffer,
-							&size, fw_priv->offset,
-							msize,
-							fw_priv->opt, id);
+		rc = kernel_read_file_from_path_initns(path, &buffer,
+						       &size, msize, id);
 		if (rc) {
 			if (rc != -ENOENT)
 				dev_warn(device, "loading %s failed with error %d\n",
@@ -699,7 +686,7 @@ int assign_fw(struct firmware *fw, struct device *device, u32 opt_flags)
 static int
 _request_firmware_prepare(struct firmware **firmware_p, const char *name,
 			  struct device *device, void *dbuf, size_t size,
-			  u32 opt_flags, size_t offset)
+			  u32 opt_flags)
 {
 	struct firmware *firmware;
 	struct fw_priv *fw_priv;
@@ -718,7 +705,7 @@ _request_firmware_prepare(struct firmware **firmware_p, const char *name,
 	}
 
 	ret = alloc_lookup_fw_priv(name, &fw_cache, &fw_priv, dbuf, size,
-				   opt_flags, offset);
+				  opt_flags);
 
 	/*
 	 * bind with 'priv' now to avoid warning in failure path
@@ -765,7 +752,7 @@ static void fw_abort_batch_reqs(struct firmware *fw)
 static int
 _request_firmware(const struct firmware **firmware_p, const char *name,
 		  struct device *device, void *buf, size_t size,
-		  u32 opt_flags, size_t offset)
+		  u32 opt_flags)
 {
 	struct firmware *fw = NULL;
 	int ret;
@@ -779,7 +766,7 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 	}
 
 	ret = _request_firmware_prepare(&fw, name, device, buf, size,
-					opt_flags, offset);
+					opt_flags);
 	if (ret <= 0) /* error or already assigned */
 		goto out;
 
@@ -842,7 +829,7 @@ request_firmware(const struct firmware **firmware_p, const char *name,
 	/* Need to pin this module until return */
 	__module_get(THIS_MODULE);
 	ret = _request_firmware(firmware_p, name, device, NULL, 0,
-				FW_OPT_UEVENT, 0);
+				FW_OPT_UEVENT);
 	module_put(THIS_MODULE);
 	return ret;
 }
@@ -869,7 +856,7 @@ int firmware_request_nowarn(const struct firmware **firmware, const char *name,
 	/* Need to pin this module until return */
 	__module_get(THIS_MODULE);
 	ret = _request_firmware(firmware, name, device, NULL, 0,
-				FW_OPT_UEVENT | FW_OPT_NO_WARN, 0);
+				FW_OPT_UEVENT | FW_OPT_NO_WARN);
 	module_put(THIS_MODULE);
 	return ret;
 }
@@ -894,7 +881,7 @@ int request_firmware_direct(const struct firmware **firmware_p,
 	__module_get(THIS_MODULE);
 	ret = _request_firmware(firmware_p, name, device, NULL, 0,
 				FW_OPT_UEVENT | FW_OPT_NO_WARN |
-				FW_OPT_NOFALLBACK_SYSFS, 0);
+				FW_OPT_NOFALLBACK_SYSFS);
 	module_put(THIS_MODULE);
 	return ret;
 }
@@ -918,7 +905,7 @@ int firmware_request_platform(const struct firmware **firmware,
 	/* Need to pin this module until return */
 	__module_get(THIS_MODULE);
 	ret = _request_firmware(firmware, name, device, NULL, 0,
-				FW_OPT_UEVENT | FW_OPT_FALLBACK_PLATFORM, 0);
+				FW_OPT_UEVENT | FW_OPT_FALLBACK_PLATFORM);
 	module_put(THIS_MODULE);
 	return ret;
 }
@@ -955,8 +942,6 @@ EXPORT_SYMBOL_GPL(firmware_request_cache);
  * @device: device for which firmware is being loaded and DMA region allocated
  * @buf: address of buffer to load firmware into
  * @size: size of buffer
- * @offset: offset into file to read
- * @pread_opt: KERNEL_PREAD_PART to allow partial file read
  *
  * This function works pretty much like request_firmware(), but it doesn't
  * allocate a buffer to hold the firmware data. Instead, the firmware
@@ -967,22 +952,16 @@ EXPORT_SYMBOL_GPL(firmware_request_cache);
  */
 int
 request_firmware_into_buf(const struct firmware **firmware_p, const char *name,
-			  struct device *device, void *buf, size_t size,
-			  size_t offset, enum kernel_pread_opt pread_opt)
+			  struct device *device, void *buf, size_t size)
 {
 	int ret;
-	u32 opt_flags;
 
 	if (fw_cache_is_setup(device, name))
 		return -EOPNOTSUPP;
 
 	__module_get(THIS_MODULE);
-	opt_flags = FW_OPT_UEVENT | FW_OPT_NOCACHE;
-	if (pread_opt == KERNEL_PREAD_PART)
-		opt_flags |= FW_OPT_PARTIAL;
-
 	ret = _request_firmware(firmware_p, name, device, buf, size,
-				opt_flags, offset);
+				FW_OPT_UEVENT | FW_OPT_NOCACHE);
 	module_put(THIS_MODULE);
 	return ret;
 }
@@ -1021,7 +1000,7 @@ static void request_firmware_work_func(struct work_struct *work)
 	fw_work = container_of(work, struct firmware_work, work);
 
 	_request_firmware(&fw, fw_work->name, fw_work->device, NULL, 0,
-			  fw_work->opt_flags, 0);
+			  fw_work->opt_flags);
 	fw_work->cont(fw, fw_work->context);
 	put_device(fw_work->device); /* taken in request_firmware_nowait() */
 
