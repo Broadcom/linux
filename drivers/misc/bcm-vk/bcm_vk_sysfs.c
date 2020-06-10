@@ -478,6 +478,37 @@ static ssize_t os_state_show(struct device *dev,
 	return sprintf(buf, "invalid\n");
 }
 
+static ssize_t cop_state_show(struct device *dev,
+			      struct device_attribute *devattr, char *buf)
+{
+	uint32_t reg;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+#define VK_COP_FWSTS_READY (VK_FWSTS_RELOCATION_ENTRY | \
+			    VK_FWSTS_RELOCATION_EXIT | \
+			    VK_FWSTS_INIT_START | \
+			    VK_FWSTS_ARCH_INIT_DONE | \
+			    VK_FWSTS_PRE_KNL1_INIT_DONE | \
+			    VK_FWSTS_POST_KNL_INIT_DONE | \
+			    VK_FWSTS_INIT_DONE | \
+			    VK_FWSTS_APP_INIT_START | \
+			    VK_FWSTS_APP_INIT_DONE)
+#define VK_COP_FWSTS_READY_MASK ((VK_FWSTS_APP_INIT_DONE << 1) - 1)
+
+	reg = vkread32(vk, BAR_0, VK_BAR_COP_FWSTS);
+	if (BCM_VK_INTF_IS_DOWN(reg))
+		return sprintf(buf, "PCIe Intf Down!\n");
+	reg &= VK_COP_FWSTS_READY_MASK;
+
+	if (!reg)
+		return sprintf(buf, "%s\n", "disabled");
+	else if (reg == VK_COP_FWSTS_READY)
+		return sprintf(buf, "%s\n", "running");
+	else
+		return sprintf(buf, "%s\n", "boot_fail");
+}
+
 static ssize_t bus_show(struct device *dev,
 			struct device_attribute *devattr, char *buf)
 {
@@ -1169,6 +1200,7 @@ static void bcm_vk_get_dauth_info(struct bcm_vk *vk)
 static DEVICE_ATTR_RO(firmware_status);
 static DEVICE_ATTR_RO(reset_reason);
 static DEVICE_ATTR_RO(os_state);
+static DEVICE_ATTR_RO(cop_state);
 static DEVICE_ATTR_RO(firmware_version);
 static DEVICE_ATTR_RO(rev_flash_rom);
 static DEVICE_ATTR_RO(rev_boot1);
@@ -1232,6 +1264,7 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 	&dev_attr_firmware_status.attr,
 	&dev_attr_reset_reason.attr,
 	&dev_attr_os_state.attr,
+	&dev_attr_cop_state.attr,
 	&dev_attr_firmware_version.attr,
 	&dev_attr_rev_flash_rom.attr,
 	&dev_attr_rev_boot1.attr,
