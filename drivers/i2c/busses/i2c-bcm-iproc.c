@@ -93,6 +93,7 @@
 #define S_CMD_STATUS_MASK            0x07
 #define S_CMD_STATUS_SUCCESS         0x0
 #define S_CMD_STATUS_TIMEOUT         0x5
+#define S_CMD_PEC_SHIFT              8
 
 #define IE_OFFSET                    0x38
 #define IE_M_RX_FIFO_FULL_SHIFT      31
@@ -138,7 +139,9 @@
 #define S_RX_OFFSET                  0x4c
 #define S_RX_STATUS_SHIFT            30
 #define S_RX_STATUS_MASK             0x03
-#define S_RX_PEC_ERR_SHIFT           29
+#define S_RX_PEC_ERR_SHIFT           28
+#define S_RX_PEC_ERR_MASK            0x3
+#define S_RX_PEC_ERR                 0x1
 #define S_RX_DATA_SHIFT              0
 #define S_RX_DATA_MASK               0xff
 
@@ -205,6 +208,8 @@ struct bcm_iproc_i2c_dev {
 	/* bytes that have been read */
 	unsigned int rx_bytes;
 	unsigned int thld_bytes;
+
+	bool en_s_pec;
 };
 
 /*
@@ -321,6 +326,24 @@ static void bcm_iproc_i2c_check_slave_status(
 	}
 }
 
+static int bcm_iproc_smbus_check_slave_pec(struct bcm_iproc_i2c_dev *iproc_i2c,
+					   u32 val)
+{
+	u8 err_status;
+	int ret = 0;
+
+	if (!iproc_i2c->en_s_pec)
+		return ret;
+
+	err_status = (u8)((val >> S_RX_PEC_ERR_SHIFT) & S_RX_PEC_ERR_MASK);
+	if (err_status == S_RX_PEC_ERR) {
+		dev_err(iproc_i2c->device, "Slave PEC error\n");
+		ret = -EBADMSG;
+	}
+
+	return ret;
+}
+
 static bool bcm_iproc_i2c_slave_isr(struct bcm_iproc_i2c_dev *iproc_i2c,
 				    u32 status)
 {
@@ -347,6 +370,8 @@ static bool bcm_iproc_i2c_slave_isr(struct bcm_iproc_i2c_dev *iproc_i2c,
 			iproc_i2c_wr_reg(iproc_i2c, S_TX_OFFSET, value);
 
 			val = BIT(S_CMD_START_BUSY_SHIFT);
+			if (iproc_i2c->en_s_pec)
+				val |= BIT(S_CMD_PEC_SHIFT);
 			iproc_i2c_wr_reg(iproc_i2c, S_CMD_OFFSET, val);
 
 			/*
@@ -361,9 +386,19 @@ static bool bcm_iproc_i2c_slave_isr(struct bcm_iproc_i2c_dev *iproc_i2c,
 			value = (u8)((val >> S_RX_DATA_SHIFT) & S_RX_DATA_MASK);
 			i2c_slave_event(iproc_i2c->slave,
 					I2C_SLAVE_WRITE_RECEIVED, &value);
-			if (rx_status == I2C_SLAVE_RX_END)
-				i2c_slave_event(iproc_i2c->slave,
-						I2C_SLAVE_STOP, &value);
+			if (rx_status == I2C_SLAVE_RX_END) {
+				int ret;
+
+				ret = bcm_iproc_smbus_check_slave_pec(iproc_i2c,
+								      val);
+				if (!ret)
+					i2c_slave_event(iproc_i2c->slave,
+							I2C_SLAVE_STOP, &value);
+				else
+					i2c_slave_event(iproc_i2c->slave,
+							I2C_SLAVE_PEC_ERR,
+							&value);
+			}
 		}
 	} else if (status & BIT(IS_S_TX_UNDERRUN_SHIFT)) {
 		/* Master read other than start */
@@ -372,6 +407,8 @@ static bool bcm_iproc_i2c_slave_isr(struct bcm_iproc_i2c_dev *iproc_i2c,
 
 		iproc_i2c_wr_reg(iproc_i2c, S_TX_OFFSET, value);
 		val = BIT(S_CMD_START_BUSY_SHIFT);
+		if (iproc_i2c->en_s_pec)
+			val |= BIT(S_CMD_PEC_SHIFT);
 		iproc_i2c_wr_reg(iproc_i2c, S_CMD_OFFSET, val);
 	}
 
@@ -1064,6 +1101,11 @@ static int bcm_iproc_i2c_reg_slave(struct i2c_client *slave)
 
 	if (slave->flags & I2C_CLIENT_TEN)
 		return -EAFNOSUPPORT;
+
+	/* Enable partial slave HW PEC support if requested by the client */
+	iproc_i2c->en_s_pec = slave->flags & I2C_CLIENT_PEC ? "true" : "false";
+	if (iproc_i2c->en_s_pec)
+		dev_info(iproc_i2c->device, "Enable PEC\n");
 
 	iproc_i2c->slave = slave;
 	bcm_iproc_i2c_slave_init(iproc_i2c, false);
