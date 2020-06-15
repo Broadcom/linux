@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+# Copyright 2020 Broadcom
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mailbox/brcm,iproc-fs5rm-mbox.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Mailbox controller for Broadcom FS5 ring manager
+
+maintainers:
+  - Vikas Gupta <vikas.gupta@broadcom.com>
+
+description:
+  The Broadcom FS5 ring manager supports up to 32 channels.
+  Each channel or a queue-pair can be used to submit work to offload engines.
+  Each device tree entry for FS5-RM represent a group of channels/queue-pairs
+  and FS5-RM driver will create a mailbox-controller instance for given entry.
+
+properties:
+  compatible:
+  const: brcm,iproc-fs5rm-mbox
+
+  reg:
+    maxItems: 1
+
+  iommus:
+    maxItems: 1
+
+  "#mbox-cells":
+    const: 1
+    description: first cell is the channel number (0-31)
+
+  msi-parent: true
+
+  dma-coherent: true
+
+required:
+  - compatible
+  - reg
+  - iommus
+
+additionalProperties: false
+
+examples:
+  - |
+
+    crypto_mbox2: mbox@180000 {
+           compatible = "brcm,iproc-fs5rm-mbox";
+           reg = <0x180000 0x80000>;
+           msi-parent = <&gic_its8 0xf0022>;
+           #mbox-cells = <1>;
+           iommus = <&smmu 0xf0002>,
+                    <&smmu 0xf0022>;
+           dma-coherent;
+   };
