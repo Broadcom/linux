@@ -23,6 +23,8 @@
 #define BCM_VK_MSG_Q_MASK	 0xF
 #define BCM_VK_MSG_ID_MASK	 0xFFF
 
+#define BCM_VK_DMA_DRAIN_DELAY_MS 2000
+
 /* module parameter */
 static bool hb_mon = true;
 module_param(hb_mon, bool, 0444);
@@ -285,6 +287,7 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk, const pid_t pid)
 
 	/* clear counter */
 	atomic_set(&ctx->pend_cnt, 0);
+	atomic_set(&ctx->dma_cnt, 0);
 	init_waitqueue_head(&ctx->rd_wq);
 
 all_in_use_exit:
@@ -363,7 +366,11 @@ static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *ctx)
 
 static void bcm_vk_free_wkent(struct device *dev, struct bcm_vk_wkent *entry)
 {
-	bcm_vk_sg_free(dev, entry->dma, VK_DMA_MAX_ADDRS);
+	int proc_cnt;
+
+	bcm_vk_sg_free(dev, entry->dma, VK_DMA_MAX_ADDRS, &proc_cnt);
+	if (proc_cnt)
+		atomic_dec(&entry->ctx->dma_cnt);
 
 	kfree(entry->to_h_msg);
 	kfree(entry);
@@ -1250,6 +1257,7 @@ ssize_t bcm_vk_write(struct file *p_file,
 		if (rc)
 			goto write_free_msgid;
 
+		atomic_inc(&ctx->dma_cnt);
 		/* try to embed inband sgl */
 		sgl_extra_blks = bcm_vk_append_ib_sgl(vk, entry, data,
 						      num_planes);
@@ -1315,7 +1323,22 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk, miscdev);
 	struct device *dev = &vk->pdev->dev;
 	pid_t pid = ctx->pid;
+	int dma_cnt;
 
+	/*
+	 * if there are outstanding DMA transactions, need to delay long enough
+	 * to ensure that the card side would have stopped touching the host buffer
+	 * and its SGL list.  A race condition could happen if the host app is killed
+	 * abruptly, eg kill -9, while some DMA transfer orders are still inflight.
+	 * Nothing could be done except for a delay as host side is running in a
+	 * completely async fashion.
+	 */
+	dma_cnt = atomic_read(&ctx->dma_cnt);
+	if (dma_cnt) {
+		dev_dbg(dev, "DMA outstanding, delay %d ms for [fd-%d]\n",
+			BCM_VK_DMA_DRAIN_DELAY_MS, ctx->idx);
+		msleep(BCM_VK_DMA_DRAIN_DELAY_MS);
+	}
 	dev_dbg(dev, "Draining with context idx %d pid %d\n",
 		ctx->idx, pid);
 

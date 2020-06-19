@@ -54,7 +54,8 @@ int bcm_vk_sg_alloc(struct device *dev,
 		    struct _vk_data *vkdata,
 		    int num);
 
-int bcm_vk_sg_free(struct device *dev, struct bcm_vk_dma *dma, int num);
+int bcm_vk_sg_free(struct device *dev, struct bcm_vk_dma *dma, int num,
+		   int *proc_cnt);
 
 #endif
 

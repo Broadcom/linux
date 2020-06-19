@@ -257,14 +257,18 @@ static int bcm_vk_dma_free(struct device *dev, struct bcm_vk_dma *dma)
 	return 0;
 }
 
-int bcm_vk_sg_free(struct device *dev, struct bcm_vk_dma *dma, int num)
+int bcm_vk_sg_free(struct device *dev, struct bcm_vk_dma *dma, int num,
+		   int *proc_cnt)
 {
 	int i;
 
+	*proc_cnt = 0;
 	/* Unmap and free all pages and sglists */
 	for (i = 0; i < num; i++) {
-		if (dma[i].sglist)
+		if (dma[i].sglist) {
 			bcm_vk_dma_free(dev, &dma[i]);
+			*proc_cnt += 1;
+		}
 	}
 
 	return 0;
