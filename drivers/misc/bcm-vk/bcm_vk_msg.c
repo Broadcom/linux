@@ -1445,8 +1445,9 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 		bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_SOFT);
 	}
 
-	/* clear the uptime register after reset pressed and alert record */
+	/* clear other necessary registers and alert records */
 	vkwrite32(vk, 0, BAR_0, BAR_OS_UPTIME);
+	vkwrite32(vk, 0, BAR_0, BAR_INTF_VER);
 	memset(&vk->host_alert, 0, sizeof(vk->host_alert));
 	memset(&vk->peer_alert, 0, sizeof(vk->peer_alert));
 #if defined(CONFIG_BCM_VK_QSTATS)

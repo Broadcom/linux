@@ -134,6 +134,38 @@ skip_schedule_work:
 	return IRQ_HANDLED;
 }
 
+int bcm_vk_intf_ver_chk(struct bcm_vk *vk)
+{
+	struct device *dev = &vk->pdev->dev;
+	uint32_t reg;
+	uint16_t major, minor;
+	int ret = 0;
+
+	/* read interface register */
+	reg = vkread32(vk, BAR_0, BAR_INTF_VER);
+	major = (reg >> BAR_INTF_VER_MAJOR_SHIFT) & BAR_INTF_VER_MASK;
+	minor = reg & BAR_INTF_VER_MASK;
+
+	/*
+	 * if major number is 0, it is pre-release and it would be allowed
+	 * to continue, else, check versions accordingly
+	 */
+	if (!major) {
+		dev_warn(dev, "Pre-release major.minor=%d.%d - drv %d.%d\n",
+			 major, minor, SEMANTIC_MAJOR, SEMANTIC_MINOR);
+	} else if ((major != SEMANTIC_MAJOR) || (minor > SEMANTIC_MINOR)) {
+		dev_err(dev,
+			"Intf major.minor=%d.%d rejected - drv %d.%d\n",
+			major, minor, SEMANTIC_MAJOR, SEMANTIC_MINOR);
+		ret = -EIO;
+	} else {
+		dev_dbg(dev,
+			"Intf major.minor=%d.%d passed - drv %d.%d\n",
+			major, minor, SEMANTIC_MAJOR, SEMANTIC_MINOR);
+	}
+	return ret;
+}
+
 static void bcm_vk_log_notf(struct bcm_vk *vk,
 			    struct bcm_vk_alert *alert,
 			    struct bcm_vk_entry const *entry_tab,
@@ -606,6 +638,12 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				  BOOT2_STARTUP_TIMEOUT_MS);
 		if (ret < 0) {
 			dev_err(dev, "Boot2 not ready - timeout\n");
+			goto err_firmware_out;
+		}
+
+		ret = bcm_vk_intf_ver_chk(vk);
+		if (ret) {
+			dev_err(dev, "failure in intf version check\n");
 			goto err_firmware_out;
 		}
 
