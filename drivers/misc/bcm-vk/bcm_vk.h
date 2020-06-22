@@ -149,6 +149,10 @@
 
 #define BAR_CARD_STATIC_INFO		0x470
 
+#define BAR_INTF_VER			0x47c
+#define BAR_INTF_VER_MAJOR_SHIFT	16
+#define BAR_INTF_VER_MASK		0xffff
+
 #define BAR_BOOTSRC_SELECT		0xc78
 /* BOOTSRC definitions */
 #define BOOTSRC_SOFT_ENABLE		BIT(14)
