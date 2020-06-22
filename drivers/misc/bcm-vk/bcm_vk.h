@@ -443,15 +443,16 @@ int request_partial_firmware_into_buf(const struct firmware **firmware_p,
 
 #if defined(KERNEL_PREAD_FLAG_PART)
 static inline int request_partial_firmware_into_buf
-				(const struct firmware **firmware_p,
-				 const char *name, struct device *device,
-				 void *buf, size_t size, size_t offset)
+				(const struct firmware **fw,
+				 const char *filename, struct device *dev,
+				 void *bufp, size_t size, size_t offset)
 {
 	int ret;
 
-	ret = request_firmware_into_buf(&fw, filename, dev,
+	ret = request_firmware_into_buf(fw, filename, dev,
 					bufp, size, offset,
 					KERNEL_PREAD_FLAG_PART);
+	return ret;
 }
 #endif
 
