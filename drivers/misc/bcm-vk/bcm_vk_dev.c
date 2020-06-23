@@ -134,64 +134,6 @@ skip_schedule_work:
 	return IRQ_HANDLED;
 }
 
-static enum soc_idx get_soc_idx(struct device *dev)
-{
-	struct pci_dev *pdev = to_pci_dev(dev);
-	enum soc_idx idx;
-
-	switch (pdev->device) {
-	case PCI_DEVICE_ID_VALKYRIE:
-		idx = VALKYRIE;
-		break;
-
-	case PCI_DEVICE_ID_VIPER:
-		idx = VIPER;
-		break;
-
-	default:
-		idx = VK_IDX_INVALID;
-		dev_err(dev, "no images for 0x%x\n", pdev->device);
-	}
-	return idx;
-}
-
-int bcm_vk_intf_ver_chk(struct bcm_vk *vk)
-{
-	/* supported interface version table */
-	static const struct {
-		uint16_t major;
-		uint16_t minor;
-	} sup_ver[] = {
-		/* The following needs to be updated when interface changes */
-		[VALKYRIE] = { 0, 1 },
-		[VIPER]    = { 0, 1 },
-	};
-	struct device *dev = &vk->pdev->dev;
-	uint32_t reg;
-	uint16_t major, minor;
-	int ret = 0;
-	enum soc_idx idx = get_soc_idx(dev);
-
-	/* read interface register */
-	reg = vkread32(vk, BAR_0, BAR_INTF_VER);
-	major = (reg >> BAR_INTF_VER_MAJOR_SHIFT) & BAR_INTF_VER_MASK;
-	minor = reg & BAR_INTF_VER_MASK;
-	if ((sup_ver[idx].major != major) || (sup_ver[idx].minor < minor)) {
-		dev_err(dev,
-			"Intf major.minor=%d.%d rejected - supported %d.%d\n",
-			major, minor,
-			sup_ver[idx].major, sup_ver[idx].minor);
-		ret = -EIO;
-	} else {
-		dev_dbg(dev,
-			"Intf major.minor=%d.%d passed - supported %d.%d\n",
-			major, minor,
-			sup_ver[idx].major, sup_ver[idx].minor);
-	}
-
-	return ret;
-}
-
 static void bcm_vk_log_notf(struct bcm_vk *vk,
 			    struct bcm_vk_alert *alert,
 			    struct bcm_vk_entry const *entry_tab,
@@ -667,12 +609,6 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			goto err_firmware_out;
 		}
 
-		ret = bcm_vk_intf_ver_chk(vk);
-		if (ret) {
-			dev_err(dev, "failure in intf version check\n");
-			goto err_firmware_out;
-		}
-
 		/*
 		 * Next, initialize Message Q if we are loading boot2.
 		 * Do a force sync
@@ -725,6 +661,27 @@ static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
 		 boot_status, fw_status);
 
 	return load_type;
+}
+
+static enum soc_idx get_soc_idx(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	enum soc_idx idx;
+
+	switch (pdev->device) {
+	case PCI_DEVICE_ID_VALKYRIE:
+		idx = VALKYRIE;
+		break;
+
+	case PCI_DEVICE_ID_VIPER:
+		idx = VIPER;
+		break;
+
+	default:
+		idx = VK_IDX_INVALID;
+		dev_err(dev, "no images for 0x%x\n", pdev->device);
+	}
+	return idx;
 }
 
 int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
