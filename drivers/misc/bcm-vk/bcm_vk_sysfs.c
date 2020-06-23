@@ -931,6 +931,13 @@ static ssize_t alert_heartbeat_fail_show(struct device *dev,
 	return host_alert_show(dev, buf, ERR_LOG_HOST_HB_FAIL);
 }
 
+static ssize_t alert_intf_ver_fail_show(struct device *dev,
+					struct device_attribute *devattr,
+					char *buf)
+{
+	return host_alert_show(dev, buf, ERR_LOG_HOST_INTF_V_FAIL);
+}
+
 static ssize_t temp_threshold_lower_c_show(struct device *dev,
 					   struct device_attribute *devattr,
 					   char *buf)
@@ -1230,6 +1237,7 @@ static DEVICE_ATTR_RO(alert_low_temp_warn);
 static DEVICE_ATTR_RO(alert_ecc_warn);
 static DEVICE_ATTR_RO(alert_pcie_down);
 static DEVICE_ATTR_RO(alert_heartbeat_fail);
+static DEVICE_ATTR_RO(alert_intf_ver_fail);
 static DEVICE_ATTR_RO(temp_threshold_lower_c);
 static DEVICE_ATTR_RO(temp_threshold_upper_c);
 static DEVICE_ATTR_RO(freq_core_mhz);
@@ -1325,6 +1333,7 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_alert_ecc_warn.attr,
 	&dev_attr_alert_pcie_down.attr,
 	&dev_attr_alert_heartbeat_fail.attr,
+	&dev_attr_alert_intf_ver_fail.attr,
 	NULL,
 };
 

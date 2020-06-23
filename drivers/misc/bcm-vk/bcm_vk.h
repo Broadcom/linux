@@ -128,6 +128,7 @@
 #define ERR_LOG_LOW_TEMP_WARN		BIT(9)
 #define ERR_LOG_ECC			BIT(10)
 /* Alert bit definitions detectd on host */
+#define ERR_LOG_HOST_INTF_V_FAIL	BIT(13)
 #define ERR_LOG_HOST_HB_FAIL		BIT(14)
 #define ERR_LOG_HOST_PCIE_DWN		BIT(15)
 
@@ -359,7 +360,7 @@ struct bcm_vk_entry {
 #define BCM_VK_PEER_ERR_NUM 10
 extern struct bcm_vk_entry const bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM];
 /* alerts detected by the host */
-#define BCM_VK_HOST_ERR_NUM 2
+#define BCM_VK_HOST_ERR_NUM 3
 extern struct bcm_vk_entry const bcm_vk_host_err[BCM_VK_HOST_ERR_NUM];
 
 /*
@@ -427,6 +428,7 @@ void bcm_vk_hb_init(struct bcm_vk *vk);
 void bcm_vk_hb_deinit(struct bcm_vk *vk);
 void bcm_vk_handle_notf(struct bcm_vk *vk);
 bool bcm_vk_drv_access_ok(struct bcm_vk *vk);
+void bcm_vk_set_host_alert(struct bcm_vk *vk, uint32_t bit_mask);
 int bcm_vk_sysfs_init(struct pci_dev *pdev, struct miscdevice *misc_device);
 void bcm_vk_sysfs_exit(struct pci_dev *pdev, struct miscdevice *misc_device);
 

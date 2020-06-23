@@ -134,7 +134,7 @@ bool bcm_vk_drv_access_ok(struct bcm_vk *vk)
 	return (!!atomic_read(&vk->msgq_inited));
 }
 
-static void bcm_vk_set_host_alert(struct bcm_vk *vk, uint32_t bit_mask)
+void bcm_vk_set_host_alert(struct bcm_vk *vk, uint32_t bit_mask)
 {
 	struct bcm_vk_alert *alert = &vk->host_alert;
 	unsigned long flags;

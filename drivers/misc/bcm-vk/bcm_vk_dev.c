@@ -114,6 +114,7 @@ struct bcm_vk_entry const bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM] = {
 struct bcm_vk_entry const bcm_vk_host_err[BCM_VK_HOST_ERR_NUM] = {
 	{ERR_LOG_HOST_PCIE_DWN, ERR_LOG_HOST_PCIE_DWN, "PCIe_down"},
 	{ERR_LOG_HOST_HB_FAIL, ERR_LOG_HOST_HB_FAIL, "hb_fail"},
+	{ERR_LOG_HOST_INTF_V_FAIL, ERR_LOG_HOST_INTF_V_FAIL, "intf_ver_fail"},
 };
 
 irqreturn_t bcm_vk_notf_irqhandler(int irq, void *dev_id)
@@ -157,6 +158,7 @@ int bcm_vk_intf_ver_chk(struct bcm_vk *vk)
 		dev_err(dev,
 			"Intf major.minor=%d.%d rejected - drv %d.%d\n",
 			major, minor, SEMANTIC_MAJOR, SEMANTIC_MINOR);
+		bcm_vk_set_host_alert(vk, ERR_LOG_HOST_INTF_V_FAIL);
 		ret = -EIO;
 	} else {
 		dev_dbg(dev,
