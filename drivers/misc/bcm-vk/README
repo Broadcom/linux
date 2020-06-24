@@ -61,6 +61,7 @@ vk-card-mon/
 	alert_heartbeat_fail	---> host detects heartbeat discontinuation
 				     from card
 	alert_high_temp		---> high temperature threshold crossed
+	alert_intf_ver_fail	---> interface not compatible based on version
 	alert_low_temp_warn	---> low temperature threshold crossed
 	alert_malloc_fail_warn	---> mem allocation failure(s) occurred
 	alert_pcie_down		---> host detect pcie intf going down
