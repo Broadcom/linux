@@ -18,7 +18,7 @@ iproc_defconfig="base-arm64 stingray \
     optee                                \
     pci perf profiling pwm               \
     regulator rng rtc                    \
-    spi                                  \
+    sched-hpc spi                        \
     tc                                   \
     tmon                                 \
     uio usb usbd                         \
