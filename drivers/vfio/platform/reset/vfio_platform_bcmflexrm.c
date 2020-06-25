@@ -28,6 +28,7 @@
 /* FlexRM configuration */
 #define RING_REGS_SIZE					0x10000
 #define RING_VER_MAGIC					0x76303031
+#define RING_VER_FS5_MAGIC				0x76303032
 
 /* Per-Ring register offsets */
 #define RING_VER					0x000
@@ -90,7 +91,10 @@ static int vfio_platform_bcmflexrm_reset(struct vfio_platform_device *vdev)
 	/* Discover and shutdown each FlexRM ring */
 	for (ring = reg->ioaddr;
 	     ring < (reg->ioaddr + reg->size); ring += RING_REGS_SIZE) {
-		if (readl_relaxed(ring + RING_VER) == RING_VER_MAGIC) {
+		uint32_t ring_ver = readl_relaxed(ring + RING_VER);
+
+		if (ring_ver == RING_VER_MAGIC ||
+		    ring_ver == RING_VER_FS5_MAGIC) {
 			rc = vfio_platform_bcmflexrm_shutdown(ring);
 			if (rc) {
 				dev_warn(vdev->device,
@@ -105,8 +109,36 @@ static int vfio_platform_bcmflexrm_reset(struct vfio_platform_device *vdev)
 	return ret;
 }
 
-module_vfio_reset_handler("brcm,iproc-flexrm-mbox",
-			  vfio_platform_bcmflexrm_reset);
+static struct vfio_platform_reset_node vfio_platform_bcmflexrm_reset_node = {
+	.owner = THIS_MODULE,
+	.compat = "brcm,iproc-flexrm-mbox",
+	.of_reset = vfio_platform_bcmflexrm_reset,
+};
+
+static struct vfio_platform_reset_node vfio_platform_bcmfs5rm_reset_node = {
+	.owner = THIS_MODULE,
+	.compat = "brcm,iproc-fs5rm-mbox",
+	.of_reset = vfio_platform_bcmflexrm_reset,
+};
+
+static int __init vfio_platform_bcmflexrm_reset_module_init(void)
+{
+	__vfio_platform_register_reset(&vfio_platform_bcmfs5rm_reset_node);
+	__vfio_platform_register_reset(&vfio_platform_bcmflexrm_reset_node);
+
+	return 0;
+}
+
+static void __exit vfio_platform_bcmflexrm_reset_module_exit(void)
+{
+	vfio_platform_unregister_reset("brcm,iproc-fs5rm-mbox",
+				       vfio_platform_bcmflexrm_reset);
+	vfio_platform_unregister_reset("brcm,iproc-flexrm-mbox",
+				       vfio_platform_bcmflexrm_reset);
+}
+
+module_init(vfio_platform_bcmflexrm_reset_module_init);
+module_exit(vfio_platform_bcmflexrm_reset_module_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Anup Patel <anup.patel@broadcom.com>");
