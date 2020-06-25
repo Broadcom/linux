@@ -29,6 +29,9 @@
 static bool hb_mon = true;
 module_param(hb_mon, bool, 0444);
 MODULE_PARM_DESC(hb_mon, "Monitoring heartbeat continuously.\n");
+static int batch_log = 1;
+module_param(batch_log, int, 0444);
+MODULE_PARM_DESC(batch_log, "Max num of logs per batch operation.\n");
 
 static bool hb_mon_is_on(void)
 {
@@ -404,6 +407,7 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 	num = 0;
 	list_for_each_entry_safe(entry, tmp, &del_q, node) {
 		list_del(&entry->node);
+		num++;
 		if (ctx) {
 			struct vk_msg_blk *msg;
 			int bit_set;
@@ -415,23 +419,24 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 			msg_id = get_msg_id(msg);
 			bit_set = test_bit(msg_id, vk->bmap);
 			responded = entry->to_h_msg ? true : false;
-			dev_info(dev,
-				 "Drained: fid %u size %u msg 0x%x(seq-%x) ctx 0x%x[fd-%d] args:[0x%x 0x%x] resp %s, bmap %d\n",
-				 msg->function_id, msg->size,
-				 msg_id, entry->seq_num,
-				 msg->context_id, entry->ctx->idx,
-				 msg->args[0], msg->args[1],
-				 responded ? "T" : "F", bit_set);
+			if (num <= batch_log)
+				dev_info(dev,
+					 "Drained: fid %u size %u msg 0x%x(seq-%x) ctx 0x%x[fd-%d] args:[0x%x 0x%x] resp %s, bmap %d\n",
+					 msg->function_id, msg->size,
+					 msg_id, entry->seq_num,
+					 msg->context_id, entry->ctx->idx,
+					 msg->args[0], msg->args[1],
+					 responded ? "T" : "F", bit_set);
 			if (responded)
 				atomic_dec(&ctx->pend_cnt);
 			else if (bit_set)
 				bcm_vk_msgid_bitmap_clear(vk, msg_id, 1);
 		}
 		bcm_vk_free_wkent(dev, entry);
-		num++;
 	}
-	if (num)
-		dev_info(dev, "Total drained items %d\n", num);
+	if (num && ctx)
+		dev_info(dev, "Total drained items %d [fd-%d]\n",
+			 num, ctx->idx);
 }
 
 bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
@@ -828,6 +833,7 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 	uint32_t q_num, msg_id, j;
 	uint32_t num_blks;
 	int32_t total = 0;
+	int cnt = 0;
 
 	/*
 	 * drain all the messages from the queues, and find its pending
@@ -938,10 +944,11 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 						    q_num, entry);
 
 			} else {
-				dev_crit(dev,
-					 "Could not find MsgId[0x%x] for resp func %d bmap %d\n",
-					 msg_id, data->function_id,
-					 test_bit(msg_id, vk->bmap));
+				if (cnt++ < batch_log)
+					dev_info(dev,
+						 "Could not find MsgId[0x%x] for resp func %d bmap %d\n",
+						 msg_id, data->function_id,
+						 test_bit(msg_id, vk->bmap));
 				kfree(data);
 			}
 			/* Fetch wr_idx to handle more back-to-back events */
