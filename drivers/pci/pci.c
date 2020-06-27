@@ -4885,6 +4885,23 @@ int pci_bridge_secondary_bus_reset(struct pci_dev *dev)
 }
 EXPORT_SYMBOL_GPL(pci_bridge_secondary_bus_reset);
 
+/* Do any devices on or below this bus prevent a bus reset? */
+static bool pci_bus_resetable(struct pci_bus *bus)
+{
+	struct pci_dev *dev;
+
+	if (bus->self && (bus->self->dev_flags & PCI_DEV_FLAGS_NO_BUS_RESET))
+		return false;
+
+	list_for_each_entry(dev, &bus->devices, bus_list) {
+		if (dev->dev_flags & PCI_DEV_FLAGS_NO_BUS_RESET ||
+		    (dev->subordinate && !pci_bus_resetable(dev->subordinate)))
+			return false;
+	}
+
+	return true;
+}
+
 static int pci_parent_bus_reset(struct pci_dev *dev, int probe)
 {
 	struct pci_dev *pdev;
@@ -4899,6 +4916,9 @@ static int pci_parent_bus_reset(struct pci_dev *dev, int probe)
 
 	if (probe)
 		return 0;
+
+	if (!pci_bus_resetable(dev->bus))
+		return -ENOTTY;
 
 	return pci_bridge_secondary_bus_reset(dev->bus->self);
 }
@@ -5188,24 +5208,6 @@ int pci_try_reset_function(struct pci_dev *dev)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pci_try_reset_function);
-
-/* Do any devices on or below this bus prevent a bus reset? */
-static bool pci_bus_resetable(struct pci_bus *bus)
-{
-	struct pci_dev *dev;
-
-
-	if (bus->self && (bus->self->dev_flags & PCI_DEV_FLAGS_NO_BUS_RESET))
-		return false;
-
-	list_for_each_entry(dev, &bus->devices, bus_list) {
-		if (dev->dev_flags & PCI_DEV_FLAGS_NO_BUS_RESET ||
-		    (dev->subordinate && !pci_bus_resetable(dev->subordinate)))
-			return false;
-	}
-
-	return true;
-}
 
 /* Lock devices from the top of the tree down */
 static void pci_bus_lock(struct pci_bus *bus)
