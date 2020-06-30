@@ -370,6 +370,7 @@ enum i2c_slave_event {
 	I2C_SLAVE_READ_PROCESSED,
 	I2C_SLAVE_WRITE_RECEIVED,
 	I2C_SLAVE_STOP,
+	I2C_SLAVE_PEC_ERR,
 };
 
 int i2c_slave_register(struct i2c_client *client, i2c_slave_cb_t slave_cb);
