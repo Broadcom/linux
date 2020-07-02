@@ -205,7 +205,7 @@ static int brcm_pcie_ep_probe(struct platform_device *pdev)
 	}
 
 	err = pci_epc_mem_init(epc, ep->ob_mem_res->start,
-			       resource_size(ep->ob_mem_res));
+			       resource_size(ep->ob_mem_res), PAGE_SIZE);
 	if (err < 0) {
 		dev_err(dev, "failed to initialize the memory space\n");
 		return err;
