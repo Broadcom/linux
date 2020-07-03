@@ -417,7 +417,7 @@ bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk);
 void bcm_vk_blk_drv_access(struct bcm_vk *vk);
 int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 			     const pid_t pid, const uint32_t q_num);
-void bcm_vk_trigger_reset(struct bcm_vk *vk);
+int bcm_vk_trigger_reset(struct bcm_vk *vk);
 void bcm_to_v_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val);
 int bcm_vk_auto_load_all_images(struct bcm_vk *vk);
 int bcm_vk_tty_init(struct bcm_vk *vk, char *name);

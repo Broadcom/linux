@@ -877,6 +877,7 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
 	struct vk_reset reset;
 	int ret = 0;
 	uint32_t ramdump_reset;
+	int special_reset;
 
 	if (copy_from_user(&reset, arg, sizeof(struct vk_reset)))
 		return -EFAULT;
@@ -907,7 +908,7 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
 		return ret;
 
 	bcm_vk_blk_drv_access(vk);
-	bcm_vk_trigger_reset(vk);
+	special_reset = bcm_vk_trigger_reset(vk);
 
 	/*
 	 * Wait enough time for card os to deinit
@@ -915,9 +916,9 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
 	 */
 	msleep(BCM_VK_DEINIT_TIME_MS);
 
-	if (ramdump_reset) {
+	if (special_reset) {
 		/* if it is special ramdump reset, return the type to user */
-		reset.arg2 = ramdump_reset;
+		reset.arg2 = special_reset;
 		if (copy_to_user(arg, &reset, sizeof(reset)))
 			ret = -EFAULT;
 	} else {

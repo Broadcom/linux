@@ -1418,7 +1418,7 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, NULL);
 }
 
-void bcm_vk_trigger_reset(struct bcm_vk *vk)
+int bcm_vk_trigger_reset(struct bcm_vk *vk)
 {
 	uint32_t i;
 	u32 value;
@@ -1452,6 +1452,7 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 	value &= CODEPUSH_MASK;
 	vkwrite32(vk, value, BAR_0, BAR_CODEPUSH_SBL);
 
+	/* special reset handling */
 	if (vk->peer_alert.flags & ERR_LOG_RAMDUMP) {
 		/*
 		 * if card is in ramdump mode, it is hitting an error.  Don't
@@ -1459,12 +1460,18 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 		 * is important - simply use special reset
 		 */
 		vkwrite32(vk, VK_BAR0_RESET_RAMPDUMP, BAR_0, VK_BAR_FWSTS);
-	} else {
-		/* reset fw_status with proper reason, and press db */
-		vkwrite32(vk, VK_FWSTS_RESET_MBOX_DB, BAR_0, VK_BAR_FWSTS);
+		return VK_BAR0_RESET_RAMPDUMP;
+	} else if (vkread32(vk, BAR_0, BAR_BOOT_STATUS) &
+			   BOOT1_STDALONE_RUNNING) {
+		dev_info(&vk->pdev->dev, "Hard reset on Standalone mode");
 		bcm_to_v_doorbell(vk, VK_BAR0_RESET_DB_NUM,
-				  VK_BAR0_RESET_DB_SOFT);
+				  VK_BAR0_RESET_DB_HARD);
+		return VK_BAR0_RESET_DB_HARD;
 	}
+
+	/* reset fw_status with proper reason, and press db */
+	vkwrite32(vk, VK_FWSTS_RESET_MBOX_DB, BAR_0, VK_BAR_FWSTS);
+	bcm_to_v_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_SOFT);
 
 	/* clear other necessary registers and alert records */
 	vkwrite32(vk, 0, BAR_0, BAR_OS_UPTIME);
@@ -1482,4 +1489,6 @@ void bcm_vk_trigger_reset(struct bcm_vk *vk)
 #endif
 	/* clear 4096 bits of bitmap */
 	bitmap_clear(vk->bmap, 0, VK_MSG_ID_BITMAP_SIZE);
+
+	return 0;
 }
