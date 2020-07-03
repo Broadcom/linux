@@ -10,7 +10,7 @@
  * to be updated in DTB by bootloader before
  * handing over DTB to Linux kernel.
  */
-/memreserve/ 0x81000000 0x08000000;
+/memreserve/ 0x95000000 0x08000000;
 
 /* HACK: Reserve bl31 location
  * The memreserve entry for bl31 is supposed to
@@ -20,13 +20,13 @@
  * location of bl31 and bl31 location in DDR can
  * also change in-future.
  */
-/memreserve/ 0x8f000000 0x00100000;
+/memreserve/ 0x80000000 0x02080000;
 
 /* Sideload 64MB */
 /memreserve/ 0xbc000000 0x04000000;
 
 /* SMMU-v3 tables */
-/memreserve/ 0x89000000 0x01000000;
+/memreserve/ 0x83080000 0x01000000;
 
 #include "../stingray2.dtsi"
 
@@ -42,8 +42,8 @@
 			    earlycon=pl011,mmio32,0x68a10000 cma=64M \
 			    maxcpus=2 pci=pcie_bus_perf pcie_ports=native \
 			    sbsa_gwdt.action=1";
-		linux,initrd-start = <0x0 0x81000000>;
-		linux,initrd-end = <0x0 0x89000000>;
+		linux,initrd-start = <0x0 0x95000000>;
+		linux,initrd-end = <0x0 0x9d000000>;
 		stdout-path = "serial0:1200n8";
 	};
 
