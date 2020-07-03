@@ -310,4 +310,4 @@ These clock IDs are defined in:
     clk_crmu_ts		lcpll1		3	BCM_SR_LCPLL1_CRMU_TS_CLK
 
     lcpll_pcie		crystal		0	BCM_SR_LCPLL_PCIE
-    pcie_phy_ref 	lcpll1		1	BCM_SR_LCPLL_PCIE_PHY_REF_CLK
+    clk_pcie_phy_ref	lcpll1		1	BCM_SR_LCPLL_PCIE_PHY_REF_CLK
