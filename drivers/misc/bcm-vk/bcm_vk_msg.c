@@ -25,6 +25,9 @@
 
 #define BCM_VK_DMA_DRAIN_DELAY_MS 2000
 
+/* number x q_size will be the max number of msg processed per loop */
+#define BCM_VK_MSG_PROC_MAX_LOOP 2
+
 /* module parameter */
 static bool hb_mon = true;
 module_param(hb_mon, bool, 0444);
@@ -834,6 +837,9 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 	uint32_t num_blks;
 	int32_t total = 0;
 	int cnt = 0;
+	int msg_processed = 0;
+	int max_msg_to_process;
+	bool exit_loop;
 
 	/*
 	 * drain all the messages from the queues, and find its pending
@@ -846,11 +852,13 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 	for (q_num = 0; q_num < chan->q_nr; q_num++) {
 		msgq = chan->msgq[q_num];
 		qinfo = &chan->sync_qinfo[q_num];
+		max_msg_to_process = BCM_VK_MSG_PROC_MAX_LOOP * qinfo->q_size;
 
 		rd_idx = readl_relaxed(&msgq->rd_idx);
 		wr_idx = readl_relaxed(&msgq->wr_idx);
-
-		while (rd_idx != wr_idx) {
+		msg_processed = 0;
+		exit_loop = false;
+		while ((rd_idx != wr_idx) && !exit_loop) {
 			uint8_t src_size;
 
 			/*
@@ -953,6 +961,17 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 			}
 			/* Fetch wr_idx to handle more back-to-back events */
 			wr_idx = readl(&msgq->wr_idx);
+
+			/*
+			 * cap the max so that even we try to handle more back-to-back events,
+			 * so that it won't hold CPU too long or in case rd/wr idexes are
+			 * corrupted which triggers infinte looping.
+			 */
+			if (++msg_processed >= max_msg_to_process) {
+				dev_warn(dev, "Q[%d] Per loop processing exceeds %d\n",
+					 q_num, max_msg_to_process);
+				exit_loop = true;
+			}
 		}
 	}
 idx_err:
