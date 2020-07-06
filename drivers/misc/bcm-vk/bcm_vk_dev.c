@@ -997,7 +997,7 @@ static int bcm_vk_on_panic(struct notifier_block *nb,
 {
 	struct bcm_vk *vk = container_of(nb, struct bcm_vk, panic_nb);
 
-	bcm_to_v_doorbell(vk, VK_BAR0_RESET_DB_NUM, VK_BAR0_RESET_DB_HARD);
+	bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_HARD);
 
 	return 0;
 }

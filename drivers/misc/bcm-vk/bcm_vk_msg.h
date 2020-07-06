@@ -26,6 +26,13 @@ struct bcm_vk_msgq {
 			 * nxt offset to the next msg queue struct.
 			 * This is to provide flexibity for alignment purposes.
 			 */
+
+/* Least significant 16 bits in below field hold doorbell register offset */
+#define DB_SHIFT 16
+
+	uint32_t db_offset; /* queue doorbell register offset in BAR0 */
+
+	uint32_t rsvd;
 };
 
 /*
@@ -37,6 +44,7 @@ struct bcm_vk_sync_qinfo {
 	uint32_t q_size;
 	uint32_t q_mask;
 	uint32_t q_low;
+	uint32_t q_db_offset;
 };
 
 #define VK_MSGQ_MAX_NR 4 /* Maximum number of message queues */
@@ -152,6 +160,11 @@ struct bcm_vk_msg_chan {
 #define VK_BAR0_RESET_DB_SOFT		0xffffffff
 #define VK_BAR0_RESET_DB_HARD		0xfffffffd
 #define VK_BAR0_RESET_RAMPDUMP		0xa0000000
+
+#define VK_BAR0_Q_DB_BASE(q_num)	(VK_BAR0_REGSEG_DB_BASE + \
+					 ((q_num) * VK_BAR0_REGSEG_DB_REG_GAP))
+#define VK_BAR0_RESET_DB_BASE	(VK_BAR0_REGSEG_DB_BASE + \
+				 (VK_BAR0_RESET_DB_NUM * VK_BAR0_REGSEG_DB_REG_GAP))
 
 /* BAR1 message q definition */
 
