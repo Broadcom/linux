@@ -1103,7 +1103,7 @@ static int bcm_iproc_i2c_reg_slave(struct i2c_client *slave)
 		return -EAFNOSUPPORT;
 
 	/* Enable partial slave HW PEC support if requested by the client */
-	iproc_i2c->en_s_pec = slave->flags & I2C_CLIENT_PEC ? "true" : "false";
+	iproc_i2c->en_s_pec = !!(slave->flags & I2C_CLIENT_PEC);
 	if (iproc_i2c->en_s_pec)
 		dev_info(iproc_i2c->device, "Enable PEC\n");
 
