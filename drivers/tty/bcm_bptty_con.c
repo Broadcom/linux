@@ -30,7 +30,7 @@
 #define BPTTY_PCIE_MSIX_INTR		4
 
 struct bptty_chnl {
-	unsigned int reserved;
+	unsigned int overflow;
 	unsigned int size;
 	unsigned int wr;
 	unsigned int rd;
@@ -314,6 +314,39 @@ static void bptty_close(struct tty_struct *tty, struct file *file)
 		do_close(state);
 }
 
+static unsigned int space_get(struct circ_buf *buf, unsigned int size)
+{
+	if (buf->tail < buf->head)
+		return (buf->head - buf->tail - 1);
+
+	/* for case: tail >= head */
+	return ((size - buf->tail) + buf->head - 1);
+}
+
+static void check_xmit_ch_overflow(struct bptty_state *state,
+				   unsigned int count)
+{
+	struct bptty_chnl *xmit_ch = state->ch[BPTTY_XMIT_CH];
+	struct circ_buf *xmit = &state->xmits[BPTTY_XMIT_CH];
+	unsigned int space_left;
+
+	/*
+	 * If no reader to buffer, then read idx will not be incremented.
+	 * Thus, monitor the buffer overflow case, and mark as such in case
+	 * reader wants to adjust the start idx.
+	 * Hence, it's up to the reader to reset overflow flag. Avoid free
+	 * space calculation until no overflow.
+	 */
+	if (!xmit_ch->overflow) {
+		xmit->tail = xmit_ch->rd;
+
+		space_left = space_get(xmit, xmit_ch->size);
+
+		if (space_left <= count)
+			xmit_ch->overflow = 1;
+	}
+}
+
 /* Return no of bytes successfully transferred to memory */
 static int do_write(struct bptty_state *state, const unsigned char *buf,
 		    int count)
@@ -322,6 +355,8 @@ static int do_write(struct bptty_state *state, const unsigned char *buf,
 
 	if (!state->xmits[BPTTY_XMIT_CH].buf)
 		return 0;
+
+	check_xmit_ch_overflow(state, count);
 
 	for (i = 0; i < count; i++) {
 		writeb(buf[i], state->xmits[BPTTY_XMIT_CH].buf +
@@ -361,62 +396,23 @@ exit:
 	return wrote;
 }
 
-static inline int space_get(struct circ_buf *buf, unsigned int size)
-{
-	if (buf->tail < buf->head)
-		return (buf->head - buf->tail - 1);
-
-	/* for case: tail >= head */
-	return ((size - buf->tail) + buf->head - 1);
-}
-
-static int update_xmit_rd_index(struct bptty_state *state, unsigned int count)
-{
-	int space_left;
-	struct bptty_chnl *xmit_ch = state->ch[BPTTY_XMIT_CH];
-	struct circ_buf *xmit = &state->xmits[BPTTY_XMIT_CH];
-
-	xmit->tail = xmit_ch->rd;
-
-	space_left = space_get(xmit, xmit_ch->size);
-
-	/*
-	 * In case where read not performed by remote host, tail will not
-	 * get incremented. Thus move tail (overwrite) to make space.
-	 */
-	while (space_left <= count) {
-		xmit->tail++;
-
-		if (xmit->tail >= xmit_ch->size)
-			xmit->tail = 0;
-
-		xmit_ch->rd = xmit->tail;
-
-		/* recalculate with adjusted tail */
-		space_left = space_get(xmit, xmit_ch->size);
-	}
-	return space_left;
-}
 
 static int bptty_write_room(struct tty_struct *tty)
 {
 	struct bptty_state *state = tty->driver_data;
-	int room = -EINVAL;
 
 	if (!state)
 		return -ENODEV;
 
 	if (!state->open_count)
-		goto exit;
+		return -EINVAL;
 
 	/*
-	 * Check available space in send memory
-	 * and ensure at least space for one character
+	 * As overflow is allowed to keep the latest data in the buffer,
+	 * even if the old data has not been read out.
+	 * Thus, always return the buffer size as an available room.
 	 */
-	room = update_xmit_rd_index(state, 1);
-
-exit:
-	return room;
+	return state->ch[BPTTY_XMIT_CH]->size;
 }
 
 static int bptty_parse_dt(struct device_node *np, struct bptty_state *state)
@@ -447,12 +443,6 @@ static void bptty_console_write(struct console *co, const char *buf,
 				unsigned int count)
 {
 	struct bptty_state *state = &state_info;
-
-	/*
-	 * Ensure read index is incremented enough to write
-	 * the whole buffer content.
-	 */
-	update_xmit_rd_index(state, count);
 
 	do_write(state, buf, count);
 }
