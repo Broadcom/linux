@@ -198,6 +198,7 @@ struct bcm_vk_tty {
 	uint32_t rd;		/* read offset shadow */
 	pid_t pid;
 	bool irq_enabled;
+	bool is_opened;		/* tracks tty open/close */
 };
 
 /* VK device max power state, supports 3, full, reduced and low */

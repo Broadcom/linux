@@ -106,6 +106,10 @@ static void bcm_vk_tty_wq_handler(struct work_struct *work)
 
 		vktty = &vk->tty[i];
 
+		/* Don't increment read index if tty app is closed */
+		if (!vktty->is_opened)
+			continue;
+
 		/* Fetch the wr offset in buffer from VK */
 		wr = vkread32(vk, BAR_1, VK_BAR_CHAN_WR(vktty, from));
 
@@ -182,6 +186,7 @@ static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 	vktty->wr = vkread32(vk, BAR_1,  VK_BAR_CHAN_WR(vktty, to));
 	vktty->from_size = vkread32(vk, BAR_1, VK_BAR_CHAN_SIZE(vktty, from));
 	vktty->rd = vkread32(vk, BAR_1,  VK_BAR_CHAN_RD(vktty, from));
+	vktty->is_opened = true;
 
 	if (tty->count == 1 && !vktty->irq_enabled) {
 		timer_setup(&vk->serial_timer, bcm_vk_tty_poll, 0);
@@ -193,6 +198,11 @@ static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 static void bcm_vk_tty_close(struct tty_struct *tty, struct file *file)
 {
 	struct bcm_vk *vk = dev_get_drvdata(tty->dev);
+
+	if (tty->index >= BCM_VK_NUM_TTY)
+		return;
+
+	vk->tty[tty->index].is_opened = false;
 
 	if (tty->count == 1)
 		del_timer_sync(&vk->serial_timer);
@@ -292,6 +302,7 @@ int bcm_vk_tty_init(struct bcm_vk *vk, char *name)
 			goto unwind;
 		}
 		dev_set_drvdata(tty_dev, vk);
+		vk->tty[i].is_opened = false;
 	}
 
 	INIT_WORK(&vk->tty_wq_work, bcm_vk_tty_wq_handler);
