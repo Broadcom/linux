@@ -90,7 +90,7 @@ static void bcm_vk_tty_wq_handler(struct work_struct *work)
 	struct bcm_vk *vk = container_of(work, struct bcm_vk, tty_wq_work);
 	struct bcm_vk_tty *vktty;
 	int card_status;
-	int count = 0;
+	int count;
 	unsigned char c;
 	int i;
 	int wr;
@@ -100,6 +100,7 @@ static void bcm_vk_tty_wq_handler(struct work_struct *work)
 		return;
 
 	for (i = 0; i < BCM_VK_NUM_TTY; i++) {
+		count = 0;
 		/* Check the card status that the tty channel is ready */
 		if ((card_status & BIT(i)) == 0)
 			continue;
@@ -115,14 +116,14 @@ static void bcm_vk_tty_wq_handler(struct work_struct *work)
 
 		/* safe to ignore until bar read gives proper size */
 		if (vktty->from_size == 0)
-			return;
+			continue;
 
 		if (wr >= vktty->from_size) {
 			dev_err(&vk->pdev->dev,
 				"ERROR: wq handler ttyVK%d wr:0x%x > 0x%x\n",
 				i, wr, vktty->from_size);
 			/* Need to signal and close device in this case */
-			return;
+			continue;
 		}
 
 		/*
@@ -138,13 +139,14 @@ static void bcm_vk_tty_wq_handler(struct work_struct *work)
 			tty_insert_flip_char(&vktty->port, c, TTY_NORMAL);
 			count++;
 		}
-	}
 
-	if (count) {
-		tty_flip_buffer_push(&vktty->port);
+		if (count) {
+			tty_flip_buffer_push(&vktty->port);
 
-		/* Update read offset from shadow register to card */
-		vkwrite32(vk, vktty->rd, BAR_1, VK_BAR_CHAN_RD(vktty, from));
+			/* Update read offset from shadow register to card */
+			vkwrite32(vk, vktty->rd, BAR_1,
+				  VK_BAR_CHAN_RD(vktty, from));
+		}
 	}
 }
 
