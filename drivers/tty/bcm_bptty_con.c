@@ -51,6 +51,7 @@ struct bptty_state {
 	struct device *dev;
 	spinlock_t lock; /* protect irq service */
 	struct pci_epc *epc;
+	int max_msix;	/* maximum no of MSIX configured */
 };
 
 static struct bptty_state state_info;
@@ -349,7 +350,11 @@ static int bptty_write(struct tty_struct *tty, const unsigned char *buffer,
 		goto exit;
 
 	wrote = do_write(state, buffer, count);
-	if (state->epc)
+	/*
+	 * Note: max_msix count 1 to max, whereas irq count 0 to max - 1.
+	 * Thus, max_msix must be greater than BPTTY_PCIE_MSIX_INTR
+	 */
+	if (state->epc && state->max_msix > BPTTY_PCIE_MSIX_INTR)
 		pci_epc_raise_irq(state->epc, 0, PCI_EPC_IRQ_MSIX,
 				  BPTTY_PCIE_MSIX_INTR);
 exit:
@@ -540,6 +545,10 @@ static int bptty_probe(struct platform_device *pdev)
 
 	if (bptty_parse_dt(pdev->dev.of_node, state))
 		dev_err(&pdev->dev, "msix source not found\n");
+
+	/* get maximum configured no of MSIX */
+	if (state->epc)
+		state->max_msix = pci_epc_get_msix(state->epc, 0);
 
 	state->irq = platform_get_irq(pdev, 0);
 	if (state->irq < 0) {
