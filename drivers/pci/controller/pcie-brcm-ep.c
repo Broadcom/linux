@@ -18,11 +18,17 @@
 #define BRCM_EP_MSIX_TBL_ADDR_H_OFFSET	4
 #define BRCM_EP_MSIX_TBL_DATA_OFFSET	8
 #define BRCM_EP_OB_LO_ADDR_MASK		0xf8000000
+#define BRCM_EP_PAXB0_CONFIG_IND_ADDR	0x120
+#define BRCM_EP_PAXB0_CONFIG_IND_DATA	0x124
 #define BRCM_EP_OARR2_LOWER_OFFSET	0xd60
 #define BRCM_EP_OARR2_UPPER_OFFSET	0xd64
 #define BRCM_EP_OMAP2_LOWER_OFFSET	0xd68
 #define BRCM_EP_OMAP2_UPPER_OFFSET	0xd6c
 #define BRCM_EP_OARR2_VALID		BIT(0)
+
+/* EP extended configuration space register offset */
+#define BRCM_EP_CFG_REG_MSIX_CTRL	0x4c0
+#define BRCM_EP_CFG_REG_MSIX_CTRL_MSK	0x3ff
 
 struct brcm_pcie_ep {
 	phys_addr_t ob_phys_addr;	/* outbound physical address */
@@ -97,6 +103,27 @@ static int brcm_pcie_ep_send_msi_irq(struct brcm_pcie_ep *ep, u8 fn,
 	return 0;
 }
 
+static void brcm_pcie_ep_rd_ind_reg(struct brcm_pcie_ep *ep, uint32_t addr,
+				    uint32_t *data)
+{
+	writel(addr, ep->paxb_base + BRCM_EP_PAXB0_CONFIG_IND_ADDR);
+	*data = readl(ep->paxb_base + BRCM_EP_PAXB0_CONFIG_IND_DATA);
+}
+
+static int brcm_pcie_ep_get_msix(struct pci_epc *epc, u8 func_no)
+{
+	struct brcm_pcie_ep *ep = epc_get_drvdata(epc);
+	u32 msix_no;
+
+	brcm_pcie_ep_rd_ind_reg(ep, BRCM_EP_CFG_REG_MSIX_CTRL, &msix_no);
+	msix_no &= BRCM_EP_CFG_REG_MSIX_CTRL_MSK;
+
+	if (msix_no == 0)
+		return -EIO;
+	else
+		return msix_no;
+}
+
 static int brcm_pcie_ep_raise_irq(struct pci_epc *epc, u8 fn,
 				  enum pci_epc_irq_type type,
 				  u16 interrupt_num)
@@ -125,6 +152,7 @@ brcm_pcie_ep_get_features(struct pci_epc *epc, u8 func_no)
 }
 
 static const struct pci_epc_ops brcm_pcie_epc_ops = {
+	.get_msix	= brcm_pcie_ep_get_msix,
 	.raise_irq	= brcm_pcie_ep_raise_irq,
 	.get_features	= brcm_pcie_ep_get_features,
 };
