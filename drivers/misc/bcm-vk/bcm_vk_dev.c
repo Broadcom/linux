@@ -882,6 +882,12 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
 	if (copy_from_user(&reset, arg, sizeof(struct vk_reset)))
 		return -EFAULT;
 
+	/* check if any download is in-progress, if so return error */
+	if (test_and_set_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload) != 0) {
+		dev_err(dev, "Download operation pending - skip reset.\n");
+		return -EPERM;
+	}
+
 	ramdump_reset = vk->peer_alert.flags & ERR_LOG_RAMDUMP;
 	dev_info(dev, "Issue Reset %s\n",
 		 ramdump_reset ? "in ramdump mode" : "");
@@ -905,7 +911,7 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
 	}
 	spin_unlock(&vk->ctx_lock);
 	if (ret)
-		return ret;
+		goto err_exit;
 
 	bcm_vk_blk_drv_access(vk);
 	special_reset = bcm_vk_trigger_reset(vk);
@@ -924,6 +930,9 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
 	} else {
 		ret = bcm_vk_reset_successful(vk);
 	}
+
+err_exit:
+	clear_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload);
 	return ret;
 }
 
