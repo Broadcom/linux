@@ -786,7 +786,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk,
 	u32 next_loadable;
 	enum soc_idx idx;
 	int image_idx;
-	int ret;
+	int ret = -EPERM;
 
 	if (copy_from_user(&image, arg, sizeof(image)))
 		return -EACCES;
@@ -794,14 +794,14 @@ static long bcm_vk_load_image(struct bcm_vk *vk,
 	if ((image.type != VK_IMAGE_TYPE_BOOT1) &&
 	    (image.type != VK_IMAGE_TYPE_BOOT2)) {
 		dev_err(dev, "invalid image.type %u\n", image.type);
-		return -EPERM;
+		return ret;
 	}
 
 	next_loadable = bcm_vk_next_boot_image(vk);
 	if (next_loadable != image.type) {
 		dev_err(dev, "Next expected image %u, Loading %u\n",
 			next_loadable, image.type);
-		return -EPERM;
+		return ret;
 	}
 
 	/*
@@ -811,7 +811,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk,
 	 */
 	if (test_and_set_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload) != 0) {
 		dev_err(dev, "Download operation already pending.\n");
-		return -EPERM;
+		return ret;
 	}
 
 	image_name = image.filename;
@@ -819,7 +819,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk,
 		/* Use default image name if NULL */
 		idx = get_soc_idx(dev);
 		if (idx >= VK_IDX_INVALID)
-			return -EPERM;
+			goto err_idx;
 
 		/* Image idx starts with boot1 */
 		image_idx = image.type - VK_IMAGE_TYPE_BOOT1;
@@ -829,6 +829,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk,
 		image.filename[sizeof(image.filename) - 1] = '\0';
 	}
 	ret = bcm_vk_load_image_by_type(vk, image.type, image_name);
+err_idx:
 	clear_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload);
 
 	return ret;
