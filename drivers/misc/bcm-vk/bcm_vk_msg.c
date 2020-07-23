@@ -1433,6 +1433,7 @@ int bcm_vk_trigger_reset(struct bcm_vk *vk)
 {
 	uint32_t i;
 	u32 value;
+	bool is_stdalone, is_boot2;
 
 	/* clean up before pressing the door bell */
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_v_msg_chan, NULL);
@@ -1464,6 +1465,9 @@ int bcm_vk_trigger_reset(struct bcm_vk *vk)
 	vkwrite32(vk, value, BAR_0, BAR_CODEPUSH_SBL);
 
 	/* special reset handling */
+	value = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
+	is_stdalone = value & BOOT_STDALONE_RUNNING;
+	is_boot2 = (value & BOOT_STATE_MASK) == BOOT2_RUNNING;
 	if (vk->peer_alert.flags & ERR_LOG_RAMDUMP) {
 		/*
 		 * if card is in ramdump mode, it is hitting an error.  Don't
@@ -1472,8 +1476,7 @@ int bcm_vk_trigger_reset(struct bcm_vk *vk)
 		 */
 		vkwrite32(vk, VK_BAR0_RESET_RAMPDUMP, BAR_0, VK_BAR_FWSTS);
 		return VK_BAR0_RESET_RAMPDUMP;
-	} else if (vkread32(vk, BAR_0, BAR_BOOT_STATUS) &
-			   BOOT1_STDALONE_RUNNING) {
+	} else if (is_stdalone && !is_boot2) {
 		dev_info(&vk->pdev->dev, "Hard reset on Standalone mode");
 		bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_HARD);
 		return VK_BAR0_RESET_DB_HARD;

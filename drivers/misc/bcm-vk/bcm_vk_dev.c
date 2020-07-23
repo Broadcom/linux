@@ -472,6 +472,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	u32 codepush;
 	u32 value;
 	dma_addr_t boot_dma_addr;
+	bool is_stdalone;
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
 		/*
@@ -551,21 +552,22 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
-		uint32_t reg;
-
 		/* wait until done */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS,
 				  BOOT1_RUNNING,
 				  BOOT1_RUNNING,
 				  BOOT1_STARTUP_TIMEOUT_MS);
 
-		reg = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
-		if (ret && !(reg & BOOT1_STDALONE_RUNNING)) {
+		is_stdalone = vkread32(vk, BAR_0, BAR_BOOT_STATUS) &
+			      BOOT_STDALONE_RUNNING;
+		if (ret && !is_stdalone) {
 			dev_err(dev,
 				"Timeout %ld ms waiting for boot1 to come up\n",
 				BOOT1_STARTUP_TIMEOUT_MS);
 			goto err_firmware_out;
-		} else if (reg & BOOT1_STDALONE_RUNNING) {
+		} else if (is_stdalone) {
+			u32 reg;
+
 			reg = vkread32(vk, BAR_0, BAR_BOOT1_STDALONE_PROGRESS);
 			if ((reg & BOOT1_STDALONE_PROGRESS_MASK) ==
 				     BOOT1_STDALONE_SUCCESS) {
@@ -643,28 +645,32 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 			goto err_firmware_out;
 		}
 
-		ret = bcm_vk_intf_ver_chk(vk);
-		if (ret) {
-			dev_err(dev, "failure in intf version check\n");
-			goto err_firmware_out;
-		}
+		is_stdalone = vkread32(vk, BAR_0, BAR_BOOT_STATUS) &
+			      BOOT_STDALONE_RUNNING;
+		if (!is_stdalone) {
+			ret = bcm_vk_intf_ver_chk(vk);
+			if (ret) {
+				dev_err(dev, "failure in intf version check\n");
+				goto err_firmware_out;
+			}
 
-		/*
-		 * Next, initialize Message Q if we are loading boot2.
-		 * Do a force sync
-		 */
-		ret = bcm_vk_sync_msgq(vk, true);
-		if (ret) {
-			dev_err(dev, "Boot2 Error reading comm msg Q info\n");
-			ret = -EIO;
-			goto err_firmware_out;
-		}
+			/*
+			 * Next, initialize Message Q if we are loading boot2.
+			 * Do a force sync
+			 */
+			ret = bcm_vk_sync_msgq(vk, true);
+			if (ret) {
+				dev_err(dev, "Boot2 Error reading comm msg Q info\n");
+				ret = -EIO;
+				goto err_firmware_out;
+			}
 
-		/* sync & channel other info */
-		ret = bcm_vk_sync_card_info(vk);
-		if (ret) {
-			dev_err(dev, "Syncing Card Info failure\n");
-			goto err_firmware_out;
+			/* sync & channel other info */
+			ret = bcm_vk_sync_card_info(vk);
+			if (ret) {
+				dev_err(dev, "Syncing Card Info failure\n");
+				goto err_firmware_out;
+			}
 		}
 	}
 

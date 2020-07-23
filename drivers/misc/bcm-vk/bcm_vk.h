@@ -70,11 +70,15 @@
 #define FW_LOADER_ACK_IN_PROGRESS	BIT(19)
 #define FW_LOADER_ACK_RCVD_ALL_DATA	BIT(20)
 
-/* Boot1 is running in standalone mode */
-#define BOOT1_STDALONE_RUNNING		BIT(21)
+/* Boot1/2 is running in standalone mode */
+#define BOOT_STDALONE_RUNNING		BIT(21)
 
 /* definitions for boot status register */
-#define BOOT_STATE_MASK			0xfff3ffff
+#define BOOT_STATE_MASK			(0xffffffff & \
+					 ~(FW_LOADER_ACK_SEND_MORE_DATA | \
+					   FW_LOADER_ACK_IN_PROGRESS | \
+					   BOOT_STDALONE_RUNNING))
+
 #define BROM_STATUS_NOT_RUN		0x2
 #define BROM_NOT_RUN			(SRAM_OPEN | BROM_STATUS_NOT_RUN)
 #define BROM_STATUS_COMPLETE		0x6

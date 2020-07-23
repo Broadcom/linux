@@ -77,6 +77,7 @@ static struct bcm_vk_entry const boot_reg_tab[] = {
 	 "bt1_inprog"},
 	{FW_LOADER_ACK_RCVD_ALL_DATA, FW_LOADER_ACK_RCVD_ALL_DATA,
 	 "bt2_dload_done"},
+	{BOOT_STDALONE_RUNNING, BOOT_STDALONE_RUNNING, "standalone"},
 	/* running state */
 	{BOOT_STATE_MASK, BROM_NOT_RUN,  "ucode_not_run"},
 	{BOOT_STATE_MASK, BROM_RUNNING,  "wait_boot1"},
