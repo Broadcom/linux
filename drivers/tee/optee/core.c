@@ -584,11 +584,6 @@ static int optee_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void optee_shutdown(struct platform_device *pdev)
-{
-	optee_remove(pdev);
-}
-
 static int optee_probe(struct platform_device *pdev)
 {
 	optee_invoke_fn *invoke_fn;
@@ -715,7 +710,6 @@ MODULE_DEVICE_TABLE(of, optee_dt_match);
 static struct platform_driver optee_driver = {
 	.probe  = optee_probe,
 	.remove = optee_remove,
-	.shutdown = optee_shutdown,
 	.driver = {
 		.name = "optee",
 		.of_match_table = optee_dt_match,
