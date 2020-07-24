@@ -466,7 +466,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	struct device *dev = &vk->pdev->dev;
 	const struct firmware *fw = NULL;
 	void *bufp = NULL;
-	size_t max_buf;
+	size_t max_buf, offset;
 	int ret;
 	uint64_t offset_codepush;
 	u32 codepush;
@@ -535,8 +535,9 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 		goto err_buf_out;
 	}
 
+	offset = 0;
 	ret = request_partial_firmware_into_buf(&fw, filename, dev,
-						bufp, max_buf, 0);
+						bufp, max_buf, offset);
 	if (ret) {
 		dev_err(dev, "Error %d requesting firmware file: %s\n",
 			ret, filename);
@@ -613,16 +614,17 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 					  codepush, 0,
 					  TXFR_COMPLETE_TIMEOUT_MS);
 			if (ret == 0) {
+				offset += max_buf;
 				ret = request_partial_firmware_into_buf
 						(&fw,
 						 filename,
 						 dev, bufp,
 						 max_buf,
-						 fw->size);
+						 offset);
 				if (ret) {
 					dev_err(dev,
 						"Error %d requesting firmware file: %s offset: 0x%zx\n",
-						ret, filename, fw->size);
+						ret, filename, offset);
 					goto err_firmware_out;
 				}
 				dev_dbg(dev, "size=0x%zx\n", fw->size);
