@@ -374,30 +374,30 @@ extern struct bcm_vk_entry const bcm_vk_host_err[BCM_VK_HOST_ERR_NUM];
  */
 #define BCM_VK_INTF_IS_DOWN(val) ((val) == 0xffffffff)
 
-static inline u32 vkread32(struct bcm_vk *vk,
-			   enum pci_barno bar,
-			   uint64_t offset)
+static inline uint32_t vkread32(struct bcm_vk *vk,
+				enum pci_barno bar,
+				uint64_t offset)
 {
 	return readl(vk->bar[bar] + offset);
 }
 
 static inline void vkwrite32(struct bcm_vk *vk,
-			     u32 value,
+			     uint32_t value,
 			     enum pci_barno bar,
 			     uint64_t offset)
 {
 	writel(value, vk->bar[bar] + offset);
 }
 
-static inline u8 vkread8(struct bcm_vk *vk,
-			 enum pci_barno bar,
-			 uint64_t offset)
+static inline uint8_t vkread8(struct bcm_vk *vk,
+			      enum pci_barno bar,
+			      uint64_t offset)
 {
 	return readb(vk->bar[bar] + offset);
 }
 
 static inline void vkwrite8(struct bcm_vk *vk,
-			    u8 value,
+			    uint8_t value,
 			    enum pci_barno bar,
 			    uint64_t offset)
 {

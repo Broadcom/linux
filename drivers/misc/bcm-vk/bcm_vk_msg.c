@@ -1432,7 +1432,7 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 int bcm_vk_trigger_reset(struct bcm_vk *vk)
 {
 	uint32_t i;
-	u32 value;
+	uint32_t value;
 	bool is_stdalone, is_boot2;
 
 	/* clean up before pressing the door bell */

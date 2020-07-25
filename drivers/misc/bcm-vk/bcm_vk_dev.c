@@ -297,12 +297,12 @@ void bcm_vk_handle_notf(struct bcm_vk *vk)
 }
 
 static inline int bcm_vk_wait(struct bcm_vk *vk, enum pci_barno bar,
-			      uint64_t offset, u32 mask, u32 value,
+			      uint64_t offset, uint32_t mask, uint32_t value,
 			      unsigned long timeout_ms)
 {
 	struct device *dev = &vk->pdev->dev;
 	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
-	u32 rd_val;
+	uint32_t rd_val;
 
 	do {
 		rd_val = vkread32(vk, bar, offset);
@@ -460,7 +460,7 @@ static void bcm_vk_buf_notify(struct bcm_vk *vk, void *bufp,
 	vkwrite32(vk, buf_size, BAR_1, VK_BAR1_DMA_BUF_SZ);
 }
 
-static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
+static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
 				     const char *filename)
 {
 	struct device *dev = &vk->pdev->dev;
@@ -469,8 +469,8 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	size_t max_buf, offset;
 	int ret;
 	uint64_t offset_codepush;
-	u32 codepush;
-	u32 value;
+	uint32_t codepush;
+	uint32_t value;
 	dma_addr_t boot_dma_addr;
 	bool is_stdalone;
 
@@ -567,7 +567,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				BOOT1_STARTUP_TIMEOUT_MS);
 			goto err_firmware_out;
 		} else if (is_stdalone) {
-			u32 reg;
+			uint32_t reg;
 
 			reg = vkread32(vk, BAR_0, BAR_BOOT1_STDALONE_PROGRESS);
 			if ((reg & BOOT1_STDALONE_PROGRESS_MASK) ==
@@ -686,11 +686,11 @@ err_buf_out:
 	return ret;
 }
 
-static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
+static uint32_t bcm_vk_next_boot_image(struct bcm_vk *vk)
 {
 	uint32_t boot_status;
 	uint32_t fw_status;
-	u32 load_type = 0;  /* default for unknown */
+	uint32_t load_type = 0;  /* default for unknown */
 
 	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
 	fw_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
@@ -785,7 +785,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk,
 	struct device *dev = &vk->pdev->dev;
 	const char *image_name;
 	struct vk_image image;
-	u32 next_loadable;
+	uint32_t next_loadable;
 	enum soc_idx idx;
 	int image_idx;
 	int ret = -EPERM;
@@ -840,7 +840,7 @@ err_idx:
 static int bcm_vk_reset_successful(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
-	u32 fw_status, reset_reason;
+	uint32_t fw_status, reset_reason;
 	int ret = -EAGAIN;
 
 	/*
