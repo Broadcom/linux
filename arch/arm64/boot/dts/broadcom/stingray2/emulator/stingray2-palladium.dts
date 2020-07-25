@@ -43,7 +43,7 @@
 			    maxcpus=2 pci=pcie_bus_perf pcie_ports=native \
 			    sbsa_gwdt.action=1 reboot=w";
 		linux,initrd-start = <0x0 0x9d000000>;
-		linux,initrd-end = <0x0 0x9e000000>;
+		linux,initrd-end = <0x0 0x9f000000>;
 		stdout-path = "serial0:1200n8";
 	};
 
