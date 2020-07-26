@@ -82,3 +82,23 @@
 &pcie8 {
 	status = "okay";
 };
+
+&crmu_thermal0 {
+	polling-delay = <20>;
+};
+
+&crmu_thermal1 {
+	polling-delay = <20>;
+};
+
+&ihost0_thermal {
+	polling-delay = <20>;
+};
+
+&ihost1_thermal {
+	polling-delay = <20>;
+};
+
+&ihost2_thermal {
+	polling-delay = <20>;
+};
