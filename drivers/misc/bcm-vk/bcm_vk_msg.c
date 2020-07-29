@@ -23,7 +23,7 @@
 #define BCM_VK_MSG_Q_MASK	 0xF
 #define BCM_VK_MSG_ID_MASK	 0xFFF
 
-#define BCM_VK_DMA_DRAIN_DELAY_MS 2000
+#define BCM_VK_DMA_DRAIN_MAX_MS	  2000
 
 /* number x q_size will be the max number of msg processed per loop */
 #define BCM_VK_MSG_PROC_MAX_LOOP 2
@@ -1355,6 +1355,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	struct device *dev = &vk->pdev->dev;
 	pid_t pid = ctx->pid;
 	int dma_cnt;
+	unsigned long timeout, st_time;
 
 	/*
 	 * if there are outstanding DMA transactions, need to delay long enough
@@ -1364,14 +1365,20 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	 * Nothing could be done except for a delay as host side is running in a
 	 * completely async fashion.
 	 */
-	dma_cnt = atomic_read(&ctx->dma_cnt);
-	if (dma_cnt) {
-		dev_dbg(dev, "DMA outstanding, delay %d ms for [fd-%d]\n",
-			BCM_VK_DMA_DRAIN_DELAY_MS, ctx->idx);
-		msleep(BCM_VK_DMA_DRAIN_DELAY_MS);
-	}
-	dev_dbg(dev, "Draining with context idx %d pid %d\n",
-		ctx->idx, pid);
+	st_time = jiffies;
+	timeout = st_time + msecs_to_jiffies(BCM_VK_DMA_DRAIN_MAX_MS);
+	do {
+		if (time_after(jiffies, timeout)) {
+			dev_warn(dev, "%d dma still pending for [fd-%d] pid %d\n",
+				 dma_cnt, ctx->idx, pid);
+			break;
+		}
+		dma_cnt = atomic_read(&ctx->dma_cnt);
+		cpu_relax();
+		cond_resched();
+	} while (dma_cnt);
+	dev_dbg(dev, "Draining for [fd-%d] pid %d - delay %d ms\n",
+		ctx->idx, pid, jiffies_to_msecs(jiffies - st_time));
 
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_v_msg_chan, ctx);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, ctx);
