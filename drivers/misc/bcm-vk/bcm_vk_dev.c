@@ -135,7 +135,7 @@ skip_schedule_work:
 	return IRQ_HANDLED;
 }
 
-int bcm_vk_intf_ver_chk(struct bcm_vk *vk)
+static int bcm_vk_intf_ver_chk(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
 	uint32_t reg;
