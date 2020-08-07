@@ -301,13 +301,27 @@ static inline int bcm_vk_wait(struct bcm_vk *vk, enum pci_barno bar,
 			      unsigned long timeout_ms)
 {
 	struct device *dev = &vk->pdev->dev;
-	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
-	uint32_t rd_val;
+	unsigned long start_time;
+	unsigned long timeout;
+	uint32_t rd_val, boot_status;
+
+	start_time = jiffies;
+	timeout = start_time + msecs_to_jiffies(timeout_ms);
 
 	do {
 		rd_val = vkread32(vk, bar, offset);
 		dev_dbg(dev, "BAR%d Offset=0x%llx: 0x%x\n",
 			bar, offset, rd_val);
+
+		/* check for any boot err condition */
+		boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
+		if (boot_status & BOOT_ERR_MASK) {
+			dev_err(dev, "Boot Err 0x%x, progress 0x%x after %d ms\n",
+				(boot_status & BOOT_ERR_MASK) >> BOOT_ERR_SHIFT,
+				boot_status & BOOT_PROG_MASK,
+				jiffies_to_msecs(jiffies - start_time));
+			return -EFAULT;
+		}
 
 		if (time_after(jiffies, timeout))
 			return -ETIMEDOUT;
@@ -493,7 +507,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
 		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS, SRAM_OPEN,
 				  SRAM_OPEN, LOAD_IMAGE_TIMEOUT_MS);
 		if (ret < 0) {
-			dev_err(dev, "boot1 timeout\n");
+			dev_err(dev, "boot1 wait SRAM err - ret(%d)\n", ret);
 			goto err_buf_out;
 		}
 
@@ -514,7 +528,8 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
 		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS, DDR_OPEN,
 				  DDR_OPEN, LOAD_IMAGE_TIMEOUT_MS);
 		if (ret < 0) {
-			dev_err(dev, "boot2 timeout\n");
+			dev_err(dev, "boot2 wait DDR open error - ret(%d)\n",
+				ret);
 			goto err_buf_out;
 		}
 
@@ -563,8 +578,8 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
 			      BOOT_STDALONE_RUNNING;
 		if (ret && !is_stdalone) {
 			dev_err(dev,
-				"Timeout %ld ms waiting for boot1 to come up\n",
-				BOOT1_STARTUP_TIMEOUT_MS);
+				"Timeout %ld ms waiting for boot1 to come up - ret(%d)\n",
+				BOOT1_STARTUP_TIMEOUT_MS, ret);
 			goto err_firmware_out;
 		} else if (is_stdalone) {
 			uint32_t reg;
@@ -600,6 +615,9 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
 			if (ret == 0) {
 				dev_info(dev, "Exit boot2 download\n");
 				break;
+			} else if (ret == -EFAULT) {
+				dev_err(dev, "Error detected during ACK waiting");
+				goto err_firmware_out;
 			}
 
 			/* exit the loop, if there is no response from card */
@@ -634,6 +652,9 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
 				/* reload timeout after every codepush */
 				timeout = jiffies +
 				    msecs_to_jiffies(LOAD_IMAGE_TIMEOUT_MS);
+			} else if (ret == -EFAULT) {
+				dev_err(dev, "Error detected waiting for transfer\n");
+				goto err_firmware_out;
 			}
 		} while (1);
 
@@ -643,7 +664,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
 				  VK_FWSTS_READY,
 				  BOOT2_STARTUP_TIMEOUT_MS);
 		if (ret < 0) {
-			dev_err(dev, "Boot2 not ready - timeout\n");
+			dev_err(dev, "Boot2 not ready - ret(%d)\n", ret);
 			goto err_firmware_out;
 		}
 

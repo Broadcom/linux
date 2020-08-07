@@ -1355,7 +1355,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	struct device *dev = &vk->pdev->dev;
 	pid_t pid = ctx->pid;
 	int dma_cnt;
-	unsigned long timeout, st_time;
+	unsigned long timeout, start_time;
 
 	/*
 	 * if there are outstanding DMA transactions, need to delay long enough
@@ -1365,8 +1365,8 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	 * Nothing could be done except for a delay as host side is running in a
 	 * completely async fashion.
 	 */
-	st_time = jiffies;
-	timeout = st_time + msecs_to_jiffies(BCM_VK_DMA_DRAIN_MAX_MS);
+	start_time = jiffies;
+	timeout = start_time + msecs_to_jiffies(BCM_VK_DMA_DRAIN_MAX_MS);
 	do {
 		if (time_after(jiffies, timeout)) {
 			dev_warn(dev, "%d dma still pending for [fd-%d] pid %d\n",
@@ -1378,7 +1378,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 		cond_resched();
 	} while (dma_cnt);
 	dev_dbg(dev, "Draining for [fd-%d] pid %d - delay %d ms\n",
-		ctx->idx, pid, jiffies_to_msecs(jiffies - st_time));
+		ctx->idx, pid, jiffies_to_msecs(jiffies - start_time));
 
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_v_msg_chan, ctx);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, ctx);
@@ -1439,7 +1439,7 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 int bcm_vk_trigger_reset(struct bcm_vk *vk)
 {
 	uint32_t i;
-	uint32_t value;
+	uint32_t value, boot_status;
 	bool is_stdalone, is_boot2;
 
 	/* clean up before pressing the door bell */
@@ -1465,16 +1465,24 @@ int bcm_vk_trigger_reset(struct bcm_vk *vk)
 	 * Allowing us to debug the failure. When we call reset,
 	 * we should clear CODE_PUSH_OFFSET so ROM does not execute
 	 * boot again (and fails again) and instead waits for a new
-	 * codepush.
+	 * codepush.  And, if previous boot has encountered error, need
+	 * to clear the entry values
 	 */
-	value = vkread32(vk, BAR_0, BAR_CODEPUSH_SBL);
-	value &= CODEPUSH_MASK;
+	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
+	if (boot_status & BOOT_ERR_MASK) {
+		dev_info(&vk->pdev->dev,
+			 "Card in boot error 0x%x, clear CODEPUSH val\n",
+			 boot_status);
+		value = 0;
+	} else {
+		value = vkread32(vk, BAR_0, BAR_CODEPUSH_SBL);
+		value &= CODEPUSH_MASK;
+	}
 	vkwrite32(vk, value, BAR_0, BAR_CODEPUSH_SBL);
 
 	/* special reset handling */
-	value = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
-	is_stdalone = value & BOOT_STDALONE_RUNNING;
-	is_boot2 = (value & BOOT_STATE_MASK) == BOOT2_RUNNING;
+	is_stdalone = boot_status & BOOT_STDALONE_RUNNING;
+	is_boot2 = (boot_status & BOOT_STATE_MASK) == BOOT2_RUNNING;
 	if (vk->peer_alert.flags & ERR_LOG_RAMDUMP) {
 		/*
 		 * if card is in ramdump mode, it is hitting an error.  Don't
