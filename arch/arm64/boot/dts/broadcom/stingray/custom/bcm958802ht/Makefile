@@ -1,2 +1,0 @@
-dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958802ht08.dtb
-dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958802ht16.dtb
