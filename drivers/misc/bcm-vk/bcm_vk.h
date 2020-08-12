@@ -110,6 +110,7 @@
 #define BAR_METADATA_VERSION		0x440
 #define BAR_OS_UPTIME			0x444
 #define BAR_CHIP_ID			0x448
+#define MAJOR_SOC_REV(_chip_id)		(((_chip_id) >> 20) & 0xf)
 
 #define BAR_CARD_TEMPERATURE		0x45c
 /* defines for all temperature sensor */

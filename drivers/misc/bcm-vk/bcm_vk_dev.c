@@ -27,7 +27,8 @@ struct load_image_tab {
 };
 
 enum soc_idx {
-	VALKYRIE = 0,
+	VALKYRIE_A0 = 0,
+	VALKYRIE_B0,
 	VIPER,
 	VK_IDX_INVALID
 };
@@ -35,14 +36,19 @@ enum soc_idx {
 #define NUM_BOOT_STAGES 2
 /* default firmware images names */
 static const struct load_image_tab image_tab[][NUM_BOOT_STAGES] = {
-	[VALKYRIE] = {
+	[VALKYRIE_A0] = {
 		{VK_IMAGE_TYPE_BOOT1, "vk-boot1.bin"},
 		{VK_IMAGE_TYPE_BOOT2, "vk-boot2.bin"}
 	},
+	[VALKYRIE_B0] = {
+		{VK_IMAGE_TYPE_BOOT1, "vk-boot1.bin"},
+		{VK_IMAGE_TYPE_BOOT2, "vk_b0-boot2.bin"}
+	},
+
 	[VIPER] = {
 		{VK_IMAGE_TYPE_BOOT1, "vp-boot1.bin"},
 		{VK_IMAGE_TYPE_BOOT2, "vp-boot2.bin"}
-	}
+	},
 };
 
 /* Location of memory base addresses of interest in BAR1 */
@@ -732,14 +738,26 @@ static uint32_t bcm_vk_next_boot_image(struct bcm_vk *vk)
 	return load_type;
 }
 
-static enum soc_idx get_soc_idx(struct device *dev)
+static enum soc_idx get_soc_idx(struct bcm_vk *vk)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	enum soc_idx idx;
+	struct pci_dev *pdev = vk->pdev;
+	enum soc_idx idx = VK_IDX_INVALID;
+	uint32_t rev;
+	static enum soc_idx const vk_soc_tab[] = { VALKYRIE_A0, VALKYRIE_B0 };
 
 	switch (pdev->device) {
 	case PCI_DEVICE_ID_VALKYRIE:
-		idx = VALKYRIE;
+		/* get the chip id to decide sub-class */
+		rev = MAJOR_SOC_REV(vkread32(vk, BAR_0, BAR_CHIP_ID));
+		if (rev < ARRAY_SIZE(vk_soc_tab)) {
+			idx = vk_soc_tab[rev];
+		} else {
+			/* Default to A0 firmware for all other chip revs */
+			idx = VALKYRIE_A0;
+			dev_warn(&pdev->dev,
+				 "Rev %d not in image lookup table, default to idx=%d\n",
+				 rev, idx);
+		}
 		break;
 
 	case PCI_DEVICE_ID_VIPER:
@@ -747,8 +765,7 @@ static enum soc_idx get_soc_idx(struct device *dev)
 		break;
 
 	default:
-		idx = VK_IDX_INVALID;
-		dev_err(dev, "no images for 0x%x\n", pdev->device);
+		dev_err(&pdev->dev, "no images for 0x%x\n", pdev->device);
 	}
 	return idx;
 }
@@ -761,8 +778,8 @@ int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
 	uint32_t curr_type;
 	const char *curr_name;
 
-	idx = get_soc_idx(dev);
-	if (idx >= VK_IDX_INVALID)
+	idx = get_soc_idx(vk);
+	if (idx == VK_IDX_INVALID)
 		goto auto_load_all_exit;
 
 	/* log a message to know the relative loading order */
@@ -840,8 +857,8 @@ static long bcm_vk_load_image(struct bcm_vk *vk,
 	image_name = image.filename;
 	if (image_name[0] == '\0') {
 		/* Use default image name if NULL */
-		idx = get_soc_idx(dev);
-		if (idx >= VK_IDX_INVALID)
+		idx = get_soc_idx(vk);
+		if (idx == VK_IDX_INVALID)
 			goto err_idx;
 
 		/* Image idx starts with boot1 */
