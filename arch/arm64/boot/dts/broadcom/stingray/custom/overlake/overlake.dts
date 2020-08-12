@@ -87,10 +87,6 @@
 	status = "okay";
 };
 
-&pci_lpm_region {
-	status = "disabled";
-};
-
 &crypto_mbox {
 	status = "disabled";
 };
