@@ -160,7 +160,6 @@ static int bcm_usb_hs_phy_init(struct bcm_usb_phy_cfg *phy_cfg)
 	int ret = 0;
 	void __iomem *regs = phy_cfg->regs;
 	const u8 *offset;
-	u32 rd_data;
 
 	offset = phy_cfg->offset;
 
@@ -206,7 +205,7 @@ static int bcm_usb_phy_init(struct phy *phy)
 	return ret;
 }
 
-static struct phy_ops sr_phy_ops = {
+static const struct phy_ops sr_phy_ops = {
 	.init		= bcm_usb_phy_init,
 	.reset		= bcm_usb_phy_reset,
 	.owner		= THIS_MODULE,
