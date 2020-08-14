@@ -344,6 +344,7 @@ struct bcm_vk {
 
 	/* offset of the peer log control in BAR2 */
 	uint32_t peerlog_off;
+	struct bcm_vk_peer_log peerlog_info; /* record of peer log info */
 	/* offset of processing monitoring info in BAR2 */
 	uint32_t proc_mon_off;
 };

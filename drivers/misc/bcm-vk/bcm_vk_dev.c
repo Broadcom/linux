@@ -230,6 +230,7 @@ static void bcm_vk_log_notf(struct bcm_vk *vk,
 static void bcm_vk_dump_peer_log(struct bcm_vk *vk)
 {
 	struct bcm_vk_peer_log log;
+	struct bcm_vk_peer_log *log_info = &vk->peerlog_info;
 	char loc_buf[BCM_VK_PEER_LOG_LINE_MAX];
 	int cnt;
 	struct device *dev = &vk->pdev->dev;
@@ -240,8 +241,22 @@ static void bcm_vk_dump_peer_log(struct bcm_vk *vk)
 	dev_dbg(dev, "Peer PANIC: Size 0x%x(0x%x), [Rd Wr] = [%d %d]\n",
 		log.buf_size, log.mask, log.rd_idx, log.wr_idx);
 
+	/* perform range checking for rd/wr idx */
+	if ((log.rd_idx > log_info->mask) ||
+	    (log.wr_idx > log_info->mask) ||
+	    (log.buf_size != log_info->buf_size) ||
+	    (log.mask != log_info->mask)) {
+		dev_err(dev,
+			"Corrupted Ptrs: Size 0x%x(0x%x) Mask 0x%x(0x%x) [Rd Wr] = [%d %d], skip log dump.\n",
+			log_info->buf_size, log.buf_size,
+			log_info->mask, log.mask,
+			log.rd_idx, log.wr_idx);
+		return;
+	}
+
 	cnt = 0;
 	data_offset = vk->peerlog_off + sizeof(struct bcm_vk_peer_log);
+	loc_buf[BCM_VK_PEER_LOG_LINE_MAX - 1] = '\0';
 	while (log.rd_idx != log.wr_idx) {
 		loc_buf[cnt] = vkread8(vk, BAR_2, data_offset + log.rd_idx);
 
@@ -369,8 +384,19 @@ static void bcm_vk_get_card_info(struct bcm_vk *vk)
 		info->cpu_scale[MAX_OPP - 1], info->ddr_freq_mhz,
 		info->ddr_size_MB, info->video_core_freq_mhz);
 
-	/* get the peer log pointer, only need the offset */
+	/*
+	 * get the peer log pointer, only need the offset, and get record
+	 * of the log buffer information which would be used for checking
+	 * before dump, in case the BAR2 memory has been corrupted.
+	 */
 	vk->peerlog_off = offset;
+	memcpy_fromio(&vk->peerlog_info, vk->bar[BAR_2] + vk->peerlog_off,
+		      sizeof(vk->peerlog_info));
+	dev_dbg(dev, "Peer log: Size 0x%x(0x%x), [Rd Wr] = [%d %d]\n",
+		vk->peerlog_info.buf_size,
+		vk->peerlog_info.mask,
+		vk->peerlog_info.rd_idx,
+		vk->peerlog_info.wr_idx);
 }
 
 static void bcm_vk_get_proc_mon_info(struct bcm_vk *vk)
