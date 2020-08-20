@@ -21,11 +21,6 @@
 
 static DEFINE_IDA(bcm_vk_ida);
 
-struct load_image_tab {
-	const uint32_t image_type;
-	const char *image_name;
-};
-
 enum soc_idx {
 	VALKYRIE_A0 = 0,
 	VALKYRIE_B0,
@@ -33,21 +28,32 @@ enum soc_idx {
 	VK_IDX_INVALID
 };
 
+enum img_idx {
+	IMG_PRI = 0,
+	IMG_SEC,
+	IMG_PER_TYPE_MAX
+};
+
+struct load_image_entry {
+	const uint32_t image_type;
+	const char *image_name[IMG_PER_TYPE_MAX];
+};
+
 #define NUM_BOOT_STAGES 2
 /* default firmware images names */
-static const struct load_image_tab image_tab[][NUM_BOOT_STAGES] = {
+static const struct load_image_entry image_tab[][NUM_BOOT_STAGES] = {
 	[VALKYRIE_A0] = {
-		{VK_IMAGE_TYPE_BOOT1, "vk-boot1.bin"},
-		{VK_IMAGE_TYPE_BOOT2, "vk-boot2.bin"}
+		{VK_IMAGE_TYPE_BOOT1, {"vk_a0-boot1.bin", "vk-boot1.bin"}},
+		{VK_IMAGE_TYPE_BOOT2, {"vk_a0-boot2.bin", "vk-boot2.bin"}}
 	},
 	[VALKYRIE_B0] = {
-		{VK_IMAGE_TYPE_BOOT1, "vk-boot1.bin"},
-		{VK_IMAGE_TYPE_BOOT2, "vk_b0-boot2.bin"}
+		{VK_IMAGE_TYPE_BOOT1, {"vk_b0-boot1.bin", "vk-boot1.bin"}},
+		{VK_IMAGE_TYPE_BOOT2, {"vk_b0-boot2.bin", "vk-boot2.bin"}}
 	},
 
 	[VIPER] = {
-		{VK_IMAGE_TYPE_BOOT1, "vp-boot1.bin"},
-		{VK_IMAGE_TYPE_BOOT2, "vp-boot2.bin"}
+		{VK_IMAGE_TYPE_BOOT1, {"vp-boot1.bin", ""}},
+		{VK_IMAGE_TYPE_BOOT2, {"vp-boot2.bin", ""}}
 	},
 };
 
@@ -796,6 +802,29 @@ static enum soc_idx get_soc_idx(struct bcm_vk *vk)
 	return idx;
 }
 
+static const char *get_load_fw_name(struct bcm_vk *vk,
+				    const struct load_image_entry *entry)
+{
+	const struct firmware *fw;
+	struct device *dev = &vk->pdev->dev;
+	int ret;
+	unsigned long dummy;
+	int i;
+
+	for (i = 0; i < IMG_PER_TYPE_MAX; i++) {
+		fw = NULL;
+		ret = request_partial_firmware_into_buf(&fw,
+							entry->image_name[i],
+							dev, &dummy,
+							sizeof(dummy),
+							0);
+		release_firmware(fw);
+		if (!ret)
+			return entry->image_name[i];
+	}
+	return NULL;
+}
+
 int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
 {
 	int i, ret = -1;
@@ -814,7 +843,13 @@ int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
 	for (i = 0; i < NUM_BOOT_STAGES; i++) {
 		curr_type = image_tab[idx][i].image_type;
 		if (bcm_vk_next_boot_image(vk) == curr_type) {
-			curr_name = image_tab[idx][i].image_name;
+			curr_name = get_load_fw_name(vk, &image_tab[idx][i]);
+			if (!curr_name) {
+				dev_err(dev, "No suitable firmware exists for type %d",
+					curr_type);
+				ret = -ENOENT;
+				goto auto_load_all_exit;
+			}
 			ret = bcm_vk_load_image_by_type(vk, curr_type,
 							curr_name);
 			dev_info(dev, "Auto load %s, ret %d\n",
@@ -889,12 +924,19 @@ static long bcm_vk_load_image(struct bcm_vk *vk,
 
 		/* Image idx starts with boot1 */
 		image_idx = image.type - VK_IMAGE_TYPE_BOOT1;
-		image_name = image_tab[idx][image_idx].image_name;
+		image_name = get_load_fw_name(vk, &image_tab[idx][image_idx]);
+		if (!image_name) {
+			dev_err(dev, "No suitable image found for type %d",
+				image.type);
+			ret = -ENOENT;
+			goto err_idx;
+		}
 	} else {
 		/* Ensure filename is NULL terminated */
 		image.filename[sizeof(image.filename) - 1] = '\0';
 	}
 	ret = bcm_vk_load_image_by_type(vk, image.type, image_name);
+	dev_info(dev, "Load %s, ret %d\n", image_name, ret);
 err_idx:
 	clear_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload);
 
