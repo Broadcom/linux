@@ -56,6 +56,12 @@
 			no-map;
 		};
 
+		/* IOMMU page tables for Nitro IDM access to SoC */
+		nitro_idm_pg_tbl {
+			reg = <0x8 0x80100000 0x0 0x100000>;
+			no-map;
+		};
+
 		elog {
 			status = "disabled";
 		};
