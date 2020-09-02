@@ -606,14 +606,17 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
+		uint32_t boot_status;
+
 		/* wait until done */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS,
 				  BOOT1_RUNNING,
 				  BOOT1_RUNNING,
 				  BOOT1_STARTUP_TIMEOUT_MS);
 
-		is_stdalone = vkread32(vk, BAR_0, BAR_BOOT_STATUS) &
-			      BOOT_STDALONE_RUNNING;
+		boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
+		is_stdalone = !BCM_VK_INTF_IS_DOWN(boot_status) &&
+			      (boot_status & BOOT_STDALONE_RUNNING);
 		if (ret && !is_stdalone) {
 			dev_err(dev,
 				"Timeout %ld ms waiting for boot1 to come up - ret(%d)\n",
