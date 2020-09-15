@@ -1153,7 +1153,6 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		nr_ib_sgl_blk = BCM_VK_IB_SGL_BLK_MAX;
 	}
 	vk->ib_sgl_size = nr_ib_sgl_blk * VK_MSGQ_BLK_SIZE;
-	vk->pdev = pdev;
 	mutex_init(&vk->mutex);
 
 	err = pci_enable_device(pdev);
@@ -1161,6 +1160,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		dev_err(dev, "Cannot enable PCI device\n");
 		return err;
 	}
+	vk->pdev = pci_dev_get(pdev);
 
 	err = pci_request_regions(pdev, DRV_MODULE_NAME);
 	if (err) {
@@ -1354,8 +1354,13 @@ err_iounmap:
 	pci_release_regions(pdev);
 
 err_disable_pdev:
+	if (vk->tdma_vaddr)
+		dma_free_coherent(&pdev->dev, nr_scratch_pages * PAGE_SIZE,
+				  vk->tdma_vaddr, vk->tdma_addr);
+
 	pci_free_irq_vectors(pdev);
 	pci_disable_device(pdev);
+	pci_dev_put(pdev);
 
 	return err;
 }
@@ -1363,9 +1368,11 @@ err_disable_pdev:
 void bcm_vk_release_data(struct kref *kref)
 {
 	struct bcm_vk *vk = container_of(kref, struct bcm_vk, kref);
+	struct pci_dev *pdev = vk->pdev;
 
-	/* use raw print, as dev is gone */
-	pr_info("BCM-VK:%d release data 0x%p\n", vk->misc_devid, vk);
+	dev_info(&pdev->dev, "BCM-VK:%d release data 0x%p\n",
+		 vk->misc_devid, vk);
+	pci_dev_put(pdev);
 	kfree(vk);
 }
 
