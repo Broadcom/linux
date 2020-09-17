@@ -26,13 +26,13 @@
  * ============================================
  * |                  Command                 |
  * |-------------------------------------------
- * |          Parameter[0]/pointer high       |
+ * |                Parameter[0]              |
  * |-------------------------------------------
- * |          Parameter[1]/pointer low        |
+ * |                Parameter[1]              |
  * |-------------------------------------------
- * |              Extra_parameter[0]          |
+ * |                Parameter[2]              |
  * |-------------------------------------------
- * |              Extra_parameter[1]          |
+ * |                Parameter[3]              |
  * |===========================================
  *
  */
@@ -43,8 +43,8 @@
 #define IPROC_MBOX_CH_CMD_OFF		4
 #define IPROC_MBOX_CH_PARAM0_OFF	8
 #define IPROC_MBOX_CH_PARAM1_OFF	12
-#define IPROC_MBOX_CH_EXTRA_PARAM0_OFF	16
-#define IPROC_MBOX_CH_EXTRA_PARAM1_OFF	20
+#define IPROC_MBOX_CH_PARAM2_OFF	16
+#define IPROC_MBOX_CH_PARAM3_OFF	20
 
 enum iproc_mbox_ch_status {
 	IPROC_MBOX_CH_FREE = 0,
@@ -112,10 +112,8 @@ static int iproc_mbox_send_data(struct mbox_chan *chan, void *ptr)
 	writel(msg->cmd, ch_priv->base + IPROC_MBOX_CH_CMD_OFF);
 	writel(msg->param[0], ch_priv->base + IPROC_MBOX_CH_PARAM0_OFF);
 	writel(msg->param[1], ch_priv->base + IPROC_MBOX_CH_PARAM1_OFF);
-	writel(msg->extra_param[0], (ch_priv->base +
-				     IPROC_MBOX_CH_EXTRA_PARAM0_OFF));
-	writel(msg->extra_param[1], (ch_priv->base +
-				     IPROC_MBOX_CH_EXTRA_PARAM1_OFF));
+	writel(msg->param[2], ch_priv->base + IPROC_MBOX_CH_PARAM2_OFF);
+	writel(msg->param[3], ch_priv->base + IPROC_MBOX_CH_PARAM3_OFF);
 
 	writel(IPROC_MBOX_CH_MSG_VALID, (ch_priv->base +
 					 IPROC_MBOX_CH_STATUS_OFF));
@@ -216,10 +214,8 @@ static irqreturn_t iproc_mbox_thread(int irq, void *dev_id)
 		msg.cmd = readl(chan_base + IPROC_MBOX_CH_CMD_OFF);
 		msg.param[0] = readl(chan_base + IPROC_MBOX_CH_PARAM0_OFF);
 		msg.param[1] = readl(chan_base + IPROC_MBOX_CH_PARAM1_OFF);
-		msg.extra_param[0] = readl(chan_base +
-					   IPROC_MBOX_CH_EXTRA_PARAM0_OFF);
-		msg.extra_param[1] = readl(chan_base +
-					   IPROC_MBOX_CH_EXTRA_PARAM1_OFF);
+		msg.param[2] = readl(chan_base + IPROC_MBOX_CH_PARAM2_OFF);
+		msg.param[3] = readl(chan_base + IPROC_MBOX_CH_PARAM3_OFF);
 		/* Send data to client */
 		mbox_chan_received_data(&mbox->controller.chans[i], &msg);
 
