@@ -46,6 +46,7 @@ static int i2c_slave_eeprom_slave_cb(struct i2c_client *client,
 				     enum i2c_slave_event event, u8 *val)
 {
 	struct eeprom_data *eeprom = i2c_get_clientdata(client);
+	char *event_str = "none";
 
 	switch (event) {
 	case I2C_SLAVE_WRITE_RECEIVED:
@@ -61,6 +62,7 @@ static int i2c_slave_eeprom_slave_cb(struct i2c_client *client,
 				spin_unlock(&eeprom->buffer_lock);
 			}
 		}
+		event_str = "I2C_SLAVE_WRITE_RECEIVED";
 		break;
 
 	case I2C_SLAVE_READ_PROCESSED:
@@ -76,16 +78,23 @@ static int i2c_slave_eeprom_slave_cb(struct i2c_client *client,
 		 * this byte will be actually used. Read Linux I2C slave docs
 		 * for details.
 		 */
+		event_str = (event == I2C_SLAVE_READ_REQUESTED) ?
+			"I2C_SLAVE_READ_REQUESTED" : "I2C_SLAVE_READ_PROCESSED";
 		break;
 
 	case I2C_SLAVE_STOP:
 	case I2C_SLAVE_WRITE_REQUESTED:
 		eeprom->idx_write_cnt = 0;
+		event_str = (event == I2C_SLAVE_WRITE_REQUESTED) ?
+			    "I2C_SLAVE_WRITE_REQUESTED" : "I2C_SLAVE_STOP";
 		break;
 
 	default:
 		break;
 	}
+
+	dev_dbg(&client->dev, "%s buffer_idx: 0x%x val: 0x%x\n",
+		event_str, eeprom->buffer_idx, *val);
 
 	return 0;
 }
