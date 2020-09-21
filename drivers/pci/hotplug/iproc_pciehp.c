@@ -13,8 +13,13 @@
 #include <linux/platform_device.h>
 #include "../pci.h"
 
-#define PAX_FLUSH_CONTROL	0x02a0000c
+#define PAX_FLUSH_CONTROL	0xc
 #define CFG_FLUSH_CLEAR		BIT(31)
+#define CFG_PAX_FLUSH		BIT(0)
+#define PAX_FLUSH_STATUS	0x10
+#define STAT_RD_FLUSH_DONE	BIT(1)
+#define STAT_WR_FLUSH_DONE	BIT(0)
+#define STAT_FLUSH_TIMEOUT_MS	10
 #define PAX_PCIE_LINK_STATUS	0x49c
 #define LINK_PCIE_PHYLINKUP	BIT(3)
 #define LINK_PCIE_DL_ACTIVE	BIT(2)
@@ -106,7 +111,7 @@ static irqreturn_t iproc_pciehp_isr(int irq, void *dev_id)
 static irqreturn_t iproc_pciehp_ist(int irq, void *dev_id)
 {
 	struct iproc_pciehp *ipciehp = dev_id;
-	uint32_t events;
+	u32 events, val, timeout_ms;
 
 	events = atomic_xchg(&ipciehp->pending_events, 0);
 
@@ -117,10 +122,28 @@ static irqreturn_t iproc_pciehp_ist(int irq, void *dev_id)
 
 	if (events & IPROC_HP_LINKDOWN_EVENT) {
 		iproc_pciehp_unplug(ipciehp->pdev);
-	} else if (events & IPROC_HP_LINKUP_EVENT) {
+		timeout_ms = STAT_FLUSH_TIMEOUT_MS;
+		do {
+			val = readl(ipciehp->regs + PAX_FLUSH_STATUS);
+			if (val & (STAT_RD_FLUSH_DONE | STAT_WR_FLUSH_DONE))
+				break;
+			msleep(1);
+		} while (timeout_ms--);
+
+		/*
+		 * Flush is not completed in given time can happen if PAXB core
+		 * went into BAD state.
+		 * TODO: Recovery handling from BAD state.
+		 */
+		if (!timeout_ms)
+			dev_err(ipciehp->dev, "FLUSH not done %#x\n", val);
+
+		val = readl(ipciehp->regs + PAX_FLUSH_CONTROL);
+		val |= CFG_FLUSH_CLEAR;
+		val &= ~CFG_PAX_FLUSH;
+		writel(val, ipciehp->regs + PAX_FLUSH_CONTROL);
+	} else if (events & IPROC_HP_LINKUP_EVENT)
 		iproc_pciehp_plug(ipciehp->pdev);
-		writel(CFG_FLUSH_CLEAR, ipciehp->regs + PAX_FLUSH_CONTROL);
-	}
 
 	return IRQ_HANDLED;
 }
