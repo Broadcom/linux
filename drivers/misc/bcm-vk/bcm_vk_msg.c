@@ -616,11 +616,6 @@ static u32 bcm_vk_append_ib_sgl(struct bcm_vk *vk,
 	return ib_sgl_size;
 }
 
-void bcm_to_v_reset_doorbell(struct bcm_vk *vk, u32 db_val)
-{
-	vkwrite32(vk, db_val, BAR_0, VK_BAR0_RESET_DB_BASE);
-}
-
 void bcm_to_v_q_doorbell(struct bcm_vk *vk, u32 q_num, u32 db_val)
 {
 	struct bcm_vk_msg_chan *chan = &vk->to_v_msg_chan;
@@ -818,7 +813,7 @@ static struct bcm_vk_wkent *bcm_vk_dequeue_pending(struct bcm_vk *vk,
 	return ((found) ? entry : NULL);
 }
 
-static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
+s32 bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_msg_chan *chan = &vk->to_h_msg_chan;
@@ -831,7 +826,7 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 	u32 rd_idx, wr_idx;
 	u32 q_num, msg_id, j;
 	u32 num_blks;
-	int32_t total = 0;
+	s32 total = 0;
 	int cnt = 0;
 	int msg_processed = 0;
 	int max_msg_to_process;
@@ -978,41 +973,6 @@ idx_err:
 }
 
 /*
- * deferred work queue for draining and auto download.
- */
-static void bcm_vk_wq_handler(struct work_struct *work)
-{
-	struct bcm_vk *vk = container_of(work, struct bcm_vk, wq_work);
-	struct device *dev = &vk->pdev->dev;
-	int32_t ret;
-
-	/* check wq offload bit map to perform various operations */
-	if (test_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload)) {
-		/* clear bit right the way for notification */
-		clear_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload);
-		bcm_vk_handle_notf(vk);
-	}
-	if (test_bit(BCM_VK_WQ_DWNLD_AUTO, vk->wq_offload)) {
-		bcm_vk_auto_load_all_images(vk);
-
-		/*
-		 * at the end of operation, clear AUTO bit and pending
-		 * bit
-		 */
-		clear_bit(BCM_VK_WQ_DWNLD_AUTO, vk->wq_offload);
-		clear_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload);
-	}
-
-	/* next, try to drain */
-	ret = bcm_to_h_msg_dequeue(vk);
-
-	if (ret == 0)
-		dev_dbg(dev, "Spurious trigger for workqueue\n");
-	else if (ret < 0)
-		bcm_vk_blk_drv_access(vk);
-}
-
-/*
  * init routine for all required data structures
  */
 static int bcm_vk_data_init(struct bcm_vk *vk)
@@ -1033,7 +993,6 @@ static int bcm_vk_data_init(struct bcm_vk *vk)
 	for (i = 0; i < VK_PID_HT_SZ; i++)
 		INIT_LIST_HEAD(&vk->pid_ht[i].head);
 
-	INIT_WORK(&vk->wq_work, bcm_vk_wq_handler);
 	return 0;
 }
 
@@ -1400,13 +1359,6 @@ int bcm_vk_msg_init(struct bcm_vk *vk)
 		return -EIO;
 	}
 
-	/* create dedicated workqueue */
-	vk->wq_thread = create_singlethread_workqueue(vk->miscdev.name);
-	if (!vk->wq_thread) {
-		dev_err(dev, "Fail to create workqueue thread\n");
-		return -ENOMEM;
-	}
-
 	return 0;
 }
 
@@ -1419,88 +1371,3 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, NULL);
 }
 
-int bcm_vk_trigger_reset(struct bcm_vk *vk)
-{
-	u32 i;
-	u32 value, boot_status;
-	bool is_stdalone, is_boot2;
-
-	/* clean up before pressing the door bell */
-	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_v_msg_chan, NULL);
-	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, NULL);
-	vkwrite32(vk, 0, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
-	/* make tag '\0' terminated */
-	vkwrite32(vk, 0, BAR_1, VK_BAR1_BOOT1_VER_TAG);
-
-	for (i = 0; i < VK_BAR1_DAUTH_MAX; i++) {
-		vkwrite32(vk, 0, BAR_1, VK_BAR1_DAUTH_STORE_ADDR(i));
-		vkwrite32(vk, 0, BAR_1, VK_BAR1_DAUTH_VALID_ADDR(i));
-	}
-	for (i = 0; i < VK_BAR1_SOTP_REVID_MAX; i++)
-		vkwrite32(vk, 0, BAR_1, VK_BAR1_SOTP_REVID_ADDR(i));
-
-	memset(&vk->card_info, 0, sizeof(vk->card_info));
-	memset(&vk->peerlog_info, 0, sizeof(vk->peerlog_info));
-	memset(&vk->proc_mon_info, 0, sizeof(vk->proc_mon_info));
-	memset(&vk->alert_cnts, 0, sizeof(vk->alert_cnts));
-
-	/*
-	 * When boot request fails, the CODE_PUSH_OFFSET stays persistent.
-	 * Allowing us to debug the failure. When we call reset,
-	 * we should clear CODE_PUSH_OFFSET so ROM does not execute
-	 * boot again (and fails again) and instead waits for a new
-	 * codepush.  And, if previous boot has encountered error, need
-	 * to clear the entry values
-	 */
-	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
-	if (boot_status & BOOT_ERR_MASK) {
-		dev_info(&vk->pdev->dev,
-			 "Card in boot error 0x%x, clear CODEPUSH val\n",
-			 boot_status);
-		value = 0;
-	} else {
-		value = vkread32(vk, BAR_0, BAR_CODEPUSH_SBL);
-		value &= CODEPUSH_MASK;
-	}
-	vkwrite32(vk, value, BAR_0, BAR_CODEPUSH_SBL);
-
-	/* special reset handling */
-	is_stdalone = boot_status & BOOT_STDALONE_RUNNING;
-	is_boot2 = (boot_status & BOOT_STATE_MASK) == BOOT2_RUNNING;
-	if (vk->peer_alert.flags & ERR_LOG_RAMDUMP) {
-		/*
-		 * if card is in ramdump mode, it is hitting an error.  Don't
-		 * reset the reboot reason as it will contain valid info that
-		 * is important - simply use special reset
-		 */
-		vkwrite32(vk, VK_BAR0_RESET_RAMPDUMP, BAR_0, VK_BAR_FWSTS);
-		return VK_BAR0_RESET_RAMPDUMP;
-	} else if (is_stdalone && !is_boot2) {
-		dev_info(&vk->pdev->dev, "Hard reset on Standalone mode");
-		bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_HARD);
-		return VK_BAR0_RESET_DB_HARD;
-	}
-
-	/* reset fw_status with proper reason, and press db */
-	vkwrite32(vk, VK_FWSTS_RESET_MBOX_DB, BAR_0, VK_BAR_FWSTS);
-	bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_SOFT);
-
-	/* clear other necessary registers and alert records */
-	vkwrite32(vk, 0, BAR_0, BAR_OS_UPTIME);
-	vkwrite32(vk, 0, BAR_0, BAR_INTF_VER);
-	memset(&vk->host_alert, 0, sizeof(vk->host_alert));
-	memset(&vk->peer_alert, 0, sizeof(vk->peer_alert));
-#if defined(CONFIG_BCM_VK_QSTATS)
-	/* clear qstats */
-	for (i = 0; i < VK_MSGQ_MAX_NR; i++) {
-		memset(&vk->to_v_msg_chan.qstats[i].qcnts, 0,
-		       sizeof(vk->to_v_msg_chan.qstats[i].qcnts));
-		memset(&vk->to_h_msg_chan.qstats[i].qcnts, 0,
-		       sizeof(vk->to_h_msg_chan.qstats[i].qcnts));
-	}
-#endif
-	/* clear 4096 bits of bitmap */
-	bitmap_clear(vk->bmap, 0, VK_MSG_ID_BITMAP_SIZE);
-
-	return 0;
-}

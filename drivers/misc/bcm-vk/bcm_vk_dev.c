@@ -883,6 +883,41 @@ static int bcm_vk_trigger_autoload(struct bcm_vk *vk)
 	return 0;
 }
 
+/*
+ * deferred work queue for draining and auto download.
+ */
+static void bcm_vk_wq_handler(struct work_struct *work)
+{
+	struct bcm_vk *vk = container_of(work, struct bcm_vk, wq_work);
+	struct device *dev = &vk->pdev->dev;
+	s32 ret;
+
+	/* check wq offload bit map to perform various operations */
+	if (test_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload)) {
+		/* clear bit right the way for notification */
+		clear_bit(BCM_VK_WQ_NOTF_PEND, vk->wq_offload);
+		bcm_vk_handle_notf(vk);
+	}
+	if (test_bit(BCM_VK_WQ_DWNLD_AUTO, vk->wq_offload)) {
+		bcm_vk_auto_load_all_images(vk);
+
+		/*
+		 * at the end of operation, clear AUTO bit and pending
+		 * bit
+		 */
+		clear_bit(BCM_VK_WQ_DWNLD_AUTO, vk->wq_offload);
+		clear_bit(BCM_VK_WQ_DWNLD_PEND, vk->wq_offload);
+	}
+
+	/* next, try to drain */
+	ret = bcm_to_h_msg_dequeue(vk);
+
+	if (ret == 0)
+		dev_dbg(dev, "Spurious trigger for workqueue\n");
+	else if (ret < 0)
+		bcm_vk_blk_drv_access(vk);
+}
+
 static long bcm_vk_load_image(struct bcm_vk *vk,
 			      const struct vk_image __user *arg)
 {
@@ -989,6 +1024,57 @@ reset_exit:
 	dev_dbg(dev, "FW status = 0x%x ret %d\n", fw_status, ret);
 
 	return ret;
+}
+
+static void bcm_to_v_reset_doorbell(struct bcm_vk *vk, u32 db_val)
+{
+	vkwrite32(vk, db_val, BAR_0, VK_BAR0_RESET_DB_BASE);
+}
+
+static int bcm_vk_trigger_reset(struct bcm_vk *vk)
+{
+	u32 i;
+	u32 value, boot_status;
+
+	/* make tag '\0' terminated */
+	vkwrite32(vk, 0, BAR_1, VK_BAR1_BOOT1_VER_TAG);
+
+	for (i = 0; i < VK_BAR1_DAUTH_MAX; i++) {
+		vkwrite32(vk, 0, BAR_1, VK_BAR1_DAUTH_STORE_ADDR(i));
+		vkwrite32(vk, 0, BAR_1, VK_BAR1_DAUTH_VALID_ADDR(i));
+	}
+	for (i = 0; i < VK_BAR1_SOTP_REVID_MAX; i++)
+		vkwrite32(vk, 0, BAR_1, VK_BAR1_SOTP_REVID_ADDR(i));
+
+	/*
+	 * When boot request fails, the CODE_PUSH_OFFSET stays persistent.
+	 * Allowing us to debug the failure. When we call reset,
+	 * we should clear CODE_PUSH_OFFSET so ROM does not execute
+	 * boot again (and fails again) and instead waits for a new
+	 * codepush.  And, if previous boot has encountered error, need
+	 * to clear the entry values
+	 */
+	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
+	if (boot_status & BOOT_ERR_MASK) {
+		dev_info(&vk->pdev->dev,
+			 "Card in boot error 0x%x, clear CODEPUSH val\n",
+			 boot_status);
+		value = 0;
+	} else {
+		value = vkread32(vk, BAR_0, BAR_CODEPUSH_SBL);
+		value &= CODEPUSH_MASK;
+	}
+	vkwrite32(vk, value, BAR_0, BAR_CODEPUSH_SBL);
+
+	/* reset fw_status with proper reason, and press db */
+	vkwrite32(vk, VK_FWSTS_RESET_MBOX_DB, BAR_0, VK_BAR_FWSTS);
+	bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_SOFT);
+
+	/* clear other necessary registers records */
+	vkwrite32(vk, 0, BAR_0, BAR_OS_UPTIME);
+	vkwrite32(vk, 0, BAR_0, BAR_INTF_VER);
+
+	return 0;
 }
 
 static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
@@ -1278,10 +1364,20 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_kfree_name;
 	}
 
+	INIT_WORK(&vk->wq_work, bcm_vk_wq_handler);
+
+	/* create dedicated workqueue */
+	vk->wq_thread = create_singlethread_workqueue(name);
+	if (!vk->wq_thread) {
+		dev_err(dev, "Fail to create workqueue thread\n");
+		err = -ENOMEM;
+		goto err_misc_deregister;
+	}
+
 	err = bcm_vk_msg_init(vk);
 	if (err) {
 		dev_err(dev, "failed to init msg queue info\n");
-		goto err_misc_deregister;
+		goto err_destroy_workqueue;
 	}
 
 	/* sync other info */
@@ -1289,12 +1385,16 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	err = bcm_vk_sysfs_init(pdev, misc_device);
 	if (err)
-		goto err_misc_deregister;
+		goto err_destroy_workqueue;
 
 	/* register for panic notifier */
 	vk->panic_nb.notifier_call = bcm_vk_on_panic;
-	atomic_notifier_chain_register(&panic_notifier_list,
-				       &vk->panic_nb);
+	err = atomic_notifier_chain_register(&panic_notifier_list,
+					     &vk->panic_nb);
+	if (err) {
+		dev_err(dev, "Fail to register panic notifier\n");
+		goto err_destroy_workqueue;
+	}
 
 	snprintf(name, sizeof(name), KBUILD_MODNAME ".%d_ttyVK", id);
 	err = bcm_vk_tty_init(vk, name);
@@ -1330,6 +1430,9 @@ err_bcm_vk_tty_exit:
 err_unregister_panic_notifier:
 	atomic_notifier_chain_unregister(&panic_notifier_list,
 					 &vk->panic_nb);
+
+err_destroy_workqueue:
+	destroy_workqueue(vk->wq_thread);
 
 err_misc_deregister:
 	misc_deregister(misc_device);

@@ -507,11 +507,10 @@ int bcm_vk_msg_init(struct bcm_vk *vk);
 void bcm_vk_msg_remove(struct bcm_vk *vk);
 int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync);
 void bcm_vk_blk_drv_access(struct bcm_vk *vk);
+s32 bcm_to_h_msg_dequeue(struct bcm_vk *vk);
 int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, u32 shut_type,
 			     const pid_t pid, const u32 q_num);
-int bcm_vk_trigger_reset(struct bcm_vk *vk);
 void bcm_to_v_q_doorbell(struct bcm_vk *vk, u32 q_num, u32 db_val);
-void bcm_to_v_reset_doorbell(struct bcm_vk *vk, u32 db_val);
 int bcm_vk_auto_load_all_images(struct bcm_vk *vk);
 int bcm_vk_tty_init(struct bcm_vk *vk, char *name);
 void bcm_vk_tty_exit(struct bcm_vk *vk);
