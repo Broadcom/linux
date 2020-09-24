@@ -145,7 +145,7 @@ static ssize_t temperature_sensor_show(struct device *dev,
 				       struct device_attribute *devattr,
 				       char *buf,
 				       const char *tag,
-				       uint offset)
+				       unsigned int offset)
 {
 	unsigned int temperature = 0; /* default if invalid */
 	struct pci_dev *pdev = to_pci_dev(dev);

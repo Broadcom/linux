@@ -79,7 +79,7 @@ struct vk_msg_blk {
 /* context per session opening of sysfs */
 struct bcm_vk_ctx {
 	struct list_head node; /* use for linkage in Hash Table */
-	uint idx;
+	unsigned int idx;
 	bool in_use;
 	pid_t pid;
 	u32 hash_idx;

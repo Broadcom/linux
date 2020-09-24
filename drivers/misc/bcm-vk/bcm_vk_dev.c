@@ -240,7 +240,7 @@ static void bcm_vk_dump_peer_log(struct bcm_vk *vk)
 	char loc_buf[BCM_VK_PEER_LOG_LINE_MAX];
 	int cnt;
 	struct device *dev = &vk->pdev->dev;
-	uint data_offset;
+	unsigned int data_offset;
 
 	memcpy_fromio(&log, vk->bar[BAR_2] + vk->peerlog_off, sizeof(log));
 
