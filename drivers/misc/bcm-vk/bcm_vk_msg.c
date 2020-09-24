@@ -974,7 +974,7 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 			/*
 			 * cap the max so that even we try to handle more back-to-back events,
 			 * so that it won't hold CPU too long or in case rd/wr idexes are
-			 * corrupted which triggers infinte looping.
+			 * corrupted which triggers infinite looping.
 			 */
 			if (++msg_processed >= max_msg_to_process) {
 				dev_warn(dev, "Q[%d] Per loop processing exceeds %d\n",
@@ -1072,7 +1072,7 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 	struct miscdevice *miscdev = (struct miscdevice *)p_file->private_data;
 	struct bcm_vk *vk = container_of(miscdev, struct bcm_vk, miscdev);
 	struct device *dev = &vk->pdev->dev;
-	int    rc = 0;
+	int rc = 0;
 
 	/* get a context and set it up for file */
 	ctx = bcm_vk_get_ctx(vk, task_pid_nr(current));

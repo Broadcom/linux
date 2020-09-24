@@ -4,14 +4,16 @@
  */
 
 #include <linux/delay.h>
+#include <linux/dma-mapping.h>
 #include <linux/firmware.h>
 #include <linux/fs.h>
 #include <linux/idr.h>
 #include <linux/interrupt.h>
+#include <linux/kref.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/pci.h>
 #include <linux/pci_regs.h>
-#include <linux/poll.h>
 #include <uapi/linux/misc/bcm_vk.h>
 
 #include "bcm_vk.h"

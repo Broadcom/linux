@@ -9,6 +9,7 @@
 #include <linux/atomic.h>
 #include <linux/firmware.h>
 #include <linux/irq.h>
+#include <linux/kref.h>
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
 #include <linux/pci.h>
@@ -169,6 +170,27 @@
 #define SEMANTIC_MAJOR			1
 #define SEMANTIC_MINOR			0
 
+/*
+ * first door bell reg, ie for queue = 0.  Only need the first one, as
+ * we will use the queue number to derive the others
+ */
+#define VK_BAR0_REGSEG_DB_BASE		0x484
+#define VK_BAR0_REGSEG_DB_REG_GAP	8 /*
+					   * DB register gap,
+					   * DB1 at 0x48c and DB2 at 0x494
+					   */
+
+/* reset register and specific values */
+#define VK_BAR0_RESET_DB_NUM		3
+#define VK_BAR0_RESET_DB_SOFT		0xffffffff
+#define VK_BAR0_RESET_DB_HARD		0xfffffffd
+#define VK_BAR0_RESET_RAMPDUMP		0xa0000000
+
+#define VK_BAR0_Q_DB_BASE(q_num)	(VK_BAR0_REGSEG_DB_BASE + \
+					 ((q_num) * VK_BAR0_REGSEG_DB_REG_GAP))
+#define VK_BAR0_RESET_DB_BASE		(VK_BAR0_REGSEG_DB_BASE + \
+					 (VK_BAR0_RESET_DB_NUM * VK_BAR0_REGSEG_DB_REG_GAP))
+
 #define BAR_BOOTSRC_SELECT		0xc78
 /* BOOTSRC definitions */
 #define BOOTSRC_SOFT_ENABLE		BIT(14)
@@ -181,6 +203,57 @@
 #define VK_MSG_ID_BITMAP_SIZE		4096
 #define VK_MSG_ID_BITMAP_MASK		(VK_MSG_ID_BITMAP_SIZE - 1)
 #define VK_MSG_ID_OVERFLOW		0xffff
+
+/*
+ * BAR1
+ */
+
+/* BAR1 message q definition */
+
+/* indicate if msgq ctrl in BAR1 is populated */
+#define VK_BAR1_MSGQ_DEF_RDY		0x60c0
+/* ready marker value for the above location, normal boot2 */
+#define VK_BAR1_MSGQ_RDY_MARKER		0xbeefcafe
+/* ready marker value for the above location, normal boot2 */
+#define VK_BAR1_DIAG_RDY_MARKER		0xdeadcafe
+/* number of msgqs in BAR1 */
+#define VK_BAR1_MSGQ_NR			0x60c4
+/* BAR1 queue control structure offset */
+#define VK_BAR1_MSGQ_CTRL_OFF		0x60c8
+
+/* BAR1 ucode and boot1 version tag */
+#define VK_BAR1_UCODE_VER_TAG		0x6170
+#define VK_BAR1_BOOT1_VER_TAG		0x61b0
+#define VK_BAR1_VER_TAG_SIZE		64
+
+/* Memory to hold the DMA buffer memory address allocated for boot2 download */
+#define VK_BAR1_DMA_BUF_OFF_HI		0x61e0
+#define VK_BAR1_DMA_BUF_OFF_LO		(VK_BAR1_DMA_BUF_OFF_HI + 4)
+#define VK_BAR1_DMA_BUF_SZ		(VK_BAR1_DMA_BUF_OFF_HI + 8)
+
+/* Scratch memory allocated on host for VK */
+#define VK_BAR1_SCRATCH_OFF_HI		0x61f0
+#define VK_BAR1_SCRATCH_OFF_LO		(VK_BAR1_SCRATCH_OFF_HI + 4)
+#define VK_BAR1_SCRATCH_SZ_ADDR		(VK_BAR1_SCRATCH_OFF_HI + 8)
+#define VK_BAR1_SCRATCH_DEF_NR_PAGES	32
+
+/* BAR1 DAUTH info */
+#define VK_BAR1_DAUTH_BASE_ADDR		0x6200
+#define VK_BAR1_DAUTH_STORE_SIZE	0x48
+#define VK_BAR1_DAUTH_VALID_SIZE	0x8
+#define VK_BAR1_DAUTH_MAX		4
+#define VK_BAR1_DAUTH_STORE_ADDR(x) \
+		(VK_BAR1_DAUTH_BASE_ADDR + \
+		 (x) * (VK_BAR1_DAUTH_STORE_SIZE + VK_BAR1_DAUTH_VALID_SIZE))
+#define VK_BAR1_DAUTH_VALID_ADDR(x) \
+		(VK_BAR1_DAUTH_STORE_ADDR(x) + VK_BAR1_DAUTH_STORE_SIZE)
+
+/* BAR1 SOTP AUTH and REVID info */
+#define VK_BAR1_SOTP_REVID_BASE_ADDR	0x6340
+#define VK_BAR1_SOTP_REVID_SIZE		0x10
+#define VK_BAR1_SOTP_REVID_MAX		2
+#define VK_BAR1_SOTP_REVID_ADDR(x) \
+		(VK_BAR1_SOTP_REVID_BASE_ADDR + (x) * VK_BAR1_SOTP_REVID_SIZE)
 
 /* VK device supports a maximum of 3 bars */
 #define MAX_BAR	3
