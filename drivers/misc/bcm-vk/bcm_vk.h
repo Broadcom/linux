@@ -479,6 +479,19 @@ static inline void vkwrite8(struct bcm_vk *vk,
 	writeb(value, vk->bar[bar] + offset);
 }
 
+static inline bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
+{
+	u32 rdy_marker = 0;
+	u32 fw_status;
+
+	fw_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
+
+	if ((fw_status & VK_FWSTS_READY) == VK_FWSTS_READY)
+		rdy_marker = vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
+
+	return (rdy_marker == VK_BAR1_MSGQ_RDY_MARKER);
+}
+
 int bcm_vk_open(struct inode *inode, struct file *p_file);
 ssize_t bcm_vk_read(struct file *p_file, char __user *buf, size_t count,
 		    loff_t *f_pos);
@@ -493,7 +506,6 @@ irqreturn_t bcm_vk_tty_irqhandler(int irq, void *dev_id);
 int bcm_vk_msg_init(struct bcm_vk *vk);
 void bcm_vk_msg_remove(struct bcm_vk *vk);
 int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync);
-bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk);
 void bcm_vk_blk_drv_access(struct bcm_vk *vk);
 int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, u32 shut_type,
 			     const pid_t pid, const u32 q_num);

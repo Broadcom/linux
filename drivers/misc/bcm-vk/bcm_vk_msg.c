@@ -440,19 +440,6 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 			 num, ctx->idx);
 }
 
-bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
-{
-	u32 rdy_marker = 0;
-	u32 fw_status;
-
-	fw_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
-
-	if ((fw_status & VK_FWSTS_READY) == VK_FWSTS_READY)
-		rdy_marker = vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
-
-	return (rdy_marker == VK_BAR1_MSGQ_RDY_MARKER);
-}
-
 /*
  * Function to sync up the messages queue info that is provided by BAR1
  */
