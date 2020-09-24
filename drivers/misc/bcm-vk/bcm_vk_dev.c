@@ -210,7 +210,7 @@ static void bcm_vk_log_notf(struct bcm_vk *vk,
 			    (uecc_mem_err >= BCM_VK_UECC_THRESHOLD))
 				dev_info(dev,
 					 "ALERT! %s.%d uecc RAISED - ErrCnt %d\n",
-					 DRV_MODULE_NAME, vk->misc_devid,
+					 DRV_MODULE_NAME, vk->devid,
 					 uecc_mem_err);
 			vk->alert_cnts.uecc = uecc_mem_err;
 		} else if (masked_val == ERR_LOG_ECC) {
@@ -221,13 +221,13 @@ static void bcm_vk_log_notf(struct bcm_vk *vk,
 			if ((ecc_mem_err != vk->alert_cnts.ecc) &&
 			    (ecc_mem_err >= BCM_VK_ECC_THRESHOLD))
 				dev_info(dev, "ALERT! %s.%d ecc RAISED - ErrCnt %d\n",
-					 DRV_MODULE_NAME, vk->misc_devid,
+					 DRV_MODULE_NAME, vk->devid,
 					 ecc_mem_err);
 			vk->alert_cnts.ecc = ecc_mem_err;
 		} else if (masked_val != latched_val) {
 			/* print a log as info */
 			dev_info(dev, "ALERT! %s.%d %s %s\n",
-				 DRV_MODULE_NAME, vk->misc_devid, entry->str,
+				 DRV_MODULE_NAME, vk->devid, entry->str,
 				 masked_val ? "RAISED" : "CLEARED");
 		}
 	}
@@ -841,7 +841,7 @@ int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
 		goto auto_load_all_exit;
 
 	/* log a message to know the relative loading order */
-	dev_info(dev, "Load All for device %d\n", vk->misc_devid);
+	dev_info(dev, "Load All for device %d\n", vk->devid);
 
 	for (i = 0; i < NUM_BOOT_STAGES; i++) {
 		curr_type = image_tab[idx][i].image_type;
@@ -1259,7 +1259,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_irq;
 	}
 
-	vk->misc_devid = id;
+	vk->devid = id;
 	snprintf(name, sizeof(name), DRV_MODULE_NAME ".%d", id);
 	misc_device = &vk->miscdev;
 	misc_device->minor = MISC_DYNAMIC_MINOR;
@@ -1371,7 +1371,7 @@ void bcm_vk_release_data(struct kref *kref)
 	struct pci_dev *pdev = vk->pdev;
 
 	dev_info(&pdev->dev, "BCM-VK:%d release data 0x%p\n",
-		 vk->misc_devid, vk);
+		 vk->devid, vk);
 	pci_dev_put(pdev);
 	kfree(vk);
 }
@@ -1410,7 +1410,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	if (misc_device->name) {
 		misc_deregister(misc_device);
 		kfree(misc_device->name);
-		ida_simple_remove(&bcm_vk_ida, vk->misc_devid);
+		ida_simple_remove(&bcm_vk_ida, vk->devid);
 	}
 	for (i = 0; i < vk->num_irqs; i++)
 		devm_free_irq(&pdev->dev, pci_irq_vector(pdev, i), vk);
@@ -1428,7 +1428,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 			pci_iounmap(pdev, vk->bar[i]);
 	}
 
-	dev_info(&pdev->dev, "BCM-VK:%d released\n", vk->misc_devid);
+	dev_info(&pdev->dev, "BCM-VK:%d released\n", vk->devid);
 
 	pci_release_regions(pdev);
 	pci_free_irq_vectors(pdev);

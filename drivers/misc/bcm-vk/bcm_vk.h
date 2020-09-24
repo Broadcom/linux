@@ -302,7 +302,7 @@ struct bcm_vk {
 	/* mutex to protect the ioctls */
 	struct mutex mutex;
 	struct miscdevice miscdev;
-	int misc_devid; /* dev id allocated */
+	int devid; /* dev id allocated */
 
 	struct tty_driver *tty_drv;
 	struct timer_list serial_timer;
