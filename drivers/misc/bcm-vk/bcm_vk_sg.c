@@ -41,10 +41,10 @@ static int bcm_vk_dma_alloc(struct device *dev,
 	int err;
 	int i;
 	int offset;
-	uint32_t size;
-	uint32_t remaining_size;
-	uint32_t transfer_size;
-	uint64_t data;
+	u32 size;
+	u32 remaining_size;
+	u32 transfer_size;
+	u64 data;
 	unsigned long first, last;
 	struct _vk_data *sgdata;
 
@@ -85,7 +85,7 @@ static int bcm_vk_dma_alloc(struct device *dev,
 
 	/* Max size of sg list is 1 per mapped page + fields at start */
 	dma->sglen = (dma->nr_pages * sizeof(*sgdata)) +
-		     (sizeof(uint32_t) * SGLIST_VKDATA_START);
+		     (sizeof(u32) * SGLIST_VKDATA_START);
 
 	/* Allocate sglist */
 	dma->sglist = dma_alloc_coherent(dev,
@@ -138,7 +138,7 @@ static int bcm_vk_dma_alloc(struct device *dev,
 		} else {
 			/* pages are not contiguous, write sg entry */
 			sgdata->size = transfer_size;
-			put_unaligned(sg_addr, (uint64_t *)&sgdata->address);
+			put_unaligned(sg_addr, (u64 *)&sgdata->address);
 			dma->sglist[SGLIST_NUM_SG]++;
 
 			/* start new sg entry */
@@ -149,22 +149,22 @@ static int bcm_vk_dma_alloc(struct device *dev,
 	}
 	/* Write last sg list entry */
 	sgdata->size = transfer_size;
-	put_unaligned(sg_addr, (uint64_t *)&sgdata->address);
+	put_unaligned(sg_addr, (u64 *)&sgdata->address);
 	dma->sglist[SGLIST_NUM_SG]++;
 
 	/* Update pointers and size field to point to sglist */
-	put_unaligned((uint64_t)dma->handle, &vkdata->address);
+	put_unaligned((u64)dma->handle, &vkdata->address);
 	vkdata->size = (dma->sglist[SGLIST_NUM_SG] * sizeof(*sgdata)) +
-		       (sizeof(uint32_t) * SGLIST_VKDATA_START);
+		       (sizeof(u32) * SGLIST_VKDATA_START);
 
 #ifdef BCM_VK_DUMP_SGLIST
 	dev_dbg(dev,
 		"sgl 0x%llx handle 0x%llx, sglen: 0x%x sgsize: 0x%x\n",
-		(uint64_t)dma->sglist,
+		(u64)dma->sglist,
 		dma->handle,
 		dma->sglen,
 		vkdata->size);
-	for (i = 0; i < vkdata->size / sizeof(uint32_t); i++)
+	for (i = 0; i < vkdata->size / sizeof(u32); i++)
 		dev_dbg(dev, "i:0x%x 0x%x\n", i, dma->sglist[i]);
 #endif
 
@@ -228,7 +228,7 @@ static int bcm_vk_dma_free(struct device *dev, struct bcm_vk_dma *dma)
 	dma_addr_t addr;
 	int i;
 	int num_sg;
-	uint32_t size;
+	u32 size;
 	struct _vk_data *vkdata;
 
 	dev_dbg(dev, "free sglist=%p sglen=0x%x\n", dma->sglist, dma->sglen);

@@ -199,12 +199,12 @@ enum pci_barno {
 
 struct bcm_vk_tty {
 	struct tty_port port;
-	uint32_t to_offset;	/* bar offset to use */
-	uint32_t to_size;	/* to VK buffer size */
-	uint32_t wr;		/* write offset shadow */
-	uint32_t from_offset;	/* bar offset to use */
-	uint32_t from_size;	/* from VK buffer size */
-	uint32_t rd;		/* read offset shadow */
+	u32 to_offset;	/* bar offset to use */
+	u32 to_size;	/* to VK buffer size */
+	u32 wr;		/* write offset shadow */
+	u32 from_offset;	/* bar offset to use */
+	u32 from_size;	/* from VK buffer size */
+	u32 rd;		/* read offset shadow */
 	pid_t pid;
 	bool irq_enabled;
 	bool is_opened;		/* tracks tty open/close */
@@ -215,14 +215,14 @@ struct bcm_vk_tty {
 #define MAX_CARD_INFO_TAG_SIZE 64
 
 struct bcm_vk_card_info {
-	uint32_t version;
+	u32 version;
 	char os_tag[MAX_CARD_INFO_TAG_SIZE];
 	char cmpt_tag[MAX_CARD_INFO_TAG_SIZE];
-	uint32_t cpu_freq_mhz;
-	uint32_t cpu_scale[MAX_OPP];
-	uint32_t ddr_freq_mhz;
-	uint32_t ddr_size_MB;
-	uint32_t video_core_freq_mhz;
+	u32 cpu_freq_mhz;
+	u32 cpu_scale[MAX_OPP];
+	u32 ddr_freq_mhz;
+	u32 ddr_size_MB;
+	u32 video_core_freq_mhz;
 };
 
 /* DAUTH related info */
@@ -240,10 +240,10 @@ struct bcm_vk_dauth_info {
  * buffer is for logmsg that comes from vk
  */
 struct bcm_vk_peer_log {
-	uint32_t rd_idx;
-	uint32_t wr_idx;
-	uint32_t buf_size;
-	uint32_t mask;
+	u32 rd_idx;
+	u32 wr_idx;
+	u32 buf_size;
+	u32 mask;
 	char data[0];
 };
 
@@ -256,8 +256,8 @@ struct bcm_vk_peer_log {
 #define BCM_VK_PROC_TYPE_TAG_LEN 8
 struct bcm_vk_proc_mon_entry_t {
 	char tag[BCM_VK_PROC_TYPE_TAG_LEN];
-	uint32_t used;
-	uint32_t max; /**< max capacity */
+	u32 used;
+	u32 max; /**< max capacity */
 };
 
 /**
@@ -265,26 +265,26 @@ struct bcm_vk_proc_mon_entry_t {
  */
 #define BCM_VK_PROC_MON_MAX 8 /* max entries supported */
 struct bcm_vk_proc_mon_info {
-	uint32_t num; /**< no of entries */
-	uint32_t entry_size; /**< per entry size */
+	u32 num; /**< no of entries */
+	u32 entry_size; /**< per entry size */
 	struct bcm_vk_proc_mon_entry_t entries[BCM_VK_PROC_MON_MAX];
 };
 
 struct bcm_vk_hb_ctrl {
 	struct timer_list timer;
-	uint32_t last_uptime;
-	uint32_t lost_cnt;
+	u32 last_uptime;
+	u32 lost_cnt;
 };
 
 struct bcm_vk_alert {
-	uint16_t flags;
-	uint16_t notfs;
+	u16 flags;
+	u16 notfs;
 };
 
 /* some alert counters that the driver will keep track */
 struct bcm_vk_alert_cnts {
-	uint16_t ecc;
-	uint16_t uecc;
+	u16 ecc;
+	u16 uecc;
 };
 
 struct bcm_vk {
@@ -314,7 +314,7 @@ struct bcm_vk {
 	struct kref kref;
 
 	spinlock_t msg_id_lock; /* Spinlock for msg_id */
-	uint16_t msg_id;
+	u16 msg_id;
 	DECLARE_BITMAP(bmap, VK_MSG_ID_BITMAP_SIZE);
 	spinlock_t ctx_lock; /* Spinlock for component context */
 	struct bcm_vk_ctx ctx[VK_CMPT_CTX_MAX];
@@ -332,7 +332,7 @@ struct bcm_vk {
 	dma_addr_t tdma_addr; /* test dma segment bus addr */
 
 	struct notifier_block panic_nb;
-	uint32_t ib_sgl_size; /* size allocated for inband sgl insertion */
+	u32 ib_sgl_size; /* size allocated for inband sgl insertion */
 
 	/* heart beat mechanism control structure */
 	struct bcm_vk_hb_ctrl hb_ctrl;
@@ -343,10 +343,10 @@ struct bcm_vk {
 	struct bcm_vk_alert_cnts alert_cnts;
 
 	/* offset of the peer log control in BAR2 */
-	uint32_t peerlog_off;
+	u32 peerlog_off;
 	struct bcm_vk_peer_log peerlog_info; /* record of peer log info */
 	/* offset of processing monitoring info in BAR2 */
-	uint32_t proc_mon_off;
+	u32 proc_mon_off;
 };
 
 /* wq offload work items bits definitions */
@@ -362,8 +362,8 @@ enum bcm_vk_wq_offload_flags {
 
 /* structure that is used to faciliate displaying of register content */
 struct bcm_vk_entry {
-	const uint32_t mask;
-	const uint32_t exp_val;
+	const u32 mask;
+	const u32 exp_val;
 	const char *str;
 };
 
@@ -380,32 +380,28 @@ extern struct bcm_vk_entry const bcm_vk_host_err[BCM_VK_HOST_ERR_NUM];
  */
 #define BCM_VK_INTF_IS_DOWN(val) ((val) == 0xffffffff)
 
-static inline uint32_t vkread32(struct bcm_vk *vk,
-				enum pci_barno bar,
-				uint64_t offset)
+static inline u32 vkread32(struct bcm_vk *vk, enum pci_barno bar, u64 offset)
 {
 	return readl(vk->bar[bar] + offset);
 }
 
 static inline void vkwrite32(struct bcm_vk *vk,
-			     uint32_t value,
+			     u32 value,
 			     enum pci_barno bar,
-			     uint64_t offset)
+			     u64 offset)
 {
 	writel(value, vk->bar[bar] + offset);
 }
 
-static inline uint8_t vkread8(struct bcm_vk *vk,
-			      enum pci_barno bar,
-			      uint64_t offset)
+static inline u8 vkread8(struct bcm_vk *vk, enum pci_barno bar, u64 offset)
 {
 	return readb(vk->bar[bar] + offset);
 }
 
 static inline void vkwrite8(struct bcm_vk *vk,
-			    uint8_t value,
+			    u8 value,
 			    enum pci_barno bar,
-			    uint64_t offset)
+			    u64 offset)
 {
 	writeb(value, vk->bar[bar] + offset);
 }
@@ -426,11 +422,11 @@ void bcm_vk_msg_remove(struct bcm_vk *vk);
 int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync);
 bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk);
 void bcm_vk_blk_drv_access(struct bcm_vk *vk);
-int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
-			     const pid_t pid, const uint32_t q_num);
+int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, u32 shut_type,
+			     const pid_t pid, const u32 q_num);
 int bcm_vk_trigger_reset(struct bcm_vk *vk);
-void bcm_to_v_q_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val);
-void bcm_to_v_reset_doorbell(struct bcm_vk *vk, uint32_t db_val);
+void bcm_to_v_q_doorbell(struct bcm_vk *vk, u32 q_num, u32 db_val);
+void bcm_to_v_reset_doorbell(struct bcm_vk *vk, u32 db_val);
 int bcm_vk_auto_load_all_images(struct bcm_vk *vk);
 int bcm_vk_tty_init(struct bcm_vk *vk, char *name);
 void bcm_vk_tty_exit(struct bcm_vk *vk);
@@ -439,7 +435,7 @@ void bcm_vk_hb_init(struct bcm_vk *vk);
 void bcm_vk_hb_deinit(struct bcm_vk *vk);
 void bcm_vk_handle_notf(struct bcm_vk *vk);
 bool bcm_vk_drv_access_ok(struct bcm_vk *vk);
-void bcm_vk_set_host_alert(struct bcm_vk *vk, uint32_t bit_mask);
+void bcm_vk_set_host_alert(struct bcm_vk *vk, u32 bit_mask);
 int bcm_vk_sysfs_init(struct pci_dev *pdev, struct miscdevice *misc_device);
 void bcm_vk_sysfs_exit(struct pci_dev *pdev, struct miscdevice *misc_device);
 

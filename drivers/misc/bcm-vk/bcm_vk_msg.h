@@ -11,18 +11,18 @@
 
 /* Single message queue control structure */
 struct bcm_vk_msgq {
-	uint16_t type;	/* queue type */
-	uint16_t num;	/* queue number */
-	uint32_t start;	/* offset in BAR1 where the queue memory starts */
+	u16 type;	/* queue type */
+	u16 num;	/* queue number */
+	u32 start;	/* offset in BAR1 where the queue memory starts */
 
-	uint32_t rd_idx; /* read idx */
-	uint32_t wr_idx; /* write idx */
+	u32 rd_idx; /* read idx */
+	u32 wr_idx; /* write idx */
 
-	uint32_t size;	/*
+	u32 size;	/*
 			 * size, which is in number of 16byte blocks,
 			 * to align with the message data structure.
 			 */
-	uint32_t nxt;	/*
+	u32 nxt;	/*
 			 * nxt offset to the next msg queue struct.
 			 * This is to provide flexibity for alignment purposes.
 			 */
@@ -30,9 +30,9 @@ struct bcm_vk_msgq {
 /* Least significant 16 bits in below field hold doorbell register offset */
 #define DB_SHIFT 16
 
-	uint32_t db_offset; /* queue doorbell register offset in BAR0 */
+	u32 db_offset; /* queue doorbell register offset in BAR0 */
 
-	uint32_t rsvd;
+	u32 rsvd;
 };
 
 /*
@@ -41,10 +41,10 @@ struct bcm_vk_msgq {
  */
 struct bcm_vk_sync_qinfo {
 	void __iomem *q_start;
-	uint32_t q_size;
-	uint32_t q_mask;
-	uint32_t q_low;
-	uint32_t q_db_offset;
+	u32 q_size;
+	u32 q_mask;
+	u32 q_low;
+	u32 q_db_offset;
 };
 
 #define VK_MSGQ_MAX_NR 4 /* Maximum number of message queues */
@@ -54,18 +54,18 @@ struct bcm_vk_sync_qinfo {
  *		   N x sizeof(basic_block)
  */
 struct vk_msg_blk {
-	uint8_t function_id;
+	u8 function_id;
 #define VK_FID_TRANS_BUF	5
 #define VK_FID_SHUTDOWN		8
-	uint8_t size;	/* size of the message in number of vk_msg_blk's */
-	uint16_t trans_id; /* transport id, queue & msg_id */
-	uint32_t context_id;
-	uint32_t cmd;
+	u8 size; /* size of the message in number of vk_msg_blk's */
+	u16 trans_id; /* transport id, queue & msg_id */
+	u32 context_id;
+	u32 cmd;
 #define VK_CMD_PLANES_MASK	0x000f /* number of planes to up/download */
 #define VK_CMD_UPLOAD		0x0400 /* memory transfer to vk */
 #define VK_CMD_DOWNLOAD		0x0500 /* memory transfer from vk */
 #define VK_CMD_MASK		0x0f00 /* command mask */
-	uint32_t arg;
+	u32 arg;
 };
 
 /* vk_msg_blk is 16 bytes fixed */
@@ -82,8 +82,8 @@ struct bcm_vk_ctx {
 	uint idx;
 	bool in_use;
 	pid_t pid;
-	uint32_t hash_idx;
-	uint32_t q_num; /* queue number used by the stream */
+	u32 hash_idx;
+	u32 q_num; /* queue number used by the stream */
 	struct miscdevice *miscdev;
 	atomic_t pend_cnt; /* number of items pending to be read from host */
 	atomic_t dma_cnt; /* any dma transaction outstanding */
@@ -104,36 +104,36 @@ struct bcm_vk_wkent {
 	/* Store up to 4 dma pointers */
 	struct bcm_vk_dma dma[VK_DMA_MAX_ADDRS];
 
-	uint32_t to_h_blks; /* response */
+	u32 to_h_blks; /* response */
 	struct vk_msg_blk *to_h_msg;
 
 	/*
 	 * put the to_v_msg at the end so that we could simply append to_v msg
 	 * to the end of the allocated block
 	 */
-	uint32_t usr_msg_id;
-	uint32_t to_v_blks;
-	uint32_t seq_num;
+	u32 usr_msg_id;
+	u32 to_v_blks;
+	u32 seq_num;
 	struct vk_msg_blk to_v_msg[0];
 };
 
 /* queue stats counters */
 struct bcm_vk_qs_cnts {
-	uint32_t cnt; /* general counter, used to limit output */
-	uint32_t acc_sum;
-	uint32_t max_occ; /* max during a sampling period */
-	uint32_t max_abs; /* the abs max since reset */
+	u32 cnt; /* general counter, used to limit output */
+	u32 acc_sum;
+	u32 max_occ; /* max during a sampling period */
+	u32 max_abs; /* the abs max since reset */
 };
 
 /* stats structure */
 struct bcm_vk_qstats {
-	uint32_t q_num;
+	u32 q_num;
 	struct bcm_vk_qs_cnts qcnts;
 };
 
 /* control channel structure for either to_v or to_h communication */
 struct bcm_vk_msg_chan {
-	uint32_t q_nr;
+	u32 q_nr;
 	/* Mutex to access msgq */
 	struct mutex msgq_mutex;
 	/* pointing to BAR locations */

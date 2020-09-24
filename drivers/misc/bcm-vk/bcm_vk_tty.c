@@ -22,11 +22,11 @@
 				 BAR1_TTYVK_CHAN_OFFSET)
 
 struct bcm_vk_tty_chan {
-	uint32_t reserved;
-	uint32_t size;
-	uint32_t wr;
-	uint32_t rd;
-	uint32_t *data;
+	u32 reserved;
+	u32 size;
+	u32 wr;
+	u32 rd;
+	u32 *data;
 };
 
 #define VK_BAR_CHAN(v, DIR, e)	((v)->DIR##_offset \
@@ -210,7 +210,7 @@ static void bcm_vk_tty_close(struct tty_struct *tty, struct file *file)
 		del_timer_sync(&vk->serial_timer);
 }
 
-static void bcm_vk_tty_doorbell(struct bcm_vk *vk, uint32_t db_val)
+static void bcm_vk_tty_doorbell(struct bcm_vk *vk, u32 db_val)
 {
 	vkwrite32(vk, db_val, BAR_0,
 		  VK_BAR0_REGSEG_DB_BASE + VK_BAR0_REGSEG_TTY_DB_OFFSET);

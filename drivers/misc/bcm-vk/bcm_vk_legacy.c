@@ -29,7 +29,7 @@ int pci_alloc_irq_vectors(struct pci_dev *pdev, unsigned int min_vecs,
 {
 	struct device *dev = &pdev->dev;
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t i;
+	u32 i;
 	int num_vecs = 0;
 
 	dev_info(dev, "Request min %d max %d flags 0x%x\n",

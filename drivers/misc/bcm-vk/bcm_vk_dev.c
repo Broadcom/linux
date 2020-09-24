@@ -35,7 +35,7 @@ enum img_idx {
 };
 
 struct load_image_entry {
-	const uint32_t image_type;
+	const u32 image_type;
 	const char *image_name[IMG_PER_TYPE_MAX];
 };
 
@@ -150,8 +150,8 @@ skip_schedule_work:
 static int bcm_vk_intf_ver_chk(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
-	uint32_t reg;
-	uint16_t major, minor;
+	u32 reg;
+	u16 major, minor;
 	int ret = 0;
 
 	/* read interface register */
@@ -183,13 +183,13 @@ static int bcm_vk_intf_ver_chk(struct bcm_vk *vk)
 static void bcm_vk_log_notf(struct bcm_vk *vk,
 			    struct bcm_vk_alert *alert,
 			    struct bcm_vk_entry const *entry_tab,
-			    const uint32_t table_size)
+			    const u32 table_size)
 {
-	uint32_t i;
-	uint32_t masked_val, latched_val;
+	u32 i;
+	u32 masked_val, latched_val;
 	struct bcm_vk_entry const *entry;
-	uint32_t reg;
-	uint16_t ecc_mem_err, uecc_mem_err;
+	u32 reg;
+	u16 ecc_mem_err, uecc_mem_err;
 	struct device *dev = &vk->pdev->dev;
 
 	for (i = 0; i < table_size; i++) {
@@ -282,7 +282,7 @@ static void bcm_vk_dump_peer_log(struct bcm_vk *vk)
 
 void bcm_vk_handle_notf(struct bcm_vk *vk)
 {
-	uint32_t reg;
+	u32 reg;
 	struct bcm_vk_alert alert;
 	bool intf_down;
 	unsigned long flags;
@@ -324,13 +324,13 @@ void bcm_vk_handle_notf(struct bcm_vk *vk)
 }
 
 static inline int bcm_vk_wait(struct bcm_vk *vk, enum pci_barno bar,
-			      uint64_t offset, uint32_t mask, uint32_t value,
+			      u64 offset, u32 mask, u32 value,
 			      unsigned long timeout_ms)
 {
 	struct device *dev = &vk->pdev->dev;
 	unsigned long start_time;
 	unsigned long timeout;
-	uint32_t rd_val, boot_status;
+	u32 rd_val, boot_status;
 
 	start_time = jiffies;
 	timeout = start_time + msecs_to_jiffies(timeout_ms);
@@ -363,9 +363,9 @@ static inline int bcm_vk_wait(struct bcm_vk *vk, enum pci_barno bar,
 static void bcm_vk_get_card_info(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
-	uint32_t offset;
+	u32 offset;
 	int i;
-	uint8_t *dst;
+	u8 *dst;
 	struct bcm_vk_card_info *info = &vk->card_info;
 
 	/* first read the offset from spare register */
@@ -373,7 +373,7 @@ static void bcm_vk_get_card_info(struct bcm_vk *vk)
 	offset &= (pci_resource_len(vk->pdev, BAR_2 * 2) - 1);
 
 	/* based on the offset, read info to internal card info structure */
-	dst = (uint8_t *)info;
+	dst = (u8 *)info;
 	for (i = 0; i < sizeof(*info); i++)
 		*dst++ = vkread8(vk, BAR_2, offset++);
 
@@ -409,8 +409,8 @@ static void bcm_vk_get_proc_mon_info(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_proc_mon_info *mon = &vk->proc_mon_info;
-	uint32_t num, entry_size, offset, buf_size;
-	uint8_t *dst;
+	u32 num, entry_size, offset, buf_size;
+	u8 *dst;
 
 	/* calculate offset which is based on peerlog offset */
 	buf_size = vkread32(vk, BAR_2,
@@ -435,14 +435,14 @@ static void bcm_vk_get_proc_mon_info(struct bcm_vk *vk)
 	vk->proc_mon_off = offset;
 
 	/* read it once that will capture those static info */
-	dst = (uint8_t *)&mon->entries[0];
+	dst = (u8 *)&mon->entries[0];
 	offset += sizeof(num) + sizeof(entry_size);
 	memcpy_fromio(dst, vk->bar[BAR_2] + offset, num * entry_size);
 }
 
 static int bcm_vk_sync_card_info(struct bcm_vk *vk)
 {
-	uint32_t rdy_marker = vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
+	u32 rdy_marker = vkread32(vk, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
 
 	/* check for marker, but allow diags mode to skip sync */
 	if (!bcm_vk_msgq_marker_valid(vk))
@@ -454,9 +454,9 @@ static int bcm_vk_sync_card_info(struct bcm_vk *vk)
 	 * up
 	 */
 	if (vk->tdma_addr) {
-		vkwrite32(vk, (uint64_t)vk->tdma_addr >> 32, BAR_1,
+		vkwrite32(vk, (u64)vk->tdma_addr >> 32, BAR_1,
 			  VK_BAR1_SCRATCH_OFF_HI);
-		vkwrite32(vk, (uint32_t)vk->tdma_addr, BAR_1,
+		vkwrite32(vk, (u32)vk->tdma_addr, BAR_1,
 			  VK_BAR1_SCRATCH_OFF_LO);
 		vkwrite32(vk, nr_scratch_pages * PAGE_SIZE, BAR_1,
 			  VK_BAR1_SCRATCH_SZ_ADDR);
@@ -502,17 +502,17 @@ void bcm_vk_blk_drv_access(struct bcm_vk *vk)
 }
 
 static void bcm_vk_buf_notify(struct bcm_vk *vk, void *bufp,
-			      dma_addr_t host_buf_addr, uint32_t buf_size)
+			      dma_addr_t host_buf_addr, u32 buf_size)
 {
 	/* update the dma address to the card */
-	vkwrite32(vk, (uint64_t)host_buf_addr >> 32, BAR_1,
+	vkwrite32(vk, (u64)host_buf_addr >> 32, BAR_1,
 		  VK_BAR1_DMA_BUF_OFF_HI);
-	vkwrite32(vk, (uint32_t)host_buf_addr, BAR_1,
+	vkwrite32(vk, (u32)host_buf_addr, BAR_1,
 		  VK_BAR1_DMA_BUF_OFF_LO);
 	vkwrite32(vk, buf_size, BAR_1, VK_BAR1_DMA_BUF_SZ);
 }
 
-static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
+static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				     const char *filename)
 {
 	struct device *dev = &vk->pdev->dev;
@@ -520,9 +520,9 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
 	void *bufp = NULL;
 	size_t max_buf, offset;
 	int ret;
-	uint64_t offset_codepush;
-	uint32_t codepush;
-	uint32_t value;
+	u64 offset_codepush;
+	u32 codepush;
+	u32 value;
 	dma_addr_t boot_dma_addr;
 	bool is_stdalone;
 
@@ -606,7 +606,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
-		uint32_t boot_status;
+		u32 boot_status;
 
 		/* wait until done */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS,
@@ -623,7 +623,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, uint32_t load_type,
 				BOOT1_STARTUP_TIMEOUT_MS, ret);
 			goto err_firmware_out;
 		} else if (is_stdalone) {
-			uint32_t reg;
+			u32 reg;
 
 			reg = vkread32(vk, BAR_0, BAR_BOOT1_STDALONE_PROGRESS);
 			if ((reg & BOOT1_STDALONE_PROGRESS_MASK) ==
@@ -748,11 +748,11 @@ err_buf_out:
 	return ret;
 }
 
-static uint32_t bcm_vk_next_boot_image(struct bcm_vk *vk)
+static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
 {
-	uint32_t boot_status;
-	uint32_t fw_status;
-	uint32_t load_type = 0;  /* default for unknown */
+	u32 boot_status;
+	u32 fw_status;
+	u32 load_type = 0;  /* default for unknown */
 
 	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
 	fw_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
@@ -777,7 +777,7 @@ static enum soc_idx get_soc_idx(struct bcm_vk *vk)
 {
 	struct pci_dev *pdev = vk->pdev;
 	enum soc_idx idx = VK_IDX_INVALID;
-	uint32_t rev;
+	u32 rev;
 	static enum soc_idx const vk_soc_tab[] = { VALKYRIE_A0, VALKYRIE_B0 };
 
 	switch (pdev->device) {
@@ -833,7 +833,7 @@ int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
 	int i, ret = -1;
 	enum soc_idx idx;
 	struct device *dev = &vk->pdev->dev;
-	uint32_t curr_type;
+	u32 curr_type;
 	const char *curr_name;
 
 	idx = get_soc_idx(vk);
@@ -887,7 +887,7 @@ static long bcm_vk_load_image(struct bcm_vk *vk,
 	struct device *dev = &vk->pdev->dev;
 	const char *image_name;
 	struct vk_image image;
-	uint32_t next_loadable;
+	u32 next_loadable;
 	enum soc_idx idx;
 	int image_idx;
 	int ret = -EPERM;
@@ -949,7 +949,7 @@ err_idx:
 static int bcm_vk_reset_successful(struct bcm_vk *vk)
 {
 	struct device *dev = &vk->pdev->dev;
-	uint32_t fw_status, reset_reason;
+	u32 fw_status, reset_reason;
 	int ret = -EAGAIN;
 
 	/*
@@ -994,7 +994,7 @@ static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
 	struct device *dev = &vk->pdev->dev;
 	struct vk_reset reset;
 	int ret = 0;
-	uint32_t ramdump_reset;
+	u32 ramdump_reset;
 	int special_reset;
 
 	if (copy_from_user(&reset, arg, sizeof(struct vk_reset)))
@@ -1139,7 +1139,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct bcm_vk *vk;
 	struct device *dev = &pdev->dev;
 	struct miscdevice *misc_device;
-	uint32_t boot_status;
+	u32 boot_status;
 
 	/* allocate vk structure which is tied to kref for freeing */
 	vk = kzalloc(sizeof(*vk), GFP_KERNEL);
@@ -1440,7 +1440,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 static void bcm_vk_shutdown(struct pci_dev *pdev)
 {
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg, boot_stat;
+	u32 reg, boot_stat;
 
 	reg = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
 	boot_stat = reg & BOOT_STATE_MASK;
@@ -1450,7 +1450,7 @@ static void bcm_vk_shutdown(struct pci_dev *pdev)
 		bcm_vk_trigger_reset(vk);
 	} else if (boot_stat == BROM_NOT_RUN) {
 		int err;
-		uint16_t lnksta;
+		u16 lnksta;
 
 		/*
 		 * The boot status only reflects boot condition since last reset

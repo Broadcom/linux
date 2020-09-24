@@ -41,44 +41,42 @@ static bool hb_mon_is_on(void)
 	return hb_mon;
 }
 
-static uint32_t get_q_num(const struct vk_msg_blk *msg)
+static u32 get_q_num(const struct vk_msg_blk *msg)
 {
 	return (msg->trans_id & BCM_VK_MSG_Q_MASK);
 }
 
-static void set_q_num(struct vk_msg_blk *msg, uint32_t val)
+static void set_q_num(struct vk_msg_blk *msg, u32 val)
 {
 	msg->trans_id = (msg->trans_id & ~BCM_VK_MSG_Q_MASK) | val;
 }
 
-static uint32_t get_msg_id(const struct vk_msg_blk *msg)
+static u32 get_msg_id(const struct vk_msg_blk *msg)
 {
 	return ((msg->trans_id >> BCM_VK_MSG_Q_SHIFT) & BCM_VK_MSG_ID_MASK);
 }
 
-static void set_msg_id(struct vk_msg_blk *msg, uint32_t val)
+static void set_msg_id(struct vk_msg_blk *msg, u32 val)
 {
 	msg->trans_id = (val << BCM_VK_MSG_Q_SHIFT) | get_q_num(msg);
 }
 
-static uint32_t msgq_inc(const struct bcm_vk_sync_qinfo *qinfo,
-			 uint32_t idx,
-			 uint32_t inc)
+static u32 msgq_inc(const struct bcm_vk_sync_qinfo *qinfo, u32 idx, u32 inc)
 {
 	return ((idx + inc) & qinfo->q_mask);
 }
 
 static
 struct vk_msg_blk __iomem *msgq_blk_addr(const struct bcm_vk_sync_qinfo *qinfo,
-					 uint32_t idx)
+					 u32 idx)
 {
 	return qinfo->q_start + (VK_MSGQ_BLK_SIZE * idx);
 }
 
-static uint32_t msgq_occupied(const struct bcm_vk_msgq __iomem *msgq,
-			      const struct bcm_vk_sync_qinfo *qinfo)
+static u32 msgq_occupied(const struct bcm_vk_msgq __iomem *msgq,
+			 const struct bcm_vk_sync_qinfo *qinfo)
 {
-	uint32_t wr_idx, rd_idx;
+	u32 wr_idx, rd_idx;
 
 	wr_idx = readl_relaxed(&msgq->wr_idx);
 	rd_idx = readl_relaxed(&msgq->rd_idx);
@@ -87,8 +85,8 @@ static uint32_t msgq_occupied(const struct bcm_vk_msgq __iomem *msgq,
 }
 
 static
-uint32_t msgq_avail_space(const struct bcm_vk_msgq __iomem *msgq,
-			  const struct bcm_vk_sync_qinfo *qinfo)
+u32 msgq_avail_space(const struct bcm_vk_msgq __iomem *msgq,
+		     const struct bcm_vk_sync_qinfo *qinfo)
 {
 	return (qinfo->q_size - msgq_occupied(msgq, qinfo) - 1);
 }
@@ -103,7 +101,7 @@ uint32_t msgq_avail_space(const struct bcm_vk_msgq __iomem *msgq,
 static void bcm_vk_update_qstats(struct bcm_vk *vk,
 				 const char *tag,
 				 struct bcm_vk_qstats *qstats,
-				 uint32_t occupancy)
+				 u32 occupancy)
 {
 	struct bcm_vk_qs_cnts *qcnts = &qstats->qcnts;
 
@@ -140,7 +138,7 @@ bool bcm_vk_drv_access_ok(struct bcm_vk *vk)
 	return (!!atomic_read(&vk->msgq_inited));
 }
 
-void bcm_vk_set_host_alert(struct bcm_vk *vk, uint32_t bit_mask)
+void bcm_vk_set_host_alert(struct bcm_vk *vk, u32 bit_mask)
 {
 	struct bcm_vk_alert *alert = &vk->host_alert;
 	unsigned long flags;
@@ -183,7 +181,7 @@ void bcm_vk_hb_deinit(struct bcm_vk *vk)
 
 static void bcm_vk_hb_poll(struct timer_list *t)
 {
-	uint32_t uptime_s;
+	u32 uptime_s;
 	struct bcm_vk_hb_ctrl *hb = container_of(t, struct bcm_vk_hb_ctrl,
 						 timer);
 	struct bcm_vk *vk = container_of(hb, struct bcm_vk, hb_ctrl);
@@ -254,9 +252,9 @@ static void bcm_vk_msgid_bitmap_clear(struct bcm_vk *vk,
  */
 static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk, const pid_t pid)
 {
-	uint32_t i;
+	u32 i;
 	struct bcm_vk_ctx *ctx = NULL;
-	uint32_t hash_idx = hash_32(pid, VK_PID_HT_SHIFT_BIT);
+	u32 hash_idx = hash_32(pid, VK_PID_HT_SHIFT_BIT);
 
 	spin_lock(&vk->ctx_lock);
 
@@ -303,10 +301,10 @@ in_reset_exit:
 	return ctx;
 }
 
-static uint16_t bcm_vk_get_msg_id(struct bcm_vk *vk)
+static u16 bcm_vk_get_msg_id(struct bcm_vk *vk)
 {
-	uint16_t rc = VK_MSG_ID_OVERFLOW;
-	uint16_t test_bit_count = 0;
+	u16 rc = VK_MSG_ID_OVERFLOW;
+	u16 test_bit_count = 0;
 
 	spin_lock(&vk->msg_id_lock);
 	while (test_bit_count < (VK_MSG_ID_BITMAP_SIZE - 1)) {
@@ -335,8 +333,8 @@ static uint16_t bcm_vk_get_msg_id(struct bcm_vk *vk)
 
 static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *ctx)
 {
-	uint32_t idx;
-	uint32_t hash_idx;
+	u32 idx;
+	u32 hash_idx;
 	pid_t pid;
 	struct bcm_vk_ctx *entry;
 	int count = 0;
@@ -386,7 +384,7 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 				  struct bcm_vk_msg_chan *chan,
 				  struct bcm_vk_ctx *ctx)
 {
-	uint32_t num;
+	u32 num;
 	struct bcm_vk_wkent *entry, *tmp;
 	struct bcm_vk *vk;
 	struct list_head del_q;
@@ -415,7 +413,7 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 			struct vk_msg_blk *msg;
 			int bit_set;
 			bool responded;
-			uint32_t msg_id;
+			u32 msg_id;
 
 			/* if it is specific ctx, log for any stuck */
 			msg = entry->to_v_msg;
@@ -444,8 +442,8 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 
 bool bcm_vk_msgq_marker_valid(struct bcm_vk *vk)
 {
-	uint32_t rdy_marker = 0;
-	uint32_t fw_status;
+	u32 rdy_marker = 0;
+	u32 fw_status;
 
 	fw_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 
@@ -462,8 +460,8 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 {
 	struct bcm_vk_msgq __iomem *msgq;
 	struct device *dev = &vk->pdev->dev;
-	uint32_t msgq_off;
-	uint32_t num_q;
+	u32 msgq_off;
+	u32 num_q;
 	struct bcm_vk_msg_chan *chan_list[] = {&vk->to_v_msg_chan,
 					       &vk->to_h_msg_chan};
 	struct bcm_vk_msg_chan *chan;
@@ -506,10 +504,10 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 
 		for (j = 0; j < num_q; j++) {
 			struct bcm_vk_sync_qinfo *qinfo;
-			uint32_t msgq_start;
-			uint32_t msgq_size;
-			uint32_t msgq_nxt;
-			uint32_t msgq_db_offset, q_db_offset;
+			u32 msgq_start;
+			u32 msgq_size;
+			u32 msgq_nxt;
+			u32 msgq_db_offset, q_db_offset;
 
 			chan->msgq[j] = msgq;
 			msgq_start = readl_relaxed(&msgq->start);
@@ -554,7 +552,7 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 
 static int bcm_vk_msg_chan_init(struct bcm_vk_msg_chan *chan)
 {
-	uint32_t i;
+	u32 i;
 
 	mutex_init(&chan->msgq_mutex);
 	spin_lock_init(&chan->pendq_lock);
@@ -568,7 +566,7 @@ static int bcm_vk_msg_chan_init(struct bcm_vk_msg_chan *chan)
 	return 0;
 }
 
-static void bcm_vk_append_pendq(struct bcm_vk_msg_chan *chan, uint16_t q_num,
+static void bcm_vk_append_pendq(struct bcm_vk_msg_chan *chan, u16 q_num,
 				struct bcm_vk_wkent *entry)
 {
 	struct bcm_vk_ctx *ctx;
@@ -583,10 +581,10 @@ static void bcm_vk_append_pendq(struct bcm_vk_msg_chan *chan, uint16_t q_num,
 	spin_unlock(&chan->pendq_lock);
 }
 
-static uint32_t bcm_vk_append_ib_sgl(struct bcm_vk *vk,
-				     struct bcm_vk_wkent *entry,
-				     struct _vk_data *data,
-				     unsigned int num_planes)
+static u32 bcm_vk_append_ib_sgl(struct bcm_vk *vk,
+				struct bcm_vk_wkent *entry,
+				struct _vk_data *data,
+				unsigned int num_planes)
 {
 	unsigned int i;
 	unsigned int item_cnt = 0;
@@ -595,10 +593,10 @@ static uint32_t bcm_vk_append_ib_sgl(struct bcm_vk *vk,
 	struct vk_msg_blk *msg = &entry->to_v_msg[0];
 	struct bcm_vk_msgq __iomem *msgq;
 	struct bcm_vk_sync_qinfo *qinfo;
-	uint32_t ib_sgl_size = 0;
-	uint8_t *buf = (uint8_t *)&entry->to_v_msg[entry->to_v_blks];
-	uint32_t avail;
-	uint32_t q_num;
+	u32 ib_sgl_size = 0;
+	u8 *buf = (u8 *)&entry->to_v_msg[entry->to_v_blks];
+	u32 avail;
+	u32 q_num;
 
 	/* check if high watermark is hit, and if so, skip */
 	q_num = get_q_num(msg);
@@ -631,12 +629,12 @@ static uint32_t bcm_vk_append_ib_sgl(struct bcm_vk *vk,
 	return ib_sgl_size;
 }
 
-void bcm_to_v_reset_doorbell(struct bcm_vk *vk, uint32_t db_val)
+void bcm_to_v_reset_doorbell(struct bcm_vk *vk, u32 db_val)
 {
 	vkwrite32(vk, db_val, BAR_0, VK_BAR0_RESET_DB_BASE);
 }
 
-void bcm_to_v_q_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val)
+void bcm_to_v_q_doorbell(struct bcm_vk *vk, u32 q_num, u32 db_val)
 {
 	struct bcm_vk_msg_chan *chan = &vk->to_v_msg_chan;
 	struct bcm_vk_sync_qinfo *qinfo = &chan->sync_qinfo[q_num];
@@ -646,7 +644,7 @@ void bcm_to_v_q_doorbell(struct bcm_vk *vk, uint32_t q_num, uint32_t db_val)
 
 static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 {
-	static uint32_t seq_num;
+	static u32 seq_num;
 	struct bcm_vk_msg_chan *chan = &vk->to_v_msg_chan;
 	struct device *dev = &vk->pdev->dev;
 	struct vk_msg_blk *src = &entry->to_v_msg[0];
@@ -654,11 +652,11 @@ static int bcm_to_v_msg_enqueue(struct bcm_vk *vk, struct bcm_vk_wkent *entry)
 	struct vk_msg_blk __iomem *dst;
 	struct bcm_vk_msgq __iomem *msgq;
 	struct bcm_vk_sync_qinfo *qinfo;
-	uint32_t q_num = get_q_num(src);
-	uint32_t wr_idx; /* local copy */
-	uint32_t i;
-	uint32_t avail;
-	uint32_t retry;
+	u32 q_num = get_q_num(src);
+	u32 wr_idx; /* local copy */
+	u32 i;
+	u32 avail;
+	u32 retry;
 
 	if (entry->to_v_blks != src->size + 1) {
 		dev_err(dev, "number of blks %d not matching %d MsgId[0x%x]: func %d ctx 0x%x\n",
@@ -741,8 +739,8 @@ idx_err:
 	return 0;
 }
 
-int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
-			     const pid_t pid, const uint32_t q_num)
+int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, u32 shut_type,
+			     const pid_t pid, const u32 q_num)
 {
 	int rc = 0;
 	struct bcm_vk_wkent *entry;
@@ -785,7 +783,7 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 }
 
 static int bcm_vk_handle_last_sess(struct bcm_vk *vk, const pid_t pid,
-				   const uint32_t q_num)
+				   const u32 q_num)
 {
 	int rc = 0;
 	struct device *dev = &vk->pdev->dev;
@@ -814,8 +812,8 @@ static int bcm_vk_handle_last_sess(struct bcm_vk *vk, const pid_t pid,
 
 static struct bcm_vk_wkent *bcm_vk_dequeue_pending(struct bcm_vk *vk,
 						   struct bcm_vk_msg_chan *chan,
-						   uint16_t q_num,
-						   uint16_t msg_id)
+						   u16 q_num,
+						   u16 msg_id)
 {
 	bool found = false;
 	struct bcm_vk_wkent *entry;
@@ -843,9 +841,9 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 	struct bcm_vk_msgq __iomem *msgq;
 	struct bcm_vk_sync_qinfo *qinfo;
 	struct bcm_vk_wkent *entry;
-	uint32_t rd_idx, wr_idx;
-	uint32_t q_num, msg_id, j;
-	uint32_t num_blks;
+	u32 rd_idx, wr_idx;
+	u32 q_num, msg_id, j;
+	u32 num_blks;
 	int32_t total = 0;
 	int cnt = 0;
 	int msg_processed = 0;
@@ -870,7 +868,7 @@ static int32_t bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 		msg_processed = 0;
 		exit_loop = false;
 		while ((rd_idx != wr_idx) && !exit_loop) {
-			uint8_t src_size;
+			u8 src_size;
 
 			/*
 			 * Make a local copy and get pointer to src blk
@@ -1110,8 +1108,8 @@ ssize_t bcm_vk_read(struct file *p_file,
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_msg_chan *chan = &vk->to_h_msg_chan;
 	struct bcm_vk_wkent *entry = NULL;
-	uint32_t q_num;
-	uint32_t rsp_length;
+	u32 q_num;
+	u32 rsp_length;
 	bool found = false;
 
 	if (!bcm_vk_drv_access_ok(vk))
@@ -1182,10 +1180,10 @@ ssize_t bcm_vk_write(struct file *p_file,
 	struct bcm_vk_msgq __iomem *msgq;
 	struct device *dev = &vk->pdev->dev;
 	struct bcm_vk_wkent *entry;
-	uint32_t sgl_extra_blks;
-	uint32_t q_num;
-	uint32_t msg_size;
-	uint32_t msgq_size;
+	u32 sgl_extra_blks;
+	u32 q_num;
+	u32 msg_size;
+	u32 msgq_size;
 
 	if (!bcm_vk_drv_access_ok(vk))
 		return -EPERM;
@@ -1436,8 +1434,8 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 
 int bcm_vk_trigger_reset(struct bcm_vk *vk)
 {
-	uint32_t i;
-	uint32_t value, boot_status;
+	u32 i;
+	u32 value, boot_status;
 	bool is_stdalone, is_boot2;
 
 	/* clean up before pressing the door bell */

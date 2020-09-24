@@ -27,7 +27,7 @@ struct bcm_vk_dma {
 	 * [U32] addr_l[N-1] = lower 32-bits of addressN-1
 	 * [U32] addr_h[N-1] = higher 32-bits of addressN-1
 	 */
-	uint32_t *sglist;
+	u32 *sglist;
 #define SGLIST_NUM_SG		0
 #define SGLIST_TOTALSIZE	1
 #define SGLIST_VKDATA_START	2
@@ -37,8 +37,8 @@ struct bcm_vk_dma {
 };
 
 struct _vk_data {
-	uint32_t size;    /* data size in bytes */
-	uint64_t address; /* Pointer to data     */
+	u32 size;    /* data size in bytes */
+	u64 address; /* Pointer to data     */
 } __packed;
 
 /*

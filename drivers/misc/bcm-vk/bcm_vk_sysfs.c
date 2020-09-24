@@ -20,9 +20,9 @@ enum proc_mon_type {
 };
 
 struct bcm_vk_sysfs_reg_list {
-	const uint64_t offset;
+	const u64 offset;
 	struct bcm_vk_entry const *tab;
-	const uint32_t size;
+	const u32 size;
 	const char *hdr;
 };
 
@@ -88,11 +88,11 @@ static struct bcm_vk_entry const boot_reg_tab[] = {
 /* define for the start of OS state */
 #define OS_STATE_START 3
 
-static int bcm_vk_sysfs_dump_reg(uint32_t reg_val,
+static int bcm_vk_sysfs_dump_reg(u32 reg_val,
 				 struct bcm_vk_entry const *entry_tab,
-				 const uint32_t table_size, char *buf)
+				 const u32 table_size, char *buf)
 {
-	uint32_t i, masked_val;
+	u32 i, masked_val;
 	struct bcm_vk_entry const *entry;
 	char *p_buf = buf;
 	int ret;
@@ -113,10 +113,10 @@ static int bcm_vk_sysfs_dump_reg(uint32_t reg_val,
 	return (p_buf - buf);
 }
 
-static int sysfs_chk_fw_status(struct bcm_vk *vk, uint32_t mask,
+static int sysfs_chk_fw_status(struct bcm_vk *vk, u32 mask,
 			       char *buf, const char *err_log)
 {
-	uint32_t fw_status;
+	u32 fw_status;
 	int ret = 0;
 
 	/* if card OS is not running, no one will update the value */
@@ -130,9 +130,9 @@ static int sysfs_chk_fw_status(struct bcm_vk *vk, uint32_t mask,
 }
 
 static int bcm_vk_sysfs_get_tag(struct bcm_vk *vk, enum pci_barno barno,
-				uint32_t offset, char *buf, const char *fmt)
+				u32 offset, char *buf, const char *fmt)
 {
-	uint32_t magic;
+	u32 magic;
 
 #define REL_MAGIC_TAG         0x68617368   /* this stands for "hash" */
 
@@ -216,7 +216,7 @@ static ssize_t voltage_33_mv_show(struct device *dev,
 static ssize_t chip_id_show(struct device *dev,
 			    struct device_attribute *devattr, char *buf)
 {
-	uint32_t chip_id;
+	u32 chip_id;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
@@ -229,7 +229,7 @@ static ssize_t firmware_status_reg_show(struct device *dev,
 					struct device_attribute *devattr,
 					char *buf)
 {
-	uint32_t fw_status;
+	u32 fw_status;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
@@ -242,7 +242,7 @@ static ssize_t boot_status_reg_show(struct device *dev,
 				    struct device_attribute *devattr,
 				    char *buf)
 {
-	uint32_t boot_status;
+	u32 boot_status;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
@@ -255,8 +255,8 @@ static ssize_t pwr_state_show(struct device *dev,
 			      struct device_attribute *devattr,
 			      char *buf)
 {
-	uint32_t card_pwr_and_thre;
-	uint32_t pwr_state;
+	u32 card_pwr_and_thre;
+	u32 pwr_state;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
@@ -275,7 +275,7 @@ static ssize_t firmware_version_show(struct device *dev,
 	int count = 0;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t chip_id;
+	u32 chip_id;
 	int ret;
 
 	/* Print driver version first, which is always available */
@@ -355,7 +355,7 @@ static ssize_t firmware_status_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
 	int ret, i;
-	uint32_t reg_status;
+	u32 reg_status;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	char *p_buf = buf;
@@ -439,7 +439,7 @@ fw_status_show_fail:
 static ssize_t reset_reason_show(struct device *dev,
 				 struct device_attribute *devattr, char *buf)
 {
-	uint32_t reg, i;
+	u32 reg, i;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	static struct bcm_vk_entry const *tab =
@@ -462,7 +462,7 @@ static ssize_t reset_reason_show(struct device *dev,
 static ssize_t os_state_show(struct device *dev,
 			     struct device_attribute *devattr, char *buf)
 {
-	uint32_t reg, i;
+	u32 reg, i;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
@@ -482,7 +482,7 @@ static ssize_t os_state_show(struct device *dev,
 static ssize_t cop_state_show(struct device *dev,
 			      struct device_attribute *devattr, char *buf)
 {
-	uint32_t reg;
+	u32 reg;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
@@ -531,9 +531,9 @@ static ssize_t card_state_show(struct device *dev,
 	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
-	uint32_t low_temp_thre, high_temp_thre, pwr_state;
-	uint32_t ecc_mem_err, uecc_mem_err;
+	u32 reg;
+	u32 low_temp_thre, high_temp_thre, pwr_state;
+	u32 ecc_mem_err, uecc_mem_err;
 	char *p_buf = buf;
 	static const char * const pwr_state_tab[] = {
 		"Full", "Reduced", "Lowest"};
@@ -654,8 +654,8 @@ static ssize_t mem_ecc_show(struct device *dev,
 	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
-	uint32_t ecc_mem_err;
+	u32 reg;
+	u32 ecc_mem_err;
 
 	/* if OS is not running, no one will update the value */
 	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
@@ -677,8 +677,8 @@ static ssize_t mem_uecc_show(struct device *dev,
 	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
-	uint32_t uecc_mem_err;
+	u32 reg;
+	u32 uecc_mem_err;
 
 	/* if OS is not running, no one will update the value */
 	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
@@ -703,7 +703,7 @@ static ssize_t sysfs_utilization_update(struct device *dev, char *buf,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct bcm_vk_proc_mon_info *mon = &vk->proc_mon_info;
 	struct bcm_vk_proc_mon_entry_t *entry;
-	uint32_t offset;
+	u32 offset;
 	int ret;
 
 	/* if OS is not running, no one will update the value */
@@ -837,8 +837,7 @@ static ssize_t utilization_codec_max_show(struct device *dev,
 	return sprintf(buf, "%d\n", entry->max);
 }
 
-static ssize_t peer_alert_show(struct device *dev, char *buf,
-			       const uint16_t flag)
+static ssize_t peer_alert_show(struct device *dev, char *buf, const u16 flag)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
@@ -910,8 +909,7 @@ static ssize_t alert_ecc_warn_show(struct device *dev,
 	return peer_alert_show(dev, buf, ERR_LOG_ECC);
 }
 
-static ssize_t host_alert_show(struct device *dev, char *buf,
-			       const uint16_t flag)
+static ssize_t host_alert_show(struct device *dev, char *buf, const u16 flag)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
@@ -944,10 +942,10 @@ static ssize_t temp_threshold_lower_c_show(struct device *dev,
 					   char *buf)
 {
 	int ret;
-	uint32_t low_temp_thre;
+	u32 low_temp_thre;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
+	u32 reg;
 
 	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
 	if (ret)
@@ -966,10 +964,10 @@ static ssize_t temp_threshold_upper_c_show(struct device *dev,
 					   char *buf)
 {
 	int ret;
-	uint32_t high_temp_thre;
+	u32 high_temp_thre;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
-	uint32_t reg;
+	u32 reg;
 
 	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
 	if (ret)
@@ -987,9 +985,9 @@ static ssize_t freq_core_mhz_show(struct device *dev,
 				  struct device_attribute *devattr,
 				  char *buf)
 {
-	uint32_t card_pwr_and_thre;
-	uint32_t pwr_state;
-	uint32_t scale_f = 0;
+	u32 card_pwr_and_thre;
+	u32 pwr_state;
+	u32 scale_f = 0;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct bcm_vk_card_info *info = &vk->card_info;
@@ -1030,7 +1028,7 @@ static ssize_t mem_size_mb_show(struct device *dev,
 
 static ssize_t sotp_common_show(struct device *dev,
 				struct device_attribute *devattr,
-				char *buf, uint32_t tag_offset)
+				char *buf, u32 tag_offset)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
@@ -1038,7 +1036,7 @@ static ssize_t sotp_common_show(struct device *dev,
 	return bcm_vk_sysfs_get_tag(vk, BAR_1, tag_offset, buf, "%s\n");
 }
 
-static const char *sotp_dauth_active(struct bcm_vk *vk, uint32_t idx)
+static const char *sotp_dauth_active(struct bcm_vk *vk, u32 idx)
 {
 	int i;
 	struct bcm_vk_dauth_info *info = &vk->dauth_info;
