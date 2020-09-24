@@ -49,6 +49,25 @@ struct bcm_vk_sync_qinfo {
 
 #define VK_MSGQ_MAX_NR 4 /* Maximum number of message queues */
 
+/*
+ * message block - basic unit in the message where a message's size is always
+ *		   N x sizeof(basic_block)
+ */
+struct vk_msg_blk {
+	uint8_t function_id;
+#define VK_FID_TRANS_BUF	5
+#define VK_FID_SHUTDOWN		8
+	uint8_t size;	/* size of the message in number of vk_msg_blk's */
+	uint16_t trans_id; /* transport id, queue & msg_id */
+	uint32_t context_id;
+	uint32_t cmd;
+#define VK_CMD_PLANES_MASK	0x000f /* number of planes to up/download */
+#define VK_CMD_UPLOAD		0x0400 /* memory transfer to vk */
+#define VK_CMD_DOWNLOAD		0x0500 /* memory transfer from vk */
+#define VK_CMD_MASK		0x0f00 /* command mask */
+	uint32_t arg;
+};
+
 /* vk_msg_blk is 16 bytes fixed */
 #define VK_MSGQ_BLK_SIZE   (sizeof(struct vk_msg_blk))
 /* shift for fast division of basic msg blk size */

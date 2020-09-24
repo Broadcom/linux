@@ -428,7 +428,7 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 					 msg->function_id, msg->size,
 					 msg_id, entry->seq_num,
 					 msg->context_id, entry->ctx->idx,
-					 msg->args[0], msg->args[1],
+					 msg->cmd, msg->arg,
 					 responded ? "T" : "F", bit_set);
 			if (responded)
 				atomic_dec(&ctx->pend_cnt);
@@ -770,8 +770,8 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, uint32_t shut_type,
 	set_msg_id(&entry->to_v_msg[0], VK_SIMPLEX_MSG_ID);
 	entry->to_v_blks = 1; /* always 1 block */
 
-	entry->to_v_msg[0].args[0] = shut_type;
-	entry->to_v_msg[0].args[1] = pid;
+	entry->to_v_msg[0].cmd = shut_type;
+	entry->to_v_msg[0].arg = pid;
 
 	rc = bcm_to_v_msg_enqueue(vk, entry);
 	if (rc)
@@ -1262,13 +1262,11 @@ ssize_t bcm_vk_write(struct file *p_file,
 			goto write_free_msgid;
 		}
 
-		num_planes = entry->to_v_msg[0].args[0] & VK_CMD_PLANES_MASK;
-		if ((entry->to_v_msg[0].args[0] & VK_CMD_MASK)
-		    == VK_CMD_DOWNLOAD) {
+		num_planes = entry->to_v_msg[0].cmd & VK_CMD_PLANES_MASK;
+		if ((entry->to_v_msg[0].cmd & VK_CMD_MASK) == VK_CMD_DOWNLOAD)
 			dir = DMA_FROM_DEVICE;
-		} else {
+		else
 			dir = DMA_TO_DEVICE;
-		}
 
 		/* Calculate vk_data location */
 		/* Go to end of the message */

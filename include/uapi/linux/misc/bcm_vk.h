@@ -31,24 +31,6 @@ struct vk_reset {
 /* Send Reset to Valkyrie */
 #define VK_IOCTL_RESET		_IOW(VK_MAGIC, 0x4, struct vk_reset)
 
-/*
- * message block - basic unit in the message where a message's size is always
- *		   N x sizeof(basic_block)
- */
-struct vk_msg_blk {
-	__u8 function_id;
-#define VK_FID_TRANS_BUF	5
-#define VK_FID_SHUTDOWN		8
-	__u8 size;
-	__u16 trans_id; /* transport id, queue & msg_id */
-	__u32 context_id;
-	__u32 args[2];
-#define VK_CMD_PLANES_MASK	0x000f /* number of planes to up/download */
-#define VK_CMD_UPLOAD		0x0400 /* memory transfer to vk */
-#define VK_CMD_DOWNLOAD		0x0500 /* memory transfer from vk */
-#define VK_CMD_MASK		0x0f00 /* command mask */
-};
-
 #define VK_BAR_FWSTS			0x41c
 #define VK_BAR_COP_FWSTS		0x428
 /* VK_FWSTS definitions */
