@@ -31,6 +31,9 @@ struct vk_reset {
 /* Send Reset to Valkyrie */
 #define VK_IOCTL_RESET		_IOW(VK_MAGIC, 0x4, struct vk_reset)
 
+/*
+ * Firmware Status accessed directly via BAR space
+ */
 #define VK_BAR_FWSTS			0x41c
 #define VK_BAR_COP_FWSTS		0x428
 /* VK_FWSTS definitions */
