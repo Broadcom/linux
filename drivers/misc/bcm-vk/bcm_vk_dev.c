@@ -1420,7 +1420,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	/* enable hb */
 	bcm_vk_hb_init(vk);
 
-	dev_info(dev, "BCM-VK:%u created, 0x%p\n", id, vk);
+	dev_dbg(dev, "BCM-VK:%u created, 0x%p\n", id, vk);
 
 	return 0;
 
@@ -1475,8 +1475,7 @@ void bcm_vk_release_data(struct kref *kref)
 	struct bcm_vk *vk = container_of(kref, struct bcm_vk, kref);
 	struct pci_dev *pdev = vk->pdev;
 
-	dev_info(&pdev->dev, "BCM-VK:%d release data 0x%p\n",
-		 vk->devid, vk);
+	dev_dbg(&pdev->dev, "BCM-VK:%d release data 0x%p\n", vk->devid, vk);
 	pci_dev_put(pdev);
 	kfree(vk);
 }
@@ -1533,7 +1532,7 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 			pci_iounmap(pdev, vk->bar[i]);
 	}
 
-	dev_info(&pdev->dev, "BCM-VK:%d released\n", vk->devid);
+	dev_dbg(&pdev->dev, "BCM-VK:%d released\n", vk->devid);
 
 	pci_release_regions(pdev);
 	pci_free_irq_vectors(pdev);
