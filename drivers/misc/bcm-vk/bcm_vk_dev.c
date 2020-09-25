@@ -173,7 +173,7 @@ static int bcm_vk_intf_ver_chk(struct bcm_vk *vk)
 			"Intf major.minor=%d.%d rejected - drv %d.%d\n",
 			major, minor, SEMANTIC_MAJOR, SEMANTIC_MINOR);
 		bcm_vk_set_host_alert(vk, ERR_LOG_HOST_INTF_V_FAIL);
-		ret = -EIO;
+		ret = -EPFNOSUPPORT;
 	} else {
 		dev_dbg(dev,
 			"Intf major.minor=%d.%d passed - drv %d.%d\n",
