@@ -1411,9 +1411,9 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 			if (bcm_vk_trigger_autoload(vk))
 				goto err_bcm_vk_tty_exit;
 		} else {
-			dev_info(dev,
-				 "Auto-load skipped - BROM not in proper state (0x%x)\n",
-				 boot_status);
+			dev_err(dev,
+				"Auto-load skipped - BROM not in proper state (0x%x)\n",
+				boot_status);
 		}
 	}
 
