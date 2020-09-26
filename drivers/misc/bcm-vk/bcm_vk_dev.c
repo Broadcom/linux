@@ -656,7 +656,7 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 					  FW_LOADER_ACK_RCVD_ALL_DATA,
 					  TXFR_COMPLETE_TIMEOUT_MS);
 			if (ret == 0) {
-				dev_info(dev, "Exit boot2 download\n");
+				dev_dbg(dev, "Exit boot2 download\n");
 				break;
 			} else if (ret == -EFAULT) {
 				dev_err(dev, "Error detected during ACK waiting");
@@ -764,10 +764,7 @@ static u32 bcm_vk_next_boot_image(struct bcm_vk *vk)
 	else if (boot_status == BOOT1_RUNNING)
 		load_type = VK_IMAGE_TYPE_BOOT2;
 
-	/*
-	 * TO_FIX: For now, like to know what value we get everytime
-	 *         for debugging.
-	 */
+	/* Log status so that we know different stages */
 	dev_info(&vk->pdev->dev,
 		 "boot-status value for next image: 0x%x : fw-status 0x%x\n",
 		 boot_status, fw_status);
@@ -843,7 +840,7 @@ int bcm_vk_auto_load_all_images(struct bcm_vk *vk)
 		goto auto_load_all_exit;
 
 	/* log a message to know the relative loading order */
-	dev_info(dev, "Load All for device %d\n", vk->devid);
+	dev_dbg(dev, "Load All for device %d\n", vk->devid);
 
 	for (i = 0; i < NUM_BOOT_STAGES; i++) {
 		curr_type = image_tab[idx][i].image_type;

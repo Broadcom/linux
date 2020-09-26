@@ -1352,7 +1352,7 @@ int bcm_vk_sysfs_init(struct pci_dev *pdev, struct miscdevice *misc_device)
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	int rc;
 
-	dev_info(dev, "create sysfs group for bcm-vk\n");
+	dev_dbg(dev, "create sysfs group for bcm-vk\n");
 	rc = sysfs_create_group(&pdev->dev.kobj,
 				&bcm_vk_card_stat_attribute_group);
 	if (rc < 0) {
