@@ -168,7 +168,7 @@ static int bcm_vk_intf_ver_chk(struct bcm_vk *vk)
 	if (!major) {
 		dev_warn(dev, "Pre-release major.minor=%d.%d - drv %d.%d\n",
 			 major, minor, SEMANTIC_MAJOR, SEMANTIC_MINOR);
-	} else if ((major != SEMANTIC_MAJOR) || (minor > SEMANTIC_MINOR)) {
+	} else if (major != SEMANTIC_MAJOR) {
 		dev_err(dev,
 			"Intf major.minor=%d.%d rejected - drv %d.%d\n",
 			major, minor, SEMANTIC_MAJOR, SEMANTIC_MINOR);
