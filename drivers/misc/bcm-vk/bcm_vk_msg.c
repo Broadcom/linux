@@ -440,6 +440,12 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 			 num, ctx->idx);
 }
 
+void bcm_vk_drain_msg_on_reset(struct bcm_vk *vk)
+{
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_v_msg_chan, NULL);
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, NULL);
+}
+
 /*
  * Function to sync up the messages queue info that is provided by BAR1
  */
