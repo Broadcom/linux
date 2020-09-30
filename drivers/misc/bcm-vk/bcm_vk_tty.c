@@ -96,7 +96,7 @@ static void bcm_vk_tty_wq_handler(struct work_struct *work)
 	int wr;
 
 	card_status = vkread32(vk, BAR_0, BAR_CARD_STATUS);
-	if (card_status == -1)
+	if (BCM_VK_INTF_IS_DOWN(card_status))
 		return;
 
 	for (i = 0; i < BCM_VK_NUM_TTY; i++) {
@@ -174,11 +174,8 @@ static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 
 	/* Do not allow tty device to be opened if tty on card not ready */
 	card_status = vkread32(vk, BAR_0, BAR_CARD_STATUS);
-	if (card_status == -1)
-		return -1;
-
-	if ((card_status & BIT(index)) == 0)
-		return -1;
+	if (BCM_VK_INTF_IS_DOWN(card_status) || (card_status & BIT(index) == 0))
+		return -EBUSY;
 
 	/*
 	 * Get shadow registers of the buffer sizes and the "to" write offset
