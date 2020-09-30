@@ -107,6 +107,10 @@
 	status = "okay";
 };
 
+&wdt0 {
+	status = "okay";
+};
+
 &uio_itcm {
 	status = "okay";
 };
