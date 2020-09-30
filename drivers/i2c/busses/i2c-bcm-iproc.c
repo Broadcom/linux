@@ -527,14 +527,6 @@ static bool bcm_iproc_i2c_slave_isr(struct bcm_iproc_i2c_dev *iproc_i2c,
 		iproc_i2c_wr_reg(iproc_i2c, IE_OFFSET,
 				 iproc_i2c->slave_int_mask);
 
-		/*
-		 * Isseu I2C_SLAVE_READ_PROCESSED event to handle eeprom read
-		 * buffer idx pointer ie for next read request it should start
-		 * from next index.
-		 */
-		i2c_slave_event(iproc_i2c->slave, I2C_SLAVE_READ_PROCESSED,
-				&value);
-
 		/* End of SMBUS for Master Read */
 		val = BIT(S_TX_WR_STATUS_SHIFT);
 		iproc_i2c_wr_reg(iproc_i2c, S_TX_OFFSET, val);
