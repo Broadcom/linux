@@ -1282,7 +1282,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	err = pci_enable_device(pdev);
 	if (err) {
 		dev_err(dev, "Cannot enable PCI device\n");
-		return err;
+		goto err_free_exit;
 	}
 	vk->pdev = pci_dev_get(pdev);
 
@@ -1502,6 +1502,9 @@ err_disable_pdev:
 	pci_free_irq_vectors(pdev);
 	pci_disable_device(pdev);
 	pci_dev_put(pdev);
+
+err_free_exit:
+	kfree(vk);
 
 	return err;
 }
