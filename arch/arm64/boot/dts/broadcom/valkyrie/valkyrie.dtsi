@@ -143,6 +143,18 @@
 		};
 	};
 
+	wdt_clk: wdt_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <100000000>;
+	};
+
+	wdt_apb_clk: wdt_apb_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <25000000>;
+	};
+
 	hsls {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -157,6 +169,16 @@
 			clock-frequency = <100000000>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		wdt0: watchdog@2d0000 {
+			compatible = "arm,sp805", "arm,primecell";
+			reg = <0x002d0000 0x1000>;
+			clocks = <&wdt_clk>, <&wdt_apb_clk>;
+			clock-names = "wdog_clk", "apb_pclk";
+			interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>;
+			timeout-sec = <20>;
 			status = "disabled";
 		};
 	};
