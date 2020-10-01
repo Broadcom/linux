@@ -111,7 +111,7 @@ MODULE_PARM_DESC(nr_ib_sgl_blk,
 /*
  * alerts that could be generated from peer
  */
-struct bcm_vk_entry const bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM] = {
+const struct bcm_vk_entry const bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM] = {
 	{ERR_LOG_UECC, ERR_LOG_UECC, "uecc"},
 	{ERR_LOG_SSIM_BUSY, ERR_LOG_SSIM_BUSY, "ssim_busy"},
 	{ERR_LOG_AFBC_BUSY, ERR_LOG_AFBC_BUSY, "afbc_busy"},
@@ -125,7 +125,7 @@ struct bcm_vk_entry const bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM] = {
 };
 
 /* alerts detected by the host */
-struct bcm_vk_entry const bcm_vk_host_err[BCM_VK_HOST_ERR_NUM] = {
+const struct bcm_vk_entry const bcm_vk_host_err[BCM_VK_HOST_ERR_NUM] = {
 	{ERR_LOG_HOST_PCIE_DWN, ERR_LOG_HOST_PCIE_DWN, "PCIe_down"},
 	{ERR_LOG_HOST_HB_FAIL, ERR_LOG_HOST_HB_FAIL, "hb_fail"},
 	{ERR_LOG_HOST_INTF_V_FAIL, ERR_LOG_HOST_INTF_V_FAIL, "intf_ver_fail"},
@@ -1456,7 +1456,7 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	/* enable hb */
 	bcm_vk_hb_init(vk);
 
-	dev_dbg(dev, "BCM-VK:%u created, 0x%p\n", id, vk);
+	dev_dbg(dev, "BCM-VK:%u created\n", id);
 
 	return 0;
 

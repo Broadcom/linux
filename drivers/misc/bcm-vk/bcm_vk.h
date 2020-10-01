@@ -433,7 +433,6 @@ enum bcm_vk_wq_offload_flags {
 #define BCM_VK_EXTRACT_FIELD(_field, _reg, _mask, _shift) \
 		(_field = (((_reg) >> (_shift)) & (_mask)))
 
-/* structure that is used to faciliate displaying of register content */
 struct bcm_vk_entry {
 	const u32 mask;
 	const u32 exp_val;
