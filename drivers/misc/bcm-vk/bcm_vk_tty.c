@@ -174,7 +174,7 @@ static int bcm_vk_tty_open(struct tty_struct *tty, struct file *file)
 
 	/* Do not allow tty device to be opened if tty on card not ready */
 	card_status = vkread32(vk, BAR_0, BAR_CARD_STATUS);
-	if (BCM_VK_INTF_IS_DOWN(card_status) || (card_status & BIT(index) == 0))
+	if (BCM_VK_INTF_IS_DOWN(card_status) || ((card_status & BIT(index)) == 0))
 		return -EBUSY;
 
 	/*
