@@ -314,13 +314,13 @@ static void bptty_close(struct tty_struct *tty, struct file *file)
 		do_close(state);
 }
 
-static unsigned int space_get(struct circ_buf *buf, unsigned int size)
+static unsigned int get_free_space(struct circ_buf *buf, unsigned int size)
 {
-	if (buf->tail < buf->head)
-		return (buf->head - buf->tail - 1);
+	if (buf->tail > buf->head)
+		return (buf->tail - buf->head - 1);
 
-	/* for case: tail >= head */
-	return ((size - buf->tail) + buf->head - 1);
+	/* for case: tail <= head */
+	return ((size - buf->head) + buf->tail - 1);
 }
 
 static void check_xmit_ch_overflow(struct bptty_state *state,
@@ -340,7 +340,7 @@ static void check_xmit_ch_overflow(struct bptty_state *state,
 	if (!xmit_ch->overflow) {
 		xmit->tail = xmit_ch->rd;
 
-		space_left = space_get(xmit, xmit_ch->size);
+		space_left = get_free_space(xmit, xmit_ch->size);
 
 		if (space_left <= count)
 			xmit_ch->overflow = 1;
