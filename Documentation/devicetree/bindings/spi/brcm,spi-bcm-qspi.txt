@@ -38,6 +38,7 @@ Required properties:
     			     			  			    BRCMSTB  SoCs
     "brcm,spi-nsp-qspi", "brcm,spi-bcm-qspi"     : MSPI+BSPI on Cygnus, NSP
     "brcm,spi-ns2-qspi", "brcm,spi-bcm-qspi"     : NS2 SoCs
+    "brcm,spi-iproc-qspi-v1", "brcm,spi-bcm-qspi": All iproc SoCs
 
 - reg:
     Define the bases and ranges of the associated I/O address spaces.
