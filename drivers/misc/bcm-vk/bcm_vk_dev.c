@@ -111,7 +111,7 @@ MODULE_PARM_DESC(nr_ib_sgl_blk,
 /*
  * alerts that could be generated from peer
  */
-const struct bcm_vk_entry const bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM] = {
+const struct bcm_vk_entry bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM] = {
 	{ERR_LOG_UECC, ERR_LOG_UECC, "uecc"},
 	{ERR_LOG_SSIM_BUSY, ERR_LOG_SSIM_BUSY, "ssim_busy"},
 	{ERR_LOG_AFBC_BUSY, ERR_LOG_AFBC_BUSY, "afbc_busy"},
@@ -128,7 +128,7 @@ const struct bcm_vk_entry const bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM] = {
 };
 
 /* alerts detected by the host */
-const struct bcm_vk_entry const bcm_vk_host_err[BCM_VK_HOST_ERR_NUM] = {
+const struct bcm_vk_entry bcm_vk_host_err[BCM_VK_HOST_ERR_NUM] = {
 	{ERR_LOG_HOST_PCIE_DWN, ERR_LOG_HOST_PCIE_DWN, "PCIe_down"},
 	{ERR_LOG_HOST_HB_FAIL, ERR_LOG_HOST_HB_FAIL, "hb_fail"},
 	{ERR_LOG_HOST_INTF_V_FAIL, ERR_LOG_HOST_INTF_V_FAIL, "intf_ver_fail"},
