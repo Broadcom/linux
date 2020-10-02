@@ -888,6 +888,12 @@ static ssize_t alert_ramdump_show(struct device *dev,
 	return peer_alert_show(dev, buf, ERR_LOG_RAMDUMP);
 }
 
+static ssize_t alert_cop_wdog_timeout_show(struct device *dev,
+					   struct device_attribute *devattr, char *buf)
+{
+	return peer_alert_show(dev, buf, ERR_LOG_COP_WDOG_TIMEOUT);
+}
+
 static ssize_t alert_malloc_fail_warn_show(struct device *dev,
 					   struct device_attribute *devattr,
 					   char *buf)
@@ -907,6 +913,13 @@ static ssize_t alert_ecc_warn_show(struct device *dev,
 				   char *buf)
 {
 	return peer_alert_show(dev, buf, ERR_LOG_ECC);
+}
+
+static ssize_t alert_ipc_down_show(struct device *dev,
+				   struct device_attribute *devattr,
+				   char *buf)
+{
+	return peer_alert_show(dev, buf, ERR_LOG_IPC_DWN);
 }
 
 static ssize_t host_alert_show(struct device *dev, char *buf, const u16 flag)
@@ -1231,9 +1244,11 @@ static DEVICE_ATTR_RO(alert_high_temp);
 static DEVICE_ATTR_RO(alert_wdog_timeout);
 static DEVICE_ATTR_RO(alert_sys_fault);
 static DEVICE_ATTR_RO(alert_ramdump);
+static DEVICE_ATTR_RO(alert_cop_wdog_timeout);
 static DEVICE_ATTR_RO(alert_malloc_fail_warn);
 static DEVICE_ATTR_RO(alert_low_temp_warn);
 static DEVICE_ATTR_RO(alert_ecc_warn);
+static DEVICE_ATTR_RO(alert_ipc_down);
 static DEVICE_ATTR_RO(alert_pcie_down);
 static DEVICE_ATTR_RO(alert_heartbeat_fail);
 static DEVICE_ATTR_RO(alert_intf_ver_fail);
@@ -1327,9 +1342,11 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_alert_wdog_timeout.attr,
 	&dev_attr_alert_sys_fault.attr,
 	&dev_attr_alert_ramdump.attr,
+	&dev_attr_alert_cop_wdog_timeout.attr,
 	&dev_attr_alert_malloc_fail_warn.attr,
 	&dev_attr_alert_low_temp_warn.attr,
 	&dev_attr_alert_ecc_warn.attr,
+	&dev_attr_alert_ipc_down.attr,
 	&dev_attr_alert_pcie_down.attr,
 	&dev_attr_alert_heartbeat_fail.attr,
 	&dev_attr_alert_intf_ver_fail.attr,

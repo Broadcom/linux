@@ -56,12 +56,14 @@ vk-card-status/
 
 vk-card-mon/
 	alert_afbc_busy		---> AFBC block stuck
+	alert_cop_wdog_timeout	---> co-processor watchdog timeout
 	alert_ecc		---> uncorrectable ECC error(s) occurred
 	alert_ecc_warn		---> correctable ECC error(s) occurred
 	alert_heartbeat_fail	---> host detects heartbeat discontinuation
 				     from card
 	alert_high_temp		---> high temperature threshold crossed
 	alert_intf_ver_fail	---> interface not compatible based on version
+	alert_ipc_down		---> ipc going down
 	alert_low_temp_warn	---> low temperature threshold crossed
 	alert_malloc_fail_warn	---> mem allocation failure(s) occurred
 	alert_pcie_down		---> host detect pcie intf going down
