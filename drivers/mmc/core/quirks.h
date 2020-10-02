@@ -117,12 +117,11 @@ static const struct mmc_fixup mmc_ext_csd_fixups[] = {
 			      0x014e, add_quirk, MMC_QUIRK_BROKEN_HPI, 6),
 
 	/*
-	 * Certain Micron (Numonyx) eMMC 5.0 cards experience data errors
-	 * if internal cache is enabled. Disable cache for these cards.
+	 * In certain rare combination of operations, Micron eMMC v5.0 cards
+	 * may experience data errors if internal cache is enabled.
+	 * Disabling cache for these cards eliminates the issue.
 	 */
 	MMC_FIXUP_EXT_CSD_REV(CID_NAME_ANY, CID_MANFID_MICRON,
-			      0x014e, add_quirk, MMC_QUIRK_BROKEN_CACHE, 7),
-	MMC_FIXUP_EXT_CSD_REV(CID_NAME_ANY, CID_MANFID_NUMONYX,
 			      0x014e, add_quirk, MMC_QUIRK_BROKEN_CACHE, 7),
 
 	END_FIXUP
