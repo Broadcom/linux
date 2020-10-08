@@ -321,9 +321,15 @@
 		};
 	};
 
-	mailbox_test {
+	mailbox_test_crmu {
 		compatible = "mailbox-test";
 		mboxes = <&mbox_crmu 7 0>, <&mbox_crmu 15 1>;
+		mbox-names = "tx", "rx";
+	};
+
+	mailbox_test_nitro {
+		compatible = "mailbox-test";
+		mboxes = <&mbox_nitro 7 0>, <&mbox_nitro 15 1>;
 		mbox-names = "tx", "rx";
 	};
 
