@@ -43,12 +43,17 @@ static bool hb_mon_is_on(void)
 
 static u32 get_q_num(const struct vk_msg_blk *msg)
 {
-	return (msg->trans_id & BCM_VK_MSG_Q_MASK);
+	u32 q_num = msg->trans_id & BCM_VK_MSG_Q_MASK;
+
+	if (q_num >= VK_MSGQ_PER_CHAN_MAX)
+		q_num = VK_MSGQ_NUM_DEFAULT;
+	return q_num;
 }
 
-static void set_q_num(struct vk_msg_blk *msg, u32 val)
+static void set_q_num(struct vk_msg_blk *msg, u32 q_num)
 {
-	msg->trans_id = (msg->trans_id & ~BCM_VK_MSG_Q_MASK) | val;
+	msg->trans_id = (msg->trans_id & ~BCM_VK_MSG_Q_MASK) |
+		(q_num >= VK_MSGQ_PER_CHAN_MAX) ? VK_MSGQ_NUM_DEFAULT : q_num;
 }
 
 static u32 get_msg_id(const struct vk_msg_blk *msg)
@@ -476,6 +481,13 @@ int bcm_vk_sync_msgq(struct bcm_vk *vk, bool force_sync)
 
 	/* each side is always half the total  */
 	num_q = vkread32(vk, BAR_1, VK_BAR1_MSGQ_NR) / 2;
+	if (!num_q || (num_q > VK_MSGQ_PER_CHAN_MAX)) {
+		dev_err(dev,
+			"Advertised msgq %d error - max %d allowed\n",
+			num_q, VK_MSGQ_PER_CHAN_MAX);
+		return -EINVAL;
+	}
+
 	vk->to_v_msg_chan.q_nr = num_q;
 	vk->to_h_msg_chan.q_nr = num_q;
 

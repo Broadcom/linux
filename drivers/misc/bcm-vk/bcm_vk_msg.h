@@ -152,6 +152,10 @@ struct bcm_vk_msg_chan {
 #endif
 };
 
+/* totol number of message q allowed by the driver */
+#define VK_MSGQ_PER_CHAN_MAX	3
+#define VK_MSGQ_NUM_DEFAULT	(VK_MSGQ_PER_CHAN_MAX - 1)
+
 /* total number of supported ctx, 32 ctx each for 5 components */
 #define VK_CMPT_CTX_MAX		(32 * 5)
 
