@@ -88,45 +88,67 @@ static struct bcm_vk_entry const boot_reg_tab[] = {
 /* define for the start of OS state */
 #define OS_STATE_START 3
 
+static int sysfs_nprintf(char *buf, size_t max, const char *fmt, ...)
+{
+	va_list vl;
+	int ret;
+
+	va_start(vl, fmt);
+	ret = vsnprintf(buf, max, fmt, vl);
+	va_end(vl);
+
+	/*
+	 * if truncation happens, return the max size, as we have
+	 * up to that point
+	 */
+	if (ret >= max)
+		/* truncation happens, set to max written */
+		ret = max - 1;
+
+	return ret;
+}
+
 static int bcm_vk_sysfs_dump_reg(u32 reg_val,
 				 struct bcm_vk_entry const *entry_tab,
-				 const u32 table_size, char *buf)
+				 const u32 table_size, char *buf,
+				 const size_t max)
 {
 	u32 i, masked_val;
 	struct bcm_vk_entry const *entry;
 	char *p_buf = buf;
 	int ret;
+	size_t sz = max;
 
 	for (i = 0; i < table_size; i++) {
 		entry = &entry_tab[i];
 		masked_val = entry->mask & reg_val;
 		if (masked_val == entry->exp_val) {
-			ret = sprintf(p_buf, "  [0x%08x]    : %s\n",
-				      masked_val, entry->str);
+			ret = sysfs_nprintf(p_buf, sz, "  [0x%08x]    : %s\n",
+					    masked_val, entry->str);
 			if (ret < 0)
 				return ret;
 
 			p_buf += ret;
+			sz -= ret;
 		}
 	}
 
 	return (p_buf - buf);
 }
 
-static int sysfs_chk_fw_status(struct bcm_vk *vk, u32 mask,
-			       char *buf, const char *err_log)
+static int sysfs_chk_fw_status(struct bcm_vk *vk, u32 mask, char *buf,
+			       const size_t max, const char *err_log)
 {
 	u32 fw_status;
-	int ret = 0;
 
 	/* if card OS is not running, no one will update the value */
 	fw_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 	if (BCM_VK_INTF_IS_DOWN(fw_status))
-		return sprintf(buf, "PCIe Intf Down!\n");
+		return sysfs_nprintf(buf, max, "PCIe Intf Down!\n");
 	else if (BCM_VK_BITS_NOT_SET(fw_status, mask))
-		return sprintf(buf, err_log);
+		return sysfs_nprintf(buf, max, err_log);
 
-	return ret;
+	return 0;
 }
 
 static int bcm_vk_sysfs_get_tag(struct bcm_vk *vk, enum pci_barno barno,
@@ -135,9 +157,10 @@ static int bcm_vk_sysfs_get_tag(struct bcm_vk *vk, enum pci_barno barno,
 	u32 magic;
 
 #define REL_MAGIC_TAG         0x68617368   /* this stands for "hash" */
+#define TAG_MAX_SIZE	      64
 
 	magic = vkread32(vk, barno, offset);
-	return sprintf(buf, fmt, (magic == REL_MAGIC_TAG) ?
+	return sysfs_nprintf(buf, TAG_MAX_SIZE, fmt, (magic == REL_MAGIC_TAG) ?
 		       (char *)(vk->bar[barno] + offset + sizeof(magic)) : "");
 }
 
@@ -155,7 +178,7 @@ static ssize_t temperature_sensor_show(struct device *dev,
 	temperature = (temperature >> offset) & BCM_VK_TEMP_FIELD_MASK;
 
 	dev_dbg(dev, "Temperature_%s : %u Celsius\n", tag, temperature);
-	return sprintf(buf, "%d\n", temperature);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", temperature);
 }
 
 static ssize_t temperature_sensor_1_c_show(struct device *dev,
@@ -194,7 +217,7 @@ static ssize_t voltage_18_mv_show(struct device *dev,
 	volt_1p8 = voltage & BCM_VK_VOLT_RAIL_MASK;
 
 	dev_dbg(dev, "[1.8v] : %u mV\n", volt_1p8);
-	return sprintf(buf, "%d\n", volt_1p8);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", volt_1p8);
 }
 
 static ssize_t voltage_33_mv_show(struct device *dev,
@@ -210,7 +233,7 @@ static ssize_t voltage_33_mv_show(struct device *dev,
 		    & BCM_VK_VOLT_RAIL_MASK;
 
 	dev_dbg(dev, "[3.3v] : %u mV\n", volt_3p3);
-	return sprintf(buf, "%d\n", volt_3p3);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", volt_3p3);
 }
 
 static ssize_t chip_id_show(struct device *dev,
@@ -222,7 +245,7 @@ static ssize_t chip_id_show(struct device *dev,
 
 	chip_id = vkread32(vk, BAR_0, BAR_CHIP_ID);
 
-	return sprintf(buf, "0x%x\n", chip_id);
+	return sysfs_nprintf(buf, PAGE_SIZE, "0x%x\n", chip_id);
 }
 
 static ssize_t firmware_status_reg_show(struct device *dev,
@@ -235,7 +258,7 @@ static ssize_t firmware_status_reg_show(struct device *dev,
 
 	fw_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 
-	return sprintf(buf, "0x%x\n", fw_status);
+	return sysfs_nprintf(buf, PAGE_SIZE, "0x%x\n", fw_status);
 }
 
 static ssize_t boot_status_reg_show(struct device *dev,
@@ -248,7 +271,7 @@ static ssize_t boot_status_reg_show(struct device *dev,
 
 	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
 
-	return sprintf(buf, "0x%x\n", boot_status);
+	return sysfs_nprintf(buf, PAGE_SIZE, "0x%x\n", boot_status);
 }
 
 static ssize_t pwr_state_show(struct device *dev,
@@ -265,7 +288,7 @@ static ssize_t pwr_state_show(struct device *dev,
 			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
 			     BCM_VK_PWR_STATE_SHIFT);
 
-	return sprintf(buf, "%u\n", pwr_state);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%u\n", pwr_state);
 }
 
 static ssize_t firmware_version_show(struct device *dev,
@@ -279,27 +302,49 @@ static ssize_t firmware_version_show(struct device *dev,
 	int ret;
 
 	/* Print driver version first, which is always available */
-	count  = sprintf(buf, "Driver  : %s %s, srcversion %s\n",
-			 DRV_MODULE_NAME, THIS_MODULE->version,
-			 THIS_MODULE->srcversion);
+	ret  = sysfs_nprintf(buf, PAGE_SIZE - 2 * TAG_MAX_SIZE,
+			     "Driver	 : %s %s, srcversion %s\n",
+			     DRV_MODULE_NAME, THIS_MODULE->version,
+			     THIS_MODULE->srcversion);
+	if (ret < 0)
+		return ret;
+	count += ret;
 
 	/* check for ucode and vk-boot1 versions */
-	count += bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_UCODE_VER_TAG,
-				      &buf[count], "UCODE   : %s\n");
-	count += bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_BOOT1_VER_TAG,
-				      &buf[count], "Boot1   : %s\n");
+	ret = bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_UCODE_VER_TAG,
+				   &buf[count], "UCODE   : %s\n");
+	if (ret < 0)
+		return ret;
+	count += ret;
+
+	ret = bcm_vk_sysfs_get_tag(vk, BAR_1, VK_BAR1_BOOT1_VER_TAG,
+				   &buf[count], "Boot1   : %s\n");
+
+	if (ret < 0)
+		return ret;
+	count += ret;
 
 	/* Check if FIRMWARE_STATUS_PRE_INIT_DONE for rest of items */
 	ret = sysfs_chk_fw_status(vk, FIRMWARE_STATUS_PRE_INIT_DONE,
-				  &buf[count],
+				  &buf[count], PAGE_SIZE - count,
 				  "FW Version: n/a (fw not running)\n");
-	if (ret)
+	if (ret > 0)
 		return (ret + count);
+	else if (ret < 0)
+		return ret;
 
 	/* retrieve chip id for display */
 	chip_id = vkread32(vk, BAR_0, BAR_CHIP_ID);
-	count += sprintf(&buf[count], "Chip id : 0x%x\n", chip_id);
-	count += sprintf(&buf[count], "Card os : %s\n", vk->card_info.os_tag);
+	ret = sysfs_nprintf(&buf[count], PAGE_SIZE - count,
+			    "Chip id : 0x%x\n", chip_id);
+	if (ret < 0)
+		return ret;
+	count += ret;
+	ret = sysfs_nprintf(&buf[count], PAGE_SIZE - count,
+			    "Card os : %s\n", vk->card_info.os_tag);
+	if (ret < 0)
+		return ret;
+	count += ret;
 	return count;
 }
 
@@ -335,20 +380,20 @@ static ssize_t rev_boot2_show(struct device *dev,
 
 	/* Check if FIRMWARE_STATUS_PRE_INIT_DONE */
 	ret = sysfs_chk_fw_status(vk, FIRMWARE_STATUS_PRE_INIT_DONE,
-				  buf, "n/a\n");
+				  buf, PAGE_SIZE, "n/a\n");
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%s\n", vk->card_info.os_tag);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n", vk->card_info.os_tag);
 }
 
 static ssize_t rev_driver_show(struct device *dev,
 			       struct device_attribute *devattr,
 			       char *buf)
 {
-	return sprintf(buf, "%s_%s-srcversion_%s\n",
-		       DRV_MODULE_NAME, THIS_MODULE->version,
-		       THIS_MODULE->srcversion);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s_%s-srcversion_%s\n",
+			     DRV_MODULE_NAME, THIS_MODULE->version,
+			     THIS_MODULE->srcversion);
 }
 
 static ssize_t firmware_status_show(struct device *dev,
@@ -359,6 +404,8 @@ static ssize_t firmware_status_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	char *p_buf = buf;
+	size_t sz = PAGE_SIZE;
+
 	/*
 	 * for firmware status register, they are bit definitions,
 	 * so mask == exp_val
@@ -406,7 +453,7 @@ static ssize_t firmware_status_show(struct device *dev,
 
 	reg_status = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 	if (BCM_VK_INTF_IS_DOWN(reg_status))
-		return sprintf(buf, "PCIe Intf Down!\n");
+		return sysfs_nprintf(buf, sz, "PCIe Intf Down!\n");
 
 	for (i = 0; i < ARRAY_SIZE(fw_status_reg_list); i++) {
 		reg_status = vkread32(vk, BAR_0, fw_status_reg_list[i].offset);
@@ -414,19 +461,21 @@ static ssize_t firmware_status_show(struct device *dev,
 		dev_dbg(dev, "%s: 0x%08x\n",
 			fw_status_reg_list[i].hdr, reg_status);
 
-		ret = sprintf(p_buf, "%s: 0x%08x\n",
-			      fw_status_reg_list[i].hdr, reg_status);
+		ret = sysfs_nprintf(p_buf, sz, "%s: 0x%08x\n",
+				    fw_status_reg_list[i].hdr, reg_status);
 		if (ret < 0)
 			goto fw_status_show_fail;
 		p_buf += ret;
+		sz -= ret;
 
 		ret = bcm_vk_sysfs_dump_reg(reg_status,
 					    fw_status_reg_list[i].tab,
 					    fw_status_reg_list[i].size,
-					    p_buf);
+					    p_buf, sz);
 		if (ret < 0)
 			goto fw_status_show_fail;
 		p_buf += ret;
+		sz -= ret;
 	}
 
 	/* return total length written */
@@ -447,16 +496,17 @@ static ssize_t reset_reason_show(struct device *dev,
 
 	reg = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 	if (BCM_VK_INTF_IS_DOWN(reg))
-		return sprintf(buf, "PCIe Intf Down!\n");
+		return sysfs_nprintf(buf, PAGE_SIZE, "PCIe Intf Down!\n");
 
 	for (i = 0;
 	     i < (ARRAY_SIZE(fw_shutdown_reg_tab) - FW_STAT_RB_REASON_START);
 	     i++) {
 		if ((tab[i].mask & reg) == tab[i].exp_val)
-			return sprintf(buf, "%s\n", tab[i].str);
+			return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+					     tab[i].str);
 	}
 
-	return sprintf(buf, "invalid\n");
+	return sysfs_nprintf(buf, PAGE_SIZE, "invalid\n");
 }
 
 static ssize_t os_state_show(struct device *dev,
@@ -468,15 +518,16 @@ static ssize_t os_state_show(struct device *dev,
 
 	reg = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 	if (BCM_VK_INTF_IS_DOWN(reg))
-		return sprintf(buf, "PCIe Intf Down!\n");
+		return sysfs_nprintf(buf, PAGE_SIZE, "PCIe Intf Down!\n");
 
 	reg = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
 	for (i = OS_STATE_START; i < ARRAY_SIZE(boot_reg_tab); i++) {
 		if ((boot_reg_tab[i].mask & reg) == boot_reg_tab[i].exp_val)
-			return sprintf(buf, "%s\n", boot_reg_tab[i].str);
+			return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+					     boot_reg_tab[i].str);
 	}
 
-	return sprintf(buf, "invalid\n");
+	return sysfs_nprintf(buf, PAGE_SIZE, "invalid\n");
 }
 
 static ssize_t cop_state_show(struct device *dev,
@@ -499,15 +550,15 @@ static ssize_t cop_state_show(struct device *dev,
 
 	reg = vkread32(vk, BAR_0, VK_BAR_COP_FWSTS);
 	if (BCM_VK_INTF_IS_DOWN(reg))
-		return sprintf(buf, "PCIe Intf Down!\n");
+		return sysfs_nprintf(buf, PAGE_SIZE, "PCIe Intf Down!\n");
 	reg &= VK_COP_FWSTS_READY_MASK;
 
 	if (!reg)
-		return sprintf(buf, "%s\n", "disabled");
+		return sysfs_nprintf(buf, PAGE_SIZE, "%s\n", "disabled");
 	else if (reg == VK_COP_FWSTS_READY)
-		return sprintf(buf, "%s\n", "running");
+		return sysfs_nprintf(buf, PAGE_SIZE, "%s\n", "running");
 	else
-		return sprintf(buf, "%s\n", "boot_fail");
+		return sysfs_nprintf(buf, PAGE_SIZE, "%s\n", "boot_fail");
 }
 
 static ssize_t bus_show(struct device *dev,
@@ -520,9 +571,9 @@ static ssize_t bus_show(struct device *dev,
 		pci_domain_nr(pdev->bus), pdev->bus->number,
 		PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
 
-	return sprintf(buf, _BUS_NUM_FMT,
-		       pci_domain_nr(pdev->bus), pdev->bus->number,
-		       PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+	return sysfs_nprintf(buf, PAGE_SIZE, _BUS_NUM_FMT,
+			     pci_domain_nr(pdev->bus), pdev->bus->number,
+			     PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
 }
 
 static ssize_t card_state_show(struct device *dev,
@@ -538,50 +589,57 @@ static ssize_t card_state_show(struct device *dev,
 	static const char * const pwr_state_tab[] = {
 		"Full", "Reduced", "Lowest"};
 	char *pwr_state_str;
+	size_t sz = PAGE_SIZE;
 
 	/*
 	 * host detected alerts are available even if FW has gone down,
 	 * display first.
 	 */
 	reg = vk->host_alert.flags;
-	ret = sprintf(p_buf, "Host Alerts: 0x%08x\n", reg);
+	ret = sysfs_nprintf(p_buf, sz, "Host Alerts: 0x%08x\n", reg);
 	if (ret < 0)
 		goto card_state_show_fail;
 
 	dev_dbg(dev, "%s", p_buf);
 	p_buf += ret;
+	sz -= ret;
 
 	ret = bcm_vk_sysfs_dump_reg(reg,
 				    bcm_vk_host_err,
 				    ARRAY_SIZE(bcm_vk_host_err),
-				    p_buf);
+				    p_buf, sz);
 	if (ret < 0)
 		goto card_state_show_fail;
 	p_buf += ret;
+	sz -= ret;
 
 	/* next, see if there is any peer latched alert */
 	reg = vk->peer_alert.flags;
-	ret = sprintf(p_buf, "Peer Alerts: 0x%08x\n", reg);
+	ret = sysfs_nprintf(p_buf, sz, "Peer Alerts: 0x%08x\n", reg);
 	if (ret < 0)
 		goto card_state_show_fail;
 
 	dev_dbg(dev, "%s", p_buf);
 	p_buf += ret;
+	sz -= ret;
 
 	ret = bcm_vk_sysfs_dump_reg(reg,
 				    bcm_vk_peer_err,
 				    ARRAY_SIZE(bcm_vk_peer_err),
-				    p_buf);
+				    p_buf, sz);
 	if (ret < 0)
 		goto card_state_show_fail;
 	p_buf += ret;
+	sz -= ret;
 
 	/* if OS is not running, no one will update the value */
-	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, p_buf,
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, p_buf, sz,
 				  "card_state: n/a (fw not running)\n");
-	if (ret) {
+	if (ret > 0) {
 		p_buf += ret;
 		return (p_buf - buf);
+	} else if (ret < 0) {
+		return ret;
 	}
 
 	/* First, get power state and the threshold */
@@ -603,11 +661,12 @@ static ssize_t card_state_show(struct device *dev,
 
 	pwr_state_str = ((pwr_state - 1) < ARRAY_SIZE(pwr_state_tab)) ?
 			 (char *)pwr_state_tab[pwr_state - 1] : "n/a";
-	ret = sprintf(p_buf, _PWR_AND_THRE_FMT, reg, pwr_state, pwr_state_str,
-		      low_temp_thre, high_temp_thre);
+	ret = sysfs_nprintf(p_buf, sz, _PWR_AND_THRE_FMT, reg, pwr_state,
+			    pwr_state_str, low_temp_thre, high_temp_thre);
 	if (ret < 0)
 		goto card_state_show_fail;
 	p_buf += ret;
+	sz -= ret;
 	dev_dbg(dev, _PWR_AND_THRE_FMT, reg, pwr_state, pwr_state_str,
 		low_temp_thre, high_temp_thre);
 
@@ -623,10 +682,11 @@ static ssize_t card_state_show(struct device *dev,
 #define _MEM_ERR_FMT "MemErr: 0x%08x\n"    \
 		"  [ECC]       : %d\n" \
 		"  [UECC]      : %d\n"
-	ret = sprintf(p_buf, _MEM_ERR_FMT, reg, ecc_mem_err, uecc_mem_err);
+	ret = sysfs_nprintf(p_buf, sz, _MEM_ERR_FMT, reg, ecc_mem_err, uecc_mem_err);
 	if (ret < 0)
 		goto card_state_show_fail;
 	p_buf += ret;
+	sz -= ret;
 	dev_dbg(dev, _MEM_ERR_FMT, reg, ecc_mem_err, uecc_mem_err);
 
 	return (p_buf - buf);
@@ -645,7 +705,7 @@ static ssize_t uptime_s_show(struct device *dev,
 	uptime_s = vkread32(vk, BAR_0, BAR_OS_UPTIME);
 
 	dev_dbg(dev, "up_time : %u s\n", uptime_s);
-	return sprintf(buf, "%d\n", uptime_s);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", uptime_s);
 }
 
 static ssize_t mem_ecc_show(struct device *dev,
@@ -658,7 +718,7 @@ static ssize_t mem_ecc_show(struct device *dev,
 	u32 ecc_mem_err;
 
 	/* if OS is not running, no one will update the value */
-	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, PAGE_SIZE, "0\n");
 	if (ret)
 		return ret;
 
@@ -668,7 +728,7 @@ static ssize_t mem_ecc_show(struct device *dev,
 			     BCM_VK_MEM_ERR_FIELD_MASK,
 			     BCM_VK_ECC_MEM_ERR_SHIFT);
 
-	return sprintf(buf, "%d\n", ecc_mem_err);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", ecc_mem_err);
 }
 
 static ssize_t mem_uecc_show(struct device *dev,
@@ -681,7 +741,7 @@ static ssize_t mem_uecc_show(struct device *dev,
 	u32 uecc_mem_err;
 
 	/* if OS is not running, no one will update the value */
-	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, PAGE_SIZE, "0\n");
 	if (ret)
 		return ret;
 
@@ -691,10 +751,11 @@ static ssize_t mem_uecc_show(struct device *dev,
 			     BCM_VK_MEM_ERR_FIELD_MASK,
 			     BCM_VK_UECC_MEM_ERR_SHIFT);
 
-	return sprintf(buf, "%d\n", uecc_mem_err);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", uecc_mem_err);
 }
 
 static ssize_t sysfs_utilization_update(struct device *dev, char *buf,
+					const size_t sz,
 					enum proc_mon_type type,
 					struct bcm_vk_proc_mon_entry_t
 						**p_entryp)
@@ -707,12 +768,13 @@ static ssize_t sysfs_utilization_update(struct device *dev, char *buf,
 	int ret;
 
 	/* if OS is not running, no one will update the value */
-	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "n/a\n");
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf,
+				  sz, "n/a\n");
 	if (ret)
 		return ret;
 
 	if (type >= mon->num)
-		return sprintf(buf, "n/a\n");
+		return sysfs_nprintf(buf, sz, "n/a\n");
 
 	offset = vk->proc_mon_off +
 		 offsetof(struct bcm_vk_proc_mon_info, entries) +
@@ -734,18 +796,25 @@ static ssize_t utilization_show(struct device *dev,
 	int ret, i;
 	ssize_t cnt = 0;
 	struct bcm_vk_proc_mon_entry_t *entry;
+	size_t sz = PAGE_SIZE;
 
 	for (i = 0; i < PROC_MON_TYPE_MAX; i++) {
-		ret = sysfs_utilization_update(dev, &buf[cnt], i, &entry);
-		if (ret)
+		ret = sysfs_utilization_update(dev, &buf[cnt], sz, i, &entry);
+		if (ret > 0)
 			return (ret + cnt);
+		else if (ret < 0)
+			return ret;
 
-		cnt += sprintf(&buf[cnt], "%s (%d/%d) - %ld%%\n",
-			       entry->tag,
-			       entry->used,
-			       entry->max,
-			       entry->max ? (entry->used * 100L)
+		ret = sysfs_nprintf(&buf[cnt], sz, "%s (%d/%d) - %ld%%\n",
+				    entry->tag,
+				    entry->used,
+				    entry->max,
+				    entry->max ? (entry->used * 100L)
 					     / entry->max : 0);
+		if (ret < 0)
+			return ret;
+		cnt += ret;
+		sz -= ret;
 	}
 
 	return cnt;
@@ -758,12 +827,14 @@ static ssize_t utilization_pix_show(struct device *dev,
 	struct bcm_vk_proc_mon_entry_t *entry;
 	int ret;
 
-	ret = sysfs_utilization_update(dev, buf, PROC_MON_PIXELS, &entry);
+	ret = sysfs_utilization_update(dev, buf, PAGE_SIZE, PROC_MON_PIXELS,
+				       &entry);
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%ld\n",
-		       (entry->max) ? (entry->used * 100L) / entry->max : 0);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%ld\n",
+			     (entry->max) ?
+				     (entry->used * 100L) / entry->max : 0);
 }
 
 static ssize_t utilization_pix_used_show(struct device *dev,
@@ -773,11 +844,12 @@ static ssize_t utilization_pix_used_show(struct device *dev,
 	struct bcm_vk_proc_mon_entry_t *entry;
 	int ret;
 
-	ret = sysfs_utilization_update(dev, buf, PROC_MON_PIXELS, &entry);
+	ret = sysfs_utilization_update(dev, buf, PAGE_SIZE, PROC_MON_PIXELS,
+				       &entry);
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%d\n", entry->used);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", entry->used);
 }
 
 static ssize_t utilization_pix_max_show(struct device *dev,
@@ -787,11 +859,12 @@ static ssize_t utilization_pix_max_show(struct device *dev,
 	struct bcm_vk_proc_mon_entry_t *entry;
 	int ret;
 
-	ret = sysfs_utilization_update(dev, buf, PROC_MON_PIXELS, &entry);
+	ret = sysfs_utilization_update(dev, buf, PAGE_SIZE, PROC_MON_PIXELS,
+				       &entry);
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%d\n", entry->max);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", entry->max);
 }
 
 static ssize_t utilization_codec_show(struct device *dev,
@@ -801,11 +874,12 @@ static ssize_t utilization_codec_show(struct device *dev,
 	struct bcm_vk_proc_mon_entry_t *entry;
 	int ret;
 
-	ret = sysfs_utilization_update(dev, buf, PROC_MON_SESS, &entry);
+	ret = sysfs_utilization_update(dev, buf, PAGE_SIZE, PROC_MON_SESS,
+				       &entry);
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%ld\n",
+	return sysfs_nprintf(buf, PAGE_SIZE, "%ld\n",
 		       (entry->max) ? (entry->used * 100L) / entry->max : 0);
 }
 
@@ -816,11 +890,12 @@ static ssize_t utilization_codec_used_show(struct device *dev,
 	struct bcm_vk_proc_mon_entry_t *entry;
 	int ret;
 
-	ret = sysfs_utilization_update(dev, buf, PROC_MON_SESS, &entry);
+	ret = sysfs_utilization_update(dev, buf, PAGE_SIZE,
+				       PROC_MON_SESS, &entry);
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%d\n", entry->used);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", entry->used);
 }
 
 static ssize_t utilization_codec_max_show(struct device *dev,
@@ -830,11 +905,12 @@ static ssize_t utilization_codec_max_show(struct device *dev,
 	struct bcm_vk_proc_mon_entry_t *entry;
 	int ret;
 
-	ret = sysfs_utilization_update(dev, buf, PROC_MON_SESS, &entry);
+	ret = sysfs_utilization_update(dev, buf, PAGE_SIZE, PROC_MON_SESS,
+				       &entry);
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%d\n", entry->max);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", entry->max);
 }
 
 static ssize_t peer_alert_show(struct device *dev, char *buf, const u16 flag)
@@ -842,7 +918,8 @@ static ssize_t peer_alert_show(struct device *dev, char *buf, const u16 flag)
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%d\n", vk->peer_alert.flags & flag ? 1 : 0);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n",
+			     vk->peer_alert.flags & flag ? 1 : 0);
 }
 
 static ssize_t alert_ecc_show(struct device *dev,
@@ -922,32 +999,34 @@ static ssize_t alert_ipc_down_show(struct device *dev,
 	return peer_alert_show(dev, buf, ERR_LOG_IPC_DWN);
 }
 
-static ssize_t host_alert_show(struct device *dev, char *buf, const u16 flag)
+static ssize_t host_alert_show(struct device *dev, char *buf, const size_t max,
+			       const u16 flag)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%d\n", vk->host_alert.flags & flag ? 1 : 0);
+	return sysfs_nprintf(buf, max, "%d\n",
+			     vk->host_alert.flags & flag ? 1 : 0);
 }
 
 static ssize_t alert_pcie_down_show(struct device *dev,
 				    struct device_attribute *devattr, char *buf)
 {
-	return host_alert_show(dev, buf, ERR_LOG_HOST_PCIE_DWN);
+	return host_alert_show(dev, buf, PAGE_SIZE, ERR_LOG_HOST_PCIE_DWN);
 }
 
 static ssize_t alert_heartbeat_fail_show(struct device *dev,
 					 struct device_attribute *devattr,
 					 char *buf)
 {
-	return host_alert_show(dev, buf, ERR_LOG_HOST_HB_FAIL);
+	return host_alert_show(dev, buf, PAGE_SIZE, ERR_LOG_HOST_HB_FAIL);
 }
 
 static ssize_t alert_intf_ver_fail_show(struct device *dev,
 					struct device_attribute *devattr,
 					char *buf)
 {
-	return host_alert_show(dev, buf, ERR_LOG_HOST_INTF_V_FAIL);
+	return host_alert_show(dev, buf, PAGE_SIZE, ERR_LOG_HOST_INTF_V_FAIL);
 }
 
 static ssize_t temp_threshold_lower_c_show(struct device *dev,
@@ -960,7 +1039,7 @@ static ssize_t temp_threshold_lower_c_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	u32 reg;
 
-	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, PAGE_SIZE, "0\n");
 	if (ret)
 		return ret;
 
@@ -969,7 +1048,7 @@ static ssize_t temp_threshold_lower_c_show(struct device *dev,
 			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
 			     BCM_VK_LOW_TEMP_THRE_SHIFT);
 
-	return sprintf(buf, "%d\n", low_temp_thre);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", low_temp_thre);
 }
 
 static ssize_t temp_threshold_upper_c_show(struct device *dev,
@@ -982,7 +1061,7 @@ static ssize_t temp_threshold_upper_c_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	u32 reg;
 
-	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, "0\n");
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, PAGE_SIZE, "0\n");
 	if (ret)
 		return ret;
 
@@ -991,7 +1070,7 @@ static ssize_t temp_threshold_upper_c_show(struct device *dev,
 			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
 			     BCM_VK_HIGH_TEMP_THRE_SHIFT);
 
-	return sprintf(buf, "%d\n", high_temp_thre);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", high_temp_thre);
 }
 
 static ssize_t freq_core_mhz_show(struct device *dev,
@@ -1013,7 +1092,7 @@ static ssize_t freq_core_mhz_show(struct device *dev,
 	if (pwr_state && (pwr_state <= MAX_OPP))
 		scale_f = info->cpu_scale[pwr_state - 1];
 
-	return sprintf(buf, "%d\n",
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n",
 		       info->cpu_freq_mhz / (scale_f ? scale_f : 1));
 }
 
@@ -1025,7 +1104,7 @@ static ssize_t freq_mem_mhz_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct bcm_vk_card_info *info = &vk->card_info;
 
-	return sprintf(buf, "%d\n", info->ddr_freq_mhz);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", info->ddr_freq_mhz);
 }
 
 static ssize_t mem_size_mb_show(struct device *dev,
@@ -1036,7 +1115,7 @@ static ssize_t mem_size_mb_show(struct device *dev,
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	struct bcm_vk_card_info *info = &vk->card_info;
 
-	return sprintf(buf, "%d\n", info->ddr_size_MB);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", info->ddr_size_MB);
 }
 
 static ssize_t sotp_common_show(struct device *dev,
@@ -1074,7 +1153,8 @@ static ssize_t sotp_dauth_1_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", vk->dauth_info.keys[0].store);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     vk->dauth_info.keys[0].store);
 }
 
 static ssize_t sotp_dauth_1_valid_show(struct device *dev,
@@ -1084,7 +1164,8 @@ static ssize_t sotp_dauth_1_valid_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", vk->dauth_info.keys[0].valid);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     vk->dauth_info.keys[0].valid);
 }
 
 static ssize_t sotp_dauth_1_active_status_show(struct device *dev,
@@ -1094,7 +1175,8 @@ static ssize_t sotp_dauth_1_active_status_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", sotp_dauth_active(vk, 0));
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     sotp_dauth_active(vk, 0));
 }
 
 static ssize_t sotp_dauth_2_show(struct device *dev,
@@ -1103,7 +1185,8 @@ static ssize_t sotp_dauth_2_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", vk->dauth_info.keys[1].store);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     vk->dauth_info.keys[1].store);
 }
 
 static ssize_t sotp_dauth_2_valid_show(struct device *dev,
@@ -1113,7 +1196,8 @@ static ssize_t sotp_dauth_2_valid_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", vk->dauth_info.keys[1].valid);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     vk->dauth_info.keys[1].valid);
 }
 
 static ssize_t sotp_dauth_2_active_status_show(struct device *dev,
@@ -1123,7 +1207,8 @@ static ssize_t sotp_dauth_2_active_status_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", sotp_dauth_active(vk, 1));
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     sotp_dauth_active(vk, 1));
 }
 
 static ssize_t sotp_dauth_3_show(struct device *dev,
@@ -1132,7 +1217,8 @@ static ssize_t sotp_dauth_3_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", vk->dauth_info.keys[2].store);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     vk->dauth_info.keys[2].store);
 }
 
 static ssize_t sotp_dauth_3_valid_show(struct device *dev,
@@ -1142,7 +1228,8 @@ static ssize_t sotp_dauth_3_valid_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", vk->dauth_info.keys[2].valid);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     vk->dauth_info.keys[2].valid);
 }
 
 static ssize_t sotp_dauth_3_active_status_show(struct device *dev,
@@ -1152,7 +1239,8 @@ static ssize_t sotp_dauth_3_active_status_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", sotp_dauth_active(vk, 2));
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     sotp_dauth_active(vk, 2));
 }
 
 static ssize_t sotp_dauth_4_show(struct device *dev,
@@ -1161,7 +1249,8 @@ static ssize_t sotp_dauth_4_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", vk->dauth_info.keys[3].store);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     vk->dauth_info.keys[3].store);
 }
 
 static ssize_t sotp_dauth_4_valid_show(struct device *dev,
@@ -1171,7 +1260,8 @@ static ssize_t sotp_dauth_4_valid_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", vk->dauth_info.keys[3].valid);
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     vk->dauth_info.keys[3].valid);
 }
 
 static ssize_t sotp_dauth_4_active_status_show(struct device *dev,
@@ -1181,7 +1271,8 @@ static ssize_t sotp_dauth_4_active_status_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	return sprintf(buf, "%s\n", sotp_dauth_active(vk, 3));
+	return sysfs_nprintf(buf, PAGE_SIZE, "%s\n",
+			     sotp_dauth_active(vk, 3));
 }
 
 static ssize_t sotp_boot1_rev_id_show(struct device *dev,
