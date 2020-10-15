@@ -252,6 +252,11 @@ static void bcm_vk_dump_peer_log(struct bcm_vk *vk)
 	dev_dbg(dev, "Peer PANIC: Size 0x%x(0x%x), [Rd Wr] = [%d %d]\n",
 		log.buf_size, log.mask, log.rd_idx, log.wr_idx);
 
+	if (!log_info->buf_size) {
+		dev_err(dev, "Peer log dump disabled - skipped!\n");
+		return;
+	}
+
 	/* perform range checking for rd/wr idx */
 	if ((log.rd_idx > log_info->mask) ||
 	    (log.wr_idx > log_info->mask) ||
@@ -403,11 +408,29 @@ static void bcm_vk_get_card_info(struct bcm_vk *vk)
 	vk->peerlog_off = offset;
 	memcpy_fromio(&vk->peerlog_info, vk->bar[BAR_2] + vk->peerlog_off,
 		      sizeof(vk->peerlog_info));
-	dev_dbg(dev, "Peer log: Size 0x%x(0x%x), [Rd Wr] = [%d %d]\n",
-		vk->peerlog_info.buf_size,
-		vk->peerlog_info.mask,
-		vk->peerlog_info.rd_idx,
-		vk->peerlog_info.wr_idx);
+
+	/*
+	 * Do a range checking and if out of bound, the record will be zeroed
+	 * which guarantees that nothing would be dumped.  In other words,
+	 * peer dump is disabled.
+	 */
+	if ((vk->peerlog_info.buf_size > BCM_VK_PEER_LOG_BUF_MAX) ||
+	    (vk->peerlog_info.mask != (vk->peerlog_info.buf_size - 1)) ||
+	    (vk->peerlog_info.rd_idx > vk->peerlog_info.mask) ||
+	    (vk->peerlog_info.wr_idx > vk->peerlog_info.mask)) {
+		dev_err(dev, "Peer log disabled - range error: Size 0x%x(0x%x), [Rd Wr] = [%d %d]\n",
+			vk->peerlog_info.buf_size,
+			vk->peerlog_info.mask,
+			vk->peerlog_info.rd_idx,
+			vk->peerlog_info.wr_idx);
+		memset(&vk->peerlog_info, 0, sizeof(vk->peerlog_info));
+	} else {
+		dev_dbg(dev, "Peer log: Size 0x%x(0x%x), [Rd Wr] = [%d %d]\n",
+			vk->peerlog_info.buf_size,
+			vk->peerlog_info.mask,
+			vk->peerlog_info.rd_idx,
+			vk->peerlog_info.wr_idx);
+	}
 }
 
 static void bcm_vk_get_proc_mon_info(struct bcm_vk *vk)

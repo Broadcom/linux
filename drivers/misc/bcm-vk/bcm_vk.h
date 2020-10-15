@@ -324,6 +324,8 @@ struct bcm_vk_peer_log {
 	char data[0];
 };
 
+/* max buf size allowed */
+#define BCM_VK_PEER_LOG_BUF_MAX SZ_16K
 /* max size per line of peer log */
 #define BCM_VK_PEER_LOG_LINE_MAX  256
 
