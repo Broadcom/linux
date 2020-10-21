@@ -1039,7 +1039,7 @@ int bcm_vk_open(struct inode *inode, struct file *p_file)
 	int rc = 0;
 
 	/* get a context and set it up for file */
-	ctx = bcm_vk_get_ctx(vk, task_pid_nr(current));
+	ctx = bcm_vk_get_ctx(vk, task_tgid_nr(current));
 	if (!ctx) {
 		dev_err(dev, "Error allocating context\n");
 		rc = -ENOMEM;
@@ -1207,8 +1207,8 @@ ssize_t bcm_vk_write(struct file *p_file,
 		ctx->q_num, ctx->idx, entry->usr_msg_id,
 		get_msg_id(&entry->to_v_msg[0]));
 
-	/* Convert any pointers to sg list */
 	if (entry->to_v_msg[0].function_id == VK_FID_TRANS_BUF) {
+		/* Convert any pointers to sg list */
 		unsigned int num_planes;
 		int dir;
 		struct _vk_data *data;
@@ -1254,6 +1254,31 @@ ssize_t bcm_vk_write(struct file *p_file,
 						      num_planes);
 		entry->to_v_blks += sgl_extra_blks;
 		entry->to_v_msg[0].size += sgl_extra_blks;
+	} else if (entry->to_v_msg[0].function_id == VK_FID_INIT &&
+		   entry->to_v_msg[0].context_id == VK_NEW_CTX) {
+		/*
+		 * Init happens in 2 stages, only the first stage contains the
+		 * pid that needs translating.
+		 */
+		pid_t org_pid, pid;
+
+		/*
+		 * translate the pid into the unique host space as user
+		 * may run sessions inside containers or process
+		 * namespaces.
+		 */
+#define VK_MSG_PID_MASK 0xffffff00
+#define VK_MSG_PID_SH   8
+		org_pid = (entry->to_v_msg[0].arg & VK_MSG_PID_MASK)
+			   >> VK_MSG_PID_SH;
+
+		pid = task_tgid_nr(current);
+		entry->to_v_msg[0].arg =
+			(entry->to_v_msg[0].arg & ~VK_MSG_PID_MASK) |
+			(pid << VK_MSG_PID_SH);
+		if (org_pid != pid)
+			dev_dbg(dev, "In PID 0x%x(%d), converted PID 0x%x(%d)\n",
+				org_pid, org_pid, pid, pid);
 	}
 
 	/*

@@ -57,9 +57,11 @@ struct vk_msg_blk {
 	u8 function_id;
 #define VK_FID_TRANS_BUF	5
 #define VK_FID_SHUTDOWN		8
+#define VK_FID_INIT		9
 	u8 size; /* size of the message in number of vk_msg_blk's */
 	u16 trans_id; /* transport id, queue & msg_id */
 	u32 context_id;
+#define VK_NEW_CTX		0
 	u32 cmd;
 #define VK_CMD_PLANES_MASK	0x000f /* number of planes to up/download */
 #define VK_CMD_UPLOAD		0x0400 /* memory transfer to vk */
