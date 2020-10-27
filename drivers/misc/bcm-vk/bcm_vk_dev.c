@@ -1059,6 +1059,11 @@ static int bcm_vk_trigger_reset(struct bcm_vk *vk)
 	u32 i;
 	u32 value, boot_status;
 	bool is_stdalone, is_boot2;
+	static const u32 bar0_reg_clr_list[] = { BAR_OS_UPTIME,
+						 BAR_INTF_VER,
+						 BAR_CARD_VOLTAGE,
+						 BAR_CARD_TEMPERATURE,
+						 BAR_CARD_PWR_AND_THRE };
 
 	/* clean up before pressing the door bell */
 	bcm_vk_drain_msg_on_reset(vk);
@@ -1120,8 +1125,8 @@ static int bcm_vk_trigger_reset(struct bcm_vk *vk)
 	bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_SOFT);
 
 	/* clear other necessary registers and alert records */
-	vkwrite32(vk, 0, BAR_0, BAR_OS_UPTIME);
-	vkwrite32(vk, 0, BAR_0, BAR_INTF_VER);
+	for (i = 0; i < ARRAY_SIZE(bar0_reg_clr_list); i++)
+		vkwrite32(vk, 0, BAR_0, bar0_reg_clr_list[i]);
 	memset(&vk->host_alert, 0, sizeof(vk->host_alert));
 	memset(&vk->peer_alert, 0, sizeof(vk->peer_alert));
 #if defined(CONFIG_BCM_VK_QSTATS)
