@@ -1,7 +1,7 @@
 /*
  *  BSD LICENSE
  *
- *  Copyright(c) 2016-2017 Broadcom.  All rights reserved.
+ *  Copyright(c) 2016-2020 Broadcom.  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions
@@ -46,6 +46,61 @@
 			clock-mult = <1>;
 		};
 
+#if (ENABLE_FIXED_CLOCKS == 1)
+		clk_fs: clk_fs {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <500000000>;
+		};
+
+		clk_fs4_hf: clk_fs4_hf {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <600000000>;
+		};
+
+		clk_crypto_ae: clk_crypto_ae {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <800000000>;
+		};
+
+		clk_raid_ae: clk_raid_ae {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <400000000>;
+		};
+
+		hsls_div2_clk: hsls_div2_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <175000000>;
+		};
+
+		hsls_div4_clk: hsls_div4_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <87500000>;
+		};
+
+		hsls_25m_div2_clk: hsls_25m_div2_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <12500000>;
+		};
+
+		sdio0_clk: sdio0_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <200000000>;
+		};
+
+		sdio1_clk: sdio1_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <200000000>;
+		};
+#else
 		genpll0: genpll0@1d104 {
 			#clock-cells = <1>;
 			compatible = "brcm,sr-genpll0";
@@ -180,3 +235,4 @@
 			clock-div = <1>;
 			clock-mult = <1>;
 		};
+#endif

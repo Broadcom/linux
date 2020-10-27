@@ -35,6 +35,10 @@
 #define ENABLE_PAXC_IOMMU	1
 #define ENABLE_FS4_IOMMU	0
 
+#ifndef ENABLE_FIXED_CLOCKS
+#define ENABLE_FIXED_CLOCKS 1
+#endif
+
 #include "bcm958742-base.dtsi"
 
 / {
