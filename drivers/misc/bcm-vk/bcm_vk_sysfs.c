@@ -157,7 +157,7 @@ static int bcm_vk_sysfs_get_tag(struct bcm_vk *vk, enum pci_barno barno,
 	u32 magic;
 
 #define REL_MAGIC_TAG         0x68617368   /* this stands for "hash" */
-#define TAG_MAX_SIZE	      64
+#define TAG_MAX_SIZE	      65
 
 	magic = vkread32(vk, barno, offset);
 	return sysfs_nprintf(buf, TAG_MAX_SIZE, fmt, (magic == REL_MAGIC_TAG) ?
@@ -303,7 +303,7 @@ static ssize_t firmware_version_show(struct device *dev,
 
 	/* Print driver version first, which is always available */
 	ret  = sysfs_nprintf(buf, PAGE_SIZE - 2 * TAG_MAX_SIZE,
-			     "Driver	 : %s %s, srcversion %s\n",
+			     "Driver  : %s %s, srcversion %s\n",
 			     DRV_MODULE_NAME, THIS_MODULE->version,
 			     THIS_MODULE->srcversion);
 	if (ret < 0)
