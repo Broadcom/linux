@@ -28,8 +28,6 @@ vk_defconfig="base-arm64 valkyrie \
     blk                                  \
     clocksource                          \
     dbg dma                              \
-    efi                                  \
-    mailbox                              \
     perf ppp profiling                   \
     uio                                  \
-    vfio vhost watchdog"
+    vfio watchdog"
