@@ -13,7 +13,6 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 
-#define IDM_CTRL_OFFSET              0x000
 #define IDM_CTRL_TIMEOUT_ENABLE      BIT(9)
 #define IDM_CTRL_TIMEOUT_EXP_SHIFT   4
 #define IDM_CTRL_TIMEOUT_EXP_MASK    (0x1f << 4)
@@ -22,22 +21,75 @@
 #define IDM_CTRL_BUS_ERR_IRQ         BIT(1)
 #define IDM_CTRL_BUS_ERR_RESET       BIT(0)
 
-#define IDM_COMP_OFFSET              0x004
 #define IDM_COMP_OVERFLOW            BIT(1)
 #define IDM_COMP_ERR                 BIT(0)
 
-#define IDM_STATUS_OFFSET            0x008
 #define IDM_STATUS_OVERFLOW          BIT(2)
 #define IDM_STATUS_CAUSE_MASK        0x03
 
-#define IDM_ADDR_LSB_OFFSET          0x00c
-#define IDM_ADDR_MSB_OFFSET          0x010
-#define IDM_ID_OFFSET                0x014
-#define IDM_FLAGS_OFFSET             0x01c
-
-#define IDM_ISR_STATUS_OFFSET        0x100
 #define IDM_ISR_STATUS_TIMEOUT       BIT(1)
 #define IDM_ISR_STATUS_ERR_LOG       BIT(0)
+
+enum IDM_REGS {
+	IDM_CTRL_OFFSET,
+	IDM_COMP_OFFSET,
+	IDM_STATUS_OFFSET,
+	IDM_ADDR_LSB_OFFSET,
+	IDM_ADDR_MSB_OFFSET,
+	IDM_ID_OFFSET,
+	IDM_FLAGS_OFFSET,
+	IDM_ISR_STATUS_OFFSET,
+	/* AXI4 Extension */
+	IDM_ERROR_LEN,
+	IDM_ERROR_SIZE,
+	IDM_ERROR_BURST,
+	IDM_ERROR_LOCK,
+	IDM_ERROR_CACHE,
+	IDM_ERROR_PROT,
+	IDM_ERROR_QOS,
+	IDM_ERROR_REGION,
+	IDM_ERROR_AUSER,
+	IDM_ERROR_RWUSER,
+	IDM_ERROR_DWUSER,
+};
+
+static const u16 axi3_idm_regs[] = {
+	[IDM_CTRL_OFFSET]       = 0x000,
+	[IDM_COMP_OFFSET]       = 0x004,
+	[IDM_STATUS_OFFSET]     = 0x008,
+	[IDM_ADDR_LSB_OFFSET]   = 0x00c,
+	[IDM_ADDR_MSB_OFFSET]   = 0x010,
+	[IDM_ID_OFFSET]         = 0x014,
+	[IDM_FLAGS_OFFSET]      = 0x01c,
+	[IDM_ISR_STATUS_OFFSET] = 0x100,
+};
+
+static const u16 axi4_idm_regs[] = {
+	[IDM_CTRL_OFFSET]       = 0x024,
+	[IDM_COMP_OFFSET]       = 0x084,
+	[IDM_STATUS_OFFSET]     = 0x060,
+	[IDM_ADDR_LSB_OFFSET]   = 0x064,
+	[IDM_ADDR_MSB_OFFSET]   = 0x068,
+	[IDM_ID_OFFSET]         = 0x06c,
+	[IDM_ISR_STATUS_OFFSET] = 0x074,
+	/* Extended list: specific to AXI4 */
+	[IDM_ERROR_LEN]         = 0x030,
+	[IDM_ERROR_SIZE]        = 0x034,
+	[IDM_ERROR_BURST]       = 0x038,
+	[IDM_ERROR_LOCK]        = 0x03c,
+	[IDM_ERROR_CACHE]       = 0x040,
+	[IDM_ERROR_PROT]        = 0x044,
+	[IDM_ERROR_QOS]         = 0x04c,
+	[IDM_ERROR_REGION]      = 0x050,
+	[IDM_ERROR_AUSER]       = 0x054,
+	[IDM_ERROR_RWUSER]      = 0x058,
+	[IDM_ERROR_DWUSER]      = 0x05c,
+};
+
+enum idm_bus_type {
+	IDM_BUS_AXI3,
+	IDM_BUS_AXI4,
+};
 
 #define ELOG_SIG_OFFSET              0x000
 #define ELOG_SIG_VAL                 0x49444d45
@@ -73,6 +125,8 @@ struct iproc_idm {
 	struct device *dev;
 	struct iproc_idm_elog *elog;
 	void __iomem *base;
+	u16 *offset_tbl;
+	enum idm_bus_type bus;
 	char name[25];
 	bool no_panic;
 };
@@ -172,8 +226,8 @@ static irqreturn_t iproc_idm_irq_handler(int irq, void *data)
 	u32 isr_status, log_status, lsb, msb, id, flag;
 	struct iproc_idm_elog *elog = idm->elog;
 
-	isr_status = readl(idm->base + IDM_ISR_STATUS_OFFSET);
-	log_status = readl(idm->base + IDM_STATUS_OFFSET);
+	isr_status = readl(idm->base + idm->offset_tbl[IDM_ISR_STATUS_OFFSET]);
+	log_status = readl(idm->base + idm->offset_tbl[IDM_STATUS_OFFSET]);
 
 	/* quit if the interrupt is not for IDM */
 	if (!isr_status)
@@ -181,10 +235,12 @@ static irqreturn_t iproc_idm_irq_handler(int irq, void *data)
 
 	/* ACK the interrupt */
 	if (log_status & IDM_STATUS_OVERFLOW)
-		writel(IDM_COMP_OVERFLOW, idm->base + IDM_COMP_OFFSET);
+		writel(IDM_COMP_OVERFLOW, idm->base +
+		       idm->offset_tbl[IDM_COMP_OFFSET]);
 
 	if (log_status & IDM_STATUS_CAUSE_MASK)
-		writel(IDM_COMP_ERR, idm->base + IDM_COMP_OFFSET);
+		writel(IDM_COMP_ERR, idm->base +
+		       idm->offset_tbl[IDM_COMP_OFFSET]);
 
 	/* dump critical IDM information */
 	if (isr_status & IDM_ISR_STATUS_TIMEOUT)
@@ -193,16 +249,42 @@ static irqreturn_t iproc_idm_irq_handler(int irq, void *data)
 	if (isr_status & IDM_ISR_STATUS_ERR_LOG)
 		dev_err(dev, "[%s] IDM error log\n", name);
 
-	lsb = readl(idm->base + IDM_ADDR_LSB_OFFSET);
-	msb = readl(idm->base + IDM_ADDR_MSB_OFFSET);
-	id = readl(idm->base + IDM_ID_OFFSET);
-	flag = readl(idm->base + IDM_FLAGS_OFFSET);
+	lsb = readl(idm->base + idm->offset_tbl[IDM_ADDR_LSB_OFFSET]);
+	msb = readl(idm->base + idm->offset_tbl[IDM_ADDR_MSB_OFFSET]);
+	id = readl(idm->base + idm->offset_tbl[IDM_ID_OFFSET]);
 
 	dev_err(dev, "Cause: 0x%08x\n", log_status);
 	dev_err(dev, "Address LSB: 0x%08x\n", lsb);
 	dev_err(dev, "Address MSB: 0x%08x\n", msb);
 	dev_err(dev, "Master ID: 0x%08x\n", id);
-	dev_err(dev, "Flag: 0x%08x\n\n", flag);
+
+	if (idm->bus == IDM_BUS_AXI4) {
+		dev_err(dev, "Len: 0x%8x\n",
+			readl(idm->base + idm->offset_tbl[IDM_ERROR_LEN]));
+		dev_err(dev, "Size: 0x%8x\n",
+			readl(idm->base + idm->offset_tbl[IDM_ERROR_SIZE]));
+		dev_err(dev, "Burst: 0x%8x\n",
+			readl(idm->base + idm->offset_tbl[IDM_ERROR_BURST]));
+		dev_err(dev, "Lock: 0x%8x\n",
+			readl(idm->base + idm->offset_tbl[IDM_ERROR_LOCK]));
+		dev_err(dev, "Cache: 0x%8x\n",
+			readl(idm->base + idm->offset_tbl[IDM_ERROR_CACHE]));
+		dev_err(dev, "Prot: 0x%8x\n",
+			readl(idm->base + idm->offset_tbl[IDM_ERROR_PROT]));
+		dev_err(dev, "Qos: 0x%8x\n",
+			readl(idm->base + idm->offset_tbl[IDM_ERROR_QOS]));
+		dev_err(dev, "Region: 0x%8x\n",
+			readl(idm->base + idm->offset_tbl[IDM_ERROR_REGION]));
+		dev_err(dev, "Auser: 0x%8x\n",
+			readl(idm->base + idm->offset_tbl[IDM_ERROR_AUSER]));
+		dev_err(dev, "Rwuser: 0x%8x\n",
+			readl(idm->base + idm->offset_tbl[IDM_ERROR_RWUSER]));
+		dev_err(dev, "Dwuser: 0x%8x\n",
+			readl(idm->base + idm->offset_tbl[IDM_ERROR_DWUSER]));
+	} else {
+		flag = readl(idm->base + idm->offset_tbl[IDM_FLAGS_OFFSET]);
+		dev_err(dev, "Flag: 0x%08x\n\n", flag);
+	}
 
 	/* if elog service is available, log the event */
 	if (elog) {
@@ -232,6 +314,14 @@ static int iproc_idm_dev_probe(struct platform_device *pdev)
 	idm = devm_kzalloc(dev, sizeof(*idm), GFP_KERNEL);
 	if (!idm)
 		return -ENOMEM;
+
+	if (of_device_is_compatible(dev->of_node, "brcm,iproc-idm-v2")) {
+		idm->offset_tbl = axi4_idm_regs;
+		idm->bus = IDM_BUS_AXI4;
+	} else {
+		idm->offset_tbl = axi3_idm_regs;
+		idm->bus = IDM_BUS_AXI3;
+	}
 
 	platform_set_drvdata(pdev, idm);
 	idm->dev = dev;
@@ -279,10 +369,10 @@ static int iproc_idm_dev_probe(struct platform_device *pdev)
 	}
 
 	/* enable IDM timeout and its interrupt */
-	val = readl(idm->base + IDM_CTRL_OFFSET);
+	val = readl(idm->base + idm->offset_tbl[IDM_CTRL_OFFSET]);
 	val |= IDM_CTRL_TIMEOUT_EXP_MASK | IDM_CTRL_TIMEOUT_ENABLE |
 	       IDM_CTRL_TIMEOUT_IRQ;
-	writel(val, idm->base + IDM_CTRL_OFFSET);
+	writel(val, idm->base + idm->offset_tbl[IDM_CTRL_OFFSET]);
 
 	ret = device_create_file(dev, &dev_attr_no_panic);
 	if (ret < 0)
@@ -355,6 +445,7 @@ static int iproc_idm_probe(struct platform_device *pdev)
 
 static const struct of_device_id iproc_idm_of_match[] = {
 	{ .compatible = "brcm,iproc-idm", },
+	{ .compatible = "brcm,iproc-idm-v2", },
 	{ .compatible = ELOG_IDM_COMPAT_STR, },
 	{ .compatible = "brcm,sr-idm-paxb0-axi", },
 	{ .compatible = "brcm,sr-idm-paxb1-axi", },
