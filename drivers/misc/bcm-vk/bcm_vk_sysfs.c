@@ -61,6 +61,8 @@ static struct bcm_vk_entry const fw_shutdown_reg_tab[] = {
 	 "L1_reset" },
 	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_L0,
 	 "L0_reset" },
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_THERMAL_TRAP,
+	 "thermal_trap_reset" },
 	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_UNKNOWN,
 	 "unknown" },
 };
@@ -82,6 +84,7 @@ static struct bcm_vk_entry const boot_reg_tab[] = {
 	{BOOT_STATE_MASK, BROM_NOT_RUN,  "ucode_not_run"},
 	{BOOT_STATE_MASK, BROM_RUNNING,  "wait_boot1"},
 	{BOOT_STATE_MASK, BOOT1_RUNNING, "wait_boot2"},
+	{BOOT_STATE_MASK, BOOT1_THERMAL_TRAP, "boot1_thermal_trap"},
 	{BOOT_STATE_MASK, BOOT2_RUNNING, "boot2_running"},
 };
 
@@ -515,6 +518,10 @@ static ssize_t os_state_show(struct device *dev,
 	u32 reg, i;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	/* if thermal trap is on, card is in quarantine */
+	if (vk->peer_alert.flags & ERR_LOG_THERMAL_TRAP)
+		return sysfs_nprintf(buf, PAGE_SIZE, "thermal_trap\n");
 
 	reg = vkread32(vk, BAR_0, VK_BAR_FWSTS);
 	if (BCM_VK_INTF_IS_DOWN(reg))
@@ -999,6 +1006,13 @@ static ssize_t alert_ipc_down_show(struct device *dev,
 	return peer_alert_show(dev, buf, ERR_LOG_IPC_DWN);
 }
 
+static ssize_t alert_thermal_trap_show(struct device *dev,
+				       struct device_attribute *devattr,
+				       char *buf)
+{
+	return peer_alert_show(dev, buf, ERR_LOG_THERMAL_TRAP);
+}
+
 static ssize_t host_alert_show(struct device *dev, char *buf, const size_t max,
 			       const u16 flag)
 {
@@ -1340,6 +1354,7 @@ static DEVICE_ATTR_RO(alert_malloc_fail_warn);
 static DEVICE_ATTR_RO(alert_low_temp_warn);
 static DEVICE_ATTR_RO(alert_ecc_warn);
 static DEVICE_ATTR_RO(alert_ipc_down);
+static DEVICE_ATTR_RO(alert_thermal_trap);
 static DEVICE_ATTR_RO(alert_pcie_down);
 static DEVICE_ATTR_RO(alert_heartbeat_fail);
 static DEVICE_ATTR_RO(alert_intf_ver_fail);
@@ -1438,6 +1453,7 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_alert_low_temp_warn.attr,
 	&dev_attr_alert_ecc_warn.attr,
 	&dev_attr_alert_ipc_down.attr,
+	&dev_attr_alert_thermal_trap.attr,
 	&dev_attr_alert_pcie_down.attr,
 	&dev_attr_alert_heartbeat_fail.attr,
 	&dev_attr_alert_intf_ver_fail.attr,

@@ -125,6 +125,7 @@ const struct bcm_vk_entry bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM] = {
 	{ERR_LOG_LOW_TEMP_WARN, ERR_LOG_LOW_TEMP_WARN, "low_temp warn"},
 	{ERR_LOG_ECC, ERR_LOG_ECC, "ecc"},
 	{ERR_LOG_IPC_DWN, ERR_LOG_IPC_DWN, "ipc_down"},
+	{ERR_LOG_THERMAL_TRAP, ERR_LOG_THERMAL_TRAP, "thermal_trap"},
 };
 
 /* alerts detected by the host */
@@ -540,6 +541,39 @@ static void bcm_vk_buf_notify(struct bcm_vk *vk, void *bufp,
 	vkwrite32(vk, buf_size, BAR_1, VK_BAR1_DMA_BUF_SZ);
 }
 
+/*
+ * check boot1's boot_status to see if it has entered any special mode
+ * return 0 if in special mode, else -EINVAL
+ */
+static int bcm_vk_chk_mode(struct bcm_vk *vk)
+{
+	struct device *dev = &vk->pdev->dev;
+	u32 boot_status, reg;
+	int ret = -EINVAL;
+	bool is_stdalone, is_thermal_trap;
+
+	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
+	if (BCM_VK_INTF_IS_DOWN(boot_status))
+		return ret;
+
+	is_stdalone = boot_status & BOOT_STDALONE_RUNNING;
+	is_thermal_trap = boot_status & BOOT_THERMAL_TRAP;
+	if (is_stdalone) {
+		reg = vkread32(vk, BAR_0, BAR_BOOT1_STDALONE_PROGRESS);
+		if ((reg & BOOT1_STDALONE_PROGRESS_MASK) ==
+		     BOOT1_STDALONE_SUCCESS) {
+			dev_dbg(dev, "Boot1 standalone success\n");
+			ret = 0;
+		}
+	} else if (is_thermal_trap) {
+		if ((boot_status & BOOT_STATE_MASK) == BOOT1_THERMAL_TRAP) {
+			dev_info(dev, "Boot1 enters thermal trap state\n");
+			ret = 0;
+		}
+	}
+	return ret;
+}
+
 static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 				     const char *filename)
 {
@@ -552,7 +586,6 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	u32 codepush;
 	u32 value;
 	dma_addr_t boot_dma_addr;
-	bool is_stdalone;
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
 		/*
@@ -634,39 +667,28 @@ static int bcm_vk_load_image_by_type(struct bcm_vk *vk, u32 load_type,
 	vkwrite32(vk, codepush, BAR_0, offset_codepush);
 
 	if (load_type == VK_IMAGE_TYPE_BOOT1) {
-		u32 boot_status;
-
 		/* wait until done */
 		ret = bcm_vk_wait(vk, BAR_0, BAR_BOOT_STATUS,
 				  BOOT1_RUNNING,
 				  BOOT1_RUNNING,
 				  BOOT1_STARTUP_TIMEOUT_MS);
 
-		boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
-		is_stdalone = !BCM_VK_INTF_IS_DOWN(boot_status) &&
-			      (boot_status & BOOT_STDALONE_RUNNING);
-		if (ret && !is_stdalone) {
+		/*
+		 * if the wait to BOOT1_RUNNING times out, boot1 may still boot
+		 * into some other modes, which we need to do a second check
+		 */
+		if (ret)
+			ret = bcm_vk_chk_mode(vk);
+
+		if (ret) {
 			dev_err(dev,
 				"Timeout %ld ms waiting for boot1 to come up - ret(%d)\n",
 				BOOT1_STARTUP_TIMEOUT_MS, ret);
 			goto err_firmware_out;
-		} else if (is_stdalone) {
-			u32 reg;
-
-			reg = vkread32(vk, BAR_0, BAR_BOOT1_STDALONE_PROGRESS);
-			if ((reg & BOOT1_STDALONE_PROGRESS_MASK) ==
-				     BOOT1_STDALONE_SUCCESS) {
-				dev_info(dev, "Boot1 standalone success\n");
-				ret = 0;
-			} else {
-				dev_err(dev, "Timeout %ld ms - Boot1 standalone failure\n",
-					BOOT1_STARTUP_TIMEOUT_MS);
-				ret = -EINVAL;
-				goto err_firmware_out;
-			}
 		}
 	} else if (load_type == VK_IMAGE_TYPE_BOOT2) {
 		unsigned long timeout;
+		bool is_stdalone;
 
 		timeout = jiffies + msecs_to_jiffies(LOAD_IMAGE_TIMEOUT_MS);
 
@@ -963,7 +985,8 @@ static long bcm_vk_load_image(struct bcm_vk *vk,
 
 	next_loadable = bcm_vk_next_boot_image(vk);
 	if (next_loadable != image.type) {
-		dev_err(dev, "Next expected image %u, Loading %u\n",
+		dev_err(dev, "Next expected image %s(%u), Loading %u\n",
+			!next_loadable ? "not found" : "",
 			next_loadable, image.type);
 		return ret;
 	}
@@ -1059,6 +1082,7 @@ static int bcm_vk_trigger_reset(struct bcm_vk *vk)
 	u32 i;
 	u32 value, boot_status;
 	bool is_stdalone, is_boot2;
+	int ret = 0;
 	static const u32 bar0_reg_clr_list[] = { BAR_OS_UPTIME,
 						 BAR_INTF_VER,
 						 BAR_CARD_VOLTAGE,
@@ -1067,66 +1091,80 @@ static int bcm_vk_trigger_reset(struct bcm_vk *vk)
 
 	/* clean up before pressing the door bell */
 	bcm_vk_drain_msg_on_reset(vk);
-	vkwrite32(vk, 0, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
-	/* make tag '\0' terminated */
-	vkwrite32(vk, 0, BAR_1, VK_BAR1_BOOT1_VER_TAG);
-
-	for (i = 0; i < VK_BAR1_DAUTH_MAX; i++) {
-		vkwrite32(vk, 0, BAR_1, VK_BAR1_DAUTH_STORE_ADDR(i));
-		vkwrite32(vk, 0, BAR_1, VK_BAR1_DAUTH_VALID_ADDR(i));
-	}
-	for (i = 0; i < VK_BAR1_SOTP_REVID_MAX; i++)
-		vkwrite32(vk, 0, BAR_1, VK_BAR1_SOTP_REVID_ADDR(i));
-
 	memset(&vk->card_info, 0, sizeof(vk->card_info));
 	memset(&vk->peerlog_info, 0, sizeof(vk->peerlog_info));
 	memset(&vk->proc_mon_info, 0, sizeof(vk->proc_mon_info));
 	memset(&vk->alert_cnts, 0, sizeof(vk->alert_cnts));
 
 	/*
-	 * When boot request fails, the CODE_PUSH_OFFSET stays persistent.
-	 * Allowing us to debug the failure. When we call reset,
-	 * we should clear CODE_PUSH_OFFSET so ROM does not execute
-	 * boot again (and fails again) and instead waits for a new
-	 * codepush.  And, if previous boot has encountered error, need
-	 * to clear the entry values
+	 * read/write to PCIe intf becomes noop if it is down, so
+	 * skip it if so
 	 */
 	boot_status = vkread32(vk, BAR_0, BAR_BOOT_STATUS);
-	if (boot_status & BOOT_ERR_MASK) {
-		dev_info(&vk->pdev->dev,
-			 "Card in boot error 0x%x, clear CODEPUSH val\n",
-			 boot_status);
-		value = 0;
-	} else {
-		value = vkread32(vk, BAR_0, BAR_CODEPUSH_SBL);
-		value &= CODEPUSH_MASK;
-	}
-	vkwrite32(vk, value, BAR_0, BAR_CODEPUSH_SBL);
+	if (!BCM_VK_INTF_IS_DOWN(boot_status)) {
+		vkwrite32(vk, 0, BAR_1, VK_BAR1_MSGQ_DEF_RDY);
+		/* make tag '\0' terminated */
+		vkwrite32(vk, 0, BAR_1, VK_BAR1_BOOT1_VER_TAG);
 
-	/* special reset handling */
-	is_stdalone = boot_status & BOOT_STDALONE_RUNNING;
-	is_boot2 = (boot_status & BOOT_STATE_MASK) == BOOT2_RUNNING;
-	if (vk->peer_alert.flags & ERR_LOG_RAMDUMP) {
+		for (i = 0; i < VK_BAR1_DAUTH_MAX; i++) {
+			vkwrite32(vk, 0, BAR_1, VK_BAR1_DAUTH_STORE_ADDR(i));
+			vkwrite32(vk, 0, BAR_1, VK_BAR1_DAUTH_VALID_ADDR(i));
+		}
+		for (i = 0; i < VK_BAR1_SOTP_REVID_MAX; i++)
+			vkwrite32(vk, 0, BAR_1, VK_BAR1_SOTP_REVID_ADDR(i));
+
 		/*
-		 * if card is in ramdump mode, it is hitting an error.  Don't
-		 * reset the reboot reason as it will contain valid info that
-		 * is important - simply use special reset
+		 * When boot request fails, the CODE_PUSH_OFFSET stays persistent.
+		 * Allowing us to debug the failure. When we call reset,
+		 * we should clear CODE_PUSH_OFFSET so ROM does not execute
+		 * boot again (and fails again) and instead waits for a new
+		 * codepush.  And, if previous boot has encountered error, need
+		 * to clear the entry values
 		 */
-		vkwrite32(vk, VK_BAR0_RESET_RAMPDUMP, BAR_0, VK_BAR_FWSTS);
-		return VK_BAR0_RESET_RAMPDUMP;
-	} else if (is_stdalone && !is_boot2) {
-		dev_info(&vk->pdev->dev, "Hard reset on Standalone mode");
-		bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_HARD);
-		return VK_BAR0_RESET_DB_HARD;
+
+		if (boot_status & BOOT_ERR_MASK) {
+			dev_err(&vk->pdev->dev,
+				"Card in boot error 0x%x, clear CODEPUSH val\n",
+				boot_status);
+			value = 0;
+		} else {
+			value = vkread32(vk, BAR_0, BAR_CODEPUSH_SBL);
+			value &= CODEPUSH_MASK;
+		}
+		vkwrite32(vk, value, BAR_0, BAR_CODEPUSH_SBL);
+
+		/* special reset handling */
+		is_stdalone = boot_status & BOOT_STDALONE_RUNNING;
+		is_boot2 = (boot_status & BOOT_STATE_MASK) == BOOT2_RUNNING;
+		if (vk->peer_alert.flags & ERR_LOG_RAMDUMP) {
+			/*
+			 * if card is in ramdump mode, it is hitting an error.
+			 * Don't reset the reboot reason as it will contain
+			 * valid info that is important - simply use special
+			 * reset
+			 */
+			vkwrite32(vk, VK_BAR0_RESET_RAMPDUMP,
+				  BAR_0, VK_BAR_FWSTS);
+			ret = VK_BAR0_RESET_RAMPDUMP;
+			goto post_db_cleanup;
+		} else if (is_stdalone && !is_boot2) {
+			dev_info(&vk->pdev->dev,
+				 "Hard reset on Standalone mode");
+			bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_HARD);
+			ret = VK_BAR0_RESET_DB_HARD;
+			goto post_db_cleanup;
+		}
+
+		/* reset fw_status with proper reason, and press db */
+		vkwrite32(vk, VK_FWSTS_RESET_MBOX_DB, BAR_0, VK_BAR_FWSTS);
+		vkwrite32(vk, VK_FWSTS_RESET_MBOX_DB, BAR_0, VK_BAR_COP_FWSTS);
+		bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_SOFT);
+
+		/* clear other necessary registers and alert records */
+		for (i = 0; i < ARRAY_SIZE(bar0_reg_clr_list); i++)
+			vkwrite32(vk, 0, BAR_0, bar0_reg_clr_list[i]);
 	}
-
-	/* reset fw_status with proper reason, and press db */
-	vkwrite32(vk, VK_FWSTS_RESET_MBOX_DB, BAR_0, VK_BAR_FWSTS);
-	bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_SOFT);
-
-	/* clear other necessary registers and alert records */
-	for (i = 0; i < ARRAY_SIZE(bar0_reg_clr_list); i++)
-		vkwrite32(vk, 0, BAR_0, bar0_reg_clr_list[i]);
+post_db_cleanup:
 	memset(&vk->host_alert, 0, sizeof(vk->host_alert));
 	memset(&vk->peer_alert, 0, sizeof(vk->peer_alert));
 #if defined(CONFIG_BCM_VK_QSTATS)
@@ -1141,7 +1179,7 @@ static int bcm_vk_trigger_reset(struct bcm_vk *vk)
 	/* clear 4096 bits of bitmap */
 	bitmap_clear(vk->bmap, 0, VK_MSG_ID_BITMAP_SIZE);
 
-	return 0;
+	return ret;
 }
 
 static long bcm_vk_reset(struct bcm_vk *vk, struct vk_reset __user *arg)
@@ -1282,6 +1320,29 @@ static int bcm_vk_on_panic(struct notifier_block *nb,
 	bcm_to_v_reset_doorbell(vk, VK_BAR0_RESET_DB_HARD);
 
 	return 0;
+}
+
+static void bcm_vk_sync_alerts(struct bcm_vk *vk)
+{
+	u32 reg;
+
+	/* sync all alert and check if the card reboot from thermal trap */
+	vk->peer_alert.notfs = vkread32(vk, BAR_0, BAR_CARD_ERR_LOG);
+	reg = vkread32(vk, BAR_0, VK_BAR_FWSTS);
+	if (BCM_VK_INTF_IS_DOWN(reg))
+		return;
+
+	if ((reg & VK_FWSTS_RESET_REASON_MASK) == VK_FWSTS_RESET_THERMAL_TRAP) {
+		/*
+		 * this alert is from previous life, and so the card would not
+		 * raise it again, and we want to keep it in sync.
+		 */
+		vk->peer_alert.notfs |= ERR_LOG_THERMAL_TRAP;
+		vkwrite32(vk, vk->peer_alert.notfs, BAR_0, BAR_CARD_ERR_LOG);
+	}
+	bcm_vk_log_notf(vk, &vk->peer_alert, bcm_vk_peer_err,
+			ARRAY_SIZE(bcm_vk_peer_err));
+	vk->peer_alert.flags = vk->peer_alert.notfs;
 }
 
 static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
@@ -1468,6 +1529,8 @@ static int bcm_vk_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	err = bcm_vk_tty_init(vk, name);
 	if (err)
 		goto err_unregister_panic_notifier;
+
+	bcm_vk_sync_alerts(vk);
 
 	/*
 	 * lets trigger an auto download.  We don't want to do it serially here

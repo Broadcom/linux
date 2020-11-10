@@ -65,6 +65,7 @@
 
 #define SRAM_OPEN			BIT(16)
 #define DDR_OPEN			BIT(17)
+#define BOOT_THERMAL_TRAP		BIT(22)
 
 /* Firmware loader progress status definitions */
 #define FW_LOADER_ACK_SEND_MORE_DATA	BIT(18)
@@ -90,6 +91,8 @@
 #define BROM_RUNNING			(SRAM_OPEN | BROM_STATUS_COMPLETE)
 #define BOOT1_STATUS_COMPLETE		0x6
 #define BOOT1_RUNNING			(DDR_OPEN | BOOT1_STATUS_COMPLETE)
+#define BOOT1_THERMAL_TRAP		(BOOT_THERMAL_TRAP | \
+					 BOOT1_STATUS_COMPLETE)
 #define BOOT2_STATUS_COMPLETE		0x6
 #define BOOT2_RUNNING			(FW_LOADER_ACK_RCVD_ALL_DATA | \
 					 BOOT2_STATUS_COMPLETE)
@@ -140,6 +143,7 @@
 #define ERR_LOG_LOW_TEMP_WARN		BIT(9)
 #define ERR_LOG_ECC			BIT(10)
 #define ERR_LOG_IPC_DWN			BIT(11)
+#define ERR_LOG_THERMAL_TRAP		BIT(12)
 
 /* Alert bit definitions detectd on host */
 #define ERR_LOG_HOST_INTF_V_FAIL	BIT(13)
@@ -446,7 +450,7 @@ struct bcm_vk_entry {
 };
 
 /* alerts that could be generated from peer */
-#define BCM_VK_PEER_ERR_NUM 12
+#define BCM_VK_PEER_ERR_NUM 13
 extern struct bcm_vk_entry const bcm_vk_peer_err[BCM_VK_PEER_ERR_NUM];
 /* alerts detected by the host */
 #define BCM_VK_HOST_ERR_NUM 3

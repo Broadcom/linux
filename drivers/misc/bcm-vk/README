@@ -69,6 +69,7 @@ vk-card-mon/
 	alert_pcie_down		---> host detect pcie intf going down
 	alert_ssim_busy		---> ssim block busy
 	alert_sys_fault		---> system fault
+	alert_thermal_trap	---> card in thermal trap state
 	alert_wdog_timeout	---> watchdog timeout
 	firmware_status_reg
 	mem_ecc			---> correctable ECC error count
