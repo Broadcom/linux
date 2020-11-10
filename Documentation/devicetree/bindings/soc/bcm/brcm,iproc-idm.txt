@@ -9,8 +9,8 @@ the error, and etc., are made available from the IDM device.
 -------------------------------------------------------------------------------
 
 Required properties for IDM device node:
-- compatible: must be "brcm,iproc-idm", followed by an IDM device specific
-  compatible string (see below for more details)
+- compatible: must be "brcm,iproc-idm or brcm,iproc-idm-v2", followed by
+  an IDM device specific compatible string (see below for more details)
 - reg: base address and length of the IDM register space
 - interrupt: IDM interrupt number
 
