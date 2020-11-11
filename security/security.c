@@ -16,7 +16,6 @@
 #include <linux/export.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/kernel_read_file.h>
 #include <linux/lsm_hooks.h>
 #include <linux/integrity.h>
 #include <linux/ima.h>

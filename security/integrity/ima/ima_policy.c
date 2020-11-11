@@ -9,7 +9,6 @@
 
 #include <linux/init.h>
 #include <linux/list.h>
-#include <linux/kernel_read_file.h>
 #include <linux/fs.h>
 #include <linux/security.h>
 #include <linux/magic.h>

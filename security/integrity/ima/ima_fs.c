@@ -13,7 +13,6 @@
  */
 
 #include <linux/fcntl.h>
-#include <linux/kernel_read_file.h>
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/seq_file.h>

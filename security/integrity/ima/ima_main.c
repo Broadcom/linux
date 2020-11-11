@@ -18,7 +18,6 @@
 #include <linux/module.h>
 #include <linux/file.h>
 #include <linux/binfmts.h>
-#include <linux/kernel_read_file.h>
 #include <linux/mount.h>
 #include <linux/mman.h>
 #include <linux/slab.h>
