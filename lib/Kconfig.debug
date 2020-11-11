@@ -2013,6 +2013,17 @@ config ASYNC_RAID6_TEST
 
 	  If unsure, say N.
 
+config ASYNC_TX_TEST
+	tristate "Test module for Async_Tx APIs"
+	depends on ASYNC_RAID6_RECOV
+	select ASYNC_MEMCPY
+	help
+	  This is a iterative stress test for various async_tx APIs. It
+	  capable of batching large number of async_tx request in each
+	  iteration.
+
+	  If unsure, say N.
+
 config TEST_HEXDUMP
 	tristate "Test functions located in the hexdump module at runtime"
 
