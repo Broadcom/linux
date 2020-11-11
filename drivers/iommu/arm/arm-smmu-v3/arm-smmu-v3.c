@@ -3589,12 +3589,14 @@ static int arm_smmu_device_reset(struct arm_smmu_device *smmu, bool bypass)
 	u32 reg, enables;
 	struct arm_smmu_cmdq_ent cmd;
 
-	/* Clear CR0 and sync (disables SMMU and queue processing) */
-	reg = readl_relaxed(smmu->base + ARM_SMMU_CR0);
-	if (reg & CR0_SMMUEN) {
-		dev_warn(smmu->dev, "SMMU currently enabled! Resetting...\n");
-		WARN_ON(is_kdump_kernel() && !disable_bypass);
-		arm_smmu_update_gbpa(smmu, GBPA_ABORT, 0);
+	if (!(smmu->features & ARM_SMMU_PREALLOCATE)) {
+		/* Clear CR0 and sync (disables SMMU and queue processing) */
+		reg = readl_relaxed(smmu->base + ARM_SMMU_CR0);
+		if (reg & CR0_SMMUEN) {
+			dev_warn(smmu->dev, "SMMU currently enabled! Resetting...\n");
+			WARN_ON(is_kdump_kernel() && !disable_bypass);
+			arm_smmu_update_gbpa(smmu, GBPA_ABORT, 0);
+		}
 	}
 
 	ret = arm_smmu_device_disable(smmu);
@@ -3917,7 +3919,8 @@ static int arm_smmu_device_hw_probe(struct arm_smmu_device *smmu)
 
 	smmu->ias = max(smmu->ias, smmu->oas);
 
-	if (readq_relaxed(smmu->base + ARM_SMMU_STRTAB_BASE))
+	reg = readl_relaxed(smmu->base + ARM_SMMU_CR0);
+	if (reg & CR0_SMMUEN)
 		smmu->features |= ARM_SMMU_PREALLOCATE;
 
 	dev_info(smmu->dev, "ias %lu-bit, oas %lu-bit (features 0x%08x)\n",
