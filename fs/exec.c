@@ -950,14 +950,10 @@ struct file *open_exec(const char *name)
 }
 EXPORT_SYMBOL(open_exec);
 
-int kernel_pread_file(struct file *file, void **buf, loff_t *size,
-		      loff_t max_size, loff_t pos,
-		      enum kernel_read_file_id id)
+int kernel_read_file(struct file *file, void **buf, loff_t *size,
+		     loff_t max_size, enum kernel_read_file_id id)
 {
-	loff_t alloc_size;
-	loff_t buf_pos;
-	loff_t read_end;
-	loff_t i_size;
+	loff_t i_size, pos;
 	ssize_t bytes = 0;
 	int ret;
 
@@ -977,32 +973,21 @@ int kernel_pread_file(struct file *file, void **buf, loff_t *size,
 		ret = -EINVAL;
 		goto out;
 	}
-
-	/* Default read to end of file */
-	read_end = i_size;
-
-	/* Allow reading partial portion of file */
-	if ((id == READING_FIRMWARE_PARTIAL_READ) &&
-	    (i_size > (pos + max_size)))
-		read_end = pos + max_size;
-
-	alloc_size = read_end - pos;
-	if (i_size > SIZE_MAX || (max_size > 0 && alloc_size > max_size)) {
+	if (i_size > SIZE_MAX || (max_size > 0 && i_size > max_size)) {
 		ret = -EFBIG;
 		goto out;
 	}
 
-	if ((id != READING_FIRMWARE_PARTIAL_READ) &&
-	    (id != READING_FIRMWARE_PREALLOC_BUFFER))
-		*buf = vmalloc(alloc_size);
+	if (id != READING_FIRMWARE_PREALLOC_BUFFER)
+		*buf = vmalloc(i_size);
 	if (!*buf) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	buf_pos = 0;
-	while (pos < read_end) {
-		bytes = kernel_read(file, *buf + buf_pos, read_end - pos, &pos);
+	pos = 0;
+	while (pos < i_size) {
+		bytes = kernel_read(file, *buf + pos, i_size - pos, &pos);
 		if (bytes < 0) {
 			ret = bytes;
 			goto out_free;
@@ -1010,23 +995,20 @@ int kernel_pread_file(struct file *file, void **buf, loff_t *size,
 
 		if (bytes == 0)
 			break;
-
-		buf_pos += bytes;
 	}
 
-	if (pos != read_end) {
+	if (pos != i_size) {
 		ret = -EIO;
 		goto out_free;
 	}
 
-	ret = security_kernel_post_read_file(file, *buf, alloc_size, id);
+	ret = security_kernel_post_read_file(file, *buf, i_size, id);
 	if (!ret)
 		*size = pos;
 
 out_free:
 	if (ret < 0) {
-		if ((id != READING_FIRMWARE_PARTIAL_READ) &&
-		    (id != READING_FIRMWARE_PREALLOC_BUFFER)) {
+		if (id != READING_FIRMWARE_PREALLOC_BUFFER) {
 			vfree(*buf);
 			*buf = NULL;
 		}
@@ -1036,18 +1018,10 @@ out:
 	allow_write_access(file);
 	return ret;
 }
-
-int kernel_read_file(struct file *file, void **buf, loff_t *size,
-		     loff_t max_size, enum kernel_read_file_id id)
-{
-	return kernel_pread_file(file, buf, size, max_size, 0, id);
-}
 EXPORT_SYMBOL_GPL(kernel_read_file);
 
-int kernel_pread_file_from_path(const char *path, void **buf,
-				loff_t *size,
-				loff_t max_size, loff_t pos,
-				enum kernel_read_file_id id)
+int kernel_read_file_from_path(const char *path, void **buf, loff_t *size,
+			       loff_t max_size, enum kernel_read_file_id id)
 {
 	struct file *file;
 	int ret;
@@ -1059,22 +1033,15 @@ int kernel_pread_file_from_path(const char *path, void **buf,
 	if (IS_ERR(file))
 		return PTR_ERR(file);
 
-	ret = kernel_pread_file(file, buf, size, max_size, pos, id);
+	ret = kernel_read_file(file, buf, size, max_size, id);
 	fput(file);
 	return ret;
 }
-
-int kernel_read_file_from_path(const char *path, void **buf, loff_t *size,
-			       loff_t max_size, enum kernel_read_file_id id)
-{
-	return kernel_pread_file_from_path(path, buf, size, max_size, 0, id);
-}
 EXPORT_SYMBOL_GPL(kernel_read_file_from_path);
 
-int kernel_pread_file_from_path_initns(const char *path, void **buf,
-				       loff_t *size,
-				       loff_t max_size, loff_t pos,
-				       enum kernel_read_file_id id)
+int kernel_read_file_from_path_initns(const char *path, void **buf,
+				      loff_t *size, loff_t max_size,
+				      enum kernel_read_file_id id)
 {
 	struct file *file;
 	struct path root;
@@ -1092,22 +1059,14 @@ int kernel_pread_file_from_path_initns(const char *path, void **buf,
 	if (IS_ERR(file))
 		return PTR_ERR(file);
 
-	ret = kernel_pread_file(file, buf, size, max_size, pos, id);
+	ret = kernel_read_file(file, buf, size, max_size, id);
 	fput(file);
 	return ret;
 }
-
-int kernel_read_file_from_path_initns(const char *path, void **buf,
-				      loff_t *size, loff_t max_size,
-				      enum kernel_read_file_id id)
-{
-	return kernel_pread_file_from_path_initns(path, buf, size, max_size, 0, id);
-}
 EXPORT_SYMBOL_GPL(kernel_read_file_from_path_initns);
 
-int kernel_pread_file_from_fd(int fd, void **buf, loff_t *size,
-			      loff_t max_size, loff_t pos,
-			      enum kernel_read_file_id id)
+int kernel_read_file_from_fd(int fd, void **buf, loff_t *size, loff_t max_size,
+			     enum kernel_read_file_id id)
 {
 	struct fd f = fdget(fd);
 	int ret = -EBADF;
@@ -1115,16 +1074,10 @@ int kernel_pread_file_from_fd(int fd, void **buf, loff_t *size,
 	if (!f.file)
 		goto out;
 
-	ret = kernel_pread_file(f.file, buf, size, max_size, pos, id);
+	ret = kernel_read_file(f.file, buf, size, max_size, id);
 out:
 	fdput(f);
 	return ret;
-}
-
-int kernel_read_file_from_fd(int fd, void **buf, loff_t *size, loff_t max_size,
-			     enum kernel_read_file_id id)
-{
-	return kernel_pread_file_from_fd(fd, buf, size, max_size, 0, id);
 }
 EXPORT_SYMBOL_GPL(kernel_read_file_from_fd);
 
