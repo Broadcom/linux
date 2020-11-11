@@ -126,16 +126,6 @@ config I2C_SLAVE_EEPROM
 	  This backend makes Linux behave like an I2C EEPROM. Please read
 	  Documentation/i2c/slave-eeprom-backend.rst for further details.
 
-config I2C_SLAVE_BMC
-	tristate "I2C slave BMC driver"
-	default ARCH_BCM_IPROC
-	help
-	  Say Y here if you want to build support for slave mode
-	  BMC client device driver. This driver can provide thermal
-	  information and other chip status with i2c command.
-	  This support is also available as a module.  If so, the module
-	  will be called i2c-slave-bmc.
-
 endif
 
 config I2C_DEBUG_CORE
