@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
+obj-$(CONFIG_PHY_BCM63XX_USBH)		+= phy-bcm63xx-usbh.o
 obj-$(CONFIG_PHY_CYGNUS_PCIE)		+= phy-bcm-cygnus-pcie.o
 obj-$(CONFIG_PHY_SR_PCIE_DIAG)          += phy-bcm-sr-pcie-diag.o
 obj-$(CONFIG_PHY_STINGRAY_SATA_PRBS)	+= phy-bcm-stingray-sata-prbs.o
