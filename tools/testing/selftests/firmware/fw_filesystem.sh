@@ -149,26 +149,6 @@ config_unset_into_buf()
 	echo 0 >  $DIR/config_into_buf
 }
 
-config_set_buf_size()
-{
-	echo $1 >  $DIR/config_buf_size
-}
-
-config_set_file_offset()
-{
-	echo $1 >  $DIR/config_file_offset
-}
-
-config_set_partial()
-{
-	echo 1 >  $DIR/config_partial
-}
-
-config_unset_partial()
-{
-	echo 0 >  $DIR/config_partial
-}
-
 config_set_sync_direct()
 {
 	echo 1 >  $DIR/config_sync_direct
@@ -222,35 +202,6 @@ read_firmwares()
 		# cmp agrees, so something is off.
 		if ! diff -q -Z "$fwfile" $DIR/read_firmware 2>/dev/null ; then
 			echo "request #$i: firmware was not loaded" >&2
-			exit 1
-		fi
-	done
-}
-
-read_partial_firmwares()
-{
-	if [ "$(cat $DIR/config_into_buf)" == "1" ]; then
-		fwfile="${FW_INTO_BUF}"
-	else
-		fwfile="${FW}"
-	fi
-
-	if [ "$1" = "xzonly" ]; then
-		fwfile="${fwfile}-orig"
-	fi
-
-	# Strip fwfile down to match partial offset and length
-	partial_data="$(cat $fwfile)"
-	partial_data="${partial_data:$2:$3}"
-
-	for i in $(seq 0 3); do
-		config_set_read_fw_idx $i
-
-		read_firmware="$(cat $DIR/read_firmware)"
-
-		# Verify the contents are what we expect.
-		if [ $read_firmware != $partial_data ]; then
-			echo "request #$i: partial firmware was not loaded" >&2
 			exit 1
 		fi
 	done
@@ -368,21 +319,6 @@ test_batched_request_firmware_into_buf()
 	echo "OK"
 }
 
-test_batched_request_partial_firmware_into_buf()
-{
-	echo -n "Batched request_partial_firmware_into_buf() $2 off=$3 size=$4 try #$1: "
-	config_reset
-	config_set_name $TEST_FIRMWARE_INTO_BUF_FILENAME
-	config_set_into_buf
-	config_set_partial
-	config_set_buf_size $4
-	config_set_file_offset $3
-	config_trigger_sync
-	read_partial_firmwares $2 $3 $4
-	release_all_firmware
-	echo "OK"
-}
-
 test_batched_request_firmware_direct()
 {
 	echo -n "Batched request_firmware_direct() $2 try #$1: "
@@ -433,22 +369,6 @@ done
 
 for i in $(seq 1 5); do
 	test_batched_request_firmware_into_buf $i normal
-done
-
-for i in $(seq 1 5); do
-	test_batched_request_partial_firmware_into_buf $i normal 0 10
-done
-
-for i in $(seq 1 5); do
-	test_batched_request_partial_firmware_into_buf $i normal 0 5
-done
-
-for i in $(seq 1 5); do
-	test_batched_request_partial_firmware_into_buf $i normal 1 6
-done
-
-for i in $(seq 1 5); do
-	test_batched_request_partial_firmware_into_buf $i normal 2 10
 done
 
 for i in $(seq 1 5); do
