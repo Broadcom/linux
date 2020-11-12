@@ -35,7 +35,7 @@
 #include <linux/cdev.h>
 #include <linux/clk.h>
 #include <linux/device.h>
-#include <linux/dma-noncoherent.h>
+#include <linux/dma-map-ops.h>
 #include <linux/fs.h>
 #include <linux/idr.h>
 #include <linux/init.h>
