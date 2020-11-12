@@ -40,7 +40,6 @@
 #define ENABLE_SSP1	1
 #define ENABLE_UART2	1
 #define ENABLE_UART3	1
-#define NUM_SATA	8
 
 #include "bcm958742-base.dtsi"
 

@@ -35,7 +35,6 @@
 #define NUM_CRYPTO	32
 #define NUM_RAID	8
 #define ENABLE_I2C0	1
-#define NUM_SATA	8
 
 #include "bcm958742-base.dtsi"
 
