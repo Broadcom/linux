@@ -28,6 +28,7 @@ dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040-diag.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040-pcie-iommu.dtb
 
+dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8043c.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8043c-pcie-iommu.dtb
 
 subdir-y	:= custom
