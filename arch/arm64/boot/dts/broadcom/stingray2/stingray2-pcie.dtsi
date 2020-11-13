@@ -139,7 +139,143 @@
 		status = "disabled";
 	};
 
-	pcie8: pcie@20000000 {
+	pcie4: pcie@5440000000 {
+		compatible = "pci-host-ecam-generic";
+		reg = <0x54 0x40000000 0x0 0x10000000>;
+		reg-names = "PCI ECAM";
+		linux,pci-domain = <4>;
+		bus-range = <0x0 0xff>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &gic 0 GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 2 &gic 0 GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 3 &gic 0 GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 4 &gic 0 GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH>;
+
+		ranges = <0x83000000 0x0 0xc000000 0x0 0xc000000 0 0x2000000>,
+			 <0x43000000 0x48 0x00000000 0x48 0x00000000 0x2 0x00000000>;
+		dma-ranges = <0x0 0x00 0x00000000 0x00 0x00000000 0x100 0x00000000>;
+		dma-coherent;
+		msi-map = <0x0 &gic_its1 0x40000 0xFFFF>; /* PF0 */
+		iommu-map = <0x0 &smmu 0x40000 0xFFFF>; /* PF0 */
+		status = "disabled";
+	};
+
+	pciehp4: pciehp@2a40000 {
+		compatible = "brcm,iproc-pciehp";
+		reg = <0x0 0x02a40000  0x0 0x1000>;
+		interrupts = <GIC_SPI 286 IRQ_TYPE_LEVEL_HIGH>;
+		brcm,iproc-pciehp-rc = <&pcie4>;
+		status = "disabled";
+	};
+
+	pcie5: pcie@5450000000 {
+		compatible = "pci-host-ecam-generic";
+		reg = <0x54 0x50000000 0x0 0x10000000>;
+		reg-names = "PCI ECAM";
+		linux,pci-domain = <5>;
+		bus-range = <0x0 0xff>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &gic 0 GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 2 &gic 0 GIC_SPI 348 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 3 &gic 0 GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 4 &gic 0 GIC_SPI 350 IRQ_TYPE_LEVEL_HIGH>;
+
+		ranges = <0x83000000 0x0 0xe000000 0x0 0xe000000 0 0x2000000>,
+			 <0x43000000 0x4a 0x00000000 0x4a 0x00000000 0x2 0x00000000>;
+		dma-ranges = <0x0 0x00 0x00000000 0x00 0x00000000 0x100 0x00000000>;
+		dma-coherent;
+		msi-map = <0x0 &gic_its1 0x50000 0xFFFF>; /* PF0 */
+		iommu-map = <0x0 &smmu 0x50000 0xFFFF>; /* PF0 */
+		status = "disabled";
+	};
+
+	pciehp5: pciehp@2a50000 {
+		compatible = "brcm,iproc-pciehp";
+		reg = <0x0 0x02a50000  0x0 0x1000>;
+		interrupts = <GIC_SPI 292 IRQ_TYPE_LEVEL_HIGH>;
+		brcm,iproc-pciehp-rc = <&pcie5>;
+		status = "disabled";
+	};
+
+	pcie6: pcie@5460000000 {
+		compatible = "pci-host-ecam-generic";
+		reg = <0x54 0x60000000 0x0 0x10000000>;
+		reg-names = "PCI ECAM";
+		linux,pci-domain = <6>;
+		bus-range = <0x0 0xff>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &gic 0 GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 2 &gic 0 GIC_SPI 352 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 3 &gic 0 GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 4 &gic 0 GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH>;
+
+		ranges = <0x83000000 0x0 0x10000000 0x0 0x10000000 0 0x2000000>,
+			 <0x43000000 0x4c 0x00000000 0x4c 0x00000000 0x2 0x00000000>;
+		dma-ranges = <0x0 0x00 0x00000000 0x00 0x00000000 0x100 0x00000000>;
+		dma-coherent;
+		msi-map = <0x0 &gic_its1 0x60000 0xFFFF>; /* PF0 */
+		iommu-map = <0x0 &smmu 0x60000 0xFFFF>; /* PF0 */
+		status = "disabled";
+	};
+
+	pciehp6: pciehp@2a60000 {
+		compatible = "brcm,iproc-pciehp";
+		reg = <0x0 0x02a60000  0x0 0x1000>;
+		interrupts = <GIC_SPI 298 IRQ_TYPE_LEVEL_HIGH>;
+		brcm,iproc-pciehp-rc = <&pcie6>;
+		status = "disabled";
+	};
+
+	pcie7: pcie@5470000000 {
+		compatible = "pci-host-ecam-generic";
+		reg = <0x54 0x70000000 0x0 0x10000000>;
+		reg-names = "PCI ECAM";
+		linux,pci-domain = <7>;
+		bus-range = <0x0 0xff>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &gic 0 GIC_SPI 355 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 2 &gic 0 GIC_SPI 356 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 3 &gic 0 GIC_SPI 357 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 4 &gic 0 GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>;
+
+		ranges = <0x83000000 0x0 0x12000000 0x0 0x12000000 0 0x2000000>,
+			 <0x43000000 0x4e 0x00000000 0x4e 0x00000000 0x2 0x00000000>;
+		dma-ranges = <0x0 0x00 0x00000000 0x00 0x00000000 0x100 0x00000000>;
+		dma-coherent;
+		msi-map = <0x0 &gic_its1 0x70000 0xFFFF>; /* PF0 */
+		iommu-map = <0x0 &smmu 0x70000 0xFFFF>; /* PF0 */
+		status = "disabled";
+	};
+
+	pciehp7: pciehp@2a70000 {
+		compatible = "brcm,iproc-pciehp";
+		reg = <0x0 0x02a70000  0x0 0x1000>;
+		interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>;
+		brcm,iproc-pciehp-rc = <&pcie7>;
+		status = "disabled";
+	};
+
+	pcie8: pcie@40800000 {
 		compatible = "pci-host-ecam-generic";
 		reg = <0x0 0x40800000  0x0 0x800000>;
 		reg-names = "PCI ECAM";
@@ -154,5 +290,57 @@
 		dma-coherent;
 		msi-map = <0x100 &gic_its0 0xe0000 0x8>; /* PF0 - PF7*/
 		iommu-map = <0x100 &smmu 0xe0000 0x8>; /* PF0 - PF7 */
+		status = "disabled";
+	};
+
+	pcie9: pcie@5480000000 {
+		compatible = "pci-host-ecam-generic";
+		reg = <0x54 0x80000000 0x0 0x10000000>;
+		reg-names = "PCI ECAM";
+		linux,pci-domain = <9>;
+		bus-range = <0x0 0xff>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &gic 0 GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 2 &gic 0 GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 3 &gic 0 GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 4 &gic 0 GIC_SPI 362 IRQ_TYPE_LEVEL_HIGH>;
+
+		ranges = <0x83000000 0x0 0x14000000 0x0 0x14000000 0 0x2000000>,
+			 <0x43000000 0x50 0x00000000 0x50 0x00000000 0x2 0x00000000>;
+		dma-ranges = <0x0 0x00 0x00000000 0x00 0x00000000 0x100 0x00000000>;
+		dma-coherent;
+		msi-map = <0x0 &gic_its1 0x80000 0xFFFF>; /* PF0 */
+		iommu-map = <0x0 &smmu 0x80000 0xFFFF>; /* PF0 */
+		status = "disabled";
+	};
+
+	pcie10: pcie@5490000000 {
+		compatible = "pci-host-ecam-generic";
+		reg = <0x54 0x90000000 0x0 0x10000000>;
+		reg-names = "PCI ECAM";
+		linux,pci-domain = <10>;
+		bus-range = <0x0 0xff>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &gic 0 GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 2 &gic 0 GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 3 &gic 0 GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 4 &gic 0 GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH>;
+
+		ranges = <0x83000000 0x0 0x16000000 0x0 0x16000000 0 0x2000000>,
+			 <0x43000000 0x52 0x00000000 0x52 0x00000000 0x2 0x00000000>;
+		dma-ranges = <0x0 0x00 0x00000000 0x00 0x00000000 0x100 0x00000000>;
+		dma-coherent;
+		msi-map = <0x0 &gic_its1 0x90000 0xFFFF>; /* PF0 */
+		iommu-map = <0x0 &smmu 0x90000 0xFFFF>; /* PF0 */
 		status = "disabled";
 	};
