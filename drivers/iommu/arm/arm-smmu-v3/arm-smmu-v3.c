@@ -1315,9 +1315,13 @@ static void arm_smmu_write_strtab_ent(struct arm_smmu_master *master, u32 sid,
 static void arm_smmu_init_bypass_stes(__le64 *strtab, unsigned int nent)
 {
 	unsigned int i;
+	u64 val;
 
 	for (i = 0; i < nent; ++i) {
-		arm_smmu_write_strtab_ent(NULL, -1, strtab);
+		val = le64_to_cpu(strtab[0]);
+		if ((val & STRTAB_STE_0_V) == 0)
+			arm_smmu_write_strtab_ent(NULL, -1, strtab);
+
 		strtab += STRTAB_STE_DWORDS;
 	}
 }
@@ -1336,8 +1340,11 @@ static int arm_smmu_init_l2_strtab(struct arm_smmu_device *smmu, u32 sid)
 	strtab = &cfg->strtab[(sid >> STRTAB_SPLIT) * STRTAB_L1_DESC_DWORDS];
 
 	desc->span = STRTAB_SPLIT + 1;
-	desc->l2ptr = dmam_alloc_coherent(smmu->dev, size, &desc->l2ptr_dma,
-					  GFP_KERNEL);
+	if ((smmu->features & ARM_SMMU_PREALLOCATE) && desc->l2ptr_dma)
+		desc->l2ptr = memremap(desc->l2ptr_dma, size, MEMREMAP_WB);
+	else
+		desc->l2ptr = dmam_alloc_coherent(smmu->dev, size,
+						  &desc->l2ptr_dma, GFP_KERNEL);
 	if (!desc->l2ptr) {
 		dev_err(smmu->dev,
 			"failed to allocate l2 stream table for SID %u\n",
@@ -2700,6 +2707,8 @@ static int arm_smmu_init_l1_strtab(struct arm_smmu_device *smmu)
 	struct arm_smmu_strtab_cfg *cfg = &smmu->strtab_cfg;
 	size_t size = sizeof(*cfg->l1_desc) * cfg->num_l1_ents;
 	void *strtab = smmu->strtab_cfg.strtab;
+	__le64 dst;
+	u8 span;
 
 	cfg->l1_desc = devm_kzalloc(smmu->dev, size, GFP_KERNEL);
 	if (!cfg->l1_desc) {
@@ -2708,6 +2717,13 @@ static int arm_smmu_init_l1_strtab(struct arm_smmu_device *smmu)
 	}
 
 	for (i = 0; i < cfg->num_l1_ents; ++i) {
+		dst = *(__le64 *)strtab & STRTAB_L1_DESC_L2PTR_MASK;
+		span = *(__le64 *)strtab & STRTAB_L1_DESC_SPAN;
+		if ((smmu->features & ARM_SMMU_PREALLOCATE) && (dst != 0)) {
+			cfg->l1_desc[i].l2ptr_dma = dst;
+			cfg->l1_desc[i].span = span;
+		}
+
 		arm_smmu_write_strtab_l1_desc(strtab, &cfg->l1_desc[i]);
 		strtab += STRTAB_L1_DESC_DWORDS << 3;
 	}
@@ -2734,8 +2750,17 @@ static int arm_smmu_init_strtab_2lvl(struct arm_smmu_device *smmu)
 			 size, smmu->sid_bits);
 
 	l1size = cfg->num_l1_ents * (STRTAB_L1_DESC_DWORDS << 3);
-	strtab = dmam_alloc_coherent(smmu->dev, l1size, &cfg->strtab_dma,
-				     GFP_KERNEL);
+
+	if (smmu->features & ARM_SMMU_PREALLOCATE) {
+		cfg->strtab_base = readq_relaxed(smmu->base +
+						 ARM_SMMU_STRTAB_BASE);
+		cfg->strtab_dma = STRTAB_BASE_ADDR_MASK & cfg->strtab_base;
+		strtab = memremap(cfg->strtab_dma, l1size, MEMREMAP_WB);
+	} else {
+		strtab = dmam_alloc_coherent(smmu->dev, l1size,
+					     &cfg->strtab_dma, GFP_KERNEL);
+	}
+
 	if (!strtab) {
 		dev_err(smmu->dev,
 			"failed to allocate l1 stream table (%u bytes)\n",
@@ -3022,12 +3047,14 @@ static int arm_smmu_device_reset(struct arm_smmu_device *smmu, bool bypass)
 	u32 reg, enables;
 	struct arm_smmu_cmdq_ent cmd;
 
-	/* Clear CR0 and sync (disables SMMU and queue processing) */
-	reg = readl_relaxed(smmu->base + ARM_SMMU_CR0);
-	if (reg & CR0_SMMUEN) {
-		dev_warn(smmu->dev, "SMMU currently enabled! Resetting...\n");
-		WARN_ON(is_kdump_kernel() && !disable_bypass);
-		arm_smmu_update_gbpa(smmu, GBPA_ABORT, 0);
+	if (!(smmu->features & ARM_SMMU_PREALLOCATE)) {
+		/* Clear CR0 and sync (disables SMMU and queue processing) */
+		reg = readl_relaxed(smmu->base + ARM_SMMU_CR0);
+		if (reg & CR0_SMMUEN) {
+			dev_warn(smmu->dev, "SMMU currently enabled! Resetting...\n");
+			WARN_ON(is_kdump_kernel() && !disable_bypass);
+			arm_smmu_update_gbpa(smmu, GBPA_ABORT, 0);
+		}
 	}
 
 	ret = arm_smmu_device_disable(smmu);
@@ -3352,6 +3379,10 @@ static int arm_smmu_device_hw_probe(struct arm_smmu_device *smmu)
 			 "failed to set DMA mask for table walker\n");
 
 	smmu->ias = max(smmu->ias, smmu->oas);
+
+	reg = readl_relaxed(smmu->base + ARM_SMMU_CR0);
+	if (reg & CR0_SMMUEN)
+		smmu->features |= ARM_SMMU_PREALLOCATE;
 
 	if (arm_smmu_sva_supported(smmu))
 		smmu->features |= ARM_SMMU_FEAT_SVA;
