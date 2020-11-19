@@ -118,7 +118,7 @@
 
 #define BAR_CARD_TEMPERATURE		0x45c
 /* defines for all temperature sensor */
-#define BCM_VK_TEMP_FIELD_MASK		0xff
+#define BCM_VK_TEMP_FIELD_WIDTH         8
 #define BCM_VK_CPU_TEMP_SHIFT		0
 #define BCM_VK_DDR0_TEMP_SHIFT		8
 #define BCM_VK_DDR1_TEMP_SHIFT		16

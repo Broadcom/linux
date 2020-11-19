@@ -173,12 +173,12 @@ static ssize_t temperature_sensor_show(struct device *dev,
 				       const char *tag,
 				       unsigned int offset)
 {
-	unsigned int temperature = 0; /* default if invalid */
+	s32 temperature;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 
-	temperature = vkread32(vk, BAR_0, BAR_CARD_TEMPERATURE);
-	temperature = (temperature >> offset) & BCM_VK_TEMP_FIELD_MASK;
+	temperature = sign_extend32(vkread32(vk, BAR_0, BAR_CARD_TEMPERATURE)
+				    >> offset, BCM_VK_TEMP_FIELD_WIDTH - 1);
 
 	dev_dbg(dev, "Temperature_%s : %u Celsius\n", tag, temperature);
 	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", temperature);
