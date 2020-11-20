@@ -10,7 +10,7 @@
  * to be updated in DTB by bootloader before
  * handing over DTB to Linux kernel.
  */
-/memreserve/ 0x9d000000 0x08000000;
+/memreserve/ 0x9d000000 0x10000000;
 
 /* HACK: Reserve bl31 location
  * The memreserve entry for bl31 is supposed to
