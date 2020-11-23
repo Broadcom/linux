@@ -415,6 +415,7 @@
 	};
 
 	#include "stingray2-clock.dtsi"
+	#include "stingray2-idm.dtsi"
 
 	hsls {
 		compatible = "simple-bus";
