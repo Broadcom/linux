@@ -35,7 +35,7 @@ iproc-idm {
 	};
 
 	idm-mhb-paxc-axi {
-		compatible = "brcm,iproc-idm", "brcm,sr-idm-mhb-paxc-axi;
+		compatible = "brcm,sr-idm-mhb-paxc-axi, "brcm,iproc-idm";
 		interrupt = <GIC_SPI 516 IRQ_TYPE_LEVEL_HIGH>;
 		brcm,iproc-idm-elog = <&idm-elog>;
 	};
@@ -75,6 +75,8 @@ List of supported IDM devices for Stingray is:
 "brcm,sr-idm-scr-sata"
 "brcm,sr-idm-scr-cssys-stm-axi"
 "brcm,sr-idm-scr-ds0"
+"brcm,sr-idm-scr-axi2apb_0_s"
+"brcm,sr-idm-scr-axi2apb_1_s"
 "brcm,sr-idm-fs4-axi2apb-div2"
 "brcm,sr-idm-fs4-axi2apb"
 "brcm,sr-idm-fs4-sram"
@@ -97,5 +99,9 @@ List of supported IDM devices for Stingray is:
 "brcm,sr-idm-apbx"
 "brcm,sr-idm-apby"
 "brcm,sr-idm-apbz"
+"brcm,sr-idm-apb400"
 "brcm,sr-idm-sdio0-axi2ahb"
 "brcm,sr-idm-sdio1-axi2ahb"
+"brcm,sr-idm-spd-slave"
+"brcm,sr-idm-usb-emmc-apbx"
+"brcm,sr-idm-hsls-sram"
