@@ -447,6 +447,7 @@ static const struct of_device_id iproc_idm_of_match[] = {
 	{ .compatible = "brcm,iproc-idm", },
 	{ .compatible = "brcm,iproc-idm-v2", },
 	{ .compatible = ELOG_IDM_COMPAT_STR, },
+	{ .compatible = "brcm,sr-idm-hsls-sram", },
 	{ .compatible = "brcm,sr-idm-paxb0-axi", },
 	{ .compatible = "brcm,sr-idm-paxb1-axi", },
 	{ .compatible = "brcm,sr-idm-paxb2-axi", },
@@ -472,6 +473,8 @@ static const struct of_device_id iproc_idm_of_match[] = {
 	{ .compatible = "brcm,sr-idm-scr-hsls", },
 	{ .compatible = "brcm,sr-idm-scr-crmu", },
 	{ .compatible = "brcm,sr-idm-scr-usb", },
+	{ .compatible = "brcm,sr-idm-scr-axi2apb_0_s", },
+	{ .compatible = "brcm,sr-idm-scr-axi2apb_1_s", },
 	{ .compatible = "brcm,sr-idm-scr-axi2apb-div4", },
 	{ .compatible = "brcm,sr-idm-scr-axi2apb-div4-emem", },
 	{ .compatible = "brcm,sr-idm-scr-axi2apb-cssys", },
@@ -502,8 +505,11 @@ static const struct of_device_id iproc_idm_of_match[] = {
 	{ .compatible = "brcm,sr-idm-apbx", },
 	{ .compatible = "brcm,sr-idm-apby", },
 	{ .compatible = "brcm,sr-idm-apbz", },
+	{ .compatible = "brcm,sr-idm-apb400", },
 	{ .compatible = "brcm,sr-idm-sdio0-axi2ahb", },
 	{ .compatible = "brcm,sr-idm-sdio1-axi2ahb", },
+	{ .compatible = "brcm,sr-idm-spd-slave", },
+	{ .compatible = "brcm,sr-idm-usb-emmc-apbx", },
 	{ }
 };
 
