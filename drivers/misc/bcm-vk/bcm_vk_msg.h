@@ -82,10 +82,11 @@ struct vk_msg_blk {
 struct bcm_vk_ctx {
 	struct list_head node; /* use for linkage in Hash Table */
 	unsigned int idx;
-	bool in_use;
+	bool active;
 	pid_t pid;
 	u32 hash_idx;
 	u32 q_num; /* queue number used by the stream */
+	unsigned long kill_resp_to; /* timeout for kill's responses */
 	struct miscdevice *miscdev;
 	atomic_t pend_cnt; /* number of items pending to be read from host */
 	atomic_t dma_cnt; /* any dma transaction outstanding */
@@ -95,6 +96,19 @@ struct bcm_vk_ctx {
 /* pid hash table entry */
 struct bcm_vk_ht_entry {
 	struct list_head head;
+};
+
+/* hash table defines to store the opened FDs */
+#define VK_PID_HT_SHIFT_BIT	7 /* 128 */
+#define VK_PID_HT_SZ		BIT(VK_PID_HT_SHIFT_BIT)
+
+/* context control structure */
+struct bcm_vk_ctx_ctrl {
+	unsigned int counter; /* unique assigned idx */
+	u32 act_cnt;
+	struct list_head iso_head;
+	u32 iso_cnt;
+	struct bcm_vk_ht_entry pid_ht[VK_PID_HT_SZ];
 };
 
 #define VK_DMA_MAX_ADDRS 4 /* Max 4 DMA Addresses */
@@ -160,10 +174,6 @@ struct bcm_vk_msg_chan {
 
 /* total number of supported ctx, 32 ctx each for 5 components */
 #define VK_CMPT_CTX_MAX		(32 * 5)
-
-/* hash table defines to store the opened FDs */
-#define VK_PID_HT_SHIFT_BIT	7 /* 128 */
-#define VK_PID_HT_SZ		BIT(VK_PID_HT_SHIFT_BIT)
 
 /* The following are offsets of DDR info provided by the vk card */
 #define VK_BAR0_SEG_SIZE	(4 * SZ_1K) /* segment size for BAR0 */

@@ -400,8 +400,7 @@ struct bcm_vk {
 	u16 msg_id;
 	DECLARE_BITMAP(bmap, VK_MSG_ID_BITMAP_SIZE);
 	spinlock_t ctx_lock; /* Spinlock for component context */
-	struct bcm_vk_ctx ctx[VK_CMPT_CTX_MAX];
-	struct bcm_vk_ht_entry pid_ht[VK_PID_HT_SZ];
+	struct bcm_vk_ctx_ctrl ctx_ctrl;
 	pid_t reset_pid; /* process that issue reset */
 
 	atomic_t msgq_inited; /* indicate if info has been synced with vk */
@@ -508,6 +507,7 @@ ssize_t bcm_vk_write(struct file *p_file, const char __user *buf,
 		     size_t count, loff_t *f_pos);
 __poll_t bcm_vk_poll(struct file *p_file, struct poll_table_struct *wait);
 int bcm_vk_release(struct inode *inode, struct file *p_file);
+int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *ctx);
 void bcm_vk_release_data(struct kref *kref);
 irqreturn_t bcm_vk_msgq_irqhandler(int irq, void *dev_id);
 irqreturn_t bcm_vk_notf_irqhandler(int irq, void *dev_id);

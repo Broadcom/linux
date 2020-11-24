@@ -256,39 +256,37 @@ static void bcm_vk_msgid_bitmap_clear(struct bcm_vk *vk,
  */
 static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk, const pid_t pid)
 {
-	u32 i;
-	struct bcm_vk_ctx *ctx = NULL;
+	struct device *dev = &vk->pdev->dev;
+	struct bcm_vk_ctx *ctx;
 	u32 hash_idx = hash_32(pid, VK_PID_HT_SHIFT_BIT);
+	struct bcm_vk_ctx_ctrl *cctrl = &vk->ctx_ctrl;
+
+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
+		return ctx;
 
 	spin_lock(&vk->ctx_lock);
+	if (cctrl->act_cnt >= VK_CMPT_CTX_MAX) {
+		dev_err(dev, "Max %d context reached!\n",
+			VK_CMPT_CTX_MAX);
+		goto cleanup;
+	}
 
 	/* check if it is in reset, if so, don't allow */
 	if (vk->reset_pid) {
-		dev_err(&vk->pdev->dev,
+		dev_err(dev,
 			"No context allowed during reset by pid %d\n",
 			vk->reset_pid);
-
-		goto in_reset_exit;
+		goto cleanup;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(vk->ctx); i++) {
-		if (!vk->ctx[i].in_use) {
-			vk->ctx[i].in_use = true;
-			ctx = &vk->ctx[i];
-			break;
-		}
-	}
-
-	if (!ctx) {
-		dev_err(&vk->pdev->dev, "All context in use\n");
-
-		goto all_in_use_exit;
-	}
-
+	cctrl->act_cnt++;
+	ctx->active = true;
+	ctx->idx = ++cctrl->counter; /* unique handle */
 	/* set the pid and insert it to hash table */
 	ctx->pid = pid;
 	ctx->hash_idx = hash_idx;
-	list_add_tail(&ctx->node, &vk->pid_ht[hash_idx].head);
+	list_add_tail(&ctx->node, &cctrl->pid_ht[hash_idx].head);
 
 	/* increase kref */
 	kref_get(&vk->kref);
@@ -297,12 +295,13 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk, const pid_t pid)
 	atomic_set(&ctx->pend_cnt, 0);
 	atomic_set(&ctx->dma_cnt, 0);
 	init_waitqueue_head(&ctx->rd_wq);
-
-all_in_use_exit:
-in_reset_exit:
 	spin_unlock(&vk->ctx_lock);
-
 	return ctx;
+
+cleanup:
+	spin_unlock(&vk->ctx_lock);
+	kfree(ctx);
+	return NULL;
 }
 
 static u16 bcm_vk_get_msg_id(struct bcm_vk *vk)
@@ -335,41 +334,40 @@ static u16 bcm_vk_get_msg_id(struct bcm_vk *vk)
 	return rc;
 }
 
-static int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *ctx)
+int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *ctx)
 {
-	u32 idx;
 	u32 hash_idx;
-	pid_t pid;
 	struct bcm_vk_ctx *entry;
-	int count = 0;
+	int ret = -EINVAL;
+	struct bcm_vk_ctx_ctrl *cctrl = &vk->ctx_ctrl;
 
 	if (!ctx) {
 		dev_err(&vk->pdev->dev, "NULL context detected\n");
-		return -EINVAL;
+		return ret;
 	}
-	idx = ctx->idx;
-	pid = ctx->pid;
 
 	spin_lock(&vk->ctx_lock);
-
-	if (!vk->ctx[idx].in_use) {
-		dev_err(&vk->pdev->dev, "context[%d] not in use!\n", idx);
-	} else {
-		vk->ctx[idx].in_use = false;
-		vk->ctx[idx].miscdev = NULL;
-
-		/* Remove it from hash list and see if it is the last one. */
-		list_del(&ctx->node);
+	list_del(&ctx->node);
+	if (ctx->active) {
+		cctrl->act_cnt--;
 		hash_idx = ctx->hash_idx;
-		list_for_each_entry(entry, &vk->pid_ht[hash_idx].head, node) {
-			if (entry->pid == pid)
-				count++;
+		ret = 0;
+		list_for_each_entry(entry, &cctrl->pid_ht[hash_idx].head,
+				    node) {
+			if (entry->pid == ctx->pid)
+				ret++;
 		}
+	} else {
+		/* ctx in quarantine */
+		cctrl->iso_cnt--;
+		dev_warn(&vk->pdev->dev, "ctx not in active - %d\n",
+			 cctrl->iso_cnt);
 	}
-
 	spin_unlock(&vk->ctx_lock);
 
-	return count;
+	kfree(ctx);
+	kref_put(&vk->kref, bcm_vk_release_data);
+	return ret;
 }
 
 static void bcm_vk_free_wkent(struct device *dev, struct bcm_vk_wkent *entry)
@@ -429,7 +427,8 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 					 "Drained: fid %u size %u msg 0x%x(seq-%x) ctx 0x%x[fd-%d] args:[0x%x 0x%x] resp %s, bmap %d\n",
 					 msg->function_id, msg->size,
 					 msg_id, entry->seq_num,
-					 msg->context_id, entry->ctx->idx,
+					 msg->context_id,
+					 entry->ctx->idx,
 					 msg->cmd, msg->arg,
 					 responded ? "T" : "F", bit_set);
 			if (responded)
@@ -440,7 +439,7 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 		bcm_vk_free_wkent(dev, entry);
 	}
 	if (num && ctx)
-		dev_info(dev, "Total drained items %d [fd-%d]\n",
+		dev_info(dev, "Total drained items %d, [fd-%d]\n",
 			 num, ctx->idx);
 }
 
@@ -995,20 +994,19 @@ idx_err:
 static int bcm_vk_data_init(struct bcm_vk *vk)
 {
 	int i;
+	struct bcm_vk_ctx_ctrl *cctrl = &vk->ctx_ctrl;
 
 	spin_lock_init(&vk->ctx_lock);
-	for (i = 0; i < ARRAY_SIZE(vk->ctx); i++) {
-		vk->ctx[i].in_use = false;
-		vk->ctx[i].idx = i;	/* self identity */
-		vk->ctx[i].miscdev = NULL;
-	}
 	spin_lock_init(&vk->msg_id_lock);
 	spin_lock_init(&vk->host_alert_lock);
 	vk->msg_id = 0;
 
 	/* initialize hash table */
 	for (i = 0; i < VK_PID_HT_SZ; i++)
-		INIT_LIST_HEAD(&vk->pid_ht[i].head);
+		INIT_LIST_HEAD(&cctrl->pid_ht[i].head);
+	INIT_LIST_HEAD(&cctrl->iso_head);
+	cctrl->act_cnt = 0;
+	cctrl->iso_cnt = 0;
 
 	return 0;
 }
@@ -1338,7 +1336,8 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	struct bcm_vk *vk = container_of(ctx->miscdev, struct bcm_vk, miscdev);
 	struct device *dev = &vk->pdev->dev;
 	pid_t pid = ctx->pid;
-	int dma_cnt;
+	u32 q_num = ctx->q_num;
+	int dma_cnt = 0;
 	unsigned long timeout, start_time;
 
 	/*
@@ -1369,11 +1368,9 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 
 	ret = bcm_vk_free_ctx(vk, ctx);
 	if (ret == 0)
-		ret = bcm_vk_handle_last_sess(vk, pid, ctx->q_num);
+		ret = bcm_vk_handle_last_sess(vk, pid, q_num);
 	else
 		ret = 0;
-
-	kref_put(&vk->kref, bcm_vk_release_data);
 
 	return ret;
 }
@@ -1412,4 +1409,3 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_v_msg_chan, NULL);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, NULL);
 }
-

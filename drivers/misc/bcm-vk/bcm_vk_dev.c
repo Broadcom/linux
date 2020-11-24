@@ -93,6 +93,13 @@ static const struct load_image_entry image_tab[][NUM_BOOT_STAGES] = {
 #define BCM_VK_DEINIT_TIME_MS		(2 * MSEC_PER_SEC)
 
 /*
+ * timeout if kernel does not close all fds after kill signal sent.
+ * This should only happen in very, very rare occasion, and the value
+ * could be made big as long as pid would not wrap around at this duration
+ */
+#define BCM_VK_KILL_WAIT_MS		(30 * MSEC_PER_SEC)
+
+/*
  * module parameters
  */
 static bool auto_load = true;
@@ -503,6 +510,7 @@ static int bcm_vk_sync_card_info(struct bcm_vk *vk)
 void bcm_vk_blk_drv_access(struct bcm_vk *vk)
 {
 	int i;
+	struct bcm_vk_ctx_ctrl *cctrl = &vk->ctx_ctrl;
 
 	/*
 	 * kill all the apps except for the process that is resetting.
@@ -515,14 +523,35 @@ void bcm_vk_blk_drv_access(struct bcm_vk *vk)
 	atomic_set(&vk->msgq_inited, 0);
 
 	for (i = 0; i < VK_PID_HT_SZ; i++) {
-		struct bcm_vk_ctx *ctx;
+		struct bcm_vk_ctx *ctx, *tmp;
 
-		list_for_each_entry(ctx, &vk->pid_ht[i].head, node) {
+		list_for_each_entry_safe(ctx, tmp,
+					 &cctrl->pid_ht[i].head, node) {
 			if (ctx->pid != vk->reset_pid) {
-				dev_dbg(&vk->pdev->dev,
-					"Send kill signal to pid %d\n",
-					ctx->pid);
-				kill_pid(find_vpid(ctx->pid), SIGKILL, 1);
+				if (!ctx->kill_resp_to) {
+					ctx->kill_resp_to = jiffies +
+					  msecs_to_jiffies(BCM_VK_KILL_WAIT_MS);
+					dev_dbg(&vk->pdev->dev,
+						"Send kill signal to pid %d\n",
+						ctx->pid);
+					kill_pid(find_vpid(ctx->pid),
+						 SIGKILL, 1);
+					continue;
+				}
+				if (time_after(jiffies, ctx->kill_resp_to)) {
+					/*
+					 * if the job has been sent a kill and
+					 * time has elapsed enough, we don't
+					 * know why the kernel would not have
+					 * closed all fds, quarantine the item.
+					 */
+					list_del(&ctx->node);
+					ctx->active = false;
+					list_add_tail(&ctx->node,
+						      &cctrl->iso_head);
+					cctrl->act_cnt--;
+					cctrl->iso_cnt++;
+				}
 			}
 		}
 	}
@@ -1606,8 +1635,22 @@ err_free_exit:
 
 void bcm_vk_release_data(struct kref *kref)
 {
+	int i;
 	struct bcm_vk *vk = container_of(kref, struct bcm_vk, kref);
 	struct pci_dev *pdev = vk->pdev;
+	struct bcm_vk_ctx_ctrl *cctrl = &vk->ctx_ctrl;
+	struct bcm_vk_ctx *ctx, *tmp;
+
+	/* clean up any stale allocation of ctxs */
+	for (i = 0; i < VK_PID_HT_SZ; i++) {
+		list_for_each_entry_safe(ctx, tmp,
+					 &cctrl->pid_ht[i].head, node)
+			bcm_vk_free_ctx(vk, ctx);
+	}
+	/* free any ctx under quarantine */
+	list_for_each_entry_safe(ctx, tmp,
+				 &vk->ctx_ctrl.iso_head, node)
+		bcm_vk_free_ctx(vk, ctx);
 
 	dev_dbg(&pdev->dev, "BCM-VK:%d release data 0x%p\n", vk->devid, vk);
 	pci_dev_put(pdev);
