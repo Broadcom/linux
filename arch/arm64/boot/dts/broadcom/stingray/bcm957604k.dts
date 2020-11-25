@@ -36,6 +36,8 @@
 #define NUM_RAID	8
 #define ENABLE_I2C0	1
 #define ENABLE_I2C1	1
+#define ENABLE_PAXB_IOMMU 1
+#define ENABLE_PAXC_IOMMU 1
 #define ENABLE_PWM	0
 #define ENABLE_SSP0	1
 #define ENABLE_SSP1	1

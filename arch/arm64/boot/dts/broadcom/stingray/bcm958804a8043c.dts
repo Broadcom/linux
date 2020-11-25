@@ -12,6 +12,8 @@
 #define ENABLE_USB1	0
 #define ENABLE_I2C0	1
 #define ENABLE_I2C1	0
+#define ENABLE_PAXB_IOMMU 1
+#define ENABLE_PAXC_IOMMU 1
 #define ENABLE_SSP0	0
 #define ENABLE_SSP1	0
 

@@ -35,6 +35,8 @@
 #define NUM_CRYPTO	32
 #define NUM_RAID	8
 #define ENABLE_I2C0	1
+#define ENABLE_PAXB_IOMMU 1
+#define ENABLE_PAXC_IOMMU 1
 #define ENABLE_USB1	0
 
 / {
