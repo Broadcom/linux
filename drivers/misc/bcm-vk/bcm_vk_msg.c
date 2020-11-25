@@ -119,13 +119,12 @@ static void bcm_vk_update_qstats(struct bcm_vk *vk,
 	qcnts->acc_sum += occupancy;
 	if (++qcnts->cnt >= BCM_VK_QSTATS_ACC_CNT) {
 		/* log average and clear counters */
-		dev_dbg(&vk->pdev->dev,
-			"%s[%d]: Max: [%3d/%3d] Acc %d num %d, Aver %d\n",
-			tag, qstats->q_num,
-			qcnts->max_occ, qcnts->max_abs,
-			qcnts->acc_sum,
-			qcnts->cnt,
-			qcnts->acc_sum / qcnts->cnt);
+		trace_printk("Dev-%d-%s[%d]: Max: [%3d/%3d] Acc %d num %d, Aver %d\n",
+			     vk->devid, tag, qstats->q_num,
+			     qcnts->max_occ, qcnts->max_abs,
+			     qcnts->acc_sum,
+			     qcnts->cnt,
+			     qcnts->acc_sum / qcnts->cnt);
 
 		qcnts->cnt = 0;
 		qcnts->max_occ = 0;
