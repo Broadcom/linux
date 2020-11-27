@@ -18,4 +18,4 @@ bcm958802a.dtb                         - PS150xx 50G smartIO NIC board
 bcm958802a804x.dtb                     - PS225xx 2x25G smartIO NIC board, 4GB, 8GB, 16GB
 bcm958804a8040.dtb                     - PS1100R 1x100G smartIO NIC board
 bcm958804a8040-diag.dtb                - PS1100R for userspace diag
-bcm958804a8043c-pcie-iommu.dtb         - Glass Creek B0 w/PCIe IOMMU
+bcm958804a8043c.dtb                    - Glass Creek B0 w/PCIe IOMMU

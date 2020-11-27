@@ -5,4 +5,4 @@
 
 #define ENABLE_OPTEE 1
 
-#include "bcm957604k-pcie-iommu.dts"
+#include "bcm957604k.dts"
