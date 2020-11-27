@@ -44,7 +44,7 @@
 #endif
 
 #ifndef ENABLE_NITRO_CHDMP_DDR
-#define ENABLE_NITRO_CHDMP_DDR	0
+#define ENABLE_NITRO_CHDMP_DDR	1
 #endif
 
 #include "stingray.dtsi"

@@ -22,6 +22,8 @@
 #define ENABLE_MDIO	1
 #define ENABLE_ENET	1
 
+#define ENABLE_NITRO_CHDMP_DDR	0
+
 #ifndef NUM_PAXB
 #define NUM_PAXB	1
 #define ENABLE_PCIE0	1
