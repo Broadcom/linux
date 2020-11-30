@@ -28,6 +28,8 @@ vk_defconfig="base-arm64 valkyrie \
     blk                                  \
     clocksource                          \
     dbg dma                              \
-    perf ppp profiling                   \
+    hungtask                             \
+    panic perf ppp profiling             \
+    softlockup                           \
     uio                                  \
     vfio watchdog"
