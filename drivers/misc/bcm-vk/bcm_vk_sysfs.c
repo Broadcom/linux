@@ -920,6 +920,17 @@ static ssize_t utilization_codec_max_show(struct device *dev,
 	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", entry->max);
 }
 
+static ssize_t drv_ctxs_show(struct device *dev,
+			     struct device_attribute *devattr,
+			     char *buf)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	return sysfs_nprintf(buf, PAGE_SIZE, "active: %d dormant: %d\n",
+			     vk->ctx_ctrl.act_cnt, vk->ctx_ctrl.iso_cnt);
+}
+
 static ssize_t peer_alert_show(struct device *dev, char *buf, const u16 flag)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
@@ -1342,6 +1353,7 @@ static DEVICE_ATTR_RO(utilization_pix_max);
 static DEVICE_ATTR_RO(utilization_codec);
 static DEVICE_ATTR_RO(utilization_codec_used);
 static DEVICE_ATTR_RO(utilization_codec_max);
+static DEVICE_ATTR_RO(drv_ctxs);
 static DEVICE_ATTR_RO(alert_ecc);
 static DEVICE_ATTR_RO(alert_ssim_busy);
 static DEVICE_ATTR_RO(alert_afbc_busy);
@@ -1441,6 +1453,7 @@ static struct attribute *bcm_vk_card_mon_attributes[] = {
 	&dev_attr_utilization_codec.attr,
 	&dev_attr_utilization_codec_used.attr,
 	&dev_attr_utilization_codec_max.attr,
+	&dev_attr_drv_ctxs.attr,
 	&dev_attr_alert_ecc.attr,
 	&dev_attr_alert_ssim_busy.attr,
 	&dev_attr_alert_afbc_busy.attr,

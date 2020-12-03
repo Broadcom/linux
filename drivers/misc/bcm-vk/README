@@ -71,6 +71,7 @@ vk-card-mon/
 	alert_sys_fault		---> system fault
 	alert_thermal_trap	---> card in thermal trap state
 	alert_wdog_timeout	---> watchdog timeout
+	drv_ctxs		---> contexts in used by host driver
 	firmware_status_reg
 	mem_ecc			---> correctable ECC error count
 	mem_uecc		---> uncorrectable ECC error count
