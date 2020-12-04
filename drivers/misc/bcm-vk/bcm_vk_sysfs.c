@@ -590,7 +590,7 @@ static ssize_t card_state_show(struct device *dev,
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct bcm_vk *vk = pci_get_drvdata(pdev);
 	u32 reg;
-	u32 low_temp_thre, high_temp_thre, pwr_state;
+	u32 low_temp_thre, high_temp_thre, trap_temp_thre, pwr_state;
 	u32 ecc_mem_err, uecc_mem_err;
 	char *p_buf = buf;
 	static const char * const pwr_state_tab[] = {
@@ -657,6 +657,9 @@ static ssize_t card_state_show(struct device *dev,
 	BCM_VK_EXTRACT_FIELD(high_temp_thre, reg,
 			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
 			     BCM_VK_HIGH_TEMP_THRE_SHIFT);
+	BCM_VK_EXTRACT_FIELD(trap_temp_thre, reg,
+			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
+			     BCM_VK_TRAP_TEMP_THRE_SHIFT);
 	BCM_VK_EXTRACT_FIELD(pwr_state, reg,
 			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
 			     BCM_VK_PWR_STATE_SHIFT);
@@ -664,18 +667,20 @@ static ssize_t card_state_show(struct device *dev,
 #define _PWR_AND_THRE_FMT "Pwr&Thre: 0x%08x\n"       \
 		"  [Pwr_state]     : %d (%s)\n"      \
 		"  [Low_thre]      : %d Celsius\n"   \
-		"  [High_thre]     : %d Celsius\n"
+		"  [High_thre]     : %d Celsius\n"   \
+		"  [Trap_thre]     : %d Celsius\n"
 
 	pwr_state_str = ((pwr_state - 1) < ARRAY_SIZE(pwr_state_tab)) ?
 			 (char *)pwr_state_tab[pwr_state - 1] : "n/a";
 	ret = sysfs_nprintf(p_buf, sz, _PWR_AND_THRE_FMT, reg, pwr_state,
-			    pwr_state_str, low_temp_thre, high_temp_thre);
+			    pwr_state_str, low_temp_thre, high_temp_thre,
+			    trap_temp_thre);
 	if (ret < 0)
 		goto card_state_show_fail;
 	p_buf += ret;
 	sz -= ret;
 	dev_dbg(dev, _PWR_AND_THRE_FMT, reg, pwr_state, pwr_state_str,
-		low_temp_thre, high_temp_thre);
+		low_temp_thre, high_temp_thre, trap_temp_thre);
 
 	/* display memory error */
 	reg = vkread32(vk, BAR_0, BAR_CARD_ERR_MEM);
@@ -1098,6 +1103,28 @@ static ssize_t temp_threshold_upper_c_show(struct device *dev,
 	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", high_temp_thre);
 }
 
+static ssize_t temp_threshold_thermal_trap_c_show(struct device *dev,
+						  struct device_attribute *devattr,
+						  char *buf)
+{
+	int ret;
+	u32 trap_temp_thre;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+	u32 reg;
+
+	ret = sysfs_chk_fw_status(vk, VK_FWSTS_READY, buf, PAGE_SIZE, "0\n");
+	if (ret)
+		return ret;
+
+	reg = vkread32(vk, BAR_0, BAR_CARD_PWR_AND_THRE);
+	BCM_VK_EXTRACT_FIELD(trap_temp_thre, reg,
+			     BCM_VK_PWR_AND_THRE_FIELD_MASK,
+			     BCM_VK_TRAP_TEMP_THRE_SHIFT);
+
+	return sysfs_nprintf(buf, PAGE_SIZE, "%d\n", trap_temp_thre);
+}
+
 static ssize_t freq_core_mhz_show(struct device *dev,
 				  struct device_attribute *devattr,
 				  char *buf)
@@ -1372,6 +1399,7 @@ static DEVICE_ATTR_RO(alert_heartbeat_fail);
 static DEVICE_ATTR_RO(alert_intf_ver_fail);
 static DEVICE_ATTR_RO(temp_threshold_lower_c);
 static DEVICE_ATTR_RO(temp_threshold_upper_c);
+static DEVICE_ATTR_RO(temp_threshold_thermal_trap_c);
 static DEVICE_ATTR_RO(freq_core_mhz);
 static DEVICE_ATTR_RO(freq_mem_mhz);
 static DEVICE_ATTR_RO(mem_size_mb);
@@ -1415,6 +1443,7 @@ static struct attribute *bcm_vk_card_stat_attributes[] = {
 	&dev_attr_uptime_s.attr,
 	&dev_attr_temp_threshold_lower_c.attr,
 	&dev_attr_temp_threshold_upper_c.attr,
+	&dev_attr_temp_threshold_thermal_trap_c.attr,
 	&dev_attr_freq_core_mhz.attr,
 	&dev_attr_freq_mem_mhz.attr,
 	&dev_attr_mem_size_mb.attr,

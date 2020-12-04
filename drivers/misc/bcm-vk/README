@@ -51,6 +51,7 @@ vk-card-status/
 	sotp_dauth_4_valid
 	sotp_dauth_4_active_status
 	temp_threshold_lower_c	---> thermal low threshold in Celsius
+	temp_threshold_thermal_trap_c -> thermal trap threshold in Celsius
 	temp_threshold_upper_c	---> thermal high threshold in Celsius
 	uptime_s		---> os up time in seconds
 
@@ -71,7 +72,7 @@ vk-card-mon/
 	alert_sys_fault		---> system fault
 	alert_thermal_trap	---> card in thermal trap state
 	alert_wdog_timeout	---> watchdog timeout
-	drv_ctxs		---> contexts in used by host driver
+	drv_ctxs		---> contexts in use by host driver
 	firmware_status_reg
 	mem_ecc			---> correctable ECC error count
 	mem_uecc		---> uncorrectable ECC error count
