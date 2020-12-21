@@ -3,10 +3,10 @@
  * Copyright 2018-2020 Broadcom.
  */
 
-#include <linux/module.h>
 #include <linux/kernel.h>
-
+#include <linux/module.h>
 #include "bcm_vk.h"
+#include "bcm_vk_hwmon.h"
 
 #define BCM_VK_BITS_NOT_SET(val, bitmask) \
 		(((val) & (bitmask)) != (bitmask))
@@ -1547,6 +1547,12 @@ int bcm_vk_sysfs_init(struct pci_dev *pdev, struct miscdevice *misc_device)
 			       misc_device->name);
 	if (rc < 0) {
 		dev_err(dev, "failed to create reverse symlink\n");
+		goto err_free_sysfs_bus;
+	}
+
+	rc = bcm_vk_hwmon_init(vk);
+	if (rc < 0) {
+		dev_err(dev, "failed to init hwmon system\n");
 		goto err_free_sysfs_entry;
 	}
 
@@ -1556,6 +1562,8 @@ int bcm_vk_sysfs_init(struct pci_dev *pdev, struct miscdevice *misc_device)
 	return 0;
 
 err_free_sysfs_entry:
+	sysfs_remove_link(&pdev->dev.kobj, misc_device->name);
+err_free_sysfs_bus:
 	sysfs_remove_link(&misc_device->this_device->kobj,
 			  BCM_VK_BUS_SYMLINK_NAME);
 
@@ -1570,6 +1578,9 @@ err_sysfs_exit:
 
 void bcm_vk_sysfs_exit(struct pci_dev *pdev, struct miscdevice *misc_device)
 {
+	struct bcm_vk *vk = pci_get_drvdata(pdev);
+
+	bcm_vk_hwmon_deinit(vk);
 	/* remove the sysfs entry and symlinks associated */
 	sysfs_remove_link(&pdev->dev.kobj, misc_device->name);
 	sysfs_remove_link(&misc_device->this_device->kobj,

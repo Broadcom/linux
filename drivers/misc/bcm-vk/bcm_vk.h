@@ -391,6 +391,8 @@ struct bcm_vk {
 	struct mutex mutex;
 	struct miscdevice miscdev;
 	int devid; /* dev id allocated */
+	char *hwmon_name; /* hwmon name */
+	struct device *hwmon_dev; /* device for using hwmon subsystem */
 
 #ifdef CONFIG_BCM_VK_TTY
 	struct tty_driver *tty_drv;
