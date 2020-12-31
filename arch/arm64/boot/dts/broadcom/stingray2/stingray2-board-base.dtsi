@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2020 Broadcom
+ */
+
+/dts-v1/;
+
+#include "stingray2.dtsi"
+
+/ {
+	aliases {
+		serial0 = &uart1;
+	};
+
+	chosen {
+		stdout-path = "serial0:1200n8";
+	};
+
+	/* Default DRAM banks */
+	memory: memory@80000000 {
+		device_type = "memory";
+		reg = <0x00000000 0x80000000 0x0 0x80000000>, /* 2G @ 2G */
+		      <0x00000008 0x80000000 0x1 0x80000000>; /* 6G @ 34G */
+	};
+};
+
+&crmu_thermal0 {
+	polling-delay = <20>;
+};
+
+&crmu_thermal1 {
+	polling-delay = <20>;
+};
+
+&ihost0_thermal {
+	polling-delay = <20>;
+};
+
+&ihost1_thermal {
+	polling-delay = <20>;
+};
+
+&ihost2_thermal {
+	polling-delay = <20>;
+};
+
+&pcie8 {
+	status = "okay";
+};
+
+&sdio0 {
+	non-removable;
+	no-sdio;
+	no-sd;
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};

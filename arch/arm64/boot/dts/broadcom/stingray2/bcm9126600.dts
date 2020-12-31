@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2020 Broadcom
+ */
+
+/dts-v1/;
+
+#include "stingray2-board-base.dtsi"
+
+/ {
+	model = "Stingray2 SST2200 (BCM9126600)";
+};
+
+&pcie9 {
+	status = "okay";
+};
+
+&pcie10 {
+	status = "okay";
+};
