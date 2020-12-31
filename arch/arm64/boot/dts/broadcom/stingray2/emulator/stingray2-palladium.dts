@@ -53,6 +53,10 @@
 	};
 };
 
+&pl011_clk {
+	clock-frequency = <19500>;
+};
+
 &uart1 {
 	status = "okay";
 };
