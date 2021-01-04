@@ -58,6 +58,7 @@ struct vk_msg_blk {
 #define VK_FID_TRANS_BUF	5
 #define VK_FID_SHUTDOWN		8
 #define VK_FID_INIT		9
+#define VK_FID_INIT_DONE	16
 	u8 size; /* size of the message in number of vk_msg_blk's */
 	u16 trans_id; /* transport id, queue & msg_id */
 	u32 context_id;
@@ -82,7 +83,8 @@ struct vk_msg_blk {
 
 /* context per session opening of sysfs */
 struct bcm_vk_ctx {
-	struct list_head node; /* use for linkage in Hash Table */
+	struct list_head pid_node; /* use for linkage in PID Hash Table */
+	struct list_head cid_node; /* use for linkage in context_id Hash Table */
 	unsigned int idx;
 	bool active;
 	pid_t pid;
@@ -93,6 +95,7 @@ struct bcm_vk_ctx {
 	atomic_t pend_cnt; /* number of items pending to be read from host */
 	atomic_t dma_cnt; /* any dma transaction outstanding */
 	wait_queue_head_t rd_wq;
+	u32 context_id;
 };
 
 /* pid hash table entry */
@@ -104,6 +107,10 @@ struct bcm_vk_ht_entry {
 #define VK_PID_HT_SHIFT_BIT	7 /* 128 */
 #define VK_PID_HT_SZ		BIT(VK_PID_HT_SHIFT_BIT)
 
+/* hash table defines to store the active context ids */
+#define VK_CID_HT_SHIFT_BIT	7 /* 128 */
+#define VK_CID_HT_SZ		BIT(VK_CID_HT_SHIFT_BIT)
+
 /* context control structure */
 struct bcm_vk_ctx_ctrl {
 	unsigned int counter; /* unique assigned idx */
@@ -111,6 +118,7 @@ struct bcm_vk_ctx_ctrl {
 	struct list_head iso_head;
 	u32 iso_cnt;
 	struct bcm_vk_ht_entry pid_ht[VK_PID_HT_SZ];
+	struct bcm_vk_ht_entry cid_ht[VK_CID_HT_SZ];
 };
 
 #define VK_DMA_MAX_ADDRS 4 /* Max 4 DMA Addresses */

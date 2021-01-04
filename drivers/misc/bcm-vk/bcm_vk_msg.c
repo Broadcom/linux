@@ -28,6 +28,9 @@
 /* number x q_size will be the max number of msg processed per loop */
 #define BCM_VK_MSG_PROC_MAX_LOOP 2
 
+/* msg_id used for all unpaired messages */
+#define VK_UNPAIRED_MSG_ID 0
+
 /* module parameter */
 static bool hb_mon = true;
 module_param(hb_mon, bool, 0444);
@@ -289,10 +292,12 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk, const pid_t pid)
 	cctrl->act_cnt++;
 	ctx->active = true;
 	ctx->idx = ++cctrl->counter; /* unique handle */
+	/* context_id is set correctly upon receipt of INIT_DONE msg */
+	ctx->context_id = VK_NEW_CTX;
 	/* set the pid and insert it to hash table */
 	ctx->pid = pid;
 	ctx->hash_idx = hash_idx;
-	list_add_tail(&ctx->node, &cctrl->pid_ht[hash_idx].head);
+	list_add_tail(&ctx->pid_node, &cctrl->pid_ht[hash_idx].head);
 
 	/* increase kref */
 	kref_get(&vk->kref);
@@ -353,13 +358,15 @@ int bcm_vk_free_ctx(struct bcm_vk *vk, struct bcm_vk_ctx *ctx)
 	}
 
 	spin_lock(&vk->ctx_lock);
-	list_del(&ctx->node);
+	list_del(&ctx->pid_node);
+	if (ctx->context_id)
+		list_del(&ctx->cid_node);
 	if (ctx->active) {
 		cctrl->act_cnt--;
 		hash_idx = ctx->hash_idx;
 		ret = 0;
 		list_for_each_entry(entry, &cctrl->pid_ht[hash_idx].head,
-				    node) {
+				    pid_node) {
 			if (entry->pid == ctx->pid)
 				ret++;
 		}
@@ -386,6 +393,37 @@ static void bcm_vk_free_wkent(struct device *dev, struct bcm_vk_wkent *entry)
 
 	kfree(entry->to_h_msg);
 	kfree(entry);
+}
+
+static void bcm_vk_remove_cid_entry(struct bcm_vk *vk,
+				    struct bcm_vk_ctx *ctx)
+{
+	int i;
+
+	spin_lock(&vk->ctx_lock);
+	if (ctx) {
+		if (ctx->context_id) {
+			ctx->context_id = 0;
+			list_del(&ctx->cid_node);
+		}
+		goto done;
+	}
+
+	for (i = 0; i < VK_CID_HT_SZ; i++) {
+		struct bcm_vk_ctx *temp;
+
+		list_for_each_entry_safe(ctx,
+					 temp,
+					 &vk->ctx_ctrl.cid_ht[i].head,
+					 cid_node) {
+			if (ctx->context_id) {
+				ctx->context_id = 0;
+				list_del(&ctx->cid_node);
+			}
+		}
+	}
+done:
+	spin_unlock(&vk->ctx_lock);
 }
 
 static void bcm_vk_drain_all_pend(struct device *dev,
@@ -453,6 +491,7 @@ void bcm_vk_drain_msg_on_reset(struct bcm_vk *vk)
 {
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_v_msg_chan, NULL);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, NULL);
+	bcm_vk_remove_cid_entry(vk, NULL);
 }
 
 /*
@@ -853,6 +892,7 @@ s32 bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 	int msg_processed = 0;
 	int max_msg_to_process;
 	bool exit_loop;
+	u32 hash_idx;
 
 	/*
 	 * drain all the messages from the queues, and find its pending
@@ -949,11 +989,64 @@ s32 bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 			}
 
 			msg_id = get_msg_id(data);
-			/* lookup original message in to_v direction */
-			entry = bcm_vk_dequeue_pending(vk,
-						       &vk->to_v_msg_chan,
-						       q_num,
-						       msg_id);
+			if (msg_id != VK_UNPAIRED_MSG_ID) {
+				/* lookup original message in to_v direction */
+				entry = bcm_vk_dequeue_pending(vk,
+							       &vk->to_v_msg_chan,
+							       q_num,
+							       msg_id);
+
+				/*
+				 * if first INIT msg, set context_id field of ctx
+				 * and add to context_id hash table.  Since deinit
+				 * could happen async, it is possible a CTRL-C/kill
+				 * would have cleanup all the pending init entry.
+				 */
+				if (data->function_id == VK_FID_INIT_DONE) {
+					if (entry && !entry->ctx->context_id) {
+						spin_lock(&vk->ctx_lock);
+						entry->ctx->context_id = data->context_id;
+						hash_idx = hash_32(data->context_id,
+								   VK_CID_HT_SHIFT_BIT);
+						list_add_tail(&entry->ctx->cid_node,
+							      &vk->ctx_ctrl.cid_ht[hash_idx].head);
+						spin_unlock(&vk->ctx_lock);
+					} else if (!entry) {
+						dev_warn(dev, "INIT DONE with msgid %d not found\n",
+							 msg_id);
+					}
+				}
+			} else {
+				struct bcm_vk_ctx *ctx;
+				bool found = false;
+
+				entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+				if (!entry) {
+					total = -ENOMEM;
+					goto idx_err;
+				}
+
+				/* Search for ctx */
+				hash_idx = hash_32(data->context_id,
+						   VK_CID_HT_SHIFT_BIT);
+				spin_lock(&vk->ctx_lock);
+				list_for_each_entry(ctx,
+						    &vk->ctx_ctrl.cid_ht[hash_idx].head,
+						    cid_node) {
+					if (ctx->context_id == data->context_id) {
+						found = true;
+						break;
+					}
+				}
+				spin_unlock(&vk->ctx_lock);
+				if (found) {
+					entry->ctx = ctx;
+					entry->usr_msg_id = msg_id;
+				} else {
+					kfree(entry);
+					entry = NULL;
+				}
+			}
 
 			/*
 			 * if there is message to does not have prior send,
@@ -1011,6 +1104,8 @@ static int bcm_vk_data_init(struct bcm_vk *vk)
 	/* initialize hash table */
 	for (i = 0; i < VK_PID_HT_SZ; i++)
 		INIT_LIST_HEAD(&cctrl->pid_ht[i].head);
+	for (i = 0; i < VK_CID_HT_SZ; i++)
+		INIT_LIST_HEAD(&cctrl->cid_ht[i].head);
 	INIT_LIST_HEAD(&cctrl->iso_head);
 	cctrl->act_cnt = 0;
 	cctrl->iso_cnt = 0;
@@ -1152,6 +1247,7 @@ ssize_t bcm_vk_write(struct file *p_file,
 	u32 q_num;
 	u32 msg_size;
 	u32 msgq_size;
+	bool expect_paired_resp;
 
 	if (!bcm_vk_drv_access_ok(vk))
 		return -EPERM;
@@ -1197,15 +1293,17 @@ ssize_t bcm_vk_write(struct file *p_file,
 		goto write_free_ent;
 	}
 
-	/* Use internal message id */
 	entry->usr_msg_id = get_msg_id(&entry->to_v_msg[0]);
-	rc = bcm_vk_get_msg_id(vk);
-	if (rc == VK_MSG_ID_OVERFLOW) {
-		dev_err(dev, "msg_id overflow\n");
-		rc = -EOVERFLOW;
-		goto write_free_ent;
+	if (entry->usr_msg_id != VK_UNPAIRED_MSG_ID) {
+		/* Use internal message id */
+		rc = bcm_vk_get_msg_id(vk);
+		if (rc == VK_MSG_ID_OVERFLOW) {
+			dev_err(dev, "msg_id overflow\n");
+			rc = -EOVERFLOW;
+			goto write_free_ent;
+		}
+		set_msg_id(&entry->to_v_msg[0], rc);
 	}
-	set_msg_id(&entry->to_v_msg[0], rc);
 	ctx->q_num = q_num;
 
 	dev_dbg(dev,
@@ -1296,24 +1394,33 @@ ssize_t bcm_vk_write(struct file *p_file,
 				org_pid, org_pid, pid, pid);
 	}
 
-	/*
-	 * store work entry to pending queue until a response is received.
-	 * This needs to be done before enqueuing the message
-	 */
-	bcm_vk_append_pendq(&vk->to_v_msg_chan, q_num, entry);
+	expect_paired_resp = entry->usr_msg_id != VK_UNPAIRED_MSG_ID;
+	if (expect_paired_resp) {
+		/*
+		 * store work entry to pending queue until a response is received.
+		 * This needs to be done before enqueuing the message
+		 */
+		bcm_vk_append_pendq(&vk->to_v_msg_chan, q_num, entry);
+	}
 
 	rc = bcm_to_v_msg_enqueue(vk, entry);
 	if (rc) {
 		dev_err(dev, "Fail to enqueue msg to to_v queue\n");
 
-		/* remove message from pending list */
-		entry = bcm_vk_dequeue_pending
-			       (vk,
-				&vk->to_v_msg_chan,
-				q_num,
-				get_msg_id(&entry->to_v_msg[0]));
+		if (expect_paired_resp) {
+			/* remove message from pending list */
+			entry = bcm_vk_dequeue_pending
+					(vk,
+					&vk->to_v_msg_chan,
+					q_num,
+					get_msg_id(&entry->to_v_msg[0]));
+		}
 		goto write_free_ent;
 	}
+
+	/* If entry was not stored in pending queue, discard. */
+	if (!expect_paired_resp)
+		kfree(entry);
 
 	return count;
 
@@ -1383,6 +1490,7 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_v_msg_chan, ctx);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, ctx);
+	bcm_vk_remove_cid_entry(vk, ctx);
 
 	ret = bcm_vk_free_ctx(vk, ctx);
 	if (ret == 0)
@@ -1426,4 +1534,5 @@ void bcm_vk_msg_remove(struct bcm_vk *vk)
 	/* drain all pending items */
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_v_msg_chan, NULL);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, NULL);
+	bcm_vk_remove_cid_entry(vk, NULL);
 }

@@ -526,7 +526,7 @@ void bcm_vk_blk_drv_access(struct bcm_vk *vk)
 		struct bcm_vk_ctx *ctx, *tmp;
 
 		list_for_each_entry_safe(ctx, tmp,
-					 &cctrl->pid_ht[i].head, node) {
+					 &cctrl->pid_ht[i].head, pid_node) {
 			if (ctx->pid != vk->reset_pid) {
 				if (!ctx->kill_resp_to) {
 					ctx->kill_resp_to = jiffies +
@@ -545,9 +545,9 @@ void bcm_vk_blk_drv_access(struct bcm_vk *vk)
 					 * know why the kernel would not have
 					 * closed all fds, quarantine the item.
 					 */
-					list_del(&ctx->node);
+					list_del(&ctx->pid_node);
 					ctx->active = false;
-					list_add_tail(&ctx->node,
+					list_add_tail(&ctx->pid_node,
 						      &cctrl->iso_head);
 					cctrl->act_cnt--;
 					cctrl->iso_cnt++;
@@ -1646,12 +1646,12 @@ void bcm_vk_release_data(struct kref *kref)
 	/* clean up any stale allocation of ctxs */
 	for (i = 0; i < VK_PID_HT_SZ; i++) {
 		list_for_each_entry_safe(ctx, tmp,
-					 &cctrl->pid_ht[i].head, node)
+					 &cctrl->pid_ht[i].head, pid_node)
 			bcm_vk_free_ctx(vk, ctx);
 	}
 	/* free any ctx under quarantine */
 	list_for_each_entry_safe(ctx, tmp,
-				 &vk->ctx_ctrl.iso_head, node)
+				 &vk->ctx_ctrl.iso_head, pid_node)
 		bcm_vk_free_ctx(vk, ctx);
 
 	dev_dbg(&pdev->dev, "BCM-VK:%d release data 0x%p\n", vk->devid, vk);
