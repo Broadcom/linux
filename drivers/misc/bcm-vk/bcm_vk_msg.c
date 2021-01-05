@@ -1152,9 +1152,11 @@ ssize_t bcm_vk_write(struct file *p_file,
 	dev_dbg(dev, "Msg count %zu\n", count);
 
 	/* first, do sanity check where count should be multiple of basic blk */
-	if (count & (VK_MSGQ_BLK_SIZE - 1)) {
-		dev_err(dev, "Failure with size %zu not multiple of %zu\n",
-			count, VK_MSGQ_BLK_SIZE);
+	if ((count & (VK_MSGQ_BLK_SIZE - 1)) ||
+	    (count > (VK_MSGQ_BLK_SIZE * VK_MAX_BLKS_PER_MSG))) {
+		dev_err(dev, "Size %zu not multiple of %zu, or exceeds %zu\n",
+			count, VK_MSGQ_BLK_SIZE,
+			VK_MSGQ_BLK_SIZE * VK_MAX_BLKS_PER_MSG);
 		rc = -EINVAL;
 		goto write_err;
 	}

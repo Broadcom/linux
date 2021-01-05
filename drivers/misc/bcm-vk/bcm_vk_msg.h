@@ -74,6 +74,8 @@ struct vk_msg_blk {
 #define VK_MSGQ_BLK_SIZE   (sizeof(struct vk_msg_blk))
 /* shift for fast division of basic msg blk size */
 #define VK_MSGQ_BLK_SZ_SHIFT 4
+/* max blocks per message */
+#define VK_MAX_BLKS_PER_MSG  64
 
 /* use msg_id 0 for any simplex host2vk communication */
 #define VK_SIMPLEX_MSG_ID 0
