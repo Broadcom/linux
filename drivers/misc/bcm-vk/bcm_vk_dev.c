@@ -1677,9 +1677,6 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 	/* unregister panic notifier */
 	atomic_notifier_chain_unregister(&panic_notifier_list,
 					 &vk->panic_nb);
-
-	bcm_vk_sysfs_exit(pdev, misc_device);
-
 	bcm_vk_msg_remove(vk);
 	bcm_vk_tty_exit(vk);
 
@@ -1687,8 +1684,12 @@ static void bcm_vk_remove(struct pci_dev *pdev)
 		dma_free_coherent(&pdev->dev, nr_scratch_pages * PAGE_SIZE,
 				  vk->tdma_vaddr, vk->tdma_addr);
 
-	/* remove if name is set which means misc dev registered */
+	/*
+	 * if name is set which means misc dev registered,
+	 * remove corresponding items
+	 */
 	if (misc_device->name) {
+		bcm_vk_sysfs_exit(pdev, misc_device);
 		misc_deregister(misc_device);
 		kfree(misc_device->name);
 		ida_simple_remove(&bcm_vk_ida, vk->devid);
