@@ -2,7 +2,6 @@
 /*
  * Copyright 2020 Broadcom.
  */
-#include <linux/bcm_iproc_mailbox_v2.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
@@ -18,44 +17,18 @@
 #define IPROC_MAIL_BOX_CLR		0x08
 #define IPROC_MAIL_BOX_MASK		0x0c
 
-/*
- *            CHANNEL MESSAGE STRUCTUE
- *
- * ============================================
- * |              Channel Status              |
- * ============================================
- * |                  Command                 |
- * |-------------------------------------------
- * |                Parameter[0]              |
- * |-------------------------------------------
- * |                Parameter[1]              |
- * |-------------------------------------------
- * |                Parameter[2]              |
- * |-------------------------------------------
- * |                Parameter[3]              |
- * |===========================================
- *
- */
+#define IPROC_MBOX_DB_SIZE		8
+#define IPROC_MBOX_DB_STATE_OFFSET	0
 
-#define IPROC_MBOX_CH_SIZE		24
-
-#define IPROC_MBOX_CH_STATUS_OFF	0
-#define IPROC_MBOX_CH_CMD_OFF		4
-#define IPROC_MBOX_CH_PARAM0_OFF	8
-#define IPROC_MBOX_CH_PARAM1_OFF	12
-#define IPROC_MBOX_CH_PARAM2_OFF	16
-#define IPROC_MBOX_CH_PARAM3_OFF	20
-
-enum iproc_mbox_ch_status {
-	IPROC_MBOX_CH_FREE = 0,
-	IPROC_MBOX_CH_MSG_VALID = 1,
-	IPROC_MBOX_CH_MSG_CONSUMED = 2
+enum iproc_mbox_db_state {
+	IPROC_MBOX_DB_OFF = 0,
+	IPROC_MBOX_DB_ON = 1,
 };
 
-enum iproc_mbox_ch_type {
-	IPROC_MBOX_CH_TX,
-	IPROC_MBOX_CH_RX,
-	IPROC_MBOX_CH_MAX
+enum iproc_mbox_db_type {
+	IPROC_MBOX_DB_TX,
+	IPROC_MBOX_DB_RX,
+	IPROC_MBOX_DB_MAX
 };
 
 struct iproc_mbox {
@@ -63,15 +36,15 @@ struct iproc_mbox {
 	struct regmap *base;
 	void __iomem *shared_mem;
 	struct mbox_controller controller;
-	uint32_t num_chans;
-	uint32_t tx_offset;
-	uint32_t rx_offset;
+	u32 num_chans;
+	u32 tx_offset;
+	u32 rx_offset;
 	struct iproc_mbox_ch_priv *ch_priv;
 };
 
 struct iproc_mbox_ch_priv {
 	void __iomem *base;
-	enum iproc_mbox_ch_type type;
+	enum iproc_mbox_db_type type;
 	bool active;
 };
 
@@ -84,11 +57,11 @@ MODULE_DEVICE_TABLE(of, iproc_mbox_of_match);
 static bool iproc_mbox_last_tx_done(struct mbox_chan *chan)
 {
 	struct iproc_mbox_ch_priv *ch_priv = chan->con_priv;
-	uint32_t data;
+	u32 data;
 
-	data = readl(ch_priv->base + IPROC_MBOX_CH_STATUS_OFF);
+	data = readl(ch_priv->base + IPROC_MBOX_DB_STATE_OFFSET);
 
-	if (data == IPROC_MBOX_CH_MSG_VALID)
+	if (data == IPROC_MBOX_DB_ON)
 		return false;
 
 	return true;
@@ -97,26 +70,9 @@ static bool iproc_mbox_last_tx_done(struct mbox_chan *chan)
 static int iproc_mbox_send_data(struct mbox_chan *chan, void *ptr)
 {
 	struct iproc_mbox *mbox = dev_get_drvdata(chan->mbox->dev);
-	struct iproc_mbox_msg *msg = (struct iproc_mbox_msg *)ptr;
 	struct iproc_mbox_ch_priv *ch_priv = chan->con_priv;
-	uint32_t data;
 
-	if (!msg)
-		return -EINVAL;
-
-	/* Check if previous message to get consumed */
-	data = iproc_mbox_last_tx_done(chan);
-	if (!data)
-		return -EBUSY;
-
-	writel(msg->cmd, ch_priv->base + IPROC_MBOX_CH_CMD_OFF);
-	writel(msg->param[0], ch_priv->base + IPROC_MBOX_CH_PARAM0_OFF);
-	writel(msg->param[1], ch_priv->base + IPROC_MBOX_CH_PARAM1_OFF);
-	writel(msg->param[2], ch_priv->base + IPROC_MBOX_CH_PARAM2_OFF);
-	writel(msg->param[3], ch_priv->base + IPROC_MBOX_CH_PARAM3_OFF);
-
-	writel(IPROC_MBOX_CH_MSG_VALID, (ch_priv->base +
-					 IPROC_MBOX_CH_STATUS_OFF));
+	writel(IPROC_MBOX_DB_ON, (ch_priv->base + IPROC_MBOX_DB_STATE_OFFSET));
 
 	/* Generate the mailbox interrupt */
 	regmap_write(mbox->base, mbox->tx_offset + IPROC_MAIL_BOX_MSG1, 1);
@@ -134,7 +90,7 @@ static struct mbox_chan *iproc_mbox_xlate(struct mbox_controller *mbox,
 	ch_idx = sp->args[0];
 	ch_type = sp->args[1];
 
-	if (ch_idx >= mbox->num_chans || ch_type >= IPROC_MBOX_CH_MAX)
+	if (ch_idx >= mbox->num_chans || ch_type >= IPROC_MBOX_DB_MAX)
 		return ERR_PTR(-EINVAL);
 
 	chan = &mbox->chans[ch_idx];
@@ -148,30 +104,15 @@ static struct mbox_chan *iproc_mbox_xlate(struct mbox_controller *mbox,
 static int iproc_mbox_startup(struct mbox_chan *chan)
 {
 	struct iproc_mbox_ch_priv *ch_priv = chan->con_priv;
-	uint32_t data;
 
 	ch_priv->active = true;
-	data = readl(ch_priv->base + IPROC_MBOX_CH_STATUS_OFF);
-	if (data != IPROC_MBOX_CH_FREE) {
-		pr_warn("%s: force aquiring the channel\n", __func__);
-		writel(IPROC_MBOX_CH_FREE, (ch_priv->base +
-					    IPROC_MBOX_CH_STATUS_OFF));
-	}
-
 	return 0;
 }
 
 static void iproc_mbox_shutdown(struct mbox_chan *chan)
 {
 	struct iproc_mbox_ch_priv *ch_priv = chan->con_priv;
-	uint32_t data;
 
-	data = readl(ch_priv->base + IPROC_MBOX_CH_STATUS_OFF);
-	if (data != IPROC_MBOX_CH_FREE) {
-		pr_warn("%s: force releasing the channel\n", __func__);
-		writel(IPROC_MBOX_CH_FREE, (ch_priv->base +
-					    IPROC_MBOX_CH_STATUS_OFF));
-	}
 	ch_priv->active = false;
 }
 
@@ -195,32 +136,26 @@ static irqreturn_t iproc_mbox_thread(int irq, void *dev_id)
 {
 	struct iproc_mbox *mbox = (struct iproc_mbox *)dev_id;
 	struct iproc_mbox_ch_priv *ch_priv;
-	struct iproc_mbox_msg msg;
 	void __iomem *chan_base;
-	uint32_t data;
+	u32 data;
 	int i;
 
 	for (i = 0; i < mbox->num_chans; i++) {
 		ch_priv = &mbox->ch_priv[i];
-		if (!(ch_priv->active) || ch_priv->type == IPROC_MBOX_CH_TX)
+		if (!(ch_priv->active) || ch_priv->type == IPROC_MBOX_DB_TX)
 			continue;
 
 		chan_base = ch_priv->base;
-		data = readl(chan_base + IPROC_MBOX_CH_STATUS_OFF);
+		data = readl(chan_base + IPROC_MBOX_DB_STATE_OFFSET);
 
-		if (data != IPROC_MBOX_CH_MSG_VALID)
+		if (data == IPROC_MBOX_DB_OFF)
 			continue;
 
-		msg.cmd = readl(chan_base + IPROC_MBOX_CH_CMD_OFF);
-		msg.param[0] = readl(chan_base + IPROC_MBOX_CH_PARAM0_OFF);
-		msg.param[1] = readl(chan_base + IPROC_MBOX_CH_PARAM1_OFF);
-		msg.param[2] = readl(chan_base + IPROC_MBOX_CH_PARAM2_OFF);
-		msg.param[3] = readl(chan_base + IPROC_MBOX_CH_PARAM3_OFF);
-		/* Send data to client */
-		mbox_chan_received_data(&mbox->controller.chans[i], &msg);
+		writel(IPROC_MBOX_DB_OFF, (chan_base +
+					   IPROC_MBOX_DB_STATE_OFFSET));
 
-		writel(IPROC_MBOX_CH_MSG_CONSUMED, (chan_base +
-						    IPROC_MBOX_CH_STATUS_OFF));
+		/* Send notification to client */
+		mbox_chan_received_data(&mbox->controller.chans[i], NULL);
 	}
 
 	return IRQ_HANDLED;
@@ -243,7 +178,7 @@ static int iproc_mbox_map_memory(struct platform_device *pdev,
 
 	for (i = 0; i < mbox->num_chans; i++) {
 		mbox->ch_priv[i].base = mbox->shared_mem +
-					 (i * IPROC_MBOX_CH_SIZE);
+					 (i * IPROC_MBOX_DB_SIZE);
 		chans[i].con_priv = &mbox->ch_priv[i];
 	}
 
@@ -266,9 +201,9 @@ static int iproc_mbox_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, iproc_mbox);
 
-	if (of_property_read_u32(np, "brcm,iproc-mbox-ch-count",
+	if (of_property_read_u32(np, "brcm,iproc-mbox-db-count",
 				 &iproc_mbox->num_chans)) {
-		dev_err(dev, "couldn't read mbox channel count\n");
+		dev_err(dev, "couldn't read mbox doorbell count\n");
 		return -EINVAL;
 	}
 
@@ -307,7 +242,7 @@ static int iproc_mbox_probe(struct platform_device *pdev)
 
 	ret = iproc_mbox_map_memory(pdev, iproc_mbox, chans);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to mmap channel memory\n");
+		dev_err(&pdev->dev, "Failed to mmap doorbell memory\n");
 		goto err;
 	}
 
