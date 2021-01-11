@@ -14,7 +14,6 @@ reserved-memory {
 
 idm {
 	compatible = "simple-bus";
-	dma-ranges;
 	ranges = <0x0 0x0 0x0 0xffffffff>;
 	#address-cells = <1>;
 	#size-cells = <1>;

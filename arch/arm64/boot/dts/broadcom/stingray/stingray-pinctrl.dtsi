@@ -34,7 +34,7 @@
 
 		pinconf: pinconf@140000 {
 			compatible = "pinconf-single";
-			reg = <0x00140000 0x250>;
+			reg = <0x00140000 0x0 0x250>;
 			#pinctrl-cells = <1>;
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <0>;
@@ -44,7 +44,7 @@
 
 		pinmux: pinmux@14029c {
 			compatible = "pinctrl-single";
-			reg = <0x0014029c 0x26c>;
+			reg = <0x0014029c 0x0 0x26c>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#pinctrl-cells = <1>;
