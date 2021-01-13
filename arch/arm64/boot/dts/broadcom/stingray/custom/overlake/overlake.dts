@@ -5,10 +5,8 @@
 
 /dts-v1/;
 
-
 #define NUM_CRYPTO	0
 #define NUM_RAID	0
-#define NUM_SATA	0
 #define ENABLE_NAND	0
 #define ENABLE_SSP0	0
 #define ENABLE_SSP1	0

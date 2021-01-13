@@ -371,7 +371,6 @@
 
 	#include "stingray-fs4.dtsi"
 	#include "stingray-idm.dtsi"
-	#include "stingray-sata.dtsi"
 	#include "stingray-usb.dtsi"
 	#include "stingray-optee.dtsi"
 
@@ -390,13 +389,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
-
-			mdio@2 { /* SATA */
-				reg = <0x2>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-				status = "disabled";
-			};
 
 			mdio@10 { /* SGMII */
 				reg = <0x10>;
