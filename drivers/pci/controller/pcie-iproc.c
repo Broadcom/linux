@@ -98,6 +98,8 @@
 
 #define IPROC_PCIE_REG_INVALID		0xffff
 
+#if defined(CONFIG_PCIE_IPROC) || defined(CONFIG_PCIE_IPROC_MODULE) || \
+    (defined(CONFIG_ACPI) && defined(CONFIG_PCI_QUIRKS))
 /**
  * iProc PCIe outbound mapping controller specific parameters
  *
@@ -1774,3 +1776,4 @@ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_BROADCOM, 0xd804, quirk_paxc_bridge);
 MODULE_AUTHOR("Ray Jui <rjui@broadcom.com>");
 MODULE_DESCRIPTION("Broadcom iPROC PCIe common driver");
 MODULE_LICENSE("GPL v2");
+#endif
