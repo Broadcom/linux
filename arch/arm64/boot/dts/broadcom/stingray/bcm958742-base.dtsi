@@ -141,7 +141,6 @@
 #endif
 
 &nand {
-	status = "okay";
 	nandcs@0 {
 		compatible = "brcm,nandcs";
 		reg = <0>;
