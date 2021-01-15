@@ -294,19 +294,19 @@
 
 		mbox_crmu: mbox0 {
 			compatible = "brcm,iproc-mailbox-v2";
-			reg = <0x40000 0x180>;
+			reg = <0x40a80 0x80>;
 			interrupts = <GIC_SPI 389 IRQ_TYPE_LEVEL_HIGH>;
 			brcm,iproc-mbox = <&crmu_dmu 0x20 0x00>;
-			brcm,iproc-mbox-ch-count = <16>;
+			brcm,iproc-mbox-db-count = <16>;
 			#mbox-cells = <2>;
 		};
 
 		mbox_nitro: mbox1 {
 			compatible = "brcm,iproc-mailbox-v2";
-			reg = <0x40480 0x180>;
+			reg = <0x40c00 0x80>;
 			interrupts = <GIC_SPI 389 IRQ_TYPE_LEVEL_HIGH>;
 			brcm,iproc-mbox = <&crmu_dmu 0x20 0x30>;
-			brcm,iproc-mbox-ch-count = <16>;
+			brcm,iproc-mbox-db-count = <16>;
 			#mbox-cells = <2>;
 		};
 
