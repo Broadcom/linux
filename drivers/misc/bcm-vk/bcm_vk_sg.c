@@ -177,14 +177,22 @@ int bcm_vk_sg_alloc(struct device *dev,
 	/* Convert user addresses to DMA SG List */
 	for (i = 0; i < num; i++) {
 		if (vkdata[i].size && vkdata[i].address) {
-			/*
-			 * If both size and address are non-zero
-			 * then DMA alloc.
-			 */
-			rc = bcm_vk_dma_alloc(dev,
-					      &dma[i],
-					      dir,
-					      &vkdata[i]);
+			/* do a check to cap size */
+			if (vkdata[i].size > BCM_VK_MAX_SGL_CHUNK) {
+				dev_err(dev, "vkdata[%d] size 0x%x > max 0x%x",
+					i, vkdata[i].size,
+					BCM_VK_MAX_SGL_CHUNK);
+				rc = -ERANGE;
+			} else {
+				/*
+				 * If both size and address are non-zero
+				 * then DMA alloc.
+				 */
+				rc = bcm_vk_dma_alloc(dev,
+						      &dma[i],
+						      dir,
+						      &vkdata[i]);
+			}
 		} else if (vkdata[i].size ||
 			   vkdata[i].address) {
 			/*
