@@ -11,13 +11,13 @@ maintainers:
   - Shivaraj Shetty <shivaraj.shetty@broadcom.com>
 
 description:
-  The iProc mailbox v2, that has independent set of channels
-  to communicate with remote processor(s). The messages are
-  placed in memory channels and driver would get interrupt
-  for any received data. However it needs to check in each
-  channel to find out which processor has sent data on which
-  channel. After sending the message, driver polls channel
-  type field and the remote clears it after reading the data.
+  The iProc mailbox v2, has independent set of doorbell status
+  in shared memory which will allow sharing the mailbox register
+  with multiple remote processors. The status is set for the
+  doorbell which needs to be rung and then mailbox register is
+  written to gerenrate the interrupt. On receiving the mailbox
+  interrupt driver will go through all doorbell status to see
+  which doorbell has been rung.
 
 properties:
   compatible:
@@ -26,7 +26,7 @@ properties:
 
   reg:
     description:
-      Address range for mailbox channel.
+      Address range for mailbox doorbell status in shared memory.
     maxItems: 1
 
   interrupts:
@@ -40,22 +40,22 @@ properties:
       - RX register offset within CRMU DMU
       - TX register offset within CRMU DMU
 
-  brcm,iproc-mbox-ch-count:
+  brcm,iproc-mbox-db-count:
     $ref: '/schemas/types.yaml#/definitions/uint32'
-    description: Number of channels supported by the mailbox.
+    description: Number of doorbells supported by the mailbox.
 
   "#mbox-cells":
     const: 2
     description:
-      Apart from phandle, the two cells would be channel number and channel
-      type. Channel type 0 means tx channel and 1 means rx channel.
+      Apart from phandle, the two cells would be doorbell number and doorbell
+      type. Dorbell type 0 means tx doorbell and 1 means rx doorbell.
 
 required:
   - compatible
   - reg
   - interrupts
   - brcm,iproc-mbox
-  - brcm,iproc-mbox-ch-count
+  - brcm,iproc-mbox-db-count
   - "#mbox-cells"
 
 examples:
@@ -67,6 +67,11 @@ examples:
         reg = <0x40000 0x200>;
         interrupts = <GIC_SPI 389 IRQ_TYPE_LEVEL_HIGH>;
         brcm,iproc-mbox = <&crmu_dmu 0x20 0x00>;
-        brcm,iproc-mbox-ch-count = <8>;
+        brcm,iproc-mbox-db-count = <8>;
         #mbox-cells = <2>;
+    };
+    mailbox_test {
+        compatible = "mailbox-test";
+        mboxes = <&mbox_crmu 7 0>, <&mbox_crmu 15 1>;
+        mbox-names = "tx", "rx";
     };
