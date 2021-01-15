@@ -10,6 +10,8 @@
 / {
 	aliases {
 		serial0 = &uart1;
+		mmc0 = &sdio0;
+		mmc1 = &sdio1;
 	};
 
 	chosen {

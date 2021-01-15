@@ -35,6 +35,8 @@
 
 	aliases {
 		serial0 = &uart1;
+		mmc0 = &sdio0;
+		mmc1 = &sdio1;
 	};
 
 	chosen { /* HACK: hard-code kernel args and initrd location */
