@@ -196,49 +196,6 @@ int bcm_phy_config_intr(struct phy_device *phydev)
 }
 EXPORT_SYMBOL_GPL(bcm_phy_config_intr);
 
-int bcm_rdb_phy_ack_intr(struct phy_device *phydev)
-{
-	int reg;
-
-	/* Clear pending interrupts.  */
-	reg = bcm_phy_read_rdb(phydev, BCM_542XX_RDB_PHY_ISR);
-	if (reg < 0)
-		return reg;
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(bcm_rdb_phy_ack_intr);
-
-int bcm_rdb_phy_config_intr(struct phy_device *phydev)
-{
-	int reg;
-
-	reg = bcm_phy_read_rdb(phydev, BCM_542XX_RDB_PHY_ECR);
-	if (reg < 0)
-		return reg;
-
-	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-		reg &= ~MII_BCM54XX_ECR_IM;
-	else
-		reg |= MII_BCM54XX_ECR_IM;
-
-	return bcm_phy_write_rdb(phydev, BCM_542XX_RDB_PHY_ECR, reg);
-}
-EXPORT_SYMBOL_GPL(bcm_rdb_phy_config_intr);
-
-int bcm_phy_power_down(struct phy_device *phydev, bool down)
-{
-	u16 val;
-
-	val = phy_read(phydev, MII_BMCR);
-	if (down)
-		val |= BCM_542XX_POWER_DOWN;
-	else
-		val &= ~BCM_542XX_POWER_DOWN;
-	return phy_write(phydev, MII_BMCR, val);
-}
-EXPORT_SYMBOL_GPL(bcm_phy_power_down);
-
 int bcm_phy_read_shadow(struct phy_device *phydev, u16 shadow)
 {
 	phy_write(phydev, MII_BCM54XX_SHD, MII_BCM54XX_SHD_VAL(shadow));

@@ -64,11 +64,6 @@ int bcm_phy_modify_rdb(struct phy_device *phydev, u16 rdb, u16 mask,
 int bcm_phy_ack_intr(struct phy_device *phydev);
 int bcm_phy_config_intr(struct phy_device *phydev);
 
-int bcm_rdb_phy_ack_intr(struct phy_device *phydev);
-int bcm_rdb_phy_config_intr(struct phy_device *phydev);
-
-int bcm_phy_power_down(struct phy_device *phydev, bool down);
-
 int bcm_phy_enable_apd(struct phy_device *phydev, bool dll_pwr_down);
 
 int bcm_phy_set_eee(struct phy_device *phydev, bool enable);
