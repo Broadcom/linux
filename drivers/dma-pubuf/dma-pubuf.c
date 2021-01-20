@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
 /******************************************************************************
  *
- *       Copyright (C) 2015-2019 Ichiro Kawazome
+ *       Copyright (C) 2015-2020 Ichiro Kawazome
  *       All rights reserved.
  *
  *       Redistribution and use in source and binary forms, with or without
@@ -62,7 +62,7 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
-#define DRIVER_VERSION			"2.1.2"
+#define DRIVER_VERSION			"3.0.0"
 #define DRIVER_NAME			"dma-pubuf"
 #define DEVICE_NAME_FORMAT		"dmapubuf%d"
 #define DEVICE_MAX_NUM			256
@@ -162,7 +162,7 @@ struct dmapubuf_device_data {
 	dev_t device_number;
 	struct mutex sem;
 	bool is_open;
-	int size;
+	size_t size;
 	size_t alloc_size;
 	void *virt_addr;
 	dma_addr_t phys_addr;
@@ -315,7 +315,7 @@ static inline int NO_ACTION(struct dmapubuf_device_data *this)
 }
 
 DEF_ATTR_SHOW(driver_version, "%s\n", DRIVER_VERSION);
-DEF_ATTR_SHOW(size, "%d\n", this->size);
+DEF_ATTR_SHOW(size, "%zu\n", this->size);
 DEF_ATTR_SHOW(phys_addr, "%pad\n", &this->phys_addr);
 DEF_ATTR_SHOW(sync_mode, "%d\n", this->sync_mode);
 DEF_ATTR_SET(sync_mode, 0, 7, NO_ACTION, NO_ACTION);
@@ -348,7 +348,7 @@ static struct device_attribute dmapubuf_device_attrs[] = {
 	       dmapubuf_set_sync_size),
 	__ATTR(sync_direction, 0664, dmapubuf_show_sync_direction,
 	       dmapubuf_set_sync_direction),
-	__ATTR(sync_owner, 0664, dmapubuf_show_sync_owner, NULL),
+	__ATTR(sync_owner, 0444, dmapubuf_show_sync_owner, NULL),
 	__ATTR(sync_for_cpu, 0664, dmapubuf_show_sync_for_cpu,
 	       dmapubuf_set_sync_for_cpu),
 	__ATTR(sync_for_device, 0664, dmapubuf_show_sync_for_device,
@@ -915,7 +915,8 @@ static int dmapubuf_device_setup(struct dmapubuf_device_data *this)
 	if (IS_ERR_OR_NULL(this->virt_addr)) {
 		int retval = PTR_ERR(this->virt_addr);
 
-		pr_err("dma_alloc_coherent() failed. return(%d)\n", retval);
+		pr_err("dma_alloc_coherent(size=%zu) failed. return(%d)\n",
+		       this->alloc_size, retval);
 		this->virt_addr = NULL;
 		return (retval == 0) ? -ENOMEM : retval;
 	}
@@ -1293,7 +1294,7 @@ static int dmapubuf_device_probe(struct device *dev)
 {
 	int retval = 0;
 	unsigned int u32_value = 0;
-	unsigned int size = 0;
+	size_t size = 0;
 	int minor_number = -1;
 	struct dmapubuf_device_data *device_data = NULL;
 	const char *device_name = NULL;
@@ -1306,6 +1307,12 @@ static int dmapubuf_device_probe(struct device *dev)
 		size = u32_value;
 	} else {
 		dev_err(dev, "invalid property size\n");
+		retval = -ENODEV;
+		goto failed;
+	}
+
+	if (size <= 0) {
+		dev_err(dev, "invalid size, size=%zu\n", size);
 		retval = -ENODEV;
 		goto failed;
 	}
