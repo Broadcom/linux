@@ -11,6 +11,15 @@
 	model = "Stingray2 PS2200 (BCM9126600)";
 };
 
+&i2c1 {
+	status = "okay";
+	eeprom@a2 {
+		compatible = "atmel,24c128";
+		reg = <0xa2>;
+		pagesize = <128>;
+	};
+};
+
 &pcie9 {
 	status = "okay";
 };
