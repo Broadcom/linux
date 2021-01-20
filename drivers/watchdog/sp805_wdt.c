@@ -108,22 +108,20 @@ static bool wdt_is_running(struct watchdog_device *wdd)
 static int wdt_setload(struct watchdog_device *wdd, unsigned int timeout)
 {
 	struct sp805_wdt *wdt = watchdog_get_drvdata(wdd);
-	u64 load, rate;
+	u64 load, rate, div;
 
 	rate = wdt->rate;
 
-	if (action)
-		load = rate * timeout - 1;
-	else
-		/*
-		 * In single stage mode, the first interrupt will be ignored.
-		 * sp805 runs counter with given value twice, after the end
-		 * of first counter it gives an interrupt and then
-		 * starts counter again. If interrupt already occurred then
-		 * it resets the system. This is why load is half of what
-		 * should be required.
-		 */
-		load = div_u64(rate, 2) * timeout - 1;
+	/*
+	 * If action is 0, it is in single stage mode, the first
+	 * interrupt will be ignored. sp805 runs counter with given value
+	 * twice, after the end of first counter it gives an interrupt and then
+	 * starts counter again. If interrupt already occurred then
+	 * it resets the system. This is why load is half of what
+	 * should be required.
+	 */
+	div = action ? 1 : 2;
+	load = div_u64(rate, div) * timeout - 1;
 
 	load = (load > LOAD_MAX) ? LOAD_MAX : load;
 	load = (load < LOAD_MIN) ? LOAD_MIN : load;
@@ -131,7 +129,7 @@ static int wdt_setload(struct watchdog_device *wdd, unsigned int timeout)
 	spin_lock(&wdt->lock);
 	wdt->load_val = load;
 	/* roundup timeout to closest positive integer value */
-	wdd->timeout = div_u64((load + 1) * 2 + (rate / 2), rate);
+	wdd->timeout = div_u64((load + 1) * div + (rate / div), rate);
 	spin_unlock(&wdt->lock);
 
 	return 0;
