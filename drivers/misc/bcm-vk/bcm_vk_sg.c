@@ -17,12 +17,6 @@
 #include "bcm_vk_msg.h"
 #include "bcm_vk_sg.h"
 
-/*
- * Valkyrie has a hardware limitation of 16M transfer size.
- * So limit the SGL chunks to 16M.
- */
-#define BCM_VK_MAX_SGL_CHUNK SZ_16M
-
 static int bcm_vk_dma_alloc(struct device *dev,
 			    struct bcm_vk_dma *dma,
 			    int dir,

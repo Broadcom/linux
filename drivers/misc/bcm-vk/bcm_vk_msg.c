@@ -1208,7 +1208,7 @@ ssize_t bcm_vk_write(struct file *p_file,
 
 	if (entry->to_v_msg[0].function_id == VK_FID_TRANS_BUF) {
 		/* Convert any pointers to sg list */
-		unsigned int num_planes;
+		unsigned int num_planes, i;
 		int dir;
 		struct _vk_data *data;
 
@@ -1241,6 +1241,15 @@ ssize_t bcm_vk_write(struct file *p_file,
 
 		/* Now back up to the start of the pointers */
 		data -= num_planes;
+
+		/* do a range checking */
+		for (i = 0; i < num_planes; i++)
+			if (data[i].size > BCM_VK_MAX_SGL_CHUNK) {
+				dev_err(dev, "data[%d] size 0x%x > max 0x%x",
+					i, data[i].size, BCM_VK_MAX_SGL_CHUNK);
+				rc = -ERANGE;
+				goto write_free_msgid;
+			}
 
 		/* Convert user addresses to DMA SG List */
 		rc = bcm_vk_sg_alloc(dev, entry->dma, dir, data, num_planes);

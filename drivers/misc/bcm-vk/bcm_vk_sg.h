@@ -8,6 +8,12 @@
 
 #include <linux/dma-mapping.h>
 
+/*
+ * Valkyrie has a hardware limitation of 16M transfer size.
+ * So limit the SGL chunks to 16M.
+ */
+#define BCM_VK_MAX_SGL_CHUNK SZ_16M
+
 struct bcm_vk_dma {
 	/* for userland buffer */
 	struct page **pages;
