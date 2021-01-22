@@ -61,6 +61,8 @@ static struct bcm_vk_entry const fw_shutdown_reg_tab[] = {
 	 "L1_reset" },
 	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_L0,
 	 "L0_reset" },
+	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_COP_WDOG,
+	 "cop_wdog"},
 	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_THERMAL_TRAP,
 	 "thermal_trap_reset" },
 	{VK_FWSTS_RESET_REASON_MASK, VK_FWSTS_RESET_UNKNOWN,
