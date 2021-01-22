@@ -27,6 +27,11 @@
 
 &sdio0 {
 	no-1-8-v;
+	/*
+	 * Disable SDHCI host capabilities of 1.8v and 3.3v since it is not
+	 * supported by the board.
+	 */
+	sdhci-caps-mask = <0x0 0x06000000>;
 };
 
 &uart0 {
