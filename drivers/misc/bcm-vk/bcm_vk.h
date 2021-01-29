@@ -277,7 +277,11 @@ enum pci_barno {
 	BAR_2
 };
 
+#ifdef CONFIG_BCM_VK_TTY
 #define BCM_VK_NUM_TTY 2
+#else
+#define BCM_VK_NUM_TTY 0
+#endif
 
 struct bcm_vk_tty {
 	struct tty_port port;
@@ -388,11 +392,13 @@ struct bcm_vk {
 	struct miscdevice miscdev;
 	int devid; /* dev id allocated */
 
+#ifdef CONFIG_BCM_VK_TTY
 	struct tty_driver *tty_drv;
 	struct timer_list serial_timer;
 	struct bcm_vk_tty tty[BCM_VK_NUM_TTY];
 	struct workqueue_struct *tty_wq_thread;
 	struct work_struct tty_wq_work;
+#endif
 
 	/* Reference-counting to handle file operations */
 	struct kref kref;
@@ -523,9 +529,6 @@ int bcm_vk_send_shutdown_msg(struct bcm_vk *vk, u32 shut_type,
 			     const pid_t pid, const u32 q_num);
 void bcm_to_v_q_doorbell(struct bcm_vk *vk, u32 q_num, u32 db_val);
 int bcm_vk_auto_load_all_images(struct bcm_vk *vk);
-int bcm_vk_tty_init(struct bcm_vk *vk, char *name);
-void bcm_vk_tty_exit(struct bcm_vk *vk);
-void bcm_vk_tty_terminate_tty_user(struct bcm_vk *vk);
 void bcm_vk_hb_init(struct bcm_vk *vk);
 void bcm_vk_hb_deinit(struct bcm_vk *vk);
 void bcm_vk_handle_notf(struct bcm_vk *vk);
@@ -533,6 +536,39 @@ bool bcm_vk_drv_access_ok(struct bcm_vk *vk);
 void bcm_vk_set_host_alert(struct bcm_vk *vk, u32 bit_mask);
 int bcm_vk_sysfs_init(struct pci_dev *pdev, struct miscdevice *misc_device);
 void bcm_vk_sysfs_exit(struct pci_dev *pdev, struct miscdevice *misc_device);
+
+#ifdef CONFIG_BCM_VK_TTY
+int bcm_vk_tty_init(struct bcm_vk *vk, char *name);
+void bcm_vk_tty_exit(struct bcm_vk *vk);
+void bcm_vk_tty_terminate_tty_user(struct bcm_vk *vk);
+void bcm_vk_tty_wq_exit(struct bcm_vk *vk);
+
+static inline void bcm_vk_tty_set_irq_enabled(struct bcm_vk *vk, int index)
+{
+	vk->tty[index].irq_enabled = true;
+}
+#else
+static inline int bcm_vk_tty_init(struct bcm_vk *vk, char *name)
+{
+	return 0;
+}
+
+static inline void bcm_vk_tty_exit(struct bcm_vk *vk)
+{
+}
+
+static inline void bcm_vk_tty_terminate_tty_user(struct bcm_vk *vk)
+{
+}
+
+static inline void bcm_vk_tty_wq_exit(struct bcm_vk *vk)
+{
+}
+
+static inline void bcm_vk_tty_set_irq_enabled(struct bcm_vk *vk, int index)
+{
+}
+#endif /* CONFIG_BCM_VK_TTY */
 
 #if defined(BCM_VK_LEGACY_API)
 
