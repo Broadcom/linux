@@ -10,7 +10,11 @@
  * to be updated in DTB by bootloader before
  * handing over DTB to Linux kernel.
  */
+#if ENABLE_OCM
+/memreserve/ 0x80200000 0x200000;
+#else
 /memreserve/ 0x9d000000 0x10000000;
+#endif
 
 /* HACK: Reserve bl31 location
  * The memreserve entry for bl31 is supposed to
@@ -20,13 +24,21 @@
  * location of bl31 and bl31 location in DDR can
  * also change in-future.
  */
+#if ENABLE_OCM
+/memreserve/ 0x80000000 0x80000;
+#else
 /memreserve/ 0x80000000 0x02080000;
+#endif
 
 /* Sideload 64MB */
+#if ENABLE_OCM == 0
 /memreserve/ 0xbc000000 0x04000000;
+#endif
 
 /* SMMU-v3 tables */
+#if ENABLE_OCM == 0
 /memreserve/ 0x83080000 0x01000000;
+#endif
 
 /* GIC-v3 LPI tables */
 /memreserve/ 0x84080000 0x00200000;
@@ -44,17 +56,31 @@
 
 	chosen { /* HACK: hard-code kernel args and initrd location */
 		bootargs = "root=/dev/ram rw console=ttyAMA1,1200n8 \
-			    earlycon=pl011,mmio32,0x68a10000 cma=64M \
-			    maxcpus=2 pci=pcie_bus_perf pcie_ports=native \
-			    sbsa_gwdt.action=1 reboot=w debugshell=0";
+			    earlycon=pl011,mmio32,0x68a10000 \
+#if ENABLE_OCM
+			    cma=0 swiotlb=0 maxcpus=1 \
+#else
+			    cma=64M maxcpus=2 \
+#endif
+			    pci=pcie_bus_perf pcie_ports=native \
+			    sbsa_gwdt.action=1 reboot=w";
+#if ENABLE_OCM
+		linux,initrd-start = <0x0 0x80200000>;
+		linux,initrd-end = <0x0 0x80400000>;
+#else
 		linux,initrd-start = <0x0 0x9d000000>;
 		linux,initrd-end = <0x0 0xad000000>;
+#endif
 		stdout-path = "serial0:1200n8";
 	};
 
 	memory: memory@80000000 {
 		device_type = "memory";
+#if ENABLE_OCM
+		reg = <0x00000000 0x80000000 0 0x2000000>;
+#else
 		reg = <0x00000000 0x80000000 0 0x80000000>;
+#endif
 	};
 };
 
@@ -77,7 +103,6 @@
 	non-removable;
 	no-sdio;
 	no-sd;
-	status = "okay";
 };
 
 &i2c0 {

@@ -5,6 +5,31 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
+#define ENABLE_OCM	0
+#if ENABLE_OCM == 1
+#define ENABLE_SMMU		0
+#define ENABLE_PAXB_MSI		0
+#define ENABLE_CFA_MSI		0
+#define ENABLE_HSLS_MSI		0
+#define ENABLE_PRIMATE_MSI	0
+#define ENABLE_CDU_MSI		0
+#define ENABLE_NVME_MSI		0
+#define ENABLE_USB_EMM_MSI	0
+#define ENABLE_SPD_MSI		0
+#else
+#define ENABLE_SMMU		1
+#define ENABLE_PAXB_MSI		1
+#define ENABLE_CFA_MSI		1
+#define ENABLE_HSLS_MSI		1
+#define ENABLE_PRIMATE_MSI	1
+#define ENABLE_CDU_MSI		1
+#define ENABLE_NVME_MSI		1
+#define ENABLE_USB_EMM_MSI	1
+#define ENABLE_SPD_MSI		1
+#endif
+#define ENABLE_FS5_MSI		1
+#define ENABLE_PAXC_MSI		1
+
 / {
 	compatible = "brcm,stingray2";
 	interrupt-parent = <&gic>;
@@ -126,9 +151,13 @@
 			/* 12 channels for mbox0 */
 			reg = <0x00000000 0xc0000>;
 			#mbox-cells = <1>;
+#if ENABLE_FS5_MSI
 			msi-parent = <&gic_its8 0xf0020>;
+#endif
+#if ENABLE_SMMU
 			iommus = <&smmu 0xf0000>,
 				 <&smmu 0xf0020>;
+#endif
 			dma-coherent;
 		};
 
@@ -137,9 +166,13 @@
 			/* 12 channels for mbox1 */
 			reg = <0x000c0000 0xc0000>;
 			#mbox-cells = <1>;
+#if ENABLE_FS5_MSI
 			msi-parent = <&gic_its8 0xf0021>;
+#endif
+#if ENABLE_SMMU
 			iommus = <&smmu 0xf0001>,
 				 <&smmu 0xf0021>;
+#endif
 			dma-coherent;
 		};
 
@@ -148,9 +181,13 @@
 			/* 8 channels for mbox2 */
 			reg = <0x180000 0x80000>;
 			#mbox-cells = <1>;
+#if ENABLE_FS5_MSI
 			msi-parent = <&gic_its8 0xf0022>;
+#endif
+#if ENABLE_SMMU
 			iommus = <&smmu 0xf0002>,
 				 <&smmu 0xf0022>;
+#endif
 			dma-coherent;
 		};
 
@@ -187,78 +224,97 @@
 			reg = <0x4000000 0x010000>, /* GICD */
 			      <0x4180000 0x1800000>; /* GICR */
 			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
-
+#if ENABLE_PAXC_MSI
 			gic_its0: gic-its@4040000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
 				reg = <0x04040000 0x10000>;
 			};
+#endif
 
+#if ENABLE_PAXB_MSI
 			gic_its1: gic-its@4060000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
 				reg = <0x04060000 0x10000>;
 			};
+#endif
 
+#if ENABLE_CFA_MSI
 			gic_its2: gic-its@4080000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
 				reg = <0x04080000 0x10000>;
 			};
+#endif
 
+#if ENABLE_HSLS_MSI
 			gic_its3: gic-its@40a0000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
 				reg = <0x040a0000 0x10000>;
 			};
+#endif
 
+#if ENABLE_PRIMATE_MSI
 			gic_its4: gic-its@40c0000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
 				reg = <0x040c0000 0x10000>;
 			};
+#endif
 
+#if ENABLE_CDU_MSI
 			gic_its5: gic-its@40e0000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
 				reg = <0x040e0000 0x10000>;
 			};
+#endif
 
+#if ENABLE_NVME_MSI
 			gic_its6: gic-its@4100000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
 				reg = <0x04100000 0x10000>;
 			};
+#endif
 
+#if ENABLE_USB_EMM_MSI
 			gic_its7: gic-its@4120000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
 				reg = <0x04120000 0x10000>;
 			};
+#endif
 
+#if ENABLE_FS5_MSI
 			gic_its8: gic-its@4140000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
 				reg = <0x04140000 0x10000>;
 			};
+#endif
 
+#if ENABLE_SPD_MSI
 			gic_its9: gic-its@4160000 {
 				compatible = "arm,gic-v3-its";
 				msi-controller;
 				#msi-cells = <1>;
 				reg = <0x04160000 0x10000>;
 			};
+#endif
 		};
-
+#if ENABLE_SMMU
 		smmu: mmu@6000000 {
 			compatible = "arm,smmu-v3";
 			reg = <0x06000000 0x20000>;
@@ -271,6 +327,7 @@
 			dma-coherent;
 			#iommu-cells = <1>;
 		};
+#endif
 	};
 
 	cdru {
@@ -434,9 +491,13 @@
 		vee: vee@8000000 {
 			compatible = "brcm,iproc-vee";
 			reg = <0x8000000 0xc0000>;
+#if ENABLE_NVME_MSI
 			msi-parent = <&gic_its6 0xfc010>;
+#endif
 			dma-coherent;
+#if ENABLE_SMMU
 			iommus = <&smmu 0xfc010>;
+#endif
 		};
 	};
 
@@ -552,7 +613,9 @@
 			interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 			clocks = <&sdio0_clk>;
+#if ENABLE_SMMU
 			iommus = <&smmu 0xf8001>;
+#endif
 			status = "disabled";
 			dma-coherent;
 		};
@@ -563,7 +626,9 @@
 			interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH>;
 			bus-width = <8>;
 			clocks = <&sdio1_clk>;
+#if ENABLE_SMMU
 			iommus = <&smmu 0xf8002>;
+#endif
 			status = "disabled";
 			dma-coherent;
 		};
