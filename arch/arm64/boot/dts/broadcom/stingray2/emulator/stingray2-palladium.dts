@@ -28,6 +28,9 @@
 /* SMMU-v3 tables */
 /memreserve/ 0x83080000 0x01000000;
 
+/* GIC-v3 LPI tables */
+/memreserve/ 0x84080000 0x00200000;
+
 #include "../stingray2.dtsi"
 
 / {
