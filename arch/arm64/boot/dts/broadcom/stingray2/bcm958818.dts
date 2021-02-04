@@ -8,7 +8,7 @@
 #include "stingray2-board-base.dtsi"
 
 / {
-	model = "Stingray2 PS2200 (BCM9126600)";
+	model = "Stingray2 PS2200 (BCM958818)";
 };
 
 &i2c1 {
