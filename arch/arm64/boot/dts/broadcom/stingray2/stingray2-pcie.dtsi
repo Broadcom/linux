@@ -321,10 +321,12 @@
 		dma-ranges = <0x0 0x00 0x00000000 0x00 0x00000000 0x100 0x00000000>;
 		dma-coherent;
 #if ENABLE_PAXC_MSI
-		msi-map = <0x100 &gic_its0 0xe0000 0x8>; /* PF0 - PF7*/
+		msi-map = <0x100 &gic_its0 0xe0000 0x10>, /* PF0 - PF15 */
+			  <0x200 &gic_its0 0xe0010 0x400>; /* VF0 to VF1023 */
 #endif
 #if ENABLE_SMMU
-		iommu-map = <0x100 &smmu 0xe0000 0x8>; /* PF0 - PF7 */
+		iommu-map = <0x100 &smmu 0xe0000 0x10>, /* PF0 - PF15 */
+			    <0x200 &smmu 0xe0010 0x400>; /* VF0 to VF1023 */
 #endif
 		status = "disabled";
 	};
