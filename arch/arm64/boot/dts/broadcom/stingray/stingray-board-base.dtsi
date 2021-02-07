@@ -160,6 +160,7 @@
 #if (ENABLE_EMMC == 1)
 	non-removable;
 	full-pwr-cycle;
+	cap-mmc-hw-reset;
 	status = "okay";
 #endif
 };
@@ -167,6 +168,7 @@
 &sdio1 {
 #if (ENABLE_SDCARD == 1)
 	full-pwr-cycle;
+	cap-mmc-hw-reset;
 	status = "okay";
 #endif
 };
