@@ -1000,9 +1000,13 @@ s32 bcm_to_h_msg_dequeue(struct bcm_vk *vk)
 				 * if first INIT msg, set context_id field of ctx
 				 * and add to context_id hash table.  Since deinit
 				 * could happen async, it is possible a CTRL-C/kill
-				 * would have cleanup all the pending init entry.
+				 * would have cleanup all the pending init entry, so
+				 * the entry may be NULL.
+				 * In addition, context_id maybe 0 if it was not
+				 * initialized.
 				 */
-				if (data->function_id == VK_FID_INIT_DONE) {
+				if ((data->function_id == VK_FID_INIT_DONE) &&
+				    (data->context_id)) {
 					if (entry && !entry->ctx->context_id) {
 						spin_lock(&vk->ctx_lock);
 						entry->ctx->context_id = data->context_id;
