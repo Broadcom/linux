@@ -42,6 +42,9 @@ static int bcm_vk_dma_alloc(struct device *dev,
 	unsigned long first, last;
 	struct _vk_data *sgdata;
 
+	if (vkdata->size > BCM_VK_MAX_SGL_CHUNK)
+		return -ERANGE;
+
 	/* Get 64-bit user address */
 	data = get_unaligned(&vkdata->address);
 
