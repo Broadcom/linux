@@ -1,0 +1,11 @@
+config IPROC_FLEX_TIMER
+	bool "Flextimer support for IPROC based SoCs"
+	depends on MFD_SYSCON && (ARCH_BCM_IPROC || COMPILE_TEST)
+	default ARCH_BCM_IPROC
+	help
+	  Flextimer is used to timestamp the digitised signal
+	  (converted from analog signal) which is fed as input
+	  to flextimer. The time stamps are decoded to get the
+	  final data.
+
+	  If unsure, say N.

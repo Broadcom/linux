@@ -81,6 +81,7 @@ int spu_sg_count(struct scatterlist *sg_list, unsigned int skip, int nbytes);
 u32 spu_msg_sg_add(struct scatterlist **to_sg,
 		   struct scatterlist **from_sg, u32 *skip,
 		   u8 from_nents, u32 tot_len);
+void spu_sg_mark_end(struct scatterlist *sg);
 
 void add_to_ctr(u8 *ctr_pos, unsigned int increment);
 

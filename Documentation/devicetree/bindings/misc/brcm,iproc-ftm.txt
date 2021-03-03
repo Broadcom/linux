@@ -1,0 +1,45 @@
+Flextimer support for reading  magnetic stripe of smart cards.
+
+Magnetic stripe reader head reads the smart card's magnetic stripe flux
+and generates the analog signal. This signal is digitalized and fed to
+flex time which time stamp the data. Time stamp is decoded to get the stripe
+tracks data.
+
+
+Required properties:
+
+- compatible:
+    Must be "brcm,iproc-ftm"
+
+-reg:
+	base address of flex channels registers.
+
+-flextimer_syscon:
+	handler of syscon node defining physical base address of the
+	TS/ADC controller and length of memory mapped region.
+
+-interrupts:
+	interrupt line used by flex timer.
+
+-clocks and clock-names:
+	clock used in flex timer.clock-names must be "ftm_clk".
+
+-pinctrl-0:
+	configure the mux to activate pin for flex timer functionalites.
+
+For example:
+
+	ts_adc_syscon: ts_adc_syscon@180a6000 {
+		compatible = "brcm,iproc-ts-adc-syscon", "syscon";
+		reg = <0x180a6000 0xc30>;
+	};
+
+	flextimer: flextimer@180a6000 {
+		compatible = "brcm,iproc-ftm";
+		flextimer_syscon = <&ts_adc_syscon>;
+		interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&asiu_clks BCM_CYGNUS_ASIU_ADC_CLK>;
+		clock-names = "ftm_clk";
+		pinctrl-0 = <&flextimer_default_mux>;
+		status = "disabled";
+	};

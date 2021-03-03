@@ -1,0 +1,27 @@
+Broadcom SATA PHY PRBS for Stingray
+
+Required properties:
+- compatible : should be "brcm,stingray-sata-phy-prbs"
+- address-cells: should be 1
+- size-cells: should be 0
+- reg: register ranges for the PHY PCB interface
+- reg-names: should be "phy"
+
+Sub-nodes:
+  Each port's PHY should be represented as a sub-node.
+
+Sub-nodes required properties:
+- reg: the PHY number
+
+Example:
+	sata_phy0: sata_phy@67d02100 {
+		compatible = "brcm,stingray-sata-phy-prbs";
+		reg = <0x67d02100 0x1000>;
+		reg-names = "phy";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sata0_phy0: sata-phy@0 {
+			reg = <0>;
+		};
+	};

@@ -1,0 +1,19 @@
+BMC Client Device Tree Bindings
+-------------------------------------------------------------
+
+Required properties:
+	- compatible: Should be "i2c-slave-bmc".
+	- reg       : I2C address of the device, and I2C_OWN_SLAVE_ADDRESS
+		      (1 << 30) is used to mark addresses on which we listen
+		      to be devices ourselves.
+	- bmc-thermal-zone: name of thermal zone.
+
+Examples:
+
+&i2c1 {
+	bmc@40000035 {
+		compatible = "i2c-slave-bmc";
+		reg = <0x40000035>;
+		bmc-thermal-zone = "ihost0-thermal";
+	};
+};

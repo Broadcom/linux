@@ -74,9 +74,13 @@ struct iproc_msi;
  * @ib: inbound mapping related parameters
  * @ib_map: outbound mapping region related parameters
  *
+ * @irq: interrupt line wired to the generic GIC for INTx
+ * @irq_domain: IRQ domain for INTx
+ *
  * @need_msi_steer: indicates additional configuration of the iProc PCIe
  * controller is required to steer MSI writes to external interrupt controller
  * @msi: MSI data
+ * @intx_lock: spinlock to protect access to INTx related registers
  */
 struct iproc_pcie {
 	struct device *dev;
@@ -102,13 +106,17 @@ struct iproc_pcie {
 	struct iproc_pcie_ib ib;
 	const struct iproc_pcie_ib_map *ib_map;
 
+	int irq;
+	struct irq_domain *irq_domain;
+
 	bool need_msi_steer;
+	struct delayed_work work;
 	struct iproc_msi *msi;
+	spinlock_t intx_lock;
 };
 
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res);
 int iproc_pcie_remove(struct iproc_pcie *pcie);
-int iproc_pcie_shutdown(struct iproc_pcie *pcie);
 
 #ifdef CONFIG_PCIE_IPROC_MSI
 int iproc_msi_init(struct iproc_pcie *pcie, struct device_node *node);
@@ -123,5 +131,13 @@ static inline void iproc_msi_exit(struct iproc_pcie *pcie)
 {
 }
 #endif
+
+int iproc_pcie_rev_init(struct iproc_pcie *pcie);
+void __iomem *iproc_pcie_bus_map_cfg_bus(struct pci_bus *bus,
+					 unsigned int devfn, int where);
+int iproc_pcie_config_read32(struct pci_bus *bus, unsigned int devfn,
+			     int where, int size, u32 *val);
+int iproc_pcie_config_write32(struct pci_bus *bus, unsigned int devfn,
+			      int where, int size, u32 val);
 
 #endif /* _PCIE_IPROC_H */

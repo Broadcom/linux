@@ -1,0 +1,101 @@
+Broadcom iProc Interconnect Device Management (IDM) device
+
+The Broadcom iProc IDM device allows control and monitoring of ASIC internal
+bus transactions. Most importantly, it can be configured to detect bus
+transaction timeout. In such case, critical information such as transaction
+address that caused the error, bus master ID of the transaction that caused
+the error, and etc., are made available from the IDM device.
+
+-------------------------------------------------------------------------------
+
+Required properties for IDM device node:
+- compatible: must be "brcm,iproc-idm", followed by an IDM device specific
+  compatible string (see below for more details)
+- reg: base address and length of the IDM register space
+- interrupt: IDM interrupt number
+
+Optional properties for IDM device node:
+- brcm,iproc-idm-elog: phandle to the device node of the IDM logging device
+
+-------------------------------------------------------------------------------
+
+Required properties for IDM error logging device node:
+- compatible: must be "brcm,iproc-idm-elog";
+- reg: base address and length of reserved memory location where IDM error
+  events can be saved
+
+-------------------------------------------------------------------------------
+
+Example:
+
+iproc-idm {
+	idm-elog {
+		compatible = "brcm,iproc-idm-elog";
+		reg = <0x8f221000 0x1000>;
+	};
+
+	idm-mhb-paxc-axi {
+		compatible = "brcm,iproc-idm", "brcm,sr-idm-mhb-paxc-axi;
+		interrupt = <GIC_SPI 516 IRQ_TYPE_LEVEL_HIGH>;
+		brcm,iproc-idm-elog = <&idm-elog>;
+	};
+};
+
+List of supported IDM devices for Stingray is:
+"brcm,sr-idm-paxb0-axi"
+"brcm,sr-idm-paxb1-axi"
+"brcm,sr-idm-paxb2-axi"
+"brcm,sr-idm-paxb3-axi"
+"brcm,sr-idm-pcie-axi"
+"brcm,sr-idm-paxb4-axi"
+"brcm,sr-idm-paxb5-axi"
+"brcm,sr-idm-paxb6-axi"
+"brcm,sr-idm-paxb7-axi"
+"brcm,sr-idm-mhb-nitro-axi"
+"brcm,sr-idm-mhb-pcie-axi"
+"brcm,sr-idm-mhb-ep-apb"
+"brcm,sr-idm-mhb-paxc-axi"
+"brcm,sr-idm-mhb-apb"
+"brcm,sr-idm-mhb-paxc-apb"
+"brcm,sr-idm-nic-axi2apb"
+"brcm,sr-idm-nic-chimp"
+"brcm,sr-idm-nic-ds0"
+"brcm,sr-idm-scr-pcie0"
+"brcm,sr-idm-scr-pcie1"
+"brcm,sr-idm-scr-paxc"
+"brcm,sr-idm-scr-fs"
+"brcm,sr-idm-scr-hsls"
+"brcm,sr-idm-scr-crmu"
+"brcm,sr-idm-scr-usb"
+"brcm,sr-idm-scr-axi2apb-div4"
+"brcm,sr-idm-scr-axi2apb-div4-emem"
+"brcm,sr-idm-scr-axi2apb-cssys"
+"brcm,sr-idm-scr-smmu"
+"brcm,sr-idm-scr-gic500"
+"brcm,sr-idm-scr-sata"
+"brcm,sr-idm-scr-cssys-stm-axi"
+"brcm,sr-idm-scr-ds0"
+"brcm,sr-idm-fs4-axi2apb-div2"
+"brcm,sr-idm-fs4-axi2apb"
+"brcm,sr-idm-fs4-sram"
+"brcm,sr-idm-fs4-crypto"
+"brcm,sr-idm-fs4-raid"
+"brcm,sr-idm-sata-apbt0"
+"brcm,sr-idm-sata-apbt1"
+"brcm,sr-idm-sata-reodrder-bridge"
+"brcm,sr-idm-sata-apbs"
+"brcm,sr-idm-drdu3"
+"brcm,sr-idm-drdu2"
+"brcm,sr-idm-usb3h"
+"brcm,sr-idm-gbridge"
+"brcm,sr-idm-rom-s0"
+"brcm,sr-idm-nand"
+"brcm,sr-idm-pnor"
+"brcm,sr-idm-qspi"
+"brcm,sr-idm-apbr"
+"brcm,sr-idm-apbspi"
+"brcm,sr-idm-apbx"
+"brcm,sr-idm-apby"
+"brcm,sr-idm-apbz"
+"brcm,sr-idm-sdio0-axi2ahb"
+"brcm,sr-idm-sdio1-axi2ahb"

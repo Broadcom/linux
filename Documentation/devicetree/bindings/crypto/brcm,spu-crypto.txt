@@ -12,11 +12,59 @@ Required properties:
 
 - reg: Should contain SPU registers location and length.
 - mboxes: The mailbox channel to be used to communicate with the SPU.
-  Mailbox channels correspond to DMA rings on the device.
+  Mailbox channels correspond to DMA rings on the device. spu2-v2 based devices
+  may have more DMA rings than the number of SPU hardware blocks and internally
+  hardware schedules the assignment of DMA rings to SPU hardware blocks.
 
 Example:
 	crypto@612d0000 {
 		compatible = "brcm,spum-crypto";
 		reg = <0 0x612d0000 0 0x900>;
 		mboxes = <&pdc0 0>;
+	};
+
+	spu2: spu2 {
+		compatible = "brcm,spu2-v2-crypto";
+		reg = <0x672c0000 0x1000>,
+		      <0x672c1000 0x1000>,
+		      <0x672c2000 0x1000>,
+		      <0x672c3000 0x1000>,
+		      <0x672c4000 0x1000>,
+		      <0x672c5000 0x1000>,
+		      <0x672c6000 0x1000>,
+		      <0x672c7000 0x1000>,
+		      <0x672c8000 0x1000>,
+		      <0x672c9000 0x1000>;
+		mboxes = <&crypto_mbox 0 0x1 0xff00>,
+			 <&crypto_mbox 1 0x1 0xff00>,
+			 <&crypto_mbox 2 0x1 0xff00>,
+			 <&crypto_mbox 3 0x1 0xff00>,
+			 <&crypto_mbox 4 0x1 0xff00>,
+			 <&crypto_mbox 5 0x1 0xff00>,
+			 <&crypto_mbox 6 0x1 0xff00>,
+			 <&crypto_mbox 7 0x1 0xff00>,
+			 <&crypto_mbox 8 0x1 0xff00>,
+			 <&crypto_mbox 9 0x1 0xff00>,
+			 <&crypto_mbox 10 0x1 0xff00>,
+			 <&crypto_mbox 11 0x1 0xff00>,
+			 <&crypto_mbox 12 0x1 0xff00>,
+			 <&crypto_mbox 13 0x1 0xff00>,
+			 <&crypto_mbox 14 0x1 0xff00>,
+			 <&crypto_mbox 15 0x1 0xff00>,
+			 <&crypto_mbox 16 0x1 0xff00>,
+			 <&crypto_mbox 17 0x1 0xff00>,
+			 <&crypto_mbox 18 0x1 0xff00>,
+			 <&crypto_mbox 19 0x1 0xff00>,
+			 <&crypto_mbox 20 0x1 0xff00>,
+			 <&crypto_mbox 21 0x1 0xff00>,
+			 <&crypto_mbox 22 0x1 0xff00>,
+			 <&crypto_mbox 23 0x1 0xff00>,
+			 <&crypto_mbox 24 0x1 0xff00>,
+			 <&crypto_mbox 25 0x1 0xff00>,
+			 <&crypto_mbox 26 0x1 0xff00>,
+			 <&crypto_mbox 27 0x1 0xff00>,
+			 <&crypto_mbox 28 0x1 0xff00>,
+			 <&crypto_mbox 29 0x1 0xff00>,
+			 <&crypto_mbox 30 0x1 0xff00>,
+			 <&crypto_mbox 31 0x1 0xff00>;
 	};

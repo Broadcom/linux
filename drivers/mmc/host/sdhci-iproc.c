@@ -241,6 +241,29 @@ static const struct sdhci_iproc_data iproc_data = {
 		 SDHCI_SUPPORT_DDR50,
 };
 
+static const struct sdhci_pltfm_data sdhci_iproc_v2_pltfm_data = {
+	.quirks = SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
+		  SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12,
+	.quirks2 = SDHCI_QUIRK2_ACMD23_BROKEN,
+	.ops = &sdhci_iproc_ops,
+};
+
+static const struct sdhci_iproc_data iproc_v2_data = {
+	.pdata = &sdhci_iproc_v2_pltfm_data,
+	.caps = ((0x1 << SDHCI_MAX_BLOCK_SHIFT)
+			& SDHCI_MAX_BLOCK_MASK) |
+		SDHCI_CAN_VDD_330 |
+		SDHCI_CAN_VDD_180 |
+		SDHCI_CAN_DO_SUSPEND |
+		SDHCI_CAN_DO_HISPD |
+		SDHCI_CAN_DO_ADMA2 |
+		SDHCI_CAN_DO_SDMA |
+		SDHCI_CAN_64BIT,
+	.caps1 = SDHCI_DRIVER_TYPE_C |
+		 SDHCI_DRIVER_TYPE_D |
+		 SDHCI_SUPPORT_DDR50,
+};
+
 static const struct sdhci_pltfm_data sdhci_bcm2835_pltfm_data = {
 	.quirks = SDHCI_QUIRK_BROKEN_CARD_DETECTION |
 		  SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
@@ -290,6 +313,7 @@ static const struct of_device_id sdhci_iproc_of_match[] = {
 	{ .compatible = "brcm,bcm2711-emmc2", .data = &bcm2711_data },
 	{ .compatible = "brcm,sdhci-iproc-cygnus", .data = &iproc_cygnus_data},
 	{ .compatible = "brcm,sdhci-iproc", .data = &iproc_data },
+	{ .compatible = "brcm,sdhci-iproc-v2", .data = &iproc_v2_data },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, sdhci_iproc_of_match);

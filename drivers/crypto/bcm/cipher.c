@@ -1273,6 +1273,10 @@ static int spu_aead_tx_sg_create(struct brcm_message *mssg,
 		memset(rctx->msg_buf.tx_stat, 0, stat_len);
 		sg_set_buf(sg, rctx->msg_buf.tx_stat, stat_len);
 	}
+
+	/* Mark end if src sg entries not reached upto tx_frag_num */
+	spu_sg_mark_end(mssg->spu.src);
+
 	return 0;
 }
 
@@ -2577,7 +2581,7 @@ static int aead_need_fallback(struct aead_request *req)
 	 */
 	if (((ctx->cipher.mode == CIPHER_MODE_GCM) ||
 	     (ctx->cipher.mode == CIPHER_MODE_CCM)) &&
-	    (req->assoclen == 0)) {
+	     ((req->assoclen == 0) || (req->cryptlen == 0))) {
 		if ((rctx->is_encrypt && (req->cryptlen == 0)) ||
 		    (!rctx->is_encrypt && (req->cryptlen == ctx->digestsize))) {
 			flow_log("AES GCM/CCM needs fallback for 0 len req\n");
@@ -4409,8 +4413,7 @@ static void spu_functions_register(struct device *dev,
 }
 
 /**
- * spu_mb_init() - Initialize mailbox client. Request ownership of a mailbox
- * channel for the SPU being probed.
+ * spu_mb_init() - Initialize mailbox client.
  * @dev:  SPU driver device structure
  *
  * Return: 0 if successful

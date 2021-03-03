@@ -439,8 +439,11 @@ static void sba_process_received_request(struct sba_device *sba,
 		spin_lock_irqsave(&sba->reqs_lock, flags);
 
 		/* Free all requests chained to first request */
-		list_for_each_entry(nreq, &first->next, next)
+		list_for_each_entry(nreq, &first->next, next) {
+			async_tx_ack(&nreq->tx);
 			_sba_free_request(sba, nreq);
+		}
+
 		INIT_LIST_HEAD(&first->next);
 
 		/* Free the first request */
@@ -449,6 +452,12 @@ static void sba_process_received_request(struct sba_device *sba,
 		/* Process pending requests */
 		_sba_process_pending_requests(sba);
 
+		spin_unlock_irqrestore(&sba->reqs_lock, flags);
+	} else {
+		spin_lock_irqsave(&sba->reqs_lock, flags);
+		sba->reqs_fence = false;
+		/* Process pending requests */
+		_sba_process_pending_requests(sba);
 		spin_unlock_irqrestore(&sba->reqs_lock, flags);
 	}
 }
@@ -1688,7 +1697,7 @@ static int sba_probe(struct platform_device *pdev)
 	sba->mchan = mbox_request_channel(&sba->client, 0);
 	if (IS_ERR(sba->mchan)) {
 		ret = PTR_ERR(sba->mchan);
-		goto fail_free_mchan;
+		goto fail_exit;
 	}
 
 	/* Find-out underlying mailbox device */
@@ -1739,6 +1748,7 @@ fail_free_resources:
 	sba_freeup_channel_resources(sba);
 fail_free_mchan:
 	mbox_free_channel(sba->mchan);
+fail_exit:
 	return ret;
 }
 

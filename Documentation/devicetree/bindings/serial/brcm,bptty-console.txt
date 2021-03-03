@@ -1,0 +1,29 @@
+* Broadcom TTY Console over PCIe memory
+
+Required properties:
+
+- compatible: "brcm,bptty-console"
+
+- brcm-xmit-addr: memory offset to write output
+
+- brcm-recv-addr: memory offset to read input
+
+Optional properties:
+
+- reg: offset and length of the register set for the doorbell
+
+- interrupts: doorbell interrupt, if not provided will fall back to polling
+
+- brcm-msix-source: phandle to PCIe endpoint node to generate msix interrupt
+ to host on tty write, which must define "brcm-ep-name" property
+
+Example:
+
+	uart1: serial@40070000 {
+		reg = <0x0 0x40070000 0x1000>;
+		compatible = "brcm,bptty-console";
+		brcm-xmit-addr = <0x5 0xbff00000>;
+		brcm-recv-addr = <0x5 0xbfe00000>;
+		interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+		brcm-msix-source = <&pcie_ep>;
+	};

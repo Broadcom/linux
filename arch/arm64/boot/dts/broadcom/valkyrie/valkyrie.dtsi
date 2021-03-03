@@ -1,0 +1,258 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2019 Broadcom
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	compatible = "brcm,valkyrie";
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a72", "arm,armv8";
+			reg = <0x0 0x0>;
+			enable-method = "psci";
+			next-level-cache = <&CLUSTER0_L2>;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a72", "arm,armv8";
+			reg = <0x0 0x1>;
+			enable-method = "psci";
+			next-level-cache = <&CLUSTER0_L2>;
+		};
+		cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a72", "arm,armv8";
+			reg = <0x0 0x2>;
+			enable-method = "psci";
+			next-level-cache = <&CLUSTER0_L2>;
+		};
+		cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a72", "arm,armv8";
+			reg = <0x0 0x3>;
+			enable-method = "psci";
+			next-level-cache = <&CLUSTER0_L2>;
+		};
+
+		CLUSTER0_L2: l2-cache@0 {
+			compatible = "cache";
+			cache-size = <0x200000>;
+			cache-line-size = <64>;
+			cache-sets = <2048>;
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-0.2";
+		method = "smc";
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	uio_itcm: uio_pdrv_genirq@400000 {
+		compatible = "generic-uio";
+		reg = <0x0 0x00400000 0x0 0x00040000>;
+		status = "disabled";
+	};
+
+	uio_dtcm: uio_pdrv_genirq@20000000 {
+		compatible = "generic-uio";
+		reg = <0x0 0x20000000 0x0 0x00040000>;
+		status = "disabled";
+	};
+
+	uio_shmem: uio_pdrv_genirq@20808000 {
+		compatible = "generic-uio";
+		reg = <0x0 0x20808000 0x0 0x4000>;
+		status = "disabled";
+	};
+
+	uio_sram: uio_pdrv_genirq@2080c000 {
+		compatible = "generic-uio";
+		reg = <0x0 0x2080c000 0x0 0x00034000>;
+		status = "disabled";
+	};
+
+	pcie_ep: pcie_ep@4e100000 {
+		compatible = "brcm,pcie-ep";
+		reg = <0x0 0x4e100000 0x0 0x00001000>,
+		      <0x1 0x08000000 0x0 0x08000000>;
+		reg-names = "paxb-base", "ob-mem-base";
+		brcm-ep-name = "4e100000.pcie_ep";
+		status = "disabled";
+	};
+
+	scr {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x40000000 0x04000000>;
+
+		uio_mbox: uio_pdrv_genirq@00070000 {
+			compatible = "generic-uio";
+			reg = <0x00070000 0x1000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		uart1: serial@0007006c {
+			compatible = "brcm,bptty-console";
+			reg = <0x0007006c 0x10>;
+			brcm-xmit-addr = <0x5 0xbff00000>;
+			brcm-recv-addr = <0x5 0xbfe00000>;
+			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+			brcm-msix-source = <&pcie_ep>;
+			status = "disabled";
+		};
+
+		gic: interrupt-controller@02700000 {
+			compatible = "arm,gic-v3";
+			#interrupt-cells = <3>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			interrupt-controller;
+			reg = <0x02700000 0x010000>, /* GICD */
+			      <0x02780000 0x600000>; /* GICR */
+			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+
+			gic_its: gic-its@02720000 {
+				compatible = "arm,gic-v3-its";
+				msi-controller;
+				#msi-cells = <1>;
+				reg = <0x02720000 0x10000>;
+			};
+		};
+	};
+
+	wdt_clk: wdt_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <100000000>;
+	};
+
+	wdt_apb_clk: wdt_apb_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <25000000>;
+	};
+
+	hsls {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x48000000 0x10000000>;
+
+		uart0: uart@00100000 {
+			device_type = "serial";
+			compatible = "snps,dw-apb-uart";
+			reg = <0x00100000 0x1000>;
+			reg-shift = <2>;
+			clock-frequency = <100000000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		wdt0: watchdog@2d0000 {
+			compatible = "arm,sp805", "arm,primecell";
+			reg = <0x002d0000 0x1000>;
+			clocks = <&wdt_clk>, <&wdt_apb_clk>;
+			clock-names = "wdog_clk", "apb_pclk";
+			interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>;
+			timeout-sec = <20>;
+			status = "disabled";
+		};
+	};
+
+#if (USE_DMAPUBUF == 1)
+	dmapubuf0: dmapubuf0@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf0";
+		size = <0x7f000000>;
+		sync-mode = <1>;
+		memory-region = <&highmembuf0>;
+		status = "disabled";
+	};
+
+	dmapubuf1: dmapubuf1@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf1";
+		size = <0x61000000>;
+		sync-mode = <1>;
+		memory-region = <&highmembuf0>;
+		status = "disabled";
+	};
+
+	dmapubuf2: dmapubuf2@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf2";
+		size = <0x40000000>;
+		sync-mode = <1>;
+		memory-region = <&highmembuf1>;
+		status = "disabled";
+	};
+
+	dmapubuf3: dmapubuf3@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf3";
+		size = <0x7a000000>;
+		sync-mode = <1>;
+		memory-region = <&lowmembuf2>;
+		status = "disabled";
+	};
+
+	dmapubuf4: dmapubuf4@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf4";
+		size = <0x02000000>;
+		sync-mode = <1>;
+		memory-region = <&lowmembuf0>;
+		status = "disabled";
+	};
+
+	dmapubuf5: dmapubuf5@0x0 {
+		compatible = "dma-pubuf";
+		device-name = "dmapubuf5";
+		size = <0x01000000>;
+		sync-mode = <1>;
+		memory-region = <&lowmembuf1>;
+		status = "disabled";
+	};
+#endif
+	uio_ddr0: uio_pdrv_genirq@0x60000000 {
+		compatible = "generic-uio";
+		reg = <0x0 0x60000000 0x0 0x80000000>;
+		status = "disabled";
+	};
+
+	uio_ddr1: uio_pdrv_genirq@0x480000000 {
+		compatible = "generic-uio";
+		reg = <0x4 0x80000000 0x0 0xE0000000>;
+		status = "disabled";
+	};
+
+	uio_ddr2: uio_pdrv_genirq@0x57FC00000 {
+		compatible = "generic-uio";
+		reg = <0x5 0x7FC00000 0x0 0x40000000>;
+		status = "disabled";
+	};
+};

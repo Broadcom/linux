@@ -44,6 +44,9 @@ Optional properties
 - iommu-map-mask: A mask to be applied to each Requester ID prior to being
   mapped to an IOMMU specifier per the iommu-map property.
 
+- iommu-map-drop-mask: A drop mask represents the bits which will be
+  removed/dropped by system from Requester ID before mapping it to
+  stream ID.
 
 Example (1)
 ===========
@@ -169,3 +172,32 @@ Example (4)
 			    <0x8000 &iommu_b 0x0000 0x8000>;
 	};
 };
+
+Example (5)
+===========
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	iommu: iommu@a {
+		reg = <0xa 0x1>;
+		compatible = "vendor,some-iommu";
+		#iommu-cells = <1>;
+	};
+
+	pci: pci@f {
+		reg = <0xf 0x1>;
+		compatible = "vendor,pcie-root-complex";
+		device_type = "pci";
+
+		/*
+		 * The sideband data provided to the IOMMU is a 10bit
+		 * data derived from the RID by dropping 4 MSBs
+		 * of device number and 2 MSBs of function number.
+		 */
+		iommu-map = <0x0 &iommu 0x0 0x1024>;
+		iommu-map-drop-mask = <0xff09>;
+	};
+};
+

@@ -107,6 +107,22 @@ config BCM2835_MBOX
 	  the services of the Videocore. Say Y here if you want to use the
 	  BCM2835 Mailbox.
 
+config BCM_IPROC_MBOX
+	bool "Broadcom iProc Mailbox"
+	depends on ARCH_BCM_IPROC || COMPILE_TEST
+	default ARCH_BCM_IPROC
+	help
+	  Broadcom iProc architected SoC's have an always on Cortex-M0 MCU processor
+	  that handles support for power, clock, and reset management. The iProc
+	  mailbox controller handles all communication with this processor.
+
+config BCM_FS4_MBOX_TEST
+	tristate "Broadcom FlexSparx4 Mailbox Test Client"
+	depends on (ARM64 && RAID6_PQ) || COMPILE_TEST
+	default ARCH_BCM_IPROC
+	help
+	  Test mailbox client for FlexSparx4 offload engines.
+
 config STI_MBOX
 	tristate "STI Mailbox framework support"
 	depends on ARCH_STI && OF

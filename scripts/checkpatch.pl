@@ -51,6 +51,7 @@ my %ignore_type = ();
 my @ignore = ();
 my $help = 0;
 my $configuration_file = ".checkpatch.conf";
+my $max_file_size = -1;
 my $max_line_length = 100;
 my $ignore_perl_version = 0;
 my $minimum_perl_version = 5.10.0;
@@ -97,6 +98,7 @@ Options:
   --types TYPE(,TYPE2...)    show only these comma separated message types
   --ignore TYPE(,TYPE2...)   ignore various comma separated message types
   --show-types               show the specific message type in the output
+  --max-file-size=n          set the maximum file size, if exceeded, exit
   --max-line-length=n        set the maximum line length, (default $max_line_length)
                              if exceeded, warn on patches
                              requires --strict for use with --file
@@ -217,6 +219,7 @@ GetOptions(
 	'types=s'	=> \@use,
 	'show-types!'	=> \$show_types,
 	'list-types!'	=> \$list_types,
+	'max-file-size=i' => \$max_file_size,
 	'max-line-length=i' => \$max_line_length,
 	'min-conf-desc-length=i' => \$min_conf_desc_length,
 	'tab-size=i'	=> \$tabsize,
@@ -1059,6 +1062,15 @@ for my $filename (@ARGV) {
 	} else {
 		$vname = $filename;
 	}
+
+	if ($max_file_size > 0) {
+		my $filesize = -s$FILE;
+
+		if ($filesize > $max_file_size) {
+			die "$P: $filename: filesize:$filesize > $max_file_size\n";
+		}
+	}
+
 	while (<$FILE>) {
 		chomp;
 		push(@rawlines, $_);
@@ -3406,6 +3418,17 @@ sub process {
 			     "networking block comments don't use an empty /* line, use /* Comment...\n" . $hereprev);
 		}
 
+
+# Non-Networking with an empty initial /*
+		if ($realfile !~ m@^(drivers/net/|net/)@ &&
+		    $prevrawline =~ /^\+[ \t]*\/\*[ \t]/ &&
+		    $prevrawline !~ /\*\/[ \t]*$/ &&		#no trailing */
+		    $rawline =~ /^\+[ \t]*\*/ &&
+		    $realline > 2) {
+			WARN("NONNETWORKING_BLOCK_COMMENT_STYLE",
+			     "non-networking block comments use an empty /* on first line\n" . $hereprev);
+		}
+
 # Block comments use * on subsequent lines
 		if ($prevline =~ /$;[ \t]*$/ &&			#ends in comment
 		    $prevrawline =~ /^\+.*?\/\*/ &&		#starting /*
@@ -3953,8 +3976,8 @@ sub process {
 			}
 		}
 
-# no C99 // comments
-		if ($line =~ m{//}) {
+# no C99 // comments except for SPDX-License-Identifier
+		if ($line =~ m{//} && $rawline !~ /SPDX-License-Identifier:/) {
 			if (ERROR("C99_COMMENTS",
 				  "do not use C99 // comments\n" . $herecurr) &&
 			    $fix) {
@@ -5145,6 +5168,8 @@ sub process {
 			    $var =~ /[A-Z][a-z]|[a-z][A-Z]/ &&
 #Ignore Page<foo> variants
 			    $var !~ /^(?:Clear|Set|TestClear|TestSet|)Page[A-Z]/ &&
+#Ignore inttypes.h scanf/printf format specifiers for fixed size integer types
+			    $var !~ /^(?:PRI|SCN)[dxoui](8|16|32|64|PTR|MAX)?$/ &&
 #Ignore SI style variants like nS, mV and dB
 #(ie: max_uV, regulator_min_uA_show, RANGE_mA_VALUE)
 			    $var !~ /^(?:[a-z0-9_]*|[A-Z0-9_]*)?_?[a-z][A-Z](?:_[a-z0-9_]+|_[A-Z0-9_]+)?$/ &&

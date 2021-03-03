@@ -1527,6 +1527,17 @@ config SERIAL_OWL_CONSOLE
 	  Say 'Y' here if you wish to use Actions Semiconductor S500/S900 UART
 	  as the system console.
 
+config SERIAL_ELOG_CONSOLE
+	bool "Logging of bootconsole (earlycon) and console output"
+	default ARCH_BCM_IPROC
+	help
+	  Say Y to enable ELOG support of all console output
+
+	  You can set this using a kernel command line option such as:
+	  "earlyelog=0x8f110000,0x10000"
+
+	  If unsure, say N.
+
 config SERIAL_RDA
 	bool "RDA Micro serial port support"
 	depends on ARCH_RDA || COMPILE_TEST

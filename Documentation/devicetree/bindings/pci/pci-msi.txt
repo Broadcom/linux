@@ -49,6 +49,10 @@ Optional properties
 - msi-map-mask: A mask to be applied to each Requester ID prior to being mapped
   to an msi-specifier per the msi-map property.
 
+- msi-map-drop-mask: A drop mask represents the bits which will be
+  removed/dropped by system from Requester ID before mapping it to
+  msi ID.
+
 - msi-parent: Describes the MSI parent of the root complex itself. Where
   the root complex and MSI controller do not pass sideband data with MSI
   writes, this property may be used to describe the MSI controller(s)
@@ -218,3 +222,33 @@ Example (5)
 			  <0x0000 &msi_b 0x0000 0x10000>;
 	};
 };
+
+Example (6)
+===========
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	msi: msi-controller@a {
+		reg = <0xa 0x1>;
+		compatible = "vendor,some-controller";
+		msi-controller;
+		#msi-cells = <1>;
+	};
+
+	pci: pci@f {
+		reg = <0xf 0x1>;
+		compatible = "vendor,pcie-root-complex";
+		device_type = "pci";
+
+		/*
+		 * The sideband data provided to the  MSI controller is
+		 * a 10bit data derived from the RID by dropping
+		 * 4 MSBs of device number and 2 MSBs of function number.
+		 */
+		msi-map = <0x0 &msi_a 0x0 0x100>,
+		msi-map-drop-mask = <0xff09>
+	};
+};
+
