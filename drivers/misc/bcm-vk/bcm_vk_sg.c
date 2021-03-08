@@ -237,6 +237,11 @@ static int bcm_vk_dma_free(struct device *dev, struct bcm_vk_dma *dma)
 
 	/* Unmap all pages in the sglist */
 	num_sg = dma->sglist[SGLIST_NUM_SG];
+	if (num_sg > BCM_VK_MAX_NUM_SG) {
+		dev_dbg(dev, "num_sg 0x%x > 0x%x\n", num_sg, BCM_VK_MAX_NUM_SG);
+		return -ERANGE;
+	}
+
 	vkdata = (struct _vk_data *)&dma->sglist[SGLIST_VKDATA_START];
 	for (i = 0; i < num_sg; i++) {
 		size = vkdata[i].size;

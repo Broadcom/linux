@@ -13,6 +13,7 @@
  * So limit the SGL chunks to 16M.
  */
 #define BCM_VK_MAX_SGL_CHUNK SZ_16M
+#define BCM_VK_MAX_NUM_SG (BCM_VK_MAX_SGL_CHUNK / PAGE_SIZE)
 
 struct bcm_vk_dma {
 	/* for userland buffer */
