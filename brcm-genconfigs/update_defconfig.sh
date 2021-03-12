@@ -134,6 +134,7 @@ main() {
 	cat brcm-genconfigs/v4l2.cfg >> .config
 	cat brcm-genconfigs/tc.cfg >> .config
 	cat brcm-genconfigs/bnxt.cfg >> .config
+	cat brcm-genconfigs/infiniband.cfg >> .config
 	cat brcm-genconfigs/mlnx.cfg >> .config
 	cat brcm-genconfigs/nvme.cfg >> .config
 	cat brcm-genconfigs/ppp.cfg >> .config
