@@ -143,6 +143,11 @@ static struct mcfg_fixup mcfg_quirks[] = {
 	XGENE_V2_ECAM_MCFG(4, 1),
 	XGENE_V2_ECAM_MCFG(4, 2),
 
+#define BCM_ECAM_MCFG(rev, seg) \
+	{"BRCM  ", "BRCM-SRX", rev, seg, MCFG_BUS_ANY, \
+		&iproc_pcie_paxcv2_ecam_ops }
+	BCM_ECAM_MCFG(1, 8),
+
 #define ALTRA_ECAM_QUIRK(rev, seg) \
 	{ "Ampere", "Altra   ", rev, seg, MCFG_BUS_ANY, &pci_32b_read_ops }
 

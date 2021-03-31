@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2018 Broadcom
+ */
+
+#include "overlake.dts"
+
+#undef NUM_PAXB
+#define NUM_PAXB 0
+
+#include "../../stingray-diag.dtsi"
+
+/ {
+	model = "Overlake-diag";
+	chosen {
+		bootargs = "root=/dev/ram rw console=ttyS0,115200n8 \
+			    earlycon=uart8250,mmio32,0x68a10000 cma=64M";
+	};
+};
+

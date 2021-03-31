@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2020 Broadcom
+ */
+
+#include <dt-bindings/pinctrl/brcm,pinctrl-stingray2.h>
+
+pinconf: pinconf@140000 {
+	compatible = "pinconf-single";
+	reg = <0x00140000 0x114>;
+	pinctrl-single,register-width = <32>;
+};
+
+pinmux: pinmux@140118 {
+	compatible = "pinctrl-single";
+	reg = <0x00140118 0x114>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+	#pinctrl-cells = <1>;
+	pinctrl-single,register-width = <32>;
+	pinctrl-single,function-mask = <0xf>;
+	pinctrl-single,gpio-range = <&range 0 48 MODE_GPIO
+				     &range 52 12 MODE_GPIO>;
+	range: gpio-range {
+		#pinctrl-single,gpio-range-cells = <3>;
+	};
+};

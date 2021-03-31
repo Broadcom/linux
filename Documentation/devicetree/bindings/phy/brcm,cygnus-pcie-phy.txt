@@ -18,6 +18,8 @@ Example:
 	pcie_phy: phy@301d0a0 {
 		compatible = "brcm,cygnus-pcie-phy";
 		reg = <0x0301d0a0 0x14>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 
 		pcie0_phy: phy@0 {
 			reg = <0>;

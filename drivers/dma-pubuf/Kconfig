@@ -1,0 +1,18 @@
+#
+# Physical memory as mappable user space DMA buffer
+#
+
+menu "Physical memory as mappable user space DMA buffer"
+
+config DMAPUBUF
+	tristate "Physical to user space mappable DMA Buffer"
+	depends on OF
+	help
+	  Enable this to allow the dmapubuf to be built.
+	  It is a Linux device driver that allocates contiguous
+	  memory blocks in the kernel space as DMA buffers and
+	  makes them available from the user space.
+
+	  If you don't know what to do here, say N.
+
+endmenu

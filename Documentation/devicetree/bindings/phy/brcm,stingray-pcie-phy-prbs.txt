@@ -1,0 +1,67 @@
+Broadcom PCIe PHY PRBS for Stingray
+
+Required PHY properties:
+- compatible: should be "brcm,stingray-pcie-phy-prbs"
+- reg: base address and length of the PCIe subsystem register space
+- address-cells: should be 2
+- size-cells: should be 2
+- ranges : the child address space are mapped 1:1 onto the parent address space
+- brcm,pcie-pipemux-strap-syscon: A phandle to the CDRU syscon node containing
+				  the PIPEMUX strap register value.
+
+Sub-nodes:
+ Each PHY should be represented as a sub-node. It is required to list all
+ the PCIe PHYs present in SoC as sub-nodes of pcie.
+
+Sub-nodes required properties:
+- reg: base address and length of the PCIe controller I/O register space
+
+Example:
+	pcie {
+		compatible = "brcm,stingray-pcie-phy-prbs";
+		reg = <0x0 0x40000000 0x0 0x1000>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		brcm,pcie-pipemux-strap-syscon = <&cdru>;
+
+		pcie_phy0: phy@48000000 {
+			reg = <0x0 0x48000000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy1: phy@48004000 {
+			reg = <0x0 0x48004000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy2: phy@48008000 {
+			reg = <0x0 0x48008000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy3: phy@4800c000{
+			reg = <0x0 0x4800c000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy4: phy@48010000 {
+			reg = <0x0 0x48010000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy5: phy@48014000 {
+			reg = <0x0 0x48014000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy6: phy@48018000 {
+			reg = <0x0 0x48018000 0x0 0x4000>;
+			status = "okay";
+		};
+
+		pcie_phy7: phy@4801c000 {
+			reg = <0x0 0x4801c000 0x0 0x4000>;
+			status = "okay";
+		};
+	};

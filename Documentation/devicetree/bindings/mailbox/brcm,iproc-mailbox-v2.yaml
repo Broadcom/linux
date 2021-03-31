@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright 2020 Broadcom
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mailbox/brcm,iproc-mailbox-v2.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Broadcom iProc Mailbox Controller V2
+
+maintainers:
+  - Shivaraj Shetty <shivaraj.shetty@broadcom.com>
+
+description:
+  The iProc mailbox v2, has independent set of doorbell status
+  in shared memory which will allow sharing the mailbox register
+  with multiple remote processors. The status is set for the
+  doorbell which needs to be rung and then mailbox register is
+  written to gerenrate the interrupt. On receiving the mailbox
+  interrupt driver will go through all doorbell status to see
+  which doorbell has been rung.
+
+properties:
+  compatible:
+    enum:
+      - brcm,iproc-mailbox-v2
+
+  reg:
+    description:
+      Address range for mailbox doorbell status in shared memory.
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  brcm,iproc-mbox:
+    allOf:
+      - $ref: '/schemas/types.yaml#/definitions/phandle-array'
+    description: CRMU DMU with mailbox controller registers.
+      - Phandle of syscon block
+      - RX register offset within CRMU DMU
+      - TX register offset within CRMU DMU
+
+  brcm,iproc-mbox-db-count:
+    $ref: '/schemas/types.yaml#/definitions/uint32'
+    description: Number of doorbells supported by the mailbox.
+
+  "#mbox-cells":
+    const: 2
+    description:
+      Apart from phandle, the two cells would be doorbell number and doorbell
+      type. Dorbell type 0 means tx doorbell and 1 means rx doorbell.
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - brcm,iproc-mbox
+  - brcm,iproc-mbox-db-count
+  - "#mbox-cells"
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+    mbox_crmu: mbox {
+        compatible = "brcm,iproc-mailbox-v2";
+        reg = <0x40000 0x200>;
+        interrupts = <GIC_SPI 389 IRQ_TYPE_LEVEL_HIGH>;
+        brcm,iproc-mbox = <&crmu_dmu 0x20 0x00>;
+        brcm,iproc-mbox-db-count = <8>;
+        #mbox-cells = <2>;
+    };
+    mailbox_test {
+        compatible = "mailbox-test";
+        mboxes = <&mbox_crmu 7 0>, <&mbox_crmu 15 1>;
+        mbox-names = "tx", "rx";
+    };

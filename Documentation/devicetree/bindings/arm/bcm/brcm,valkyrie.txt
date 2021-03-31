@@ -1,0 +1,9 @@
+Broadcom Valkyrie device tree bindings
+------------------------------------------------
+
+Boards with Valkyrie shall have the following properties:
+
+Required root node property:
+
+Valkyrie SoC
+compatible = "brcm,valkyrie";

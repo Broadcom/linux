@@ -1,0 +1,170 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *  Copyright(c) 2019 Broadcom
+ */
+
+/dts-v1/;
+
+/* Select between dmapubuf vs uio to map DDR */
+#define USE_DMAPUBUF 1
+
+/*
+ * Reserve BL31 image area. In absence of A72 ROM,
+ * Linux reboot enters at stand-alone BL31.
+ */
+/memreserve/ 0x562000000 0x00010000;
+
+#if (USE_DMAPUBUF == 1)
+/* high memory pool region */
+/memreserve/ 0x57fc00000 0x40000000;
+/* high memory pool region */
+/memreserve/ 0x480000000 0xe0000000;
+/* entire low memory region */
+/memreserve/ 0x060000000 0x80000000;
+#endif
+
+#include "valkyrie.dtsi"
+
+/ {
+	model = "Valkyrie (BCM958401M2) card";
+
+	aliases {
+		serial0 = &uart1;
+	};
+
+	chosen {
+		bootargs = "root=/dev/ram rw console=ttyBP0,57600n8 maxcpus=4 \
+			    uio_pdrv_genirq.of_id=generic-uio";
+		stdout-path = "serial0:57600n8";
+		linux,initrd-start = <0x5 0x64000000>;
+		linux,initrd-end = <0x5 0x66800000>;
+	};
+
+#if (USE_DMAPUBUF == 1)
+	memory@60000000 {
+		device_type = "memory";
+		reg = <0x0 0x60000000 0x0 0x80000000>;
+	};
+
+	memory@480000000 {
+		device_type = "memory";
+		reg = <0x4 0x80000000 0x0 0xe0000000>;
+	};
+#endif
+	memory@560000000 {
+		device_type = "memory";
+#if (USE_DMAPUBUF == 1)
+		reg = <0x5 0x60000000 0x0 0x5fe00000>;
+#else
+		reg = <0x5 0x60000000 0x0 0x1fc00000>;
+#endif
+	};
+
+#if (USE_DMAPUBUF == 1)
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		lowmembuf0: buffer@60000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000000 0x60000000 0x00000000 0x02000000>;
+			reusable;
+		};
+
+		lowmembuf1: buffer@64000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000000 0x64000000 0x00000000 0x01000000>;
+			reusable;
+		};
+
+		lowmembuf2: buffer@66000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000000 0x66000000 0x00000000 0x7a000000>;
+			reusable;
+		};
+
+		highmembuf0: buffer@480000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000004 0x80000000 0x00000000 0xe0000000>;
+			reusable;
+		};
+
+		highmembuf1: buffer@57fc00000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000005 0x7fc00000 0x00000000 0x40000000>;
+			reusable;
+		};
+	};
+#endif
+};
+
+&pcie_ep {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&wdt0 {
+	status = "okay";
+};
+
+&uio_itcm {
+	status = "okay";
+};
+
+&uio_dtcm {
+	status = "okay";
+};
+
+&uio_shmem {
+	status = "okay";
+};
+
+&uio_sram {
+	status = "okay";
+};
+
+&uio_mbox {
+	status = "okay";
+};
+
+#if (USE_DMAPUBUF == 1)
+&dmapubuf0 {
+	status = "okay";
+};
+
+&dmapubuf1 {
+	status = "okay";
+};
+
+&dmapubuf2 {
+	status = "okay";
+};
+
+&dmapubuf3 {
+	status = "okay";
+};
+
+&dmapubuf4 {
+	status = "okay";
+};
+
+&dmapubuf5 {
+	status = "okay";
+};
+#else
+&uio_ddr0 {
+	status = "okay";
+};
+
+&uio_ddr1 {
+	status = "okay";
+};
+
+&uio_ddr2 {
+	status = "okay";
+};
+#endif

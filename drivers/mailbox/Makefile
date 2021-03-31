@@ -27,6 +27,10 @@ obj-$(CONFIG_ALTERA_MBOX)	+= mailbox-altera.o
 
 obj-$(CONFIG_BCM2835_MBOX)	+= bcm2835-mailbox.o
 
+obj-$(CONFIG_BCM_FS4_MBOX_TEST) += bcm-fs4-test.o
+
+obj-$(CONFIG_BCM_IPROC_MBOX)	+= bcm-iproc-mailbox.o bcm-iproc-mailbox-v2.o
+
 obj-$(CONFIG_STI_MBOX)		+= mailbox-sti.o
 
 obj-$(CONFIG_TI_MESSAGE_MANAGER) += ti-msgmgr.o
@@ -39,7 +43,7 @@ obj-$(CONFIG_HI6220_MBOX)	+= hi6220-mailbox.o
 
 obj-$(CONFIG_BCM_PDC_MBOX)	+= bcm-pdc-mailbox.o
 
-obj-$(CONFIG_BCM_FLEXRM_MBOX)	+= bcm-flexrm-mailbox.o
+obj-$(CONFIG_BCM_FLEXRM_MBOX)	+= bcm-flexrm-mailbox.o bcm-fs5rm-mailbox.o
 
 obj-$(CONFIG_QCOM_APCS_IPC)	+= qcom-apcs-ipc-mailbox.o
 

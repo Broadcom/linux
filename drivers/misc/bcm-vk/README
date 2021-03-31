@@ -1,0 +1,104 @@
+Valkyrie Card Status using SysFS
+================================
+
+The bcm-vk driver supports the query of the Valkyrie card status or
+monitoring sense points using the SysFs entry.
+
+Two Group attributes are created for the valkyrie card;
+
+vk-card-status
+	- all card related status values.
+vk-card-mon
+	- card monitoring points.  Each entry under this group will report
+	a single value representing the particular measurement point value.
+
+The organization of the vk-card-status or vk-card-mon is given below.
+
+The group is created under the following :
+	/sysfs/devices/<pci device number>/
+Alternatively, these groups could be accessed through :
+	/sys/class/misc/bcm-vk.x/pci/
+, where x is the device id and "pci" is a symbolic link to the corresponding
+<pci device number> directory.
+
+vk-card-status/
+	bus			---> device PCIe bus
+	card_state		---> summary of current card states
+	chip_id
+	firmware_status		---> summary of all firmware status
+	firmware_version	---> summary of all firmware versions
+	freq_core_mhz		---> running frequency in mHz
+	freq_mem_mhz		---> memory frequency in mHz
+	mem_size_mb		---> memory size in MByte
+	os_state		---> current running state
+	reset_reason		---> last reset reason
+	rev_boot1		---> boot1 firmware revision
+	rev_boot2		---> boot2 firmware revision
+	rev_driver		---> host driver revision
+	rev_flash_rom		---> Flash ROM revision
+	sotp_boot1_rev_id	---> minimum boot1 revision required
+	sotp_boot2_rev_id	---> minimum boot2 revision required
+	sotp_dauth_1		---> authentication key hash
+	sotp_dauth_1_valid	---> authentication key validity
+	sotp_dauth_1_active_status -> authentication key active or not
+	sotp_dauth_2
+	sotp_dauth_2_valid
+	sotp_dauth_2_active_status
+	sotp_dauth_3
+	sotp_dauth_3_valid
+	sotp_dauth_3_active_status
+	sotp_dauth_4
+	sotp_dauth_4_valid
+	sotp_dauth_4_active_status
+	temp_threshold_lower_c	---> thermal low threshold in Celsius
+	temp_threshold_thermal_trap_c -> thermal trap threshold in Celsius
+	temp_threshold_upper_c	---> thermal high threshold in Celsius
+	uptime_s		---> os up time in seconds
+
+vk-card-mon/
+	alert_afbc_busy		---> AFBC block stuck
+	alert_cop_wdog_timeout	---> co-processor watchdog timeout
+	alert_ecc		---> uncorrectable ECC error(s) occurred
+	alert_ecc_warn		---> correctable ECC error(s) occurred
+	alert_heartbeat_fail	---> host detects heartbeat discontinuation
+				     from card
+	alert_high_temp		---> high temperature threshold crossed
+	alert_intf_ver_fail	---> interface not compatible based on version
+	alert_ipc_down		---> ipc going down
+	alert_low_temp_warn	---> low temperature threshold crossed
+	alert_malloc_fail_warn	---> mem allocation failure(s) occurred
+	alert_pcie_down		---> host detect pcie intf going down
+	alert_ssim_busy		---> ssim block busy
+	alert_sys_fault		---> system fault
+	alert_thermal_trap	---> card in thermal trap state
+	alert_wdog_timeout	---> watchdog timeout
+	drv_ctxs		---> contexts in use by host driver
+	firmware_status_reg
+	mem_ecc			---> correctable ECC error count
+	mem_uecc		---> uncorrectable ECC error count
+	boot_status_reg		---> boot status of card
+	pwr_state		---> power state, 1-full, 2-reduced, 3-lowest
+	temperature_sensor_1_c	---> CPU die temperature in Celsius
+	temperature_sensor_2_c	---> DDR0 temperature in Celsius
+	temperature_sensor_3_c	---> DDR1 temperature in Celsius
+	utilization		---> runtime video transcoding consumption summary
+	utilization_pix 	---> percentage of pixel processing used
+	utilization_pix_used	---> pixel processing used
+	utilization_pix_max	---> max pixel processing value which maps 100% load
+	utilization_codec 	---> percentage of codec sessions used
+	utilization_codec_used	---> codec sessions currently used
+	utilization_codec_max	---> max codec sessions allowed
+	voltage_18_mv		---> 1.8v voltage rail in mv
+	voltage_33_mv		---> 3.3v voltage rail in mv
+
+The sysfs entry supports only the read operation.
+
+Example:
+To read the temperature from a PCIe device (bcm-vk.0) at 65:00.0:
+cat /sys/devices/pci0000:64/0000:64:00.0/0000:65:00.0/vk-mon-status/voltage_18_mv
+or
+cat /sys/class/misc/bcm-vk.0/pci/vk-mon-status/voltage_18_mv
+
+where
+	/sys/devices/pci0000:64/0000:64:00.0/0000:65:00.0/ --> path of bcm-vk device
+	vk-card-mon/voltage_18_mv --> current voltage reading from the card

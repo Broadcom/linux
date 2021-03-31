@@ -1,0 +1,138 @@
+// SPDX-License-Identifier: (GPL-2.0 or BSD-3-Clause)
+/*
+ *Copyright(c) 2020 Broadcom
+ */
+
+idm {
+	compatible = "simple-bus";
+	dma-ranges;
+	ranges = <0x0 0x0 0x0 0xffffffff>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	idm-paxb-hni {
+		compatible = "brcm,sr-idm-paxb0-axi", "brcm,iproc-idm-v2";
+		reg = <0x02ab0000 0x100>;
+		interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-paxb-p2p {
+		compatible = "brcm,sr-idm-paxb1-axi", "brcm,iproc-idm-v2";
+		reg = <0x02ac0000 0x100>;
+		interrupts = <GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-paxc-axi2apb {
+		compatible = "brcm,sr-idm-mhb-paxc-apb", "brcm,iproc-idm-v2";
+		reg = <0x40100000 0x100>;
+		interrupts = <GIC_SPI 373 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-pax_s {
+		compatible = "brcm,sr-idm-scr-paxc", "brcm,iproc-idm-v2";
+		reg = <0x40230000 0x100>;
+		interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-fs {
+		compatible = "brcm,sr-idm-scr-fs", "brcm,iproc-idm-v2";
+		reg = <0x46000000 0x100>;
+		interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-spd-slave {
+		compatible = "brcm,sr-idm-spd-slave", "brcm,iproc-idm-v2";
+		reg = <0x49220000 0x100>;
+		interrupts = <GIC_SPI 380 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-axi2apb_0_s {
+		compatible = "brcm,sr-idm-scr-axi2apb_0_s", "brcm,iproc-idm-v2";
+		reg = <0x5f170000 0x100>;
+		interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-axi2apb_1_s {
+		compatible = "brcm,sr-idm-scr-axi2apb_1_s", "brcm,iproc-idm-v2";
+		reg = <0x5f171000 0x100>;
+		interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-crmu {
+		compatible = "brcm,sr-idm-scr-crmu", "brcm,iproc-idm-v2";
+		reg = <0x5f172000 0x100>;
+		interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-scr-ds {
+		compatible = "brcm,sr-idm-scr-ds0", "brcm,iproc-idm-v2";
+		reg = <0x5f173000 0x100>;
+		interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-usb-emmc-apbx {
+		compatible = "brcm,sr-idm-usb-emmc-apbx", "brcm,iproc-idm-v2";
+		reg = <0x63110000 0x100>;
+		interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-sdio0-axi2ahb {
+		compatible = "brcm,iproc-idm-v2", "brcm,sr-idm-sdio0-axi2ahb";
+		reg = <0x63120000 0x100>;
+		interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-sdio1-axi2ahb {
+		compatible = "brcm,iproc-idm-v2", "brcm,sr-idm-sdio1-axi2ahb";
+		reg = <0x63130000 0x100>;
+		interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-hsls-sram_s0 {
+		compatible = "brcm,iproc-idm-v2", "brcm,sr-idm-hsls-sram";
+		reg = <0x68010000 0x100>;
+		interrupts = <GIC_SPI 198 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-hsls-pnor_s0 {
+		compatible = "brcm,sr-idm-pnor", "brcm,iproc-idm-v2";
+		reg = <0x68d50000 0x100>;
+		interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-hsls-apbr {
+		compatible = "brcm,sr-idm-apbr", "brcm,iproc-idm-v2";
+		reg = <0x68d70000 0x100>;
+		interrupts = <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-hsls-apbspi {
+		compatible = "brcm,sr-idm-apbspi", "brcm,iproc-idm-v2";
+		reg = <0x68d80000 0x100>;
+		interrupts = <GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-hsls-apbx {
+		compatible = "brcm,sr-idm-apbx", "brcm,iproc-idm-v2";
+		reg = <0x68d90000 0x100>;
+		interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-hsls-apby {
+		compatible = "brcm,sr-idm-apby", "brcm,iproc-idm-v2";
+		reg = <0x68da0000 0x100>;
+		interrupts = <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-hsls-apbz {
+		compatible = "brcm,sr-idm-apbz", "brcm,iproc-idm-v2";
+		reg = <0x68db0000 0x100>;
+		interrupts = <GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	idm-hsls-apb400 {
+		compatible = "brcm,sr-idm-apb400", "brcm,iproc-idm-v2";
+		reg = <0x68dc0000 0x100>;
+		interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH>;
+	};
+};

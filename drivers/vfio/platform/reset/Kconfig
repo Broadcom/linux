@@ -23,3 +23,21 @@ config VFIO_PLATFORM_BCMFLEXRM_RESET
 	  Enables the VFIO platform driver to handle reset for Broadcom FlexRM
 
 	  If you don't know what to do here, say N.
+
+config VFIO_PLATFORM_BCM_VEE_RESET
+	tristate "VFIO support for Broadcom VEE reset"
+	depends on VFIO_PLATFORM && (ARCH_BCM_IPROC || COMPILE_TEST)
+	default ARCH_BCM_IPROC
+	help
+	  Enables the VFIO platform driver to handle reset for Broadcom VEE
+
+	  If you don't know what to do here, say N.
+
+config VFIO_PLATFORM_BCMNVA_RESET
+	tristate "VFIO support for Broadcom NVA reset"
+	depends on VFIO_PLATFORM && (ARCH_BCM_IPROC || COMPILE_TEST)
+	default ARCH_BCM_IPROC
+	help
+	  Enables the VFIO platform driver to handle reset for Broadcom NVA
+
+	  If you don't know what to do here, say N.

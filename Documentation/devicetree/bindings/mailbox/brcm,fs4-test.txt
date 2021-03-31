@@ -1,0 +1,116 @@
+Broadcom FlexSparx4 Test Client
+===============================
+The FlexSparx4 (FS4) offload engines are available on various iProc SoC
+such as Pegasus and Stingray. These FS4 offload engines are accessible
+via SoC specific ring manager hardware. The driver for SoC specific
+ring manager hardware will be mailbox controller driver hence Broadcom
+FlexSparx4 Test Client is a mailbox client which helps us exersice
+or stress offload engine features via sysfs interface.
+
+Required properties:
+--------------------
+- compatible:	Should be one of the following:
+		"brcm,fs4-test-spu2"
+		"brcm,fs4-test-sba-memcpy"
+		"brcm,fs4-test-sba-xor"
+		"brcm,fs4-test-sba-pq"
+- mboxes:	List of phandle and mailbox channel specifiers
+
+Optional properties:
+--------------------
+- reg:		Specifies base physical address and size of the offload
+		engine registers. This is an optional attribute because
+		offload engines are mostly programmed via ring manager
+		hardware so we don't require to touch offload engine
+		registers.
+
+Example:
+---------
+crypto_mbox: mbox@67000000 {
+	compatible = "brcm,flexdma-mbox";
+	reg = <0x67000000 0x200000>;
+	msi-parent = <&gic_its 0x7ffd>;
+	#mbox-cells = <3>;
+	dma-coherent;
+};
+
+spu2 {
+	compatible = "brcm,fs4-test-spu2";
+	reg = <0x672c0000 0x1000>,
+	      <0x672c1000 0x1000>,
+	      <0x672c2000 0x1000>,
+	      <0x672c3000 0x1000>,
+	      <0x672c4000 0x1000>,
+	      <0x672c5000 0x1000>,
+	      <0x672c6000 0x1000>,
+	      <0x672c7000 0x1000>,
+	      <0x672c8000 0x1000>,
+	      <0x672c9000 0x1000>;
+	mboxes = <&crypto_mbox 0 0x1 0xff00>,
+		 <&crypto_mbox 1 0x1 0xff00>,
+		 <&crypto_mbox 2 0x1 0xff00>,
+		 <&crypto_mbox 3 0x1 0xff00>,
+		 <&crypto_mbox 4 0x1 0xff00>,
+		 <&crypto_mbox 5 0x1 0xff00>,
+		 <&crypto_mbox 6 0x1 0xff00>,
+		 <&crypto_mbox 7 0x1 0xff00>,
+		 <&crypto_mbox 8 0x1 0xff00>,
+		 <&crypto_mbox 9 0x1 0xff00>,
+		 <&crypto_mbox 10 0x1 0xff00>,
+		 <&crypto_mbox 11 0x1 0xff00>,
+		 <&crypto_mbox 12 0x1 0xff00>,
+		 <&crypto_mbox 13 0x1 0xff00>,
+		 <&crypto_mbox 14 0x1 0xff00>,
+		 <&crypto_mbox 15 0x1 0xff00>,
+		 <&crypto_mbox 16 0x1 0xff00>,
+		 <&crypto_mbox 17 0x1 0xff00>,
+		 <&crypto_mbox 18 0x1 0xff00>,
+		 <&crypto_mbox 19 0x1 0xff00>,
+		 <&crypto_mbox 20 0x1 0xff00>,
+		 <&crypto_mbox 21 0x1 0xff00>,
+		 <&crypto_mbox 22 0x1 0xff00>,
+		 <&crypto_mbox 23 0x1 0xff00>,
+		 <&crypto_mbox 24 0x1 0xff00>,
+		 <&crypto_mbox 25 0x1 0xff00>,
+		 <&crypto_mbox 26 0x1 0xff00>,
+		 <&crypto_mbox 27 0x1 0xff00>,
+		 <&crypto_mbox 28 0x1 0xff00>,
+		 <&crypto_mbox 29 0x1 0xff00>,
+		 <&crypto_mbox 30 0x1 0xff00>,
+		 <&crypto_mbox 31 0x1 0xff00>;
+};
+
+raid_mbox: mbox@67400000 {
+	compatible = "brcm,flexdma-mbox";
+	reg = <0x67400000 0x200000>;
+	msi-parent = <&gic_its 0x7ffe>;
+	#mbox-cells = <3>;
+	dma-coherent;
+};
+
+raid_memcpy {
+	compatible = "brcm,fs4-test-sba-memcpy";
+	brcm,max-pq-disks = <30>;
+	brcm,max-requests = <256>;
+	brcm,request-size = <131072>;
+	mboxes = <&raid_mbox 16 0x4 0xff00>,
+		 <&raid_mbox 17 0x4 0xff00>,
+		 <&raid_mbox 18 0x4 0xff00>,
+		 <&raid_mbox 19 0x4 0xff00>,
+		 <&raid_mbox 20 0x4 0xff00>,
+		 <&raid_mbox 21 0x4 0xff00>,
+		 <&raid_mbox 22 0x4 0xff00>,
+		 <&raid_mbox 23 0x4 0xff00>;
+};
+
+raid_xor {
+	compatible = "brcm,fs4-test-sba-xor";
+	mboxes = <&raid_mbox 24 0x4 0xff00>,
+		 <&raid_mbox 25 0x4 0xff00>,
+		 <&raid_mbox 26 0x4 0xff00>,
+		 <&raid_mbox 27 0x4 0xff00>,
+		 <&raid_mbox 28 0x4 0xff00>,
+		 <&raid_mbox 29 0x4 0xff00>,
+		 <&raid_mbox 30 0x4 0xff00>,
+		 <&raid_mbox 31 0x4 0xff00>;
+};

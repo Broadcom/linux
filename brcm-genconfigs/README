@@ -1,0 +1,66 @@
+===========================================================
+Modifying the defconfig file:
+===========================================================
+
+If you need to modify the defconfig to add a new driver or option for an existing driver,
+please follow the below process:
+
+The following example uses arm64 based platform as an example, but the same tool also works for arm 32-bit platforms
+
+------------------------------
+Step 1: Add/Find the new CONFIG's
+------------------------------
+1.	From the Kernel directory run the below to create the '.config' file
+$ make ARCH=arm64 ns2_defconfig
+
+2.	Now run menuconfig to select the new driver/options
+$ make ARCH=arm64 menuconfig
+
+3.	Add the new options using the 'menuconfig', then save and exit the 'menuconfig'
+
+------------------------------
+Step 2: Save the new CONFIG changes
+--------------------------------
+4.	Create the minimal 'defconfig' with the new options (selected using 'menuconfig').
+$ make ARCH=arm64 savedefconfig
+
+The above will create a 'defconfig' file in the kernel directory with the minimal options selected.
+
+5.	Now merge the new CONFIG's in the 'defconfig' file (in Kernel directory) to the 'brcm-genconfigs/base-arm64.cfg'
+
+------------------------------
+Step 3: Create the new 'defconfig' files
+---------------------------------
+6.	From the kernel directory run the 'update_defconfig.sh' to create the 'defconfig' files.
+$ ./brcm-genconfigs/update_defconfig.sh
+
+This will create the default and the "ns2_defconfig" defconfig files in the 'arch/arm64/configs'
+folder updated with the new options from 'brcm-genconfigs/base-arm64.cfg'.
+
+Step 4: Submit the Changes
+7.	Add (git), commit (git) and submit (gerrit) the modified files in 'arch/arm64/configs' and 'brcm-genconfigs'.
+
+
+===========================================================
+Adding new snippet configurations
+===========================================================
+
+1. To add new snippet configurations add a .cfg file with the configurations.
+
+2. Modify the main() function in the update_defconfig.sh to add the new snippet combinations
+For example
+	do_update ns2_debug $ns2_debug_defconfig
+In the above:
+do_update - Command to combine the snipped .cfg files
+ns2_debug - This is the name of the new defconfig file to be created in arch/arm64/configs
+ns2_debug_defconfig - A variable defined in fragments.sh script that contains all the config
+  files (fragments) it requires. The variable should be the same name as the defconfig file.
+  Eg: ns2_debug_defconfig="base-arm64 debug"
+  See fragments.sh for more information.
+
+So the command combines 'base-arm64.cfg' and 'debug.cfg' to create 'ns2_debug_defconfig'
+file and stores in 'arch/arm64/configs'.
+
+If there is a new .cfg (eg: demo.cfg) then append it to the variable for the
+defconfig:
+ ns2_debug_defconfig="base-arm64 debug demo"

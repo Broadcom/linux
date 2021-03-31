@@ -1,0 +1,45 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+Broadcom BCM5840X Video Offload Processing Engine
+==================================================
+
+Supported chips:
+
+   * Broadcom BCM5840X
+
+     Datasheet: not public
+
+Author: Desmond Yan <desmond.yan@broadcom.com>
+
+Description
+-----------
+
+The Broadcom BCM5840X is a PCIe based video en/decoding offload engine.
+
+Sysfs entries
+-------------
+
+The following attributes are supported.
+
+======================= ========================================================
+in0_label		"1.8V"
+in0_input		Measured 1.8V rail voltage.
+
+in1_label		"3.3V"
+in1_input		Measured 3.3V rail voltage.
+
+temp1_label		"asic"
+temp1_input		Measured asic die temperature.
+temp1_min		Low level value.
+temp1_max		Max level value.
+temp1_crit		Critical level value.
+temp1_min_alarm		when temp1_min is crossed.
+temp1_max_alarm		when temp1_max is crossed.
+temp1_crit_alarm	when temp1_crit is crossed.
+
+temp2_label		"ddr0"
+temp2_input		Measured ddr0 temperature.
+
+temp2_label		"ddr1"
+temp2_input		Measured ddr1 temperature.
+======================= ========================================================

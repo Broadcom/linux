@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+# Copyright 2021 Broadcom
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/brcm,iproc-vee.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: VirtIO HW emulation engine for Broadcom's iProc based SoCs.
+
+maintainers:
+  - Manish Kurup <manish.kurup@broadcom.com>
+
+description:
+  The Broadcom VEE device is the VirtIO Emulation Engine and is part of the
+  NVME subsystem on the SoC.
+  It provides VirtIO net/block services to PCIe and to processing elements on
+  the SoC. It contains 32 PFs, 2048 VFs, 1024 Rx queues and 2048 Tx queues. The
+  Tx and Rx queues are shared among the net and block functions.
+
+properties:
+  compatible:
+  const: brcm,iproc-vee
+
+  reg:
+    maxItems: 1
+
+  iommus:
+    maxItems: 1
+
+  msi-parent: true
+
+  dma-coherent: true
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  -
+
+    vee: vee@8000000 {
+        compatible = "brcm,iproc-vee";
+        reg = <0x8000000 0xc0000>;
+        msi-parent = <&gic_its6 0xfc010>;
+        dma-coherent;
+        iommus = <&smmu 0xfc010>;
+    };
+
