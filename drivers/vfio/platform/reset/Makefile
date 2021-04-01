@@ -5,5 +5,4 @@ vfio-platform-amdxgbe-y := vfio_platform_amdxgbe.o
 obj-$(CONFIG_VFIO_PLATFORM_CALXEDAXGMAC_RESET) += vfio-platform-calxedaxgmac.o
 obj-$(CONFIG_VFIO_PLATFORM_AMDXGBE_RESET) += vfio-platform-amdxgbe.o
 obj-$(CONFIG_VFIO_PLATFORM_BCMFLEXRM_RESET) += vfio_platform_bcmflexrm.o
-obj-$(CONFIG_VFIO_PLATFORM_BCMNVA_RESET) += vfio_platform_bcmnva.o
 obj-$(CONFIG_VFIO_PLATFORM_BCM_VEE_RESET) += vfio_platform_iproc_vee.o
