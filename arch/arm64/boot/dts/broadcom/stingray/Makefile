@@ -24,5 +24,3 @@ dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040.dtb
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8040-diag.dtb
 
 dtb-$(CONFIG_ARCH_BCM_IPROC) += bcm958804a8043c.dtb
-
-subdir-y	:= custom
