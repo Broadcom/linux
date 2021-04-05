@@ -117,11 +117,8 @@
 		dma-coherent;
 
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 1 &pcie0_intc 1>,
-				<0 0 0 2 &pcie0_intc 2>,
-				<0 0 0 3 &pcie0_intc 3>,
-				<0 0 0 4 &pcie0_intc 4>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic 0 GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <0>;
 
@@ -143,13 +140,6 @@
 		phy-names = "pcie-phy";
 
 		msi-parent = <&v2m0>;
-		pcie0_intc: interrupt-controller {
-			compatible = "brcm,iproc-intc";
-			interrupt-controller;
-			#interrupt-cells = <1>;
-			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
-		};
 	};
 
 	pcie4: pcie@50020000 {
@@ -158,11 +148,8 @@
 		dma-coherent;
 
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 1 &pcie4_intc 1>,
-				<0 0 0 2 &pcie4_intc 2>,
-				<0 0 0 3 &pcie4_intc 3>,
-				<0 0 0 4 &pcie4_intc 4>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic 0 GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <4>;
 
@@ -184,13 +171,6 @@
 		phy-names = "pcie-phy";
 
 		msi-parent = <&v2m0>;
-		pcie4_intc: interrupt-controller {
-			compatible = "brcm,iproc-intc";
-			interrupt-controller;
-			#interrupt-cells = <1>;
-			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>;
-		};
 	};
 
 	pcie8: pcie@60c00000 {
