@@ -227,7 +227,6 @@ __2data_recov_5(int disks, size_t bytes, int faila, int failb,
 		good_srcs++;
 	}
 	BUG_ON(good_srcs > 1);
-	BUG_ON(good < 0);
 
 	p = blocks[disks-2];
 	p_off = offs[disks-2];
