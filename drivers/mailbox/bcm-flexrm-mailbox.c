@@ -630,8 +630,7 @@ static u32 flexrm_spu_estimate_nonheader_desc_count(struct brcm_message *msg)
 	return cnt;
 }
 
-static int flexrm_spu_dma_map(struct device *dev, struct brcm_message *msg,
-			      int *rx_ent, int *tx_ent)
+static int flexrm_spu_dma_map(struct device *dev, struct brcm_message *msg)
 {
 	int rc;
 
@@ -639,7 +638,6 @@ static int flexrm_spu_dma_map(struct device *dev, struct brcm_message *msg,
 			DMA_TO_DEVICE);
 	if (rc < 0)
 		return rc;
-	*rx_ent = rc;
 
 	rc = dma_map_sg(dev, msg->spu.dst, sg_nents(msg->spu.dst),
 			DMA_FROM_DEVICE);
@@ -648,7 +646,6 @@ static int flexrm_spu_dma_map(struct device *dev, struct brcm_message *msg,
 			     DMA_TO_DEVICE);
 		return rc;
 	}
-	*tx_ent = rc;
 
 	return 0;
 }
@@ -673,10 +670,6 @@ static void *flexrm_spu_write_descs(struct brcm_message *msg, u32 nhcnt,
 
 	while (src_sg || dst_sg) {
 		if (src_sg) {
-			if (!sg_dma_len(src_sg)) {
-				src_sg = sg_next(src_sg);
-				continue;
-			}
 			if (sg_dma_len(src_sg) & 0xf)
 				d = flexrm_src_desc(sg_dma_address(src_sg),
 						     sg_dma_len(src_sg));
@@ -693,10 +686,6 @@ static void *flexrm_spu_write_descs(struct brcm_message *msg, u32 nhcnt,
 			dst_target = UINT_MAX;
 
 		while (dst_target && dst_sg) {
-			if (!sg_dma_len(dst_sg)) {
-				dst_sg = sg_next(dst_sg);
-				continue;
-			}
 			if (sg_dma_len(dst_sg) & 0xf)
 				d = flexrm_dst_desc(sg_dma_address(dst_sg),
 						     sg_dma_len(dst_sg));
@@ -886,15 +875,14 @@ static u32 flexrm_estimate_nonheader_desc_count(struct brcm_message *msg)
 	};
 }
 
-static int flexrm_dma_map(struct device *dev, struct brcm_message *msg,
-			  int *rx_ent, int *tx_ent)
+static int flexrm_dma_map(struct device *dev, struct brcm_message *msg)
 {
 	if (!dev || !msg)
 		return -EINVAL;
 
 	switch (msg->type) {
 	case BRCM_MESSAGE_SPU:
-		return flexrm_spu_dma_map(dev, msg, rx_ent, tx_ent);
+		return flexrm_spu_dma_map(dev, msg);
 	default:
 		break;
 	}
@@ -1008,8 +996,6 @@ static int flexrm_new_request(struct flexrm_ring *ring,
 	u32 read_offset, write_offset;
 	bool exit_cleanup = false;
 	int ret = 0, reqid;
-	int rx_ent = 0;
-	int tx_ent = 0;
 
 	/* Do sanity check on message */
 	if (!flexrm_sanity_check(msg))
@@ -1026,7 +1012,7 @@ static int flexrm_new_request(struct flexrm_ring *ring,
 	ring->requests[reqid] = msg;
 
 	/* Do DMA mappings for the message */
-	ret = flexrm_dma_map(ring->mbox->dev, msg, &rx_ent, &tx_ent);
+	ret = flexrm_dma_map(ring->mbox->dev, msg);
 	if (ret < 0) {
 		ring->requests[reqid] = NULL;
 		spin_lock_irqsave(&ring->lock, flags);
@@ -1046,10 +1032,7 @@ static int flexrm_new_request(struct flexrm_ring *ring,
 	 *				 number of header descriptors +
 	 *				 1x null descriptor
 	 */
-	if (!rx_ent || !tx_ent)
-		nhcnt = flexrm_estimate_nonheader_desc_count(msg);
-	else
-		nhcnt = rx_ent + tx_ent;
+	nhcnt = flexrm_estimate_nonheader_desc_count(msg);
 	count = flexrm_estimate_header_desc_count(nhcnt) + nhcnt + 1;
 
 	/* Check for available descriptor space. */
