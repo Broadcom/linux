@@ -3085,7 +3085,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       },
 	 .auth_first = 0,
 	 },
-#if 0
 	{
 	 .type = CRYPTO_ALG_TYPE_AEAD,
 	 .alg.aead = {
@@ -3109,7 +3108,6 @@ static struct iproc_alg_s driver_algs[] = {
 		       },
 	 .auth_first = 0,
 	 },
-#endif
 	{
 	 .type = CRYPTO_ALG_TYPE_AEAD,
 	 .alg.aead = {
