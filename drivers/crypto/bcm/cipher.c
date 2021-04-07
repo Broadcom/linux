@@ -4372,7 +4372,8 @@ static void spu_functions_register(struct device *dev,
 }
 
 /**
- * spu_mb_init() - Initialize mailbox client.
+ * spu_mb_init() - Initialize mailbox client. Request ownership of a mailbox
+ * channel for the SPU being probed.
  * @dev:  SPU driver device structure
  *
  * Return: 0 if successful
