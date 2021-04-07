@@ -1688,7 +1688,7 @@ static int sba_probe(struct platform_device *pdev)
 	sba->mchan = mbox_request_channel(&sba->client, 0);
 	if (IS_ERR(sba->mchan)) {
 		ret = PTR_ERR(sba->mchan);
-		goto fail_exit;
+		goto fail_free_mchan;
 	}
 
 	/* Find-out underlying mailbox device */
@@ -1739,7 +1739,6 @@ fail_free_resources:
 	sba_freeup_channel_resources(sba);
 fail_free_mchan:
 	mbox_free_channel(sba->mchan);
-fail_exit:
 	return ret;
 }
 
