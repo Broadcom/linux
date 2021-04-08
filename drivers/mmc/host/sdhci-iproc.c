@@ -23,8 +23,6 @@
 #include <linux/of_device.h>
 #include "sdhci-pltfm.h"
 
-#define  SDHCI_HW_RESET_CARD		BIT(12)
-
 struct sdhci_iproc_data {
 	const struct sdhci_pltfm_data *pdata;
 	u32 caps;
@@ -175,30 +173,12 @@ static unsigned int sdhci_iproc_get_max_clock(struct sdhci_host *host)
 		return pltfm_host->clock;
 }
 
-static void sdhci_iproc_hw_reset(struct sdhci_host *host)
-{
-	u32 val;
-
-	val = sdhci_readl(host, SDHCI_HOST_CONTROL);
-	val |= SDHCI_HW_RESET_CARD;
-
-	sdhci_writel(host, val, SDHCI_HOST_CONTROL);
-	/* According JESD84-B51, minimum is 1us but give it 10us for good measure */
-	usleep_range(10, 20);
-
-	val &= ~SDHCI_HW_RESET_CARD;
-	sdhci_writel(host, val, SDHCI_HOST_CONTROL);
-	/* According JESD84-B51, minimum is 200us but give it 300us for good measure */
-	usleep_range(300, 1000);
-}
-
 static const struct sdhci_ops sdhci_iproc_ops = {
 	.set_clock = sdhci_set_clock,
 	.get_max_clock = sdhci_iproc_get_max_clock,
 	.set_bus_width = sdhci_set_bus_width,
 	.reset = sdhci_reset,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
-	.hw_reset = sdhci_iproc_hw_reset,
 };
 
 static const struct sdhci_ops sdhci_iproc_32only_ops = {
