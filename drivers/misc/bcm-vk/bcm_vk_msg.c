@@ -39,6 +39,11 @@ static int batch_log = 1;
 module_param(batch_log, int, 0444);
 MODULE_PARM_DESC(batch_log, "Max num of logs per batch operation.\n");
 
+/* forward declaration */
+static void bcm_vk_drain_all_pend(struct device *dev,
+				  struct bcm_vk_msg_chan *chan,
+				  struct bcm_vk_ctx *ctx);
+
 static bool hb_mon_is_on(void)
 {
 	return hb_mon;
@@ -301,12 +306,15 @@ static struct bcm_vk_ctx *bcm_vk_get_ctx(struct bcm_vk *vk, const pid_t pid)
 
 	/* increase kref */
 	kref_get(&vk->kref);
-
-	/* clear counter */
-	atomic_set(&ctx->pend_cnt, 0);
-	atomic_set(&ctx->dma_cnt, 0);
 	init_waitqueue_head(&ctx->rd_wq);
 	spin_unlock(&vk->ctx_lock);
+
+	/* drain stale and clear counters */
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_v_msg_chan, ctx);
+	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, ctx);
+
+	atomic_set(&ctx->pend_cnt, 0);
+	atomic_set(&ctx->dma_cnt, 0);
 	return ctx;
 
 cleanup:
@@ -442,8 +450,18 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 	spin_lock(&chan->pendq_lock);
 	for (num = 0; num < chan->q_nr; num++) {
 		list_for_each_entry_safe(entry, tmp, &chan->pendq[num], node) {
-			if ((!ctx) || (entry->ctx->idx == ctx->idx)) {
+			if ((!ctx) || (entry->ctx == ctx)) {
 				list_del(&entry->node);
+				if (entry->to_h_msg) {
+					int cnt;
+
+					cnt = atomic_read(&entry->ctx->pend_cnt);
+					if (cnt > 0)
+						atomic_dec(&entry->ctx->pend_cnt);
+					else
+						dev_info(dev, "Drained pend_cnt %d\n",
+							 cnt);
+				}
 				list_add_tail(&entry->node, &del_q);
 			}
 		}
@@ -475,9 +493,8 @@ static void bcm_vk_drain_all_pend(struct device *dev,
 					 entry->ctx->idx,
 					 msg->cmd, msg->arg,
 					 responded ? "T" : "F", bit_set);
-			if (responded)
-				atomic_dec(&ctx->pend_cnt);
-			else if (bit_set)
+
+			if (bit_set)
 				bcm_vk_msgid_bitmap_clear(vk, msg_id, 1);
 		}
 		bcm_vk_free_wkent(dev, entry);
@@ -1193,11 +1210,19 @@ ssize_t bcm_vk_read(struct file *p_file,
 	spin_lock(&chan->pendq_lock);
 	for (q_num = 0; q_num < chan->q_nr; q_num++) {
 		list_for_each_entry(entry, &chan->pendq[q_num], node) {
-			if (entry->ctx->idx == ctx->idx) {
+			if (entry->ctx == ctx) {
 				if (count >=
 				    (entry->to_h_blks * VK_MSGQ_BLK_SIZE)) {
+					int cnt;
+
+					cnt = atomic_read(&ctx->pend_cnt);
 					list_del(&entry->node);
-					atomic_dec(&ctx->pend_cnt);
+					if (cnt > 0)
+						atomic_dec(&ctx->pend_cnt);
+					else
+						dev_info(dev, "unexpected pend_cnt %d\n",
+							 cnt);
+
 					found = true;
 				} else {
 					/* buffer not big enough */
@@ -1491,10 +1516,19 @@ int bcm_vk_release(struct inode *inode, struct file *p_file)
 	} while (dma_cnt);
 	dev_dbg(dev, "Draining for [fd-%d] pid %d - delay %d ms\n",
 		ctx->idx, pid, jiffies_to_msecs(jiffies - start_time));
-
+	/*
+	 * drain item order is important.  There may be transient messages
+	 * in the queues and so we have to drain the queues where responses
+	 * will be looked up against first (ie, cid and to_v).  If not
+	 * following this order, a stale entry maybe pushed to the to_h_msg,
+	 * and when the ctx is reallocted (very likely with same address),
+	 * this stale entry maybe wrongly taken.  This is particular true
+	 * with cid as there is no msg_id to match against, and only the ctx.
+	 */
+	bcm_vk_remove_cid_entry(vk, ctx);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_v_msg_chan, ctx);
 	bcm_vk_drain_all_pend(&vk->pdev->dev, &vk->to_h_msg_chan, ctx);
-	bcm_vk_remove_cid_entry(vk, ctx);
+
 
 	ret = bcm_vk_free_ctx(vk, ctx);
 	if (ret == 0)
