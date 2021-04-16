@@ -1358,6 +1358,11 @@ ssize_t bcm_vk_write(struct file *p_file,
 		}
 
 		num_planes = entry->to_v_msg[0].cmd & VK_CMD_PLANES_MASK;
+		if (num_planes > VK_CMD_PLANES_MAX) {
+			rc = -ERANGE;
+			goto write_free_msgid;
+		}
+
 		if ((entry->to_v_msg[0].cmd & VK_CMD_MASK) == VK_CMD_DOWNLOAD)
 			dir = DMA_FROM_DEVICE;
 		else

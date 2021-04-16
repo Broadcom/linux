@@ -65,6 +65,7 @@ struct vk_msg_blk {
 #define VK_NEW_CTX		0
 	u32 cmd;
 #define VK_CMD_PLANES_MASK	0x000f /* number of planes to up/download */
+#define VK_CMD_PLANES_MAX	4      /* max supported planes */
 #define VK_CMD_UPLOAD		0x0400 /* memory transfer to vk */
 #define VK_CMD_DOWNLOAD		0x0500 /* memory transfer from vk */
 #define VK_CMD_MASK		0x0f00 /* command mask */
