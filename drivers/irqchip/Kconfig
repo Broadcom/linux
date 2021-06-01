@@ -113,18 +113,6 @@ config I8259
 	bool
 	select IRQ_DOMAIN
 
-config BCM_IPROC_CRMU_INTC
-	bool "Broadcom iproc CRMU Interrupt Controller"
-	depends on BCM_IPROC_MBOX
-	depends on ARCH_BCM_IPROC || COMPILE_TEST
-	select IRQ_DOMAIN
-	default ARCH_BCM_IPROC
-	help
-	  Adds support for the Broadcom Interrupt controller for the Cortex-M0
-	  MCU processor. This is required to process interrupts generated on the
-	  MCU. The driver uses the iproc mailbox controller to communicate with
-	  the M0 processor.
-
 config BCM6345_L1_IRQ
 	bool
 	select GENERIC_IRQ_CHIP

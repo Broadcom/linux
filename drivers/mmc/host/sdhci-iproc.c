@@ -23,8 +23,6 @@
 #include <linux/of_device.h>
 #include "sdhci-pltfm.h"
 
-#define  SDHCI_HW_RESET_CARD		BIT(12)
-
 struct sdhci_iproc_data {
 	const struct sdhci_pltfm_data *pdata;
 	u32 caps;
@@ -175,30 +173,12 @@ static unsigned int sdhci_iproc_get_max_clock(struct sdhci_host *host)
 		return pltfm_host->clock;
 }
 
-static void sdhci_iproc_hw_reset(struct sdhci_host *host)
-{
-	u32 val;
-
-	val = sdhci_readl(host, SDHCI_HOST_CONTROL);
-	val |= SDHCI_HW_RESET_CARD;
-
-	sdhci_writel(host, val, SDHCI_HOST_CONTROL);
-	/* According JESD84-B51, minimum is 1us but give it 10us for good measure */
-	usleep_range(10, 20);
-
-	val &= ~SDHCI_HW_RESET_CARD;
-	sdhci_writel(host, val, SDHCI_HOST_CONTROL);
-	/* According JESD84-B51, minimum is 200us but give it 300us for good measure */
-	usleep_range(300, 1000);
-}
-
 static const struct sdhci_ops sdhci_iproc_ops = {
 	.set_clock = sdhci_set_clock,
 	.get_max_clock = sdhci_iproc_get_max_clock,
 	.set_bus_width = sdhci_set_bus_width,
 	.reset = sdhci_reset,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
-	.hw_reset = sdhci_iproc_hw_reset,
 };
 
 static const struct sdhci_ops sdhci_iproc_32only_ops = {
@@ -261,29 +241,6 @@ static const struct sdhci_iproc_data iproc_data = {
 		 SDHCI_SUPPORT_DDR50,
 };
 
-static const struct sdhci_pltfm_data sdhci_iproc_v2_pltfm_data = {
-	.quirks = SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
-		  SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12,
-	.quirks2 = SDHCI_QUIRK2_ACMD23_BROKEN,
-	.ops = &sdhci_iproc_ops,
-};
-
-static const struct sdhci_iproc_data iproc_v2_data = {
-	.pdata = &sdhci_iproc_v2_pltfm_data,
-	.caps = ((0x1 << SDHCI_MAX_BLOCK_SHIFT)
-			& SDHCI_MAX_BLOCK_MASK) |
-		SDHCI_CAN_VDD_330 |
-		SDHCI_CAN_VDD_180 |
-		SDHCI_CAN_DO_SUSPEND |
-		SDHCI_CAN_DO_HISPD |
-		SDHCI_CAN_DO_ADMA2 |
-		SDHCI_CAN_DO_SDMA |
-		SDHCI_CAN_64BIT,
-	.caps1 = SDHCI_DRIVER_TYPE_C |
-		 SDHCI_DRIVER_TYPE_D |
-		 SDHCI_SUPPORT_DDR50,
-};
-
 static const struct sdhci_pltfm_data sdhci_bcm2835_pltfm_data = {
 	.quirks = SDHCI_QUIRK_BROKEN_CARD_DETECTION |
 		  SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
@@ -334,7 +291,6 @@ static const struct of_device_id sdhci_iproc_of_match[] = {
 	{ .compatible = "brcm,bcm2711-emmc2", .data = &bcm2711_data },
 	{ .compatible = "brcm,sdhci-iproc-cygnus", .data = &iproc_cygnus_data},
 	{ .compatible = "brcm,sdhci-iproc", .data = &iproc_data },
-	{ .compatible = "brcm,sdhci-iproc-v2", .data = &iproc_v2_data },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, sdhci_iproc_of_match);

@@ -23,15 +23,6 @@ root complex is connected to emulated endpoint devices internal to the ASIC
 - device_type: set to "pci"
 - ranges: ranges for the PCI memory and I/O regions
 
-In addition, this Device node must include a sub-node that describes
-the legacy interrupt controller built into the PCIe controller.
-This sub-node must have the following properties:
- - compatible: must be "brcm,iproc-intc"
- - interrupt-controller: claims itself as an interrupt controller for INTx
- - #interrupt-cells: set to <1>
- - interrupts: interrupt line wired to the generic GIC for INTx support
- - interrupt-parent: Phandle to the parent interrupt controller
-
 Optional properties:
 - phys: phandle of the PCIe PHY device
 - phy-names: must be "pcie-phy"
@@ -86,11 +77,8 @@ Example:
 		reg = <0x18012000 0x1000>;
 
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 1 &pcie0_intc 0>,
-				<0 0 0 2 &pcie0_intc 1>,
-				<0 0 0 3 &pcie0_intc 2>,
-				<0 0 0 4 &pcie0_intc 3>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic GIC_SPI 100 IRQ_TYPE_NONE>;
 
 		linux,pci-domain = <0>;
 
@@ -102,21 +90,13 @@ Example:
 		ranges = <0x81000000 0 0	  0x28000000 0 0x00010000
 			  0x82000000 0 0x20000000 0x20000000 0 0x04000000>;
 
-		phys = <&pcie0_phy>;
+		phys = <&phy 0 5>;
 		phy-names = "pcie-phy";
 
 		brcm,pcie-ob;
 		brcm,pcie-ob-axi-offset = <0x00000000>;
 
 		msi-parent = <&msi0>;
-
-		pcie0_intc: interrupt-controller {
-			compatible = "brcm,iproc-intc";
-			interrupt-controller;
-			#interrupt-cells = <1>;
-			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 100 IRQ_TYPE_NONE>;
-		};
 
 		/* iProc event queue based MSI */
 		msi0: msi@18012000 {
@@ -135,11 +115,8 @@ Example:
 		reg = <0x18013000 0x1000>;
 
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 1 &pcie1_intc 0>,
-				<0 0 0 2 &pcie1_intc 1>,
-				<0 0 0 3 &pcie1_intc 2>,
-				<0 0 0 4 &pcie1_intc 3>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic GIC_SPI 106 IRQ_TYPE_NONE>;
 
 		linux,pci-domain = <1>;
 
@@ -151,14 +128,6 @@ Example:
 		ranges = <0x81000000 0 0	  0x48000000 0 0x00010000
 			  0x82000000 0 0x40000000 0x40000000 0 0x04000000>;
 
-		phys = <&pcie1_phy>;
+		phys = <&phy 1 6>;
 		phy-names = "pcie-phy";
-
-		pcie1_intc: interrupt-controller {
-			compatible = "brcm,iproc-intc";
-			interrupt-controller;
-			#interrupt-cells = <1>;
-			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 106 IRQ_TYPE_NONE>;
-		};
 	};

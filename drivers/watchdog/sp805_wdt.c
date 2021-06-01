@@ -17,7 +17,6 @@
 #include <linux/amba/bus.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
-#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
 #include <linux/kernel.h>
@@ -25,7 +24,6 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/of.h>
-#include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -55,10 +53,6 @@
 	#define	UNLOCK		0x1ACCE551
 	#define	LOCK		0x00000001
 
-#ifndef NO_IRQ
-#define NO_IRQ	0
-#endif
-
 /**
  * struct sp805_wdt: sp805 wdt device structure
  * @wdd: instance of struct watchdog_device
@@ -84,17 +78,6 @@ module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout,
 		"Set to 1 to keep watchdog running after device release");
 
-/*
- * action refers to action taken when watchdog gets interrupt
- * 0 = skip
- * 1 = panic
- * defaults to skip (0)
- */
-static int action;
-module_param(action, int, 0);
-MODULE_PARM_DESC(action,
-		 "after watchdog gets interrupt, do: 0 = skip(*)  1 = panic");
-
 /* returns true if wdt is running; otherwise returns false */
 static bool wdt_is_running(struct watchdog_device *wdd)
 {
@@ -108,20 +91,17 @@ static bool wdt_is_running(struct watchdog_device *wdd)
 static int wdt_setload(struct watchdog_device *wdd, unsigned int timeout)
 {
 	struct sp805_wdt *wdt = watchdog_get_drvdata(wdd);
-	u64 load, rate, div;
+	u64 load, rate;
 
 	rate = wdt->rate;
 
 	/*
-	 * If action is 0, it is in single stage mode, the first
-	 * interrupt will be ignored. sp805 runs counter with given value
-	 * twice, after the end of first counter it gives an interrupt and then
-	 * starts counter again. If interrupt already occurred then
-	 * it resets the system. This is why load is half of what
-	 * should be required.
+	 * sp805 runs counter with given value twice, after the end of first
+	 * counter it gives an interrupt and then starts counter again. If
+	 * interrupt already occurred then it resets the system. This is why
+	 * load is half of what should be required.
 	 */
-	div = action ? 1 : 2;
-	load = div_u64(rate, div) * timeout - 1;
+	load = div_u64(rate, 2) * timeout - 1;
 
 	load = (load > LOAD_MAX) ? LOAD_MAX : load;
 	load = (load < LOAD_MIN) ? LOAD_MIN : load;
@@ -129,7 +109,7 @@ static int wdt_setload(struct watchdog_device *wdd, unsigned int timeout)
 	spin_lock(&wdt->lock);
 	wdt->load_val = load;
 	/* roundup timeout to closest positive integer value */
-	wdd->timeout = div_u64((load + 1) * div + (rate / div), rate);
+	wdd->timeout = div_u64((load + 1) * 2 + (rate / 2), rate);
 	spin_unlock(&wdt->lock);
 
 	return 0;
@@ -247,19 +227,11 @@ static const struct watchdog_ops wdt_ops = {
 	.restart	= wdt_restart,
 };
 
-static irqreturn_t sp805_wdt_isr(int irq, void *dev_id)
-{
-	panic(MODULE_NAME " timeout");
-
-	return IRQ_HANDLED;
-}
-
 static int
 sp805_wdt_probe(struct amba_device *adev, const struct amba_id *id)
 {
 	struct sp805_wdt *wdt;
 	int ret = 0;
-	int irq;
 
 	wdt = devm_kzalloc(&adev->dev, sizeof(*wdt), GFP_KERNEL);
 	if (!wdt) {
@@ -296,26 +268,6 @@ sp805_wdt_probe(struct amba_device *adev, const struct amba_id *id)
 	wdt->wdd.info = &wdt_info;
 	wdt->wdd.ops = &wdt_ops;
 	wdt->wdd.parent = &adev->dev;
-
-	if (action) {
-		/*
-		 * Action parameter is set to 1, triggering panic after the first interrupt.
-		 * Otherwise, apply the single stage mode, The first interrupt signal is ignored,
-		 */
-		irq = adev->irq[0];
-		if (irq == NO_IRQ) {
-			/* If unable to get irq, then fall back to single stage mode */
-			action = 0;
-			dev_warn(&adev->dev, "No watchdog interrupt specified.\n");
-		} else {
-			ret = request_irq(irq, sp805_wdt_isr, 0, "sp805", NULL);
-			if (ret) {
-				/* If unable to request IRQ, then fall back to single stage mode */
-				action = 0;
-				dev_warn(&adev->dev, "unable to request IRQ %d.\n", irq);
-			}
-		}
-	}
 
 	spin_lock_init(&wdt->lock);
 	watchdog_set_nowayout(&wdt->wdd, nowayout);

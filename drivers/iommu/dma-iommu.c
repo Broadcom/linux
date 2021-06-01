@@ -235,21 +235,14 @@ static int iova_reserve_pci_windows(struct pci_dev *dev,
 	resource_list_for_each_entry(window, &bridge->dma_ranges) {
 		end = window->res->start - window->offset;
 resv_iova:
-		if (end < start) {
-			/* dma_ranges list should be sorted */
-			dev_err(&dev->dev, "Failed to reserve IOVA\n");
-			return -EINVAL;
-		}
-		/*
-		 * Skip the cases when start address of first memory region is
-		 * 0x0 and end address of one memory region and start address
-		 * of next memory region are equal. Reserve IOVA for rest of
-		 * addresses fall in between given memory ranges.
-		 */
 		if (end > start) {
 			lo = iova_pfn(iovad, start);
 			hi = iova_pfn(iovad, end);
 			reserve_iova(iovad, lo, hi);
+		} else {
+			/* dma_ranges list should be sorted */
+			dev_err(&dev->dev, "Failed to reserve IOVA\n");
+			return -EINVAL;
 		}
 
 		start = window->res->end - window->offset + 1;

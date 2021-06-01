@@ -27,7 +27,6 @@
 #include <asm/byteorder.h>
 #include <linux/atomic.h>
 #include <linux/bitmap.h>
-#include <linux/clk.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -292,9 +291,6 @@ struct flexrm_ring {
 struct flexrm_mbox {
 	struct device *dev;
 	void __iomem *regs;
-	struct clk *dme_rm_clk;
-	struct clk *ae_clk;
-	struct clk *fs4_clk;
 	u32 num_rings;
 	struct flexrm_ring *rings;
 	struct dma_pool *bd_pool;
@@ -630,8 +626,7 @@ static u32 flexrm_spu_estimate_nonheader_desc_count(struct brcm_message *msg)
 	return cnt;
 }
 
-static int flexrm_spu_dma_map(struct device *dev, struct brcm_message *msg,
-			      int *rx_ent, int *tx_ent)
+static int flexrm_spu_dma_map(struct device *dev, struct brcm_message *msg)
 {
 	int rc;
 
@@ -639,7 +634,6 @@ static int flexrm_spu_dma_map(struct device *dev, struct brcm_message *msg,
 			DMA_TO_DEVICE);
 	if (rc < 0)
 		return rc;
-	*rx_ent = rc;
 
 	rc = dma_map_sg(dev, msg->spu.dst, sg_nents(msg->spu.dst),
 			DMA_FROM_DEVICE);
@@ -648,7 +642,6 @@ static int flexrm_spu_dma_map(struct device *dev, struct brcm_message *msg,
 			     DMA_TO_DEVICE);
 		return rc;
 	}
-	*tx_ent = rc;
 
 	return 0;
 }
@@ -673,10 +666,6 @@ static void *flexrm_spu_write_descs(struct brcm_message *msg, u32 nhcnt,
 
 	while (src_sg || dst_sg) {
 		if (src_sg) {
-			if (!sg_dma_len(src_sg)) {
-				src_sg = sg_next(src_sg);
-				continue;
-			}
 			if (sg_dma_len(src_sg) & 0xf)
 				d = flexrm_src_desc(sg_dma_address(src_sg),
 						     sg_dma_len(src_sg));
@@ -693,10 +682,6 @@ static void *flexrm_spu_write_descs(struct brcm_message *msg, u32 nhcnt,
 			dst_target = UINT_MAX;
 
 		while (dst_target && dst_sg) {
-			if (!sg_dma_len(dst_sg)) {
-				dst_sg = sg_next(dst_sg);
-				continue;
-			}
 			if (sg_dma_len(dst_sg) & 0xf)
 				d = flexrm_dst_desc(sg_dma_address(dst_sg),
 						     sg_dma_len(dst_sg));
@@ -886,15 +871,14 @@ static u32 flexrm_estimate_nonheader_desc_count(struct brcm_message *msg)
 	};
 }
 
-static int flexrm_dma_map(struct device *dev, struct brcm_message *msg,
-			  int *rx_ent, int *tx_ent)
+static int flexrm_dma_map(struct device *dev, struct brcm_message *msg)
 {
 	if (!dev || !msg)
 		return -EINVAL;
 
 	switch (msg->type) {
 	case BRCM_MESSAGE_SPU:
-		return flexrm_spu_dma_map(dev, msg, rx_ent, tx_ent);
+		return flexrm_spu_dma_map(dev, msg);
 	default:
 		break;
 	}
@@ -1008,8 +992,6 @@ static int flexrm_new_request(struct flexrm_ring *ring,
 	u32 read_offset, write_offset;
 	bool exit_cleanup = false;
 	int ret = 0, reqid;
-	int rx_ent = 0;
-	int tx_ent = 0;
 
 	/* Do sanity check on message */
 	if (!flexrm_sanity_check(msg))
@@ -1026,7 +1008,7 @@ static int flexrm_new_request(struct flexrm_ring *ring,
 	ring->requests[reqid] = msg;
 
 	/* Do DMA mappings for the message */
-	ret = flexrm_dma_map(ring->mbox->dev, msg, &rx_ent, &tx_ent);
+	ret = flexrm_dma_map(ring->mbox->dev, msg);
 	if (ret < 0) {
 		ring->requests[reqid] = NULL;
 		spin_lock_irqsave(&ring->lock, flags);
@@ -1046,10 +1028,7 @@ static int flexrm_new_request(struct flexrm_ring *ring,
 	 *				 number of header descriptors +
 	 *				 1x null descriptor
 	 */
-	if (!rx_ent || !tx_ent)
-		nhcnt = flexrm_estimate_nonheader_desc_count(msg);
-	else
-		nhcnt = rx_ent + tx_ent;
+	nhcnt = flexrm_estimate_nonheader_desc_count(msg);
 	count = flexrm_estimate_header_desc_count(nhcnt) + nhcnt + 1;
 
 	/* Check for available descriptor space. */
@@ -1206,19 +1185,10 @@ static int flexrm_debugfs_stats_show(struct seq_file *file, void *offset)
 
 static irqreturn_t flexrm_irq_event(int irq, void *dev_id)
 {
-	struct flexrm_ring *ring = (struct flexrm_ring *)dev_id;
-	u32 cmpl_write_offset;
+	/* We only have MSI for completions so just wakeup IRQ thread */
+	/* Ring related errors will be informed via completion descriptors */
 
-	cmpl_write_offset = readl_relaxed(ring->regs + RING_CMPL_WRITE_PTR);
-	cmpl_write_offset *= RING_DESC_SIZE;
-	/*
-	 * Don't schedule irq thread if there is no data to process.
-	 * It means peek_data() has already processed all data.
-	 */
-	if (cmpl_write_offset == ring->cmpl_read_offset)
-		return IRQ_HANDLED;
-	else
-		return IRQ_WAKE_THREAD;
+	return IRQ_WAKE_THREAD;
 }
 
 static irqreturn_t flexrm_irq_thread(int irq, void *dev_id)
@@ -1558,43 +1528,6 @@ static int flexrm_mbox_probe(struct platform_device *pdev)
 	}
 	regs_end = mbox->regs + resource_size(iomem);
 
-	mbox->dme_rm_clk = devm_clk_get(&pdev->dev, "dme_rm_clk");
-	if (IS_ERR(mbox->dme_rm_clk)) {
-		ret = PTR_ERR(mbox->dme_rm_clk);
-		dev_err(&pdev->dev, "Failed to get dme_rm_clk ret:%d\n", ret);
-		goto fail;
-	}
-	ret = clk_prepare_enable(mbox->dme_rm_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to ena dme_rm_clk ret:%d\n", ret);
-		goto fail;
-	}
-
-	mbox->ae_clk = devm_clk_get(&pdev->dev, "ae_clk");
-	if (IS_ERR(mbox->ae_clk)) {
-		ret = PTR_ERR(mbox->ae_clk);
-		dev_err(&pdev->dev, "Failed to get ae_clk retcode:%d\n", ret);
-		goto fail;
-	}
-
-	ret = clk_prepare_enable(mbox->ae_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable ae_clk ret:%d\n", ret);
-		goto fail;
-	}
-
-	mbox->fs4_clk = devm_clk_get(&pdev->dev, "fs4_clk");
-	if (IS_ERR(mbox->fs4_clk)) {
-		ret = PTR_ERR(mbox->fs4_clk);
-		dev_err(&pdev->dev, "Failed to get fs4_clk ret:%d\n", ret);
-		goto fail;
-	}
-	ret = clk_prepare_enable(mbox->fs4_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable fs4_clk ret:%d\n", ret);
-		goto fail;
-	}
-
 	/* Scan and count available rings */
 	mbox->num_rings = 0;
 	for (regs = mbox->regs; regs < regs_end; regs += RING_REGS_SIZE) {
@@ -1743,9 +1676,6 @@ static int flexrm_mbox_remove(struct platform_device *pdev)
 	debugfs_remove_recursive(mbox->root);
 
 	platform_msi_domain_free_irqs(dev);
-	clk_disable_unprepare(mbox->fs4_clk);
-	clk_disable_unprepare(mbox->ae_clk);
-	clk_disable_unprepare(mbox->dme_rm_clk);
 
 	dma_pool_destroy(mbox->cmpl_pool);
 	dma_pool_destroy(mbox->bd_pool);

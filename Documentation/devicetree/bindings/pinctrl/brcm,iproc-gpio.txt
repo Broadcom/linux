@@ -21,10 +21,8 @@ Required properties:
     different IP block is used to handle pinctrl related functions
 
 - reg:
-  - Register set that define the base and range of the I/O address space that
-contains SoC GPIO/PINCONF controller registers. Always present
-  - Additional PINCONF registers. Present only for "brcm,cygnus-ccm-gpio",
-"brcm,cygnus-crmu-gpio"
+    Define the base and range of the I/O address space that contains SoC
+GPIO/PINCONF controller registers
 
 - ngpios:
     Total number of in-use slots in GPIO controller
@@ -45,17 +43,6 @@ Optional properties:
 - interrupt-controller:
     Specifies that the node is an interrupt controller
 
-- interrupt-parent:
-    Specifies an interrupt parent. The parent can be the mailbox controller if
-    interrupt forwarding is being used. If this is the case then 'interrupts'
-    must be 0 to specify the AON GPIO irq domain.
-
-- #interrupt-cells:
-    Must be two. The first cell is the GPIO pin number (within the controller's
-    pin space) and the second cell is used to specify flags. See also
-    Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
-    for more details.
-
 - gpio-ranges:
     Specifies the mapping between gpio controller and pin-controllers pins.
     This requires 4 fields in cells defined as -
@@ -63,16 +50,6 @@ Optional properties:
     2. GPIO base pin offset.
     3  Pin-control base pin offset.
     4. number of gpio pins which are linearly mapped from pin base.
-
-- brcm,pinconf-func-off:
-    Certain iProc SoCs might have some of the PINCONF functions disabled in
-the chip when the iProc GPIO controller is integrated. This optional property
-allows unsupported PINCONF functions to be disabled
-
-- mboxes:
-    A phandle specifying the mailbox controller and channel used to communicate
-    with the co-processor. This is required to configure a gpio pin as a wake
-    source from sleep and deep sleep states.
 
 Supported generic PINCONF properties in child nodes:
 
@@ -92,43 +69,7 @@ in the node apply to. Pin names are "gpio-<pin>"
 - drive-strength:
     Valid drive strength values include 2, 4, 6, 8, 10, 12, 14, 16 (mA)
 
-- input-schmitt-enable:
-    Enable schmitt-trigger mode
-
-- input-schmitt-disable:
-    Disable schmitt-trigger mode
-
 Example:
-	/*
-	 * Mailbox controller used by gpio_crmu. For more information see:
-	 * Documentation/devicetree/bindings/mailbox/brcm,iproc-mailbox.txt
-	 */
-	mailbox: mailbox@03024024 {
-		compatible = "brcm,iproc-mailbox";
-		reg = <0x03024024 0x40>;
-		interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
-		#interrupt-cells = <1>;
-		interrupt-controller;
-		#mbox-cells = <1>;
-	};
-
-	/*
-	 * CRMU gpio handler configured with mailbox channel 1 to
-	 * support wake source configuration.
-	 */
-	gpio_crmu: gpio@03024800 {
-		compatible = "brcm,cygnus-crmu-gpio";
-		reg = <0x03024800 0x50>,
-		      <0x03024008 0x18>;
-		ngpios = <6>;
-		#gpio-cells = <2>;
-		gpio-controller;
-		interrupt-controller;
-		interrupt-parent = <&mailbox>;
-		interrupts = <0>;
-		mboxes = <&mailbox 1>;
-	};
-
 	gpio_ccm: gpio@1800a000 {
 		compatible = "brcm,cygnus-ccm-gpio";
 		reg = <0x1800a000 0x50>,

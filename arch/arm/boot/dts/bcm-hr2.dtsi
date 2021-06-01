@@ -299,11 +299,8 @@
 		reg = <0x18012000 0x1000>;
 
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 1 &pcie0_intc 0>,
-				<0 0 0 2 &pcie0_intc 1>,
-				<0 0 0 3 &pcie0_intc 2>,
-				<0 0 0 4 &pcie0_intc 3>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <0>;
 
@@ -331,14 +328,6 @@
 				     <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>;
 			brcm,pcie-msi-inten;
 		};
-
-		pcie0_intc: interrupt-controller {
-			compatible = "brcm,iproc-intc";
-			interrupt-controller;
-			#interrupt-cells = <1>;
-			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
-		};
 	};
 
 	pcie1: pcie@18013000 {
@@ -346,11 +335,8 @@
 		reg = <0x18013000 0x1000>;
 
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 1 &pcie1_intc 0>,
-				<0 0 0 2 &pcie1_intc 1>,
-				<0 0 0 3 &pcie1_intc 2>,
-				<0 0 0 4 &pcie1_intc 3>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &gic GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
 
 		linux,pci-domain = <1>;
 
@@ -377,14 +363,6 @@
 				     <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>;
 			brcm,pcie-msi-inten;
-		};
-
-		pcie1_intc: interrupt-controller {
-			compatible = "brcm,iproc-intc";
-			interrupt-controller;
-			#interrupt-cells = <1>;
-			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 };

@@ -82,9 +82,7 @@ main() {
 	fi
 
 	# 64 bit platforms
-	# iproc_defconfig, for Stingray
 	# vk_defconfig, for Valkyrie
-	do_update ${ARCH64} iproc $iproc_defconfig
 	do_update ${ARCH64} vk $vk_defconfig
 
 	#Cleanup 64 bit
